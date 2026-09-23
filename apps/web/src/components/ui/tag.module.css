@@ -1,0 +1,26 @@
+.tag {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	padding: 0 0.3125rem;
+	border: 1px solid var(--muted);
+	border-radius: 4px;
+	color: var(--text);
+	font: 500 0.75rem/1.5 var(--mono);
+	white-space: nowrap;
+}
+
+.error {
+	border-color: var(--red);
+	color: var(--error);
+}
+
+.warning {
+	border-color: var(--warning);
+	color: var(--warning);
+}
+
+.success {
+	border-color: var(--success);
+	color: var(--success);
+}

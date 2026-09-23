@@ -1,0 +1,50 @@
+.lang {
+	display: flex;
+	align-items: center;
+}
+
+.lang button {
+	position: relative;
+	min-width: 2.5rem;
+	min-height: 2.25rem;
+	padding: 0;
+	border: 0;
+	border-radius: 6px;
+	background: none;
+	color: var(--muted);
+	font: 500 0.8125rem/1 var(--mono);
+	cursor: pointer;
+	transition:
+		color 150ms ease-out,
+		transform 160ms var(--ease);
+}
+
+.lang button[aria-pressed='true'] {
+	color: var(--white);
+}
+
+.lang button[aria-pressed='true']::after {
+	content: '';
+	position: absolute;
+	inset-inline: 0.75rem;
+	bottom: 0.375rem;
+	height: 1px;
+	background: var(--red);
+}
+
+.lang button:active {
+	transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.lang button:hover {
+		color: var(--white);
+	}
+}
+
+@media (pointer: coarse) {
+	.lang button {
+		min-width: 2.75rem;
+		min-height: 2.75rem;
+	}
+}

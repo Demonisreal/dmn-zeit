@@ -1,0 +1,98 @@
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	background: var(--dark);
+	color-scheme: dark;
+	scrollbar-color: var(--line) var(--dark);
+}
+
+body {
+	min-height: 100dvh;
+	margin: 0;
+	color: var(--text);
+	font: 0.9375rem/1.5 var(--sans);
+	caret-color: var(--red);
+}
+
+/* grain under the content like on dmn-software.com */
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	background: url(/grain.svg);
+	opacity: 0.05;
+	pointer-events: none;
+}
+
+::selection {
+	background: rgb(225 29 46 / 0.35);
+	color: var(--white);
+}
+
+h1,
+h2,
+h3 {
+	margin: 0;
+	color: var(--white);
+	line-height: 1.25;
+	text-wrap: balance;
+}
+
+h1 {
+	font-size: 1.375rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+h2 {
+	font-size: 1.0625rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+p {
+	margin: 0;
+	text-wrap: pretty;
+}
+
+a {
+	color: var(--white);
+	text-decoration-line: underline;
+	text-decoration-color: var(--red);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.2em;
+	transition: text-decoration-color 150ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	a:hover {
+		text-decoration-color: var(--white);
+	}
+}
+
+:focus-visible {
+	outline: 2px solid var(--red);
+	outline-offset: 2px;
+}
+
+a:focus-visible {
+	outline-offset: 3px;
+	border-radius: 2px;
+}
+
+button,
+input {
+	font: inherit;
+}
+
+code,
+kbd,
+samp {
+	font-family: var(--mono);
+}

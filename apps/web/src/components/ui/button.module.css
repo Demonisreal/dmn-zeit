@@ -1,0 +1,104 @@
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: 2.5rem;
+	padding: 0 1rem;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: none;
+	color: var(--text);
+	font: 500 0.9375rem/1.2 var(--sans);
+	white-space: nowrap;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition:
+		transform 160ms var(--ease),
+		background-color 150ms ease-out,
+		border-color 150ms ease-out,
+		color 150ms ease-out;
+}
+
+.button[data-pressed] {
+	transform: scale(0.97);
+}
+
+.button[data-pending] {
+	cursor: progress;
+}
+
+.button[data-disabled] {
+	cursor: default;
+}
+
+.primary {
+	background: var(--red);
+	color: var(--white);
+	font-weight: 600;
+}
+
+/* a red ring on the red button would not show */
+.primary:focus-visible {
+	outline-color: var(--white);
+	outline-offset: 3px;
+}
+
+.primary[data-hovered] {
+	background: color-mix(in srgb, var(--red) 86%, #000);
+}
+
+.primary[data-disabled] {
+	background: var(--edge);
+	color: var(--muted);
+}
+
+.secondary {
+	border-color: var(--line);
+}
+
+.secondary[data-hovered] {
+	border-color: var(--muted);
+	color: var(--white);
+}
+
+.quiet {
+	padding-inline: 0.625rem;
+}
+
+.quiet[data-hovered] {
+	background: var(--card);
+	color: var(--white);
+}
+
+.secondary[data-disabled],
+.quiet[data-disabled] {
+	border-color: var(--edge);
+	color: var(--muted);
+}
+
+.spinner {
+	width: 0.875em;
+	height: 0.875em;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.spinner {
+		animation: spin 700ms linear infinite;
+	}
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+
+@media (pointer: coarse) {
+	.button {
+		min-height: 2.75rem;
+	}
+}

@@ -1,0 +1,39 @@
+.list {
+	margin: 0;
+	padding: 0.5rem 0;
+	list-style: none;
+}
+
+.link {
+	display: flex;
+	align-items: center;
+	min-height: 2.25rem;
+	padding-inline: 1rem;
+	color: var(--text);
+	text-decoration: none;
+	transition: color 150ms ease-out;
+}
+
+.link:focus-visible {
+	outline-offset: -2px;
+}
+
+/* same mark as the navigation on dmn-software.com: white text, thin red underline */
+.link[aria-current='page'] {
+	color: var(--white);
+	text-decoration-line: underline;
+	text-decoration-color: var(--red);
+	text-underline-offset: 0.4em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.link:hover {
+		color: var(--white);
+	}
+}
+
+@media (pointer: coarse) {
+	.link {
+		min-height: 2.75rem;
+	}
+}

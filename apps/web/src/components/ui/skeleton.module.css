@@ -1,0 +1,18 @@
+.skeleton {
+	display: block;
+	max-width: 100%;
+	border-radius: 4px;
+	background: var(--edge);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.skeleton {
+		animation: pulse 1200ms ease-in-out infinite alternate;
+	}
+}
+
+@keyframes pulse {
+	from {
+		opacity: 0.55;
+	}
+}

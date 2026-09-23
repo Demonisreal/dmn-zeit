@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest';
+import { formatClock, formatDate, formatDays, formatMinutes, formatTime } from './format';
+
+describe('format', () => {
+	it('writes minutes as hours and minutes', () => {
+		expect(formatMinutes(462)).toBe('7:42 h');
+		expect(formatMinutes(2280)).toBe('38:00 h');
+		expect(formatMinutes(-15)).toBe('−0:15 h');
+		expect(formatMinutes(18, { signed: true })).toBe('+0:18 h');
+		expect(formatMinutes(0, { signed: true })).toBe('0:00 h');
+	});
+
+	it('pads the clock', () => {
+		expect(formatClock(492)).toBe('08:12');
+	});
+
+	it('keeps the calendar day of iso dates and the berlin time of instants', () => {
+		expect(formatDate('2026-03-29', 'de')).toBe('29.03.2026');
+		expect(formatDate('2026-03-29', 'en')).toBe('29/03/2026');
+		expect(formatTime('2026-03-29T06:12:00Z', 'de')).toBe('08:12');
+		expect(formatTime('2026-03-28T06:12:00Z', 'en')).toBe('07:12');
+	});
+
+	it('shows leave days with two decimals in the language of the user', () => {
+		expect(formatDays('12.50', 'de')).toBe('12,50');
+		expect(formatDays('12.50', 'en')).toBe('12.50');
+	});
+});

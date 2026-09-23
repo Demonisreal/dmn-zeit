@@ -1,0 +1,29 @@
+/* values from dmn-software.com (dmn_website/web/site.css), the app is part of that site */
+:root {
+	--dark: #0b0b0d;
+	--ink: #101114;
+	--card: #14151a;
+	--edge: #25272d;
+	/* brand grey from the lockup, readable on the dark ground only as a hairline, never as text */
+	--line: #3f4249;
+
+	--white: #ffffff;
+	--text: #b9bcc4;
+	--muted: #8f939c;
+
+	--red: #e11d2e;
+	/* --red reaches only 4.1:1 on --dark, too little for small red text */
+	--red-hi: #f0414f;
+	/* only for a running clock and for success */
+	--green: #3fb27f;
+
+	/* contrast against --dark / --card: 5.2 / 4.8, 8.9 / 8.3, 7.4 / 6.9 */
+	--error: var(--red-hi);
+	--warning: #ed9e2f;
+	--success: var(--green);
+
+	--sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	--mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+
+	--ease: cubic-bezier(0.23, 1, 0.32, 1);
+}

@@ -1,0 +1,39 @@
+{
+	"skipToContent": "Skip to content",
+	"menu": "Menu",
+	"language": "Language",
+	"account": "Account",
+	"logout": "Sign out",
+	"loading": "Loading",
+	"notFound": "Page not found",
+	"toStart": "Go to the start page",
+	"roles": {
+		"employee": "Employee",
+		"team_lead": "Team lead",
+		"hr": "HR",
+		"admin": "Administration"
+	},
+	"notice": {
+		"info": "Notice",
+		"warning": "Warning",
+		"error": "Error",
+		"success": "Done"
+	},
+	"errors": {
+		"network": "Server unreachable. Check the connection and try again.",
+		"rateLimited": "Too many attempts. Please try again later.",
+		"unexpected": "That did not work. Please try again."
+	},
+	"validation": {
+		"required": "Required",
+		"tooShort": "At least {{count}} characters",
+		"tooLong": "At most {{count}} characters",
+		"email": "Not a valid email address"
+	},
+	"dayBar": {
+		"label": "Entries: {{spans}}",
+		"span": "{{from}} to {{to}}",
+		"open": "since {{from}}",
+		"empty": "No entries"
+	}
+}

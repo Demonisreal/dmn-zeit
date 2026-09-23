@@ -1,0 +1,21 @@
+.empty {
+	padding: 1rem 1.125rem;
+	border: 1px dashed var(--line);
+	border-radius: 8px;
+}
+
+.title {
+	color: var(--white);
+	font-weight: 600;
+}
+
+.text {
+	max-width: 60ch;
+	margin-top: 0.25rem;
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.action {
+	margin-top: 0.875rem;
+}

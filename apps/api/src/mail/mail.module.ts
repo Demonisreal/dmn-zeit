@@ -1,4 +1,33 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Config } from '../config';
+import { Database } from '../db/database';
+import { MailTransport } from './mail.transport';
+import { MemoryTransport } from './memory.transport';
+import { OutboxTransport } from './outbox.transport';
+import { ResendTransport } from './resend.transport';
 
-@Module({})
+@Module({
+	providers: [
+		{
+			provide: MailTransport,
+			inject: [ConfigService, Database],
+			useFactory: (config: ConfigService<Config, true>, db: Database): MailTransport => {
+				switch (config.get('APP_MODE', { infer: true })) {
+					case 'live':
+						// loadConfig refuses live mode without both
+						return new ResendTransport(
+							config.get('RESEND_API_KEY', { infer: true })!,
+							config.get('MAIL_FROM', { infer: true })!
+						);
+					case 'demo':
+						return new OutboxTransport(db);
+					case 'test':
+						return new MemoryTransport();
+				}
+			}
+		}
+	],
+	exports: [MailTransport]
+})
 export class MailModule {}

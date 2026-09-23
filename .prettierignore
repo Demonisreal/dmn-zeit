@@ -5,3 +5,4 @@ pnpm-lock.yaml
 # hand-kept tables, prettier would pad them to 230 columns
 docs/planung.md
 apps/api/src/db/schema.generated.ts
+apps/web/src/routeTree.gen.ts

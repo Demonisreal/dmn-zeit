@@ -1,0 +1,164 @@
+.shell {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-areas:
+		'brand head'
+		'nav nav'
+		'main main';
+	min-height: 100dvh;
+}
+
+.skip {
+	position: absolute;
+	top: 0.5rem;
+	left: 0.75rem;
+	z-index: 10;
+	padding: 0.5rem 0.875rem;
+	border-radius: 6px;
+	background: var(--white);
+	color: var(--dark);
+	font-weight: 600;
+	text-decoration: none;
+	transform: translateY(-160%);
+}
+
+.skip:focus {
+	transform: none;
+}
+
+.brand {
+	grid-area: brand;
+	display: flex;
+	align-items: center;
+	height: 3.25rem;
+	padding-inline: 1rem 0.5rem;
+	border-bottom: 1px solid var(--edge);
+}
+
+.head {
+	grid-area: head;
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	height: 3.25rem;
+	padding-inline: 0.5rem;
+	border-bottom: 1px solid var(--edge);
+}
+
+.tenant {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--white);
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tools {
+	display: none;
+}
+
+.toggle [aria-expanded='true'] {
+	background: var(--card);
+	color: var(--white);
+}
+
+.nav {
+	grid-area: nav;
+	display: none;
+	border-bottom: 1px solid var(--edge);
+	background: var(--ink);
+}
+
+.nav[data-open] {
+	display: block;
+}
+
+.more {
+	display: grid;
+	justify-items: start;
+	gap: 0.75rem;
+	padding: 0.875rem 1rem 1rem;
+	border-top: 1px solid var(--edge);
+}
+
+.who {
+	display: grid;
+	color: var(--white);
+	font-weight: 600;
+}
+
+.who span {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 400;
+}
+
+/* the text edge of DE lines up with the name above, not its hit area */
+.lang {
+	margin-inline-start: -0.75rem;
+}
+
+.moreLink {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+}
+
+.main {
+	grid-area: main;
+	min-width: 0;
+	padding: 1.25rem 1rem 3rem;
+}
+
+.main:focus {
+	outline: none;
+}
+
+@media (min-width: 48rem) {
+	.shell {
+		grid-template-columns: 12rem minmax(0, 1fr);
+		grid-template-rows: auto minmax(0, 1fr);
+		grid-template-areas:
+			'brand head'
+			'nav main';
+	}
+
+	.brand {
+		border-right: 1px solid var(--edge);
+		background: var(--ink);
+	}
+
+	.head {
+		padding-inline: 1.75rem 1rem;
+	}
+
+	.tools {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.toggle,
+	.more {
+		display: none;
+	}
+
+	.nav {
+		display: block;
+		border-right: 1px solid var(--edge);
+		border-bottom: 0;
+	}
+
+	/* the list stays in view while a long week table scrolls */
+	.nav > ul {
+		position: sticky;
+		top: 0;
+	}
+
+	.main {
+		padding: 1.5rem 1.75rem 3rem;
+	}
+}

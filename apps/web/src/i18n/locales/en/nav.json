@@ -1,0 +1,16 @@
+{
+	"label": "Main navigation",
+	"week": "Week",
+	"requests": "Requests",
+	"vacation": "Leave",
+	"team": "Team",
+	"hr": "HR",
+	"admin": "Administration",
+	"time": "Time entries",
+	"inbox": "Inbox",
+	"teamCalendar": "Team calendar",
+	"sessions": "Sessions",
+	"login": "Sign in",
+	"invite": "Invitation",
+	"reset": "Reset password"
+}

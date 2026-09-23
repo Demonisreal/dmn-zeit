@@ -1,0 +1,27 @@
+.brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2.75rem;
+	color: var(--white);
+	font-size: 1rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	text-decoration: none;
+	transition: transform 160ms var(--ease);
+}
+
+.brand:active {
+	transform: scale(0.97);
+}
+
+.slash {
+	margin: 0 0.18em;
+	color: var(--red);
+	font-weight: 500;
+}
+
+.soft {
+	color: var(--text);
+	font-weight: 500;
+}

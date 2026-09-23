@@ -5,15 +5,35 @@
 
 import type { ColumnType } from "kysely";
 
+export type AppAbsenceStatus = "approved" | "cancel_pending" | "cancelled" | "pending" | "rejected" | "withdrawn";
+
+export type AppAbsenceType = "sick" | "time_off" | "vacation";
+
+export type AppCorrectionAction = "add" | "change" | "void";
+
+export type AppCorrectionStatus = "approved" | "pending" | "rejected" | "withdrawn";
+
+export type AppEndReason = "break" | "leave";
+
+export type AppEntrySource = "clock" | "correction" | "seed";
+
 export type AppFederalState = "BB" | "BE" | "BW" | "BY" | "HB" | "HE" | "HH" | "MV" | "NI" | "NW" | "RP" | "SH" | "SL" | "SN" | "ST" | "TH";
 
+export type AppFlexBookingType = "cap_forfeit" | "manual" | "opening" | "payout";
+
 export type AppFlexCapMode = "forfeit_at_close" | "none" | "warn";
+
+export type AppMonthClosingAction = "close" | "reopen";
+
+export type AppNoticeChannel = "email" | "in_app" | "letter";
 
 export type AppTenantKind = "live" | "sandbox";
 
 export type AppUserRole = "admin" | "employee" | "hr" | "team_lead";
 
 export type AppUserStatus = "active" | "demo" | "disabled" | "invited";
+
+export type AppVacationEntryType = "adjustment" | "entitlement" | "expiry" | "manual" | "refund_cancel" | "refund_sick" | "taken";
 
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
@@ -33,7 +53,146 @@ export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
+export type Numeric = ColumnType<string, number | string, number | string>;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface AppAbsenceDays {
+  absence_id: string;
+  created_at: Generated<Timestamp>;
+  date: string;
+  employee_id: string;
+  id: Generated<string>;
+  portion: Numeric;
+  superseded_at: Timestamp | null;
+  superseded_by: string | null;
+  target_minutes: number;
+  tenant_id: string;
+  vacation_days: Generated<Numeric>;
+}
+
+export interface AppAbsenceRequests {
+  certificate_confirmed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  decision_note: string | null;
+  employee_id: string;
+  end_date: string;
+  half_day_end: Generated<boolean>;
+  half_day_start: Generated<boolean>;
+  id: Generated<string>;
+  note: string | null;
+  requested_by: string;
+  start_date: string;
+  status: Generated<AppAbsenceStatus>;
+  tenant_id: string;
+  type: AppAbsenceType;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AppContracts {
+  created_at: Generated<Timestamp>;
+  employee_id: string;
+  flex_cap_minus_min: number | null;
+  flex_cap_plus_min: number | null;
+  id: Generated<string>;
+  min_fri: number;
+  min_mon: number;
+  min_sat: number;
+  min_sun: number;
+  min_thu: number;
+  min_tue: number;
+  min_wed: number;
+  tenant_id: string;
+  vacation_basis_days: number;
+  vacation_days_year: Numeric;
+  valid_from: string;
+  work_model_id: string;
+}
+
+export interface AppCorrectionRequests {
+  action: AppCorrectionAction;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  decision_note: string | null;
+  employee_id: string;
+  id: Generated<string>;
+  new_ended_at: Timestamp | null;
+  new_started_at: Timestamp | null;
+  reason: string;
+  requested_by: string;
+  status: Generated<AppCorrectionStatus>;
+  target_entry_id: string | null;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AppEmployees {
+  closed_through: string | null;
+  created_at: Generated<Timestamp>;
+  entry_date: string;
+  exit_date: string | null;
+  first_name: string;
+  id: Generated<string>;
+  last_name: string;
+  personnel_no: string;
+  team_id: string | null;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AppFindingAcks {
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  employee_id: string;
+  id: Generated<string>;
+  note: string;
+  rule_code: string;
+  rule_version: string;
+  tenant_id: string;
+  work_date: string;
+}
+
+export interface AppFlexBookings {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  effective_date: string;
+  employee_id: string;
+  id: Generated<string>;
+  minutes: number;
+  month_closing_id: string | null;
+  reason: string;
+  tenant_id: string;
+  type: AppFlexBookingType;
+}
+
+export interface AppMonthClosings {
+  action: AppMonthClosingAction;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  id: Generated<string>;
+  month: string;
+  reason: string | null;
+  snapshot: Json | null;
+  tenant_id: string;
+}
+
+export interface AppTeamLeads {
+  created_at: Generated<Timestamp>;
+  team_id: string;
+  tenant_id: string;
+  user_id: string;
+}
+
+export interface AppTeams {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  name: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
 
 export interface AppTenants {
   carryover_until: Generated<string>;
@@ -53,6 +212,22 @@ export interface AppTenants {
   updated_at: Generated<Timestamp>;
 }
 
+export interface AppTimeEntries {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  employee_id: string;
+  end_reason: AppEndReason | null;
+  ended_at: Timestamp | null;
+  id: Generated<string>;
+  request_id: string | null;
+  source: AppEntrySource;
+  started_at: Generated<Timestamp>;
+  tenant_id: string;
+  voided_at: Timestamp | null;
+  voided_by_request_id: string | null;
+  workday: Generated<string>;
+}
+
 export interface AppUsers {
   created_at: Generated<Timestamp>;
   display_name: string;
@@ -63,6 +238,53 @@ export interface AppUsers {
   locale: Generated<string>;
   role: Generated<AppUserRole>;
   status: Generated<AppUserStatus>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface AppVacationLedger {
+  absence_id: string | null;
+  bucket_year: number;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  days: Numeric;
+  dedupe_key: string | null;
+  effective_date: string;
+  employee_id: string;
+  entry_type: AppVacationEntryType;
+  id: Generated<string>;
+  notice_id: string | null;
+  reason: string | null;
+  tenant_id: string;
+}
+
+export interface AppVacationNotices {
+  acknowledged_at: Timestamp | null;
+  bucket_year: number;
+  channel: AppNoticeChannel;
+  created_at: Generated<Timestamp>;
+  deadline: string;
+  employee_id: string;
+  id: Generated<string>;
+  remaining_days: Numeric;
+  sent_at: Generated<Timestamp>;
+  sent_by: string;
+  tenant_id: string;
+  text_version: string;
+}
+
+export interface AppWorkModels {
+  archived_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  min_fri: number;
+  min_mon: number;
+  min_sat: number;
+  min_sun: number;
+  min_thu: number;
+  min_tue: number;
+  min_wed: number;
+  name: string;
   tenant_id: string;
   updated_at: Generated<Timestamp>;
 }
@@ -100,8 +322,22 @@ export interface OpsRateLimits {
 }
 
 export interface DB {
+  "app.absence_days": AppAbsenceDays;
+  "app.absence_requests": AppAbsenceRequests;
+  "app.contracts": AppContracts;
+  "app.correction_requests": AppCorrectionRequests;
+  "app.employees": AppEmployees;
+  "app.finding_acks": AppFindingAcks;
+  "app.flex_bookings": AppFlexBookings;
+  "app.month_closings": AppMonthClosings;
+  "app.team_leads": AppTeamLeads;
+  "app.teams": AppTeams;
   "app.tenants": AppTenants;
+  "app.time_entries": AppTimeEntries;
   "app.users": AppUsers;
+  "app.vacation_ledger": AppVacationLedger;
+  "app.vacation_notices": AppVacationNotices;
+  "app.work_models": AppWorkModels;
   "audit.log": AuditLog;
   "ops.demo_outbox": OpsDemoOutbox;
   "ops.rate_limits": OpsRateLimits;

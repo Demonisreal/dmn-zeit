@@ -1,0 +1,39 @@
+{
+	"skipToContent": "Zum Inhalt",
+	"menu": "Menü",
+	"language": "Sprache",
+	"account": "Konto",
+	"logout": "Abmelden",
+	"loading": "Wird geladen",
+	"notFound": "Seite nicht gefunden",
+	"toStart": "Zur Startseite",
+	"roles": {
+		"employee": "Beschäftigte",
+		"team_lead": "Teamleitung",
+		"hr": "Personalverwaltung",
+		"admin": "Administration"
+	},
+	"notice": {
+		"info": "Hinweis",
+		"warning": "Warnung",
+		"error": "Fehler",
+		"success": "Erledigt"
+	},
+	"errors": {
+		"network": "Server nicht erreichbar. Verbindung prüfen und erneut versuchen.",
+		"rateLimited": "Zu viele Versuche. Bitte später erneut versuchen.",
+		"unexpected": "Das hat nicht geklappt. Bitte erneut versuchen."
+	},
+	"validation": {
+		"required": "Pflichtfeld",
+		"tooShort": "Mindestens {{count}} Zeichen",
+		"tooLong": "Höchstens {{count}} Zeichen",
+		"email": "Keine gültige E-Mail-Adresse"
+	},
+	"dayBar": {
+		"label": "Buchungen: {{spans}}",
+		"span": "{{from}} bis {{to}}",
+		"open": "seit {{from}}",
+		"empty": "Keine Buchungen"
+	}
+}
