@@ -9,7 +9,8 @@ import {
 	type DatabaseConnection
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
-import type { Tables, Trx } from '../db/database';
+import type { Trx } from '../db/database';
+import type { DB } from '../db/schema.generated';
 import { assertCanSee } from './scope';
 import type { AuthSession } from './session.guard';
 
@@ -27,7 +28,7 @@ function trxWhere(leads: boolean) {
 			};
 		}
 	}
-	const db = new Kysely<Tables>({
+	const db = new Kysely<DB>({
 		dialect: {
 			createAdapter: () => new PostgresAdapter(),
 			createDriver: () => new Answering(),
@@ -46,6 +47,8 @@ function session(role: AuthSession['role'], employeeId: string | null): AuthSess
 		role,
 		employeeId,
 		csrfHash: Buffer.alloc(32),
+		enrollmentPending: false,
+		reauthUntil: null,
 		requestId: 'r1'
 	};
 }

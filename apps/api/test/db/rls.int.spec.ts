@@ -20,8 +20,17 @@ const tables = [
 	'app.vacation_ledger',
 	'app.vacation_notices',
 	'app.work_models',
-	'audit.log'
+	'audit.log',
+	'ops.demo_outbox'
 ];
+
+// app and audit as a whole, elsewhere every table that carries a tenant_id
+const owned = `c.relkind = 'r' and (
+	n.nspname in ('app', 'audit')
+	or (n.nspname in ('auth', 'ops') and exists (
+		select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id'
+	))
+)`;
 
 const fenceColumn = (table: string) => (table === 'app.tenants' ? 'id' : 'tenant_id');
 
@@ -43,12 +52,12 @@ beforeAll(async () => {
 });
 
 describe('row level security', () => {
-	it('knows every table in app and audit', async () => {
+	it('knows every table that belongs to a tenant', async () => {
 		const { rows } = await superuser.query<{ name: string }>(
 			`select n.nspname || '.' || c.relname as name
 			   from pg_class c
 			   join pg_namespace n on n.oid = c.relnamespace
-			  where n.nspname in ('app', 'audit') and c.relkind = 'r'
+			  where ${owned}
 			  order by 1`
 		);
 		expect(rows.map((r) => r.name)).toEqual(tables);
@@ -67,7 +76,7 @@ describe('row level security', () => {
 			   join pg_namespace n on n.oid = c.relnamespace
 			   left join pg_policies p
 			     on p.schemaname = n.nspname and p.tablename = c.relname and p.policyname = 'tenant fence'
-			  where n.nspname in ('app', 'audit') and c.relkind = 'r'
+			  where ${owned}
 			  order by 1`
 		);
 

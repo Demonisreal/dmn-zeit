@@ -10,7 +10,8 @@ const codeByStatus: Partial<Record<number, ErrorCode>> = {
 	403: 'FORBIDDEN',
 	404: 'NOT_FOUND',
 	409: 'INVALID_STATE',
-	413: 'VALIDATION',
+	413: 'PAYLOAD_TOO_LARGE',
+	415: 'VALIDATION',
 	429: 'RATE_LIMITED'
 };
 

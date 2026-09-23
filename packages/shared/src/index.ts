@@ -5,6 +5,7 @@ export * from './system';
 export * from './tenant';
 export * from './users';
 export * from './auth';
+export * from './security';
 export * from './clock';
 export * from './time';
 export * from './corrections';

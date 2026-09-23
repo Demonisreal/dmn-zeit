@@ -42,7 +42,7 @@ export class AuthController {
 		@CurrentClient() client: Client,
 		@Res({ passthrough: true }) response: Response
 	): Promise<Session> {
-		const userId = await this.auth.login(body);
+		const userId = await this.auth.login(body, client.requestId);
 		return this.sessions.open(response, userId, client);
 	}
 

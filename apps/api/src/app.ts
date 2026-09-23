@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { bodyErrors } from './common/body-errors';
 import type { Config } from './config';
 
 // main.ts and the integration tests have to get the very same middleware stack
@@ -20,9 +21,20 @@ export async function createApp(): Promise<NestExpressApplication> {
 	app.useLogger(app.get(Logger));
 	// only the pinned proxy subnet may set x-forwarded-for, rate limits count per client address
 	app.set('trust proxy', config.get('TRUSTED_PROXY', { infer: true }));
-	app.use(helmet());
+	// the api only speaks json, nothing may load or frame it; HSTS is set by caddy
+	app.use(
+		helmet({
+			contentSecurityPolicy: {
+				useDefaults: false,
+				directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] }
+			},
+			strictTransportSecurity: false,
+			xFrameOptions: { action: 'deny' }
+		})
+	);
 	app.use(cookieParser());
 	app.useBodyParser('json', { limit: '100kb' });
+	app.use(bodyErrors);
 	app.setGlobalPrefix('api');
 
 	return app;

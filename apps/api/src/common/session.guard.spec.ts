@@ -21,6 +21,8 @@ const session: AuthSession = {
 	role: 'employee',
 	employeeId: 'e1',
 	csrfHash: Buffer.alloc(32),
+	enrollmentPending: false,
+	reauthUntil: null,
 	requestId: 'r1'
 };
 

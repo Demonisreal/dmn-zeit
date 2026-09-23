@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAbsenceSchema } from './absences';
-import { createFlexBookingSchema } from './flex';
+import { absencesQuerySchema, createAbsenceSchema } from './absences';
 
 const employeeId = '5c3e2d1a-0f9b-4a8c-b7d6-e5f4a3b2c1d0';
 
@@ -35,21 +34,35 @@ describe('createAbsenceSchema', () => {
 	});
 });
 
-describe('createFlexBookingSchema', () => {
-	const booking = { effectiveDate: '2026-09-30', reason: 'Auszahlung laut Vereinbarung' };
+describe('absencesQuerySchema', () => {
+	const range = { from: '2026-01-01', to: '2026-12-31' };
 
-	it('only takes payouts that lower the balance', () => {
+	it('reads the status list both ways', () => {
 		expect(
-			createFlexBookingSchema.safeParse({ ...booking, type: 'payout', minutes: -600 }).success
-		).toBe(true);
-		expect(
-			createFlexBookingSchema.safeParse({ ...booking, type: 'payout', minutes: 600 }).success
-		).toBe(false);
+			absencesQuerySchema.parse({ ...range, status: 'pending,cancel_pending' }).status
+		).toEqual(['pending', 'cancel_pending']);
+		expect(absencesQuerySchema.parse({ ...range, status: ['approved'] }).status).toEqual([
+			'approved'
+		]);
+		expect(absencesQuerySchema.safeParse({ ...range, status: 'pending,maybe' }).success).toBe(
+			false
+		);
 	});
 
-	it('leaves the cap to the month closing', () => {
-		expect(
-			createFlexBookingSchema.safeParse({ ...booking, type: 'cap_forfeit', minutes: -60 }).success
-		).toBe(false);
+	it('needs a range and pages by default', () => {
+		expect(absencesQuerySchema.safeParse({}).success).toBe(false);
+		const parsed = absencesQuerySchema.parse(range);
+		expect(parsed.scope).toBe('mine');
+		expect(parsed.limit).toBe(50);
+		expect(parsed.status).toBeUndefined();
+	});
+
+	it('stops at a year', () => {
+		expect(absencesQuerySchema.safeParse({ from: '2028-01-01', to: '2028-12-31' }).success).toBe(
+			true
+		);
+		expect(absencesQuerySchema.safeParse({ from: '2026-01-01', to: '2027-01-02' }).success).toBe(
+			false
+		);
 	});
 });

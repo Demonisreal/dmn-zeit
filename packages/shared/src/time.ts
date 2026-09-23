@@ -2,15 +2,16 @@ import { z } from 'zod';
 import { absenceStatuses, absenceTypes } from './absences';
 import {
 	explanationSchema,
+	inRange,
 	instantSchema,
-	isOrdered,
 	isoDateSchema,
-	monthSchema,
-	orderIssue,
+	pageOf,
+	pagingShape,
 	portionSchema,
+	rangeShape,
 	uuidSchema
 } from './common';
-import { arbzgCodes } from './compliance';
+import { findingSchema } from './compliance';
 import { holidayCodes } from './tenant';
 
 export const entrySources = ['clock', 'correction', 'seed'] as const;
@@ -32,28 +33,38 @@ export const timeEntrySchema = z.object({
 });
 
 export const entriesQuerySchema = z
-	.object({
-		from: isoDateSchema,
-		to: isoDateSchema
-	})
-	.refine(isOrdered, orderIssue);
+	.object({ ...rangeShape, ...pagingShape })
+	.superRefine(inRange(62));
 
-export const daysQuerySchema = z.object({ month: monthSchema });
+export const timeEntryPageSchema = pageOf(timeEntrySchema);
 
-const totals = {
+// a calendar week can span two months, so week and month view ask by date range
+export const daysQuerySchema = z.object(rangeShape).superRefine(inRange(62));
+
+export const totalsSchema = z.object({
 	targetMinutes: z.int().min(0),
 	workedMinutes: z.int().min(0),
 	creditedMinutes: z.int().min(0),
 	diffMinutes: z.int()
-};
+});
 
 export const daySchema = z.object({
 	date: isoDateSchema,
-	...totals,
+	target: z.object({ minutes: z.int().min(0), explanation: explanationSchema }),
+	workedMinutes: z.int().min(0),
+	creditedMinutes: z.int().min(0),
+	diffMinutes: z.int(),
 	breakMinutes: z.int().min(0),
-	firstStart: instantSchema.nullable(),
-	lastEnd: instantSchema.nullable(),
 	running: z.boolean(),
+	entries: z.array(
+		timeEntrySchema.pick({
+			id: true,
+			startedAt: true,
+			endedAt: true,
+			endReason: true,
+			source: true
+		})
+	),
 	holiday: z.object({ code: z.enum(holidayCodes), portion: portionSchema }).nullable(),
 	absence: z
 		.object({
@@ -63,21 +74,23 @@ export const daySchema = z.object({
 			portion: portionSchema
 		})
 		.nullable(),
-	findings: z.array(z.enum(arbzgCodes)),
-	locked: z.boolean(),
-	explanations: z.array(explanationSchema)
+	findings: z.array(findingSchema.omit({ employee: true, date: true })),
+	locked: z.boolean()
 });
 
-export const monthDaysSchema = z.object({
+export const dayRangeSchema = z.object({
 	employeeId: uuidSchema,
-	month: monthSchema,
+	from: isoDateSchema,
+	to: isoDateSchema,
 	closedThrough: isoDateSchema.nullable(),
 	days: z.array(daySchema),
-	totals: z.object(totals)
+	totals: totalsSchema
 });
 
 export type TimeEntry = z.infer<typeof timeEntrySchema>;
 export type EntriesQuery = z.infer<typeof entriesQuerySchema>;
+export type TimeEntryPage = z.infer<typeof timeEntryPageSchema>;
 export type DaysQuery = z.infer<typeof daysQuerySchema>;
+export type Totals = z.infer<typeof totalsSchema>;
 export type Day = z.infer<typeof daySchema>;
-export type MonthDays = z.infer<typeof monthDaysSchema>;
+export type DayRange = z.infer<typeof dayRangeSchema>;

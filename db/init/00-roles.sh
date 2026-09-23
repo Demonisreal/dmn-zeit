@@ -10,6 +10,10 @@ create role zeit_owner login password :'owner_password';
 create role zeit_app login nobypassrls password :'app_password';
 create role zeit_system nologin bypassrls;
 
+-- a hanging request or a forgotten transaction must not hold locks for long
+alter role zeit_app set statement_timeout = '15s';
+alter role zeit_app set idle_in_transaction_session_timeout = '30s';
+
 -- migrations hand the security definer functions over to zeit_system, that needs the membership
 grant zeit_system to zeit_owner;
 

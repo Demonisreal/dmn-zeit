@@ -55,7 +55,7 @@ export const holidayCodes = [
 ] as const;
 export type HolidayCode = (typeof holidayCodes)[number];
 
-// only valid in some municipalities, so the tenant has to opt in
+// opt-in for holidays kept only locally: corpus christi in SN/TH, assumption day in BY, augsburg
 export const optionalHolidays = ['corpus_christi', 'augsburg_peace', 'assumption_day'] as const;
 export type OptionalHoliday = (typeof optionalHolidays)[number];
 
@@ -65,9 +65,13 @@ export type FlexCapMode = (typeof flexCapModes)[number];
 export const tenantKinds = ['live', 'sandbox'] as const;
 export type TenantKind = (typeof tenantKinds)[number];
 
+// same check as the db: only days every year has, so no 02-29
 const monthDaySchema = z
 	.string()
-	.regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'Expected MM-DD');
+	.regex(
+		/^((0[1-9]|1[0-2])-(0[1-9]|1[0-9]|2[0-8])|(0[13-9]|1[0-2])-(29|30)|(0[13578]|1[02])-31)$/,
+		'format.monthDay'
+	);
 
 export const tenantSchema = z.object({
 	id: uuidSchema,

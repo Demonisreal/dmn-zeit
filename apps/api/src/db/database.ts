@@ -1,13 +1,10 @@
 import { Logger, type OnApplicationShutdown } from '@nestjs/common';
 import type { Role } from '@zeit/shared';
-import { Kysely, PostgresDialect, sql, type ColumnType, type Transaction } from 'kysely';
+import { Kysely, PostgresDialect, sql, type Transaction } from 'kysely';
 import { Pool, TypeOverrides, types } from 'pg';
 import type { DB } from './schema.generated';
 
-// codegen types timestamps as Date, the pool below hands them over as strings
-type AsText<C> = C extends ColumnType<Date, infer I, infer U> ? ColumnType<string, I, U> : C;
-export type Tables = { [T in keyof DB]: { [C in keyof DB[T]]: AsText<DB[T][C]> } };
-export type Trx = Transaction<Tables>;
+export type Trx = Transaction<DB>;
 
 export type TenantContext = {
 	tenantId: string;
@@ -24,11 +21,11 @@ export function isoInstant(text: string): string {
 }
 
 const parsers = new TypeOverrides();
-// a js Date would drop the microseconds, numeric already arrives as text
+// a js Date would drop the microseconds, numeric already arrives as text; codegen types match this
 parsers.setTypeParser(types.builtins.TIMESTAMPTZ, isoInstant);
 parsers.setTypeParser(types.builtins.DATE, (text) => text);
 
-export class Database extends Kysely<Tables> implements OnApplicationShutdown {
+export class Database extends Kysely<DB> implements OnApplicationShutdown {
 	constructor(url: string) {
 		const pool = new Pool({ connectionString: url, types: parsers, options: '-c TimeZone=UTC' });
 		// an idle client losing its connection would otherwise take the whole process down

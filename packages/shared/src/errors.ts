@@ -2,9 +2,12 @@ import { z } from 'zod';
 
 export const errorCodes = [
 	'VALIDATION',
+	'PAYLOAD_TOO_LARGE',
 	'UNAUTHENTICATED',
 	'INVALID_CREDENTIALS',
 	'TOKEN_INVALID',
+	'MFA_ENROLLMENT_REQUIRED',
+	'REAUTH_REQUIRED',
 	'CSRF',
 	'FORBIDDEN',
 	'NOT_FOUND',
@@ -20,7 +23,36 @@ export const errorCodes = [
 
 export type ErrorCode = (typeof errorCodes)[number];
 
-export const fieldIssueSchema = z.object({ field: z.string(), message: z.string() });
+// messages of our own checks are i18n keys; zod's built-in messages the web localizes by code
+export const validationKeys = [
+	'format.month',
+	'format.monthDay',
+	'format.dayCount',
+	'format.entitlement',
+	'format.token',
+	'format.totp',
+	'format.recoveryCode',
+	'range.unordered',
+	'range.tooLong',
+	'absence.endBeforeStart',
+	'absence.halfDaySingle',
+	'correction.endBeforeStart',
+	'flex.zeroMinutes',
+	'flex.payoutPositive',
+	'vacation.zeroDays',
+	'team.duplicateLead',
+	'password.common'
+] as const;
+
+export type ValidationKey = (typeof validationKeys)[number];
+
+export const fieldIssueSchema = z.object({
+	field: z.string(),
+	// the zod issue code, e.g. too_small, invalid_format or custom
+	code: z.string(),
+	message: z.string(),
+	params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional()
+});
 
 export const apiErrorSchema = z.discriminatedUnion('code', [
 	z.object({

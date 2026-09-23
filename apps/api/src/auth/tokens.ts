@@ -1,9 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-// postgres intervals, the mail texts name the same durations
-export const INVITE_TTL = '7 days';
-export const RESET_TTL = '30 minutes';
-
 // 32 random bytes as base64url, the database only ever sees the sha-256 of it
 export function newToken(): string {
 	return randomBytes(32).toString('base64url');

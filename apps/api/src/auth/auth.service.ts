@@ -1,5 +1,6 @@
 import {
 	BadRequestException,
+	BeforeApplicationShutdown,
 	ForbiddenException,
 	Injectable,
 	Logger,
@@ -28,7 +29,7 @@ import {
 	needsRehash,
 	verifyPassword
 } from './passwords';
-import { hashToken, newToken, RESET_TTL } from './tokens';
+import { hashToken, newToken } from './tokens';
 
 // one message for all cases, it must not tell an unknown address from a locked account
 const invalidCredentials = {
@@ -49,7 +50,7 @@ function commonPassword(field: string) {
 	return new BadRequestException({
 		code: 'VALIDATION',
 		message: 'Invalid input',
-		details: [{ field, message: 'Too common, pick a different password' }]
+		details: [{ field, code: 'custom', message: 'password.common' }]
 	} satisfies ApiError);
 }
 
@@ -64,9 +65,12 @@ function contextOf(credential: Credential, requestId: string): TenantContext & {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService implements BeforeApplicationShutdown {
 	private readonly logger = new Logger(AuthService.name);
 	private readonly origin: string;
+	private readonly pepper: Buffer;
+	// mails that go out after the answer
+	private readonly pending = new Set<Promise<void>>();
 
 	constructor(
 		private readonly store: AuthStore,
@@ -75,14 +79,17 @@ export class AuthService {
 		config: ConfigService<Config, true>
 	) {
 		this.origin = config.get('APP_ORIGIN', { infer: true });
+		this.pepper = config.get('PASSWORD_PEPPER', { infer: true });
 	}
 
-	async login(input: LoginInput): Promise<string> {
+	async login(input: LoginInput, requestId: string): Promise<string> {
 		const credential = await this.check(input.email, input.password);
 		if (!credential) throw new UnauthorizedException(invalidCredentials);
 
 		if (needsRehash(credential.passwordHash)) {
-			await this.store.setPassword(credential.userId, await hashPassword(input.password));
+			// password_change also ends the other sessions, fine for the rare raise of the parameters
+			const rehashed = await hashPassword(input.password, this.pepper);
+			await this.store.changePassword(contextOf(credential, requestId), rehashed);
 		}
 		return credential.userId;
 	}
@@ -96,7 +103,7 @@ export class AuthService {
 			throw new ForbiddenException(invalidCredentials);
 		}
 
-		await this.store.changePassword(session.userId, await hashPassword(input.newPassword));
+		await this.store.changePassword(session, await hashPassword(input.newPassword, this.pepper));
 		this.later(() => this.mailPasswordChanged(profile));
 	}
 
@@ -107,11 +114,10 @@ export class AuthService {
 
 	async sendReset(email: string, requestId: string): Promise<void> {
 		const credential = await this.store.credential(email);
-		// invited accounts have no password yet, their way in is the invitation
-		if (credential?.status !== 'active' || !credential.passwordHash) return;
+		if (!credential?.passwordHash) return;
 
 		const token = newToken();
-		await this.store.issueToken(credential.userId, 'password_reset', hashToken(token), RESET_TTL);
+		await this.store.issueToken(credential.userId, 'password_reset', hashToken(token));
 
 		const { user, tenant } = await this.store.profile(contextOf(credential, requestId));
 		await this.mail.send({
@@ -128,7 +134,8 @@ export class AuthService {
 		const owner = await this.store.inspectToken(tokenHash, 'password_reset');
 		if (!owner) throw tokenInvalid();
 
-		const userId = await this.store.resetPassword(tokenHash, await hashPassword(input.password));
+		const passwordHash = await hashPassword(input.password, this.pepper);
+		const userId = await this.store.resetPassword(tokenHash, passwordHash);
 		if (!userId) throw tokenInvalid();
 
 		this.later(async () => {
@@ -152,13 +159,13 @@ export class AuthService {
 		// cheap check first, hashing for every guessed token would hand out free cpu time
 		if (!(await this.store.inspectToken(tokenHash, 'invite'))) throw tokenInvalid();
 
-		const passwordHash = await hashPassword(input.password);
+		const passwordHash = await hashPassword(input.password, this.pepper);
 		if (!(await this.store.acceptInvitation(requestId, tokenHash, passwordHash))) {
 			throw tokenInvalid();
 		}
 	}
 
-	// null for unknown, invited, locked and wrong alike; only a wrong guess counts towards the lock
+	// null for unknown, locked, password-less and wrong alike; only a wrong guess counts towards the lock
 	private async check(
 		email: string,
 		password: string
@@ -167,11 +174,11 @@ export class AuthService {
 		const locked =
 			!!credential?.lockedUntil && Date.parse(credential.lockedUntil) > this.clock.now().getTime();
 		if (!credential?.passwordHash || locked) {
-			await dummyVerify(password);
+			await dummyVerify(password, this.pepper);
 			return null;
 		}
 
-		if (await verifyPassword(credential.passwordHash, password)) {
+		if (await verifyPassword(credential.passwordHash, password, this.pepper)) {
 			return { ...credential, passwordHash: credential.passwordHash };
 		}
 		await this.store.loginFailed(credential.userId);
@@ -187,8 +194,15 @@ export class AuthService {
 	}
 
 	private later(work: () => Promise<void>) {
-		setImmediate(() => {
-			work().catch((error: unknown) => this.logger.error(error));
-		});
+		const job: Promise<void> = new Promise((resolve) => setImmediate(resolve))
+			.then(work)
+			.catch((error: unknown) => this.logger.error(error))
+			.finally(() => this.pending.delete(job));
+		this.pending.add(job);
+	}
+
+	// a job that reaches for a connection while the pool closes would hold up the shutdown for good
+	async beforeApplicationShutdown() {
+		await Promise.allSettled(this.pending);
 	}
 }

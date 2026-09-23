@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { emailSchema, instantSchema, uuidSchema } from './common';
+import { appModes } from './system';
 import { tenantKinds } from './tenant';
 import { userSchema } from './users';
 
 // length only, the server also checks the list of common passwords
 export const passwordSchema = z.string().min(12).max(128);
 // 32 random bytes as base64url without padding
-export const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'Malformed token');
+export const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'format.token');
 
 export const loginSchema = z.object({
 	email: emailSchema,
@@ -46,8 +47,26 @@ export const sessionSchema = z.object({
 		kind: z.enum(tenantKinds),
 		expiresAt: instantSchema.nullable()
 	}),
+	mode: z.enum(appModes),
+	leadsTeams: z.array(z.object({ id: uuidSchema, name: z.string() })),
+	security: z.object({
+		// until a totp or passkey is confirmed the api only serves the setup routes
+		enrollmentPending: z.boolean(),
+		reauthUntil: instantSchema.nullable()
+	}),
 	csrfToken: z.string()
 });
+
+export const mfaMethods = ['totp', 'recovery', 'passkey'] as const;
+export type MfaMethod = (typeof mfaMethods)[number];
+
+// the pending login lives in an httponly cookie, the body never carries a token for it
+export const mfaChallengeSchema = z.object({
+	mfaRequired: z.literal(true),
+	methods: z.array(z.enum(mfaMethods)).min(1)
+});
+
+export const loginResultSchema = z.union([sessionSchema, mfaChallengeSchema]);
 
 export const activeSessionSchema = z.object({
 	id: uuidSchema,
@@ -66,4 +85,6 @@ export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type Invitation = z.infer<typeof invitationSchema>;
 export type Session = z.infer<typeof sessionSchema>;
+export type MfaChallenge = z.infer<typeof mfaChallengeSchema>;
+export type LoginResult = z.infer<typeof loginResultSchema>;
 export type ActiveSession = z.infer<typeof activeSessionSchema>;

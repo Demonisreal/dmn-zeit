@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { daysSchema, instantSchema, isoDateSchema, monthSchema, queryYearSchema } from './common';
+import {
+	dayCountSchema,
+	instantSchema,
+	isoDateSchema,
+	monthSchema,
+	queryYearSchema
+} from './common';
 import { hasRole } from './roles';
 
 describe('isoDateSchema', () => {
@@ -43,12 +49,12 @@ describe('queryYearSchema', () => {
 	});
 });
 
-describe('daysSchema', () => {
+describe('dayCountSchema', () => {
 	it('keeps exactly two decimals', () => {
-		expect(daysSchema.safeParse('12.50').success).toBe(true);
-		expect(daysSchema.safeParse('-2.00').success).toBe(true);
-		expect(daysSchema.safeParse('12.5').success).toBe(false);
-		expect(daysSchema.safeParse('12').success).toBe(false);
+		expect(dayCountSchema.safeParse('12.50').success).toBe(true);
+		expect(dayCountSchema.safeParse('-2.00').success).toBe(true);
+		expect(dayCountSchema.safeParse('12.5').success).toBe(false);
+		expect(dayCountSchema.safeParse('12').success).toBe(false);
 	});
 });
 

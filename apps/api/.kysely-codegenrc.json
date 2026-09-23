@@ -1,0 +1,8 @@
+{
+	"dialect": "postgres",
+	"url": "postgres://zeit_owner:zeit_owner@127.0.0.1:54330/zeit",
+	"excludePattern": "{auth.*,public.*,schema_migrations}",
+	"dateParser": "string",
+	"typeMapping": { "timestamptz": "string" },
+	"outFile": "src/db/schema.generated.ts"
+}

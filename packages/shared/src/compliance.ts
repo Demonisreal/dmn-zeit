@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import {
 	employeeRefSchema,
+	explanationSchema,
+	inRange,
 	instantSchema,
-	isOrdered,
 	isoDateSchema,
 	noteSchema,
-	orderIssue,
+	rangeShape,
 	userRefSchema,
 	uuidSchema
 } from './common';
@@ -33,6 +34,7 @@ export const findingSchema = z.object({
 	severity: z.enum(findingSeverities),
 	ruleVersion: z.string(),
 	facts: z.record(z.string(), z.union([z.string(), z.number()])),
+	explanation: explanationSchema,
 	ack: z
 		.object({
 			at: instantSchema,
@@ -44,12 +46,11 @@ export const findingSchema = z.object({
 
 export const findingsQuerySchema = z
 	.object({
-		from: isoDateSchema,
-		to: isoDateSchema,
+		...rangeShape,
 		employee: uuidSchema.optional(),
 		state: z.enum(findingStates).optional()
 	})
-	.refine(isOrdered, orderIssue);
+	.superRefine(inRange(366));
 
 export const ackFindingSchema = z.object({
 	employeeId: uuidSchema,

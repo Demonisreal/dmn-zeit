@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-	daysSchema,
+	dayCountSchema,
 	employeeRefSchema,
 	explanationSchema,
 	instantSchema,
@@ -33,7 +33,7 @@ export const vacationLedgerEntrySchema = z.object({
 	id: uuidSchema,
 	bucketYear: z.int(),
 	entryType: z.enum(vacationEntryTypes),
-	days: daysSchema,
+	days: dayCountSchema,
 	effectiveDate: isoDateSchema,
 	absenceId: uuidSchema.nullable(),
 	noticeId: uuidSchema.nullable(),
@@ -43,12 +43,12 @@ export const vacationLedgerEntrySchema = z.object({
 
 export const vacationBucketSchema = z.object({
 	year: z.int(),
-	entitlement: daysSchema,
-	taken: daysSchema,
-	refunded: daysSchema,
-	adjusted: daysSchema,
-	expired: daysSchema,
-	remaining: daysSchema,
+	entitlement: dayCountSchema,
+	taken: dayCountSchema,
+	refunded: dayCountSchema,
+	adjusted: dayCountSchema,
+	expired: dayCountSchema,
+	remaining: dayCountSchema,
 	deadline: isoDateSchema.nullable(),
 	notice: z
 		.object({
@@ -68,12 +68,12 @@ export const vacationAccountSchema = z.object({
 	employeeId: uuidSchema,
 	year: z.int(),
 	entitlement: z.object({
-		days: daysSchema,
+		days: dayCountSchema,
 		explanations: z.array(explanationSchema)
 	}),
 	buckets: z.array(vacationBucketSchema),
-	pending: daysSchema,
-	available: daysSchema,
+	pending: dayCountSchema,
+	available: dayCountSchema,
 	ledger: z.array(vacationLedgerEntrySchema)
 });
 
@@ -81,10 +81,7 @@ export const vacationQuerySchema = z.object({ year: queryYearSchema });
 
 export const createVacationAdjustmentSchema = z.object({
 	bucketYear: yearSchema,
-	days: daysSchema.refine(
-		(days) => Number(days) !== 0,
-		'An adjustment of zero days changes nothing'
-	),
+	days: dayCountSchema.refine((days) => Number(days) !== 0, 'vacation.zeroDays'),
 	effectiveDate: isoDateSchema,
 	reason: reasonSchema
 });
@@ -99,7 +96,7 @@ export const vacationNoticeSchema = z.object({
 	id: uuidSchema,
 	employee: employeeRefSchema,
 	bucketYear: z.int(),
-	remainingDays: daysSchema,
+	remainingDays: dayCountSchema,
 	deadline: isoDateSchema,
 	sentAt: instantSchema,
 	sentBy: userRefSchema,

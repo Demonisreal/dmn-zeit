@@ -71,10 +71,7 @@ describe('session functions', () => {
 		const tenant = await createTenant();
 		const invited = await createUser(tenant);
 		const token = hash();
-		await app.query(`select auth.token_issue($1, 'invite', $2, interval '7 days')`, [
-			invited.userId,
-			token
-		]);
+		await app.query(`select auth.token_issue($1, 'invite', $2)`, [invited.userId, token]);
 
 		const inspect = () =>
 			app.query(`select user_id, display_name, tenant_name from auth.token_inspect($1, 'invite')`, [
@@ -171,17 +168,10 @@ describe('sandbox purge', () => {
 		await fillTenant(superuser, fresh);
 		await fillTenant(superuser, live);
 		await signIn(worker);
-		await app.query(`select auth.token_issue($1, 'password_reset', $2, interval '30 minutes')`, [
-			worker.userId,
-			hash()
-		]);
+		await app.query(`select auth.token_issue($1, 'password_reset', $2)`, [worker.userId, hash()]);
 		await superuser.query(`select auth.password_set($1, '$argon2id$v=19$m=19456,t=2,p=1$x$y')`, [
 			worker.userId
 		]);
-		await superuser.query(
-			`insert into ops.demo_outbox (tenant_id, recipient, subject, body) values ($1, 'a@example.test', 'Hallo', 'Text')`,
-			[expired]
-		);
 		await superuser.query(
 			`update app.tenants set expires_at = now() - interval '1 minute' where id = $1`,
 			[expired]
@@ -209,7 +199,7 @@ describe('sandbox purge', () => {
 				[expired, fresh, live]
 			);
 			expect(left.rows[0].expired, name).toBe(0);
-			if (name !== 'ops.demo_outbox') expect(left.rows[0].kept, name).toBeGreaterThan(0);
+			expect(left.rows[0].kept, name).toBeGreaterThan(0);
 		}
 
 		const auth = await superuser.query(

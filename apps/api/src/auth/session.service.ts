@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ActiveSession, Session } from '@zeit/shared';
+import type { ActiveSession, AppMode, Session } from '@zeit/shared';
 import type { CookieOptions, Request, Response } from 'express';
 import type { Client } from '../common/client.decorator';
 import type { AuthSession } from '../common/session.guard';
@@ -12,6 +12,7 @@ import { csrfTokenFor, hashToken, newToken } from './tokens';
 export class SessionService {
 	readonly cookieName: string;
 	private readonly cookie: CookieOptions;
+	private readonly mode: AppMode;
 
 	constructor(
 		private readonly store: AuthStore,
@@ -21,6 +22,7 @@ export class SessionService {
 		const secure = new URL(config.get('APP_ORIGIN', { infer: true })).protocol === 'https:';
 		this.cookieName = secure ? '__Host-zeit_sid' : 'zeit_sid';
 		this.cookie = { httpOnly: true, secure, sameSite: 'strict', path: '/' };
+		this.mode = config.get('APP_MODE', { infer: true });
 	}
 
 	async open(response: Response, userId: string, client: Client): Promise<Session> {
@@ -66,6 +68,11 @@ export class SessionService {
 
 	private async describe(session: AuthSession, token: string): Promise<Session> {
 		const profile = await this.store.profile(session);
-		return { ...profile, csrfToken: csrfTokenFor(token) };
+		return {
+			...profile,
+			mode: this.mode,
+			security: { enrollmentPending: session.enrollmentPending, reauthUntil: session.reauthUntil },
+			csrfToken: csrfTokenFor(token)
+		};
 	}
 }

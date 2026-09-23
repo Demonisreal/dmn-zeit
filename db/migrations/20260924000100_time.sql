@@ -162,7 +162,13 @@ begin
       using errcode = 'ZT003';
   end if;
 
-  if exists (select 1 from app.users u where u.id = new.decided_by and u.employee_id = new.employee_id) then
+  -- confirming a sick note certificate counts as a decision too
+  if exists (
+    select 1
+      from app.users u
+     where u.employee_id = new.employee_id
+       and u.id in (new.decided_by, (to_jsonb(new) ->> 'certificate_confirmed_by')::uuid)
+  ) then
     raise exception 'nobody decides on their own %', tg_table_name using errcode = 'insufficient_privilege';
   end if;
 

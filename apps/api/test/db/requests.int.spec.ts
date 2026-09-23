@@ -245,9 +245,12 @@ describe('absence requests', () => {
 		const vacation = await requestAbsence(worker, 'vacation', '2026-10-05', '2026-10-09');
 		await withContext(app, hr.context);
 		await expect(
-			app.query('update app.absence_requests set certificate_confirmed_at = now() where id = $1', [
-				vacation
-			])
+			app.query(
+				`update app.absence_requests
+				    set certificate_confirmed_at = now(), certificate_confirmed_by = $2
+				  where id = $1`,
+				[vacation, hr.userId]
+			)
 		).rejects.toMatchObject({ code: '23514' });
 	});
 });

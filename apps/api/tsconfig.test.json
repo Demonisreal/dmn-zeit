@@ -1,0 +1,11 @@
+{
+	// vitest runs the tests as esm, the harness needs import.meta and the ProvidedContext augmentation
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"rootDir": ".",
+		"noEmit": true
+	},
+	"include": ["test", "vitest.config.mts", "vitest.int.config.mts"]
+}

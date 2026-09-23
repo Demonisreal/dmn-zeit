@@ -8,6 +8,7 @@ import type { AuthSession } from '../common/session.guard';
 import { MemoryTransport } from '../mail/memory.transport';
 import type { AuthStore, TokenKind } from './auth.store';
 import { AuthService } from './auth.service';
+import { hashPassword } from './passwords';
 import { hashToken, newToken } from './tokens';
 
 type Account = {
@@ -25,30 +26,29 @@ type Account = {
 };
 
 const PASSWORD = 'kaffee ohne milch bitte';
+const pepper = Buffer.from('pepper-for-the-auth-service-spec');
 let annasHash: string;
 
 beforeAll(async () => {
-	annasHash = await hash(PASSWORD, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
+	annasHash = await hashPassword(PASSWORD, pepper);
 });
 
 // the auth schema in memory, just enough to follow what the service asks of it
 class FakeStore {
 	accounts: Account[] = [];
-	tokens = new Map<string, { userId: string; kind: TokenKind; ttl: string; used: boolean }>();
+	tokens = new Map<string, { userId: string; kind: TokenKind; used: boolean }>();
 
 	byEmail = (email: string) =>
 		this.accounts.find((account) => account.email === email.toLowerCase());
 	byId = (userId: string) => this.accounts.find((account) => account.userId === userId)!;
 
+	// like auth.login_lookup, only active accounts
 	credential = vi.fn(async (email: string) => {
 		const account = this.byEmail(email);
-		return account && { ...account };
+		return account?.status === 'active' ? { ...account } : undefined;
 	});
 	loginFailed = vi.fn(async (userId: string) => {
 		this.byId(userId).failures++;
-	});
-	setPassword = vi.fn(async (userId: string, passwordHash: string) => {
-		this.byId(userId).passwordHash = passwordHash;
 	});
 	profile = vi.fn(async ({ userId }: { userId: string }) => {
 		const account = this.byId(userId);
@@ -68,11 +68,12 @@ class FakeStore {
 				name: 'Steuerbüro Muster',
 				kind: 'live' as const,
 				expiresAt: null
-			}
+			},
+			leadsTeams: []
 		};
 	});
-	issueToken = vi.fn(async (userId: string, kind: TokenKind, tokenHash: Buffer, ttl: string) => {
-		this.tokens.set(tokenHash.toString('hex'), { userId, kind, ttl, used: false });
+	issueToken = vi.fn(async (userId: string, kind: TokenKind, tokenHash: Buffer) => {
+		this.tokens.set(tokenHash.toString('hex'), { userId, kind, used: false });
 	});
 	inspectToken = vi.fn(async (tokenHash: Buffer, kind: TokenKind) => {
 		const token = this.open(tokenHash, kind);
@@ -98,7 +99,7 @@ class FakeStore {
 		Object.assign(this.byId(token.userId), { passwordHash, status: 'active' });
 		return token.userId;
 	});
-	changePassword = vi.fn(async (userId: string, passwordHash: string) => {
+	changePassword = vi.fn(async ({ userId }: { userId: string }, passwordHash: string) => {
 		Object.assign(this.byId(userId), { passwordHash, loggedOutEverywhere: true });
 	});
 
@@ -151,7 +152,7 @@ function setup() {
 		store as unknown as AuthStore,
 		mail,
 		clock as Clock,
-		new ConfigService({ APP_ORIGIN: 'https://zeit.example.com' })
+		new ConfigService({ APP_ORIGIN: 'https://zeit.example.com', PASSWORD_PEPPER: pepper })
 	);
 	return { auth, store, clock, mail, anna: store.accounts[0]!, ben: store.accounts[1]! };
 }
@@ -175,21 +176,25 @@ const annasSession = {
 	role: 'hr',
 	employeeId: null,
 	csrfHash: Buffer.alloc(32),
+	enrollmentPending: false,
+	reauthUntil: null,
 	requestId: 'r1'
 } satisfies AuthSession;
 
 describe('AuthService.login', () => {
 	it('returns the user for the right password, whatever the case of the address', async () => {
 		const { auth } = setup();
-		expect(await auth.login({ email: 'Anna@Muster.test', password: PASSWORD })).toBe('u-anna');
+		expect(await auth.login({ email: 'Anna@Muster.test', password: PASSWORD }, 'r1')).toBe(
+			'u-anna'
+		);
 	});
 
 	it('gives the same answer for an unknown address, a wrong password and an open invitation', async () => {
 		const { auth } = setup();
 		const answers = await Promise.all([
-			failure(auth.login({ email: 'nobody@muster.test', password: PASSWORD })),
-			failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' })),
-			failure(auth.login({ email: 'ben@muster.test', password: PASSWORD }))
+			failure(auth.login({ email: 'nobody@muster.test', password: PASSWORD }, 'r1')),
+			failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, 'r1')),
+			failure(auth.login({ email: 'ben@muster.test', password: PASSWORD }, 'r1'))
 		]);
 		expect(new Set(answers.map((answer) => JSON.stringify(answer))).size).toBe(1);
 		expect(answers[0]).toMatchObject({ status: 401, code: 'INVALID_CREDENTIALS' });
@@ -197,8 +202,8 @@ describe('AuthService.login', () => {
 
 	it('counts only real guesses at a real password towards the lock', async () => {
 		const { auth, store, anna, ben } = setup();
-		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }));
-		await failure(auth.login({ email: 'ben@muster.test', password: 'kaffee mit milch' }));
+		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, 'r1'));
+		await failure(auth.login({ email: 'ben@muster.test', password: 'kaffee mit milch' }, 'r1'));
 
 		expect(anna.failures).toBe(1);
 		expect(ben.failures).toBe(0);
@@ -210,33 +215,43 @@ describe('AuthService.login', () => {
 		anna.lockedUntil = '2026-09-24T08:04:00Z';
 
 		expect(
-			await failure(auth.login({ email: 'anna@muster.test', password: PASSWORD }))
+			await failure(auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1'))
 		).toMatchObject({ code: 'INVALID_CREDENTIALS' });
 		expect(store.loginFailed).not.toHaveBeenCalled();
 
 		clock.now = () => new Date('2026-09-24T08:04:01Z');
-		expect(await auth.login({ email: 'anna@muster.test', password: PASSWORD })).toBe('u-anna');
+		expect(await auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1')).toBe(
+			'u-anna'
+		);
 	});
 
 	it('rehashes a password stored with weaker parameters', async () => {
 		const { auth, store, anna } = setup();
-		anna.passwordHash = await hash(PASSWORD, { memoryCost: 4096, timeCost: 1 });
+		anna.passwordHash = await hash(PASSWORD, { memoryCost: 4096, timeCost: 1, secret: pepper });
 
-		await auth.login({ email: 'anna@muster.test', password: PASSWORD });
-		expect(store.setPassword).toHaveBeenCalledWith(
-			'u-anna',
+		await auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1');
+		expect(store.changePassword).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: 'u-anna', tenantId: 't1', requestId: 'r1' }),
 			expect.stringMatching(/m=19456,t=2,p=1/)
 		);
 	});
 
 	it('leaves a current hash alone', async () => {
 		const { auth, store } = setup();
-		await auth.login({ email: 'anna@muster.test', password: PASSWORD });
-		expect(store.setPassword).not.toHaveBeenCalled();
+		await auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1');
+		expect(store.changePassword).not.toHaveBeenCalled();
 	});
 });
 
 describe('AuthService password reset', () => {
+	it('lets a mail still on its way go out before the app shuts down', async () => {
+		const { auth, mail } = setup();
+		auth.forgotPassword('anna@muster.test', 'r1');
+
+		await auth.beforeApplicationShutdown();
+		expect(mail.sent).toHaveLength(1);
+	});
+
 	it('answers before it looks the address up', async () => {
 		const { auth, store, mail } = setup();
 		auth.forgotPassword('anna@muster.test', 'r1');
@@ -245,7 +260,7 @@ describe('AuthService password reset', () => {
 		await vi.waitFor(() => expect(mail.sent).toHaveLength(1));
 	});
 
-	it('mails a 30 minute link whose token only the mail knows', async () => {
+	it('mails a reset link whose token only the mail knows', async () => {
 		const { auth, store, mail } = setup();
 		await auth.sendReset('anna@muster.test', 'r1');
 
@@ -256,8 +271,7 @@ describe('AuthService password reset', () => {
 		const token = sent?.text.match(/https:\/\/zeit\.example\.com\/reset#t=([\w-]{43})/)?.[1];
 		expect(store.tokens.get(hashToken(token!).toString('hex'))).toMatchObject({
 			userId: 'u-anna',
-			kind: 'password_reset',
-			ttl: '30 minutes'
+			kind: 'password_reset'
 		});
 	});
 
@@ -294,7 +308,7 @@ describe('AuthService password reset', () => {
 			await failure(auth.resetPassword({ token, password: 'Passwort1234' }, 'r2'))
 		).toMatchObject({
 			code: 'VALIDATION',
-			details: [{ field: 'password' }]
+			details: [{ field: 'password', code: 'custom', message: 'password.common' }]
 		});
 		expect(store.resetPassword).not.toHaveBeenCalled();
 	});
@@ -303,7 +317,7 @@ describe('AuthService password reset', () => {
 describe('AuthService invitations', () => {
 	async function invite(store: FakeStore) {
 		const token = newToken();
-		await store.issueToken('u-ben', 'invite', hashToken(token), '7 days');
+		await store.issueToken('u-ben', 'invite', hashToken(token));
 		return token;
 	}
 
@@ -324,13 +338,14 @@ describe('AuthService invitations', () => {
 		const token = await invite(store);
 
 		await auth.acceptInvitation({ token, password: 'mein eigenes passwort' }, 'r1');
+		expect(store.acceptInvitation).toHaveBeenCalledWith('r1', hashToken(token), expect.any(String));
 		expect(ben).toMatchObject({
 			status: 'active',
 			passwordHash: expect.stringMatching(/^\$argon2id\$/)
 		});
-		expect(await auth.login({ email: 'ben@muster.test', password: 'mein eigenes passwort' })).toBe(
-			'u-ben'
-		);
+		expect(
+			await auth.login({ email: 'ben@muster.test', password: 'mein eigenes passwort' }, 'r1')
+		).toBe('u-ben');
 
 		expect(
 			await failure(auth.acceptInvitation({ token, password: 'mein eigenes passwort' }, 'r2'))
@@ -368,7 +383,7 @@ describe('AuthService.changePassword', () => {
 
 		expect(anna.loggedOutEverywhere).toBe(true);
 		expect(
-			await auth.login({ email: 'anna@muster.test', password: 'ein ganz neues passwort' })
+			await auth.login({ email: 'anna@muster.test', password: 'ein ganz neues passwort' }, 'r1')
 		).toBe('u-anna');
 		await vi.waitFor(() => expect(mail.sent[0]).toMatchObject({ to: 'anna@muster.test' }));
 	});
@@ -376,7 +391,7 @@ describe('AuthService.changePassword', () => {
 	it('writes the notice in the language of the person', async () => {
 		const { auth, ben, store, mail } = setup();
 		const token = newToken();
-		await store.issueToken('u-ben', 'invite', hashToken(token), '7 days');
+		await store.issueToken('u-ben', 'invite', hashToken(token));
 		await auth.acceptInvitation({ token, password: 'mein eigenes passwort' }, 'r1');
 
 		await auth.changePassword(
@@ -397,6 +412,9 @@ describe('AuthService.changePassword', () => {
 					newPassword: 'qwertz123456'
 				})
 			)
-		).toMatchObject({ code: 'VALIDATION', details: [{ field: 'newPassword' }] });
+		).toMatchObject({
+			code: 'VALIDATION',
+			details: [{ field: 'newPassword', message: 'password.common' }]
+		});
 	});
 });

@@ -33,12 +33,12 @@ export const createFlexBookingSchema = z
 			.int()
 			.min(-60000)
 			.max(60000)
-			.refine((minutes) => minutes !== 0, 'A booking of zero minutes changes nothing'),
+			.refine((minutes) => minutes !== 0, 'flex.zeroMinutes'),
 		effectiveDate: isoDateSchema,
 		reason: reasonSchema
 	})
 	.refine((booking) => booking.type !== 'payout' || booking.minutes < 0, {
-		error: 'A payout lowers the balance, minutes must be negative',
+		error: 'flex.payoutPositive',
 		path: ['minutes']
 	});
 
@@ -58,6 +58,8 @@ export const flexAccountSchema = z.object({
 	year: z.int(),
 	openingMinutes: z.int(),
 	balanceMinutes: z.int(),
+	// the day the balance is counted through, today for the running year
+	asOf: isoDateSchema,
 	cap: z.object({
 		plusMinutes: z.int().nullable(),
 		minusMinutes: z.int().nullable(),

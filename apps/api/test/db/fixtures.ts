@@ -58,6 +58,11 @@ export async function fillTenant(db: pg.Client, tenantId: string) {
 		 values ($1, '2026-01-01', 'close', $2)`,
 		[tenantId, hr.userId]
 	);
+	await db.query(
+		`insert into ops.demo_outbox (tenant_id, recipient, subject, body)
+		 values ($1, 'erika@example.test', 'Urlaub genehmigt', 'Ihr Urlaub vom 2. bis 6. März ist genehmigt.')`,
+		[tenantId]
+	);
 
 	return { team, lead, worker, hr, entry, absence };
 }

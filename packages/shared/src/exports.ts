@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import { absenceTypes } from './absences';
-import { daysSchema, instantSchema, isoDateSchema, monthSchema, uuidSchema } from './common';
+import {
+	dayCountSchema,
+	instantSchema,
+	isoDateSchema,
+	monthSchema,
+	portionSchema,
+	uuidSchema
+} from './common';
 import { federalStates, holidayCodes } from './tenant';
+import { totalsSchema } from './time';
 
 export const exportFormats = ['csv', 'json'] as const;
 export type ExportFormat = (typeof exportFormats)[number];
@@ -11,13 +19,6 @@ const exportedEmployee = z.object({
 	name: z.string(),
 	personnelNo: z.string()
 });
-
-const totals = {
-	targetMinutes: z.int().min(0),
-	workedMinutes: z.int().min(0),
-	creditedMinutes: z.int().min(0),
-	diffMinutes: z.int()
-};
 
 export const timesheetQuerySchema = z.object({
 	employee: uuidSchema,
@@ -33,14 +34,14 @@ export const timesheetSchema = z.object({
 	days: z.array(
 		z.object({
 			date: isoDateSchema,
-			entries: z.array(z.object({ startedAt: instantSchema, endedAt: instantSchema })),
+			entries: z.array(z.object({ startedAt: instantSchema, endedAt: instantSchema.nullable() })),
 			breakMinutes: z.int().min(0),
-			...totals,
-			absence: z.enum(absenceTypes).nullable(),
+			...totalsSchema.shape,
+			absence: z.object({ type: z.enum(absenceTypes), portion: portionSchema }).nullable(),
 			holiday: z.enum(holidayCodes).nullable()
 		})
 	),
-	totals: z.object(totals),
+	totals: totalsSchema,
 	flexBalanceMinutes: z.int(),
 	generatedAt: instantSchema
 });
@@ -56,10 +57,10 @@ export const monthOverviewSchema = z.object({
 	rows: z.array(
 		z.object({
 			employee: exportedEmployee,
-			...totals,
+			...totalsSchema.shape,
 			flexBalanceMinutes: z.int(),
-			vacationDays: daysSchema,
-			sickDays: daysSchema,
+			vacationDays: dayCountSchema,
+			sickDays: dayCountSchema,
 			openFindings: z.int().min(0)
 		})
 	),

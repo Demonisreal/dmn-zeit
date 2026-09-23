@@ -25,7 +25,7 @@ export const weekdayMinutesSchema = z.object({
 const nameSchema = z.string().trim().min(1).max(80);
 const personnelNoSchema = z.string().trim().min(1).max(20);
 // contracts store numeric(4,1)
-const entitlementSchema = z.string().regex(/^\d{1,2}(\.\d)?$/, 'Expected days with one decimal');
+const entitlementSchema = z.string().regex(/^\d{1,2}(\.\d)?$/, 'format.entitlement');
 
 export const workModelSchema = z.object({
 	id: uuidSchema,
@@ -57,7 +57,7 @@ export const contractSchema = z.object({
 	validFrom: isoDateSchema,
 	workModelId: uuidSchema,
 	minutes: weekdayMinutesSchema,
-	vacationDaysYear: z.string(),
+	vacationDaysYear: entitlementSchema,
 	vacationBasisDays: z.int(),
 	flexCapPlusMinutes: z.int().nullable(),
 	flexCapMinusMinutes: z.int().nullable(),
@@ -126,7 +126,7 @@ export const teamLeadsSchema = z.object({
 	userIds: z
 		.array(uuidSchema)
 		.max(20)
-		.refine((ids) => new Set(ids).size === ids.length, 'Duplicate user')
+		.refine((ids) => new Set(ids).size === ids.length, 'team.duplicateLead')
 });
 
 export type WeekdayMinutes = z.infer<typeof weekdayMinutesSchema>;

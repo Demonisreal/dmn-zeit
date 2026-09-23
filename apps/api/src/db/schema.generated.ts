@@ -55,16 +55,14 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Numeric = ColumnType<string, number | string, number | string>;
 
-export type Timestamp = ColumnType<Date, Date | string, Date | string>;
-
 export interface AppAbsenceDays {
   absence_id: string;
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   date: string;
   employee_id: string;
   id: Generated<string>;
   portion: Numeric;
-  superseded_at: Timestamp | null;
+  superseded_at: string | null;
   superseded_by: string | null;
   target_minutes: number;
   tenant_id: string;
@@ -72,9 +70,10 @@ export interface AppAbsenceDays {
 }
 
 export interface AppAbsenceRequests {
-  certificate_confirmed_at: Timestamp | null;
-  created_at: Generated<Timestamp>;
-  decided_at: Timestamp | null;
+  certificate_confirmed_at: string | null;
+  certificate_confirmed_by: string | null;
+  created_at: Generated<string>;
+  decided_at: string | null;
   decided_by: string | null;
   decision_note: string | null;
   employee_id: string;
@@ -88,11 +87,11 @@ export interface AppAbsenceRequests {
   status: Generated<AppAbsenceStatus>;
   tenant_id: string;
   type: AppAbsenceType;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AppContracts {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   employee_id: string;
   flex_cap_minus_min: number | null;
   flex_cap_plus_min: number | null;
@@ -113,25 +112,25 @@ export interface AppContracts {
 
 export interface AppCorrectionRequests {
   action: AppCorrectionAction;
-  created_at: Generated<Timestamp>;
-  decided_at: Timestamp | null;
+  created_at: Generated<string>;
+  decided_at: string | null;
   decided_by: string | null;
   decision_note: string | null;
   employee_id: string;
   id: Generated<string>;
-  new_ended_at: Timestamp | null;
-  new_started_at: Timestamp | null;
+  new_ended_at: string | null;
+  new_started_at: string | null;
   reason: string;
   requested_by: string;
   status: Generated<AppCorrectionStatus>;
   target_entry_id: string | null;
   tenant_id: string;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AppEmployees {
   closed_through: string | null;
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   entry_date: string;
   exit_date: string | null;
   first_name: string;
@@ -140,11 +139,11 @@ export interface AppEmployees {
   personnel_no: string;
   team_id: string | null;
   tenant_id: string;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AppFindingAcks {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   created_by: string;
   employee_id: string;
   id: Generated<string>;
@@ -156,7 +155,7 @@ export interface AppFindingAcks {
 }
 
 export interface AppFlexBookings {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   created_by: string | null;
   effective_date: string;
   employee_id: string;
@@ -170,7 +169,7 @@ export interface AppFlexBookings {
 
 export interface AppMonthClosings {
   action: AppMonthClosingAction;
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   created_by: string;
   id: Generated<string>;
   month: string;
@@ -180,24 +179,24 @@ export interface AppMonthClosings {
 }
 
 export interface AppTeamLeads {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   team_id: string;
   tenant_id: string;
   user_id: string;
 }
 
 export interface AppTeams {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   id: Generated<string>;
   name: string;
   tenant_id: string;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AppTenants {
   carryover_until: Generated<string>;
-  created_at: Generated<Timestamp>;
-  expires_at: Timestamp | null;
+  created_at: Generated<string>;
+  expires_at: string | null;
   flex_cap_minus_min: number | null;
   flex_cap_mode: Generated<AppFlexCapMode>;
   flex_cap_plus_min: number | null;
@@ -209,43 +208,43 @@ export interface AppTenants {
   slug: string;
   state: AppFederalState;
   timezone: Generated<string>;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AppTimeEntries {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   created_by: string | null;
   employee_id: string;
   end_reason: AppEndReason | null;
-  ended_at: Timestamp | null;
+  ended_at: string | null;
   id: Generated<string>;
   request_id: string | null;
   source: AppEntrySource;
-  started_at: Generated<Timestamp>;
+  started_at: Generated<string>;
   tenant_id: string;
-  voided_at: Timestamp | null;
+  voided_at: string | null;
   voided_by_request_id: string | null;
   workday: Generated<string>;
 }
 
 export interface AppUsers {
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   display_name: string;
   email: string;
   employee_id: string | null;
   id: Generated<string>;
-  last_login_at: Timestamp | null;
+  last_login_at: string | null;
   locale: Generated<string>;
   role: Generated<AppUserRole>;
   status: Generated<AppUserStatus>;
   tenant_id: string;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AppVacationLedger {
   absence_id: string | null;
   bucket_year: number;
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   created_by: string | null;
   days: Numeric;
   dedupe_key: string | null;
@@ -259,23 +258,23 @@ export interface AppVacationLedger {
 }
 
 export interface AppVacationNotices {
-  acknowledged_at: Timestamp | null;
+  acknowledged_at: string | null;
   bucket_year: number;
   channel: AppNoticeChannel;
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   deadline: string;
   employee_id: string;
   id: Generated<string>;
   remaining_days: Numeric;
-  sent_at: Generated<Timestamp>;
+  sent_at: Generated<string>;
   sent_by: string;
   tenant_id: string;
   text_version: string;
 }
 
 export interface AppWorkModels {
-  archived_at: Timestamp | null;
-  created_at: Generated<Timestamp>;
+  archived_at: string | null;
+  created_at: Generated<string>;
   id: Generated<string>;
   min_fri: number;
   min_mon: number;
@@ -286,7 +285,7 @@ export interface AppWorkModels {
   min_wed: number;
   name: string;
   tenant_id: string;
-  updated_at: Generated<Timestamp>;
+  updated_at: Generated<string>;
 }
 
 export interface AuditLog {
@@ -296,7 +295,7 @@ export interface AuditLog {
   diff: Json | null;
   id: Generated<Int8>;
   ip: string | null;
-  occurred_at: Generated<Timestamp>;
+  occurred_at: Generated<string>;
   request_id: string | null;
   row_id: string | null;
   source: string;
@@ -307,7 +306,7 @@ export interface AuditLog {
 
 export interface OpsDemoOutbox {
   body: string;
-  created_at: Generated<Timestamp>;
+  created_at: Generated<string>;
   id: Generated<string>;
   recipient: string;
   subject: string;
@@ -315,8 +314,8 @@ export interface OpsDemoOutbox {
 }
 
 export interface OpsRateLimits {
-  blocked_until: Timestamp | null;
-  expires_at: Timestamp;
+  blocked_until: string | null;
+  expires_at: string;
   hits: number;
   key: string;
 }

@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { sessionSchema } from '@zeit/shared';
 import type { Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthSession } from '../common/session.guard';
@@ -8,7 +9,7 @@ import { csrfTokenFor, hashToken } from './tokens';
 
 const profile: Profile = {
 	user: {
-		id: 'u1',
+		id: '0b1a4f0e-9c1d-4e8a-8f3b-2d5c6e7f8a90',
 		email: 'anna@muster.test',
 		displayName: 'Anna Admin',
 		role: 'admin',
@@ -17,7 +18,13 @@ const profile: Profile = {
 		employeeId: null,
 		lastLoginAt: '2026-09-24T06:00:00Z'
 	},
-	tenant: { id: 't1', name: 'Steuerbüro Muster', kind: 'live', expiresAt: null }
+	tenant: {
+		id: '5d2e6f1a-3b4c-4d5e-9f6a-7b8c9d0e1f2a',
+		name: 'Steuerbüro Muster',
+		kind: 'live',
+		expiresAt: null
+	},
+	leadsTeams: [{ id: '9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b', name: 'Buchhaltung' }]
 };
 
 function setup(origin = 'https://zeit.example.com') {
@@ -30,7 +37,9 @@ function setup(origin = 'https://zeit.example.com') {
 				tenantId: 't1',
 				role: 'admin',
 				employeeId: null,
-				csrfHash: session.csrfHash
+				csrfHash: session.csrfHash,
+				enrollmentPending: true,
+				reauthUntil: null
 			});
 		}),
 		resolveSession: vi.fn(async (tokenHash: Buffer) => rows.get(tokenHash.toString('hex'))),
@@ -39,7 +48,7 @@ function setup(origin = 'https://zeit.example.com') {
 	};
 	const sessions = new SessionService(
 		store as unknown as AuthStore,
-		new ConfigService({ APP_ORIGIN: origin })
+		new ConfigService({ APP_ORIGIN: origin, APP_MODE: 'live' })
 	);
 	const response = { cookie: vi.fn(), clearCookie: vi.fn() };
 	return { sessions, store, response, asResponse: response as unknown as Response };
@@ -80,7 +89,13 @@ describe('SessionService', () => {
 			ip: '203.0.113.7',
 			userAgent: 'Firefox'
 		});
-		expect(opened).toEqual({ ...profile, csrfToken: csrfTokenFor(token) });
+		expect(opened).toEqual({
+			...profile,
+			mode: 'live',
+			security: { enrollmentPending: true, reauthUntil: null },
+			csrfToken: csrfTokenFor(token)
+		});
+		expect(sessionSchema.safeParse(opened).success).toBe(true);
 	});
 
 	it('resolves the session from the cookie and remembers the request id', async () => {

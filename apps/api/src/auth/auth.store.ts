@@ -9,7 +9,6 @@ export type Credential = {
 	userId: string;
 	tenantId: string;
 	role: Role;
-	status: 'active' | 'invited';
 	passwordHash: string | null;
 	lockedUntil: string | null;
 };
@@ -21,6 +20,8 @@ export type SessionRow = {
 	role: Role;
 	employeeId: string | null;
 	csrfHash: Buffer;
+	enrollmentPending: boolean;
+	reauthUntil: string | null;
 };
 
 export type TokenOwner = {
@@ -31,7 +32,7 @@ export type TokenOwner = {
 	expiresAt: string;
 };
 
-export type Profile = Omit<Session, 'csrfToken'>;
+export type Profile = Pick<Session, 'user' | 'tenant' | 'leadsTeams'>;
 
 export type NewSession = {
 	tokenHash: Buffer;
@@ -40,6 +41,8 @@ export type NewSession = {
 	userAgent: string | null;
 };
 
+type UserContext = TenantContext & { userId: string };
+
 // zeit_app has no grant on the auth tables, everything goes through the security definer functions
 @Injectable()
 export class AuthStore {
@@ -47,7 +50,7 @@ export class AuthStore {
 
 	async credential(email: string): Promise<Credential | undefined> {
 		const { rows } = await sql<Credential>`
-			select user_id as "userId", tenant_id as "tenantId", role, status,
+			select user_id as "userId", tenant_id as "tenantId", role,
 				password_hash as "passwordHash", locked_until as "lockedUntil"
 			from auth.login_lookup(${email})`.execute(this.db);
 		return rows[0];
@@ -57,19 +60,19 @@ export class AuthStore {
 		await sql`select auth.login_failed(${userId})`.execute(this.db);
 	}
 
-	async setPassword(userId: string, passwordHash: string): Promise<void> {
-		await sql`select auth.password_set(${userId}, ${passwordHash})`.execute(this.db);
-	}
-
 	async createSession(userId: string, session: NewSession): Promise<void> {
 		await sql`select auth.session_create(${userId}, ${session.tokenHash}, ${session.csrfHash},
 			${session.ip}::inet, ${session.userAgent})`.execute(this.db);
 	}
 
 	async resolveSession(tokenHash: Buffer): Promise<SessionRow | undefined> {
+		// a confirmation with password and second factor holds for ten minutes
 		const { rows } = await sql<SessionRow>`
 			select session_id as id, user_id as "userId", tenant_id as "tenantId", role,
-				employee_id as "employeeId", csrf_hash as "csrfHash"
+				employee_id as "employeeId", csrf_hash as "csrfHash",
+				enrollment_pending as "enrollmentPending",
+				case when reauth_at > now() - interval '10 minutes'
+					then reauth_at + interval '10 minutes' end as "reauthUntil"
 			from auth.session_resolve(${tokenHash})`.execute(this.db);
 		return rows[0];
 	}
@@ -89,7 +92,7 @@ export class AuthStore {
 		return rows;
 	}
 
-	profile(ctx: TenantContext & { userId: string }): Promise<Profile> {
+	profile(ctx: UserContext): Promise<Profile> {
 		return this.db.withTenant(ctx, async (trx) => {
 			const row = await trx
 				.selectFrom('app.users as u')
@@ -111,6 +114,14 @@ export class AuthStore {
 				.where('u.id', '=', ctx.userId)
 				.executeTakeFirstOrThrow();
 
+			const leadsTeams = await trx
+				.selectFrom('app.team_leads as l')
+				.innerJoin('app.teams as t', 't.id', 'l.team_id')
+				.select(['t.id', 't.name'])
+				.where('l.user_id', '=', ctx.userId)
+				.orderBy('t.name')
+				.execute();
+
 			return {
 				user: {
 					id: row.id,
@@ -127,14 +138,17 @@ export class AuthStore {
 					name: row.tenant_name,
 					kind: row.tenant_kind,
 					expiresAt: row.tenant_expires_at
-				}
+				},
+				leadsTeams
 			};
 		});
 	}
 
-	async issueToken(userId: string, kind: TokenKind, tokenHash: Buffer, ttl: string): Promise<void> {
-		await sql`select auth.token_issue(${userId}, ${kind}::auth.token_kind, ${tokenHash},
-			${ttl}::interval)`.execute(this.db);
+	// the lifetime comes from the database: 7 days for invitations, 30 minutes for resets
+	async issueToken(userId: string, kind: TokenKind, tokenHash: Buffer): Promise<void> {
+		await sql`select auth.token_issue(${userId}, ${kind}::auth.token_kind, ${tokenHash})`.execute(
+			this.db
+		);
 	}
 
 	async inspectToken(tokenHash: Buffer, kind: TokenKind): Promise<TokenOwner | undefined> {
@@ -145,18 +159,11 @@ export class AuthStore {
 		return rows[0];
 	}
 
-	// consuming the token, the new password and the logout everywhere stand or fall together
-	resetPassword(tokenHash: Buffer, passwordHash: string): Promise<string | null> {
-		return this.db.transaction().execute(async (trx) => {
-			const { rows } = await sql<{ userId: string | null }>`
-				select auth.token_consume(${tokenHash}, 'password_reset') as "userId"`.execute(trx);
-			const userId = rows[0]?.userId ?? null;
-			if (!userId) return null;
-
-			await sql`select auth.password_set(${userId}, ${passwordHash})`.execute(trx);
-			await sql`select auth.session_revoke_all(${userId})`.execute(trx);
-			return userId;
-		});
+	// token, new password and the end of every session in one statement
+	async resetPassword(tokenHash: Buffer, passwordHash: string): Promise<string | null> {
+		const { rows } = await sql<{ userId: string | null }>`
+			select auth.password_reset(${tokenHash}, ${passwordHash}) as "userId"`.execute(this.db);
+		return rows[0]?.userId ?? null;
 	}
 
 	acceptInvitation(
@@ -165,23 +172,18 @@ export class AuthStore {
 		passwordHash: string
 	): Promise<string | null> {
 		return this.db.transaction().execute(async (trx) => {
+			// no app.user_id here, guard_own_user would take the activation for a self-promotion
+			await sql`select set_config('app.request_id', ${requestId}, true)`.execute(trx);
 			const { rows } = await sql<{ userId: string | null }>`
-				select auth.token_consume(${tokenHash}, 'invite') as "userId"`.execute(trx);
-			const userId = rows[0]?.userId ?? null;
-			if (!userId) return null;
-
-			// the status change lands in the trail, with the invited person as its actor
-			await sql`select set_config('app.user_id', ${userId}, true),
-				set_config('app.request_id', ${requestId}, true)`.execute(trx);
-			await sql`select auth.password_set(${userId}, ${passwordHash})`.execute(trx);
-			return userId;
+				select auth.invitation_accept(${tokenHash}, ${passwordHash}) as "userId"`.execute(trx);
+			return rows[0]?.userId ?? null;
 		});
 	}
 
-	changePassword(userId: string, passwordHash: string): Promise<void> {
-		return this.db.transaction().execute(async (trx) => {
-			await sql`select auth.password_set(${userId}, ${passwordHash})`.execute(trx);
-			await sql`select auth.session_revoke_all(${userId})`.execute(trx);
+	// ends every session of the person, this one included
+	changePassword(ctx: UserContext, passwordHash: string): Promise<void> {
+		return this.db.withTenant(ctx, async (trx) => {
+			await sql`select auth.password_change(${passwordHash})`.execute(trx);
 		});
 	}
 }

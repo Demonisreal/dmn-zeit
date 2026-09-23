@@ -34,7 +34,7 @@ import { VacationModule } from './vacation/vacation.module';
 	imports: [
 		ConfigModule.forRoot({
 			isGlobal: true,
-			// the .env in the repo root, shared with dbmate; containers get their env from compose
+			// the .env in the repo root for development, containers get their env from compose
 			envFilePath: join(__dirname, '..', '..', '..', '.env'),
 			validate: loadConfig
 		}),

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Role } from '@zeit/shared';
+import type { Role, UserStatus } from '@zeit/shared';
 import pg from 'pg';
 import { inject } from 'vitest';
 
@@ -104,15 +104,15 @@ export async function createTeam(tenantId: string, name = 'Buchhaltung') {
 
 export async function createUser(
 	tenantId: string,
-	options: { role?: Role; employeeId?: string | null } = {}
+	options: { role?: Role; employeeId?: string | null; status?: UserStatus } = {}
 ): Promise<Account> {
 	const role = options.role ?? 'employee';
 	const employeeId = options.employeeId ?? null;
 	const userId = await insertId(
 		await seed(),
 		`insert into app.users (tenant_id, email, display_name, role, status, employee_id)
-		 values ($1, $2, 'Erika Muster', $3, 'active', $4) returning id`,
-		[tenantId, `${randomUUID()}@example.test`, role, employeeId]
+		 values ($1, $2, 'Erika Muster', $3, $4, $5) returning id`,
+		[tenantId, `${randomUUID()}@example.test`, role, options.status ?? 'active', employeeId]
 	);
 	return { userId, context: { tenantId, userId, role, employeeId } };
 }

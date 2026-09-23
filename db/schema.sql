@@ -268,6 +268,17 @@ CREATE TYPE auth.token_kind AS ENUM (
 
 
 --
+-- Name: webauthn_purpose; Type: TYPE; Schema: auth; Owner: -
+--
+
+CREATE TYPE auth.webauthn_purpose AS ENUM (
+    'register',
+    'login',
+    'reauth'
+);
+
+
+--
 -- Name: apply_month_closing(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -333,6 +344,21 @@ $$;
 
 
 --
+-- Name: display_names(uuid[]); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.display_names(p_ids uuid[]) RETURNS TABLE(id uuid, display_name text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select u.id, u.display_name
+    from app.users u
+   where u.id = any (p_ids)
+     and u.tenant_id = app.tenant_id();
+$$;
+
+
+--
 -- Name: employee_id(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -366,6 +392,27 @@ $$;
 
 
 --
+-- Name: guard_own_user(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_own_user() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  own constant text[] := array['display_name', 'locale', 'updated_at', 'last_login_at'];
+begin
+  -- on their own row people rename themselves or switch the language, admins included
+  if new.id = app.user_id() and to_jsonb(new) - own <> to_jsonb(old) - own then
+    raise exception 'only display name and locale can be changed on one''s own user'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+
+--
 -- Name: guard_request_status(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -393,7 +440,13 @@ begin
       using errcode = 'ZT003';
   end if;
 
-  if exists (select 1 from app.users u where u.id = new.decided_by and u.employee_id = new.employee_id) then
+  -- confirming a sick note certificate counts as a decision too
+  if exists (
+    select 1
+      from app.users u
+     where u.employee_id = new.employee_id
+       and u.id in (new.decided_by, (to_jsonb(new) ->> 'certificate_confirmed_by')::uuid)
+  ) then
     raise exception 'nobody decides on their own %', tg_table_name using errcode = 'insufficient_privilege';
   end if;
 
@@ -534,6 +587,52 @@ $$;
 
 
 --
+-- Name: team_absence_days(date, date, uuid); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.team_absence_days(p_from date, p_to date, p_team_id uuid) RETURNS TABLE(employee_id uuid, display_name text, date date, portion numeric, type text, status text)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  full_view boolean;
+begin
+  if p_to < p_from or p_to - p_from >= 62 then
+    raise exception 'a calendar spans 1 to 62 days' using errcode = 'invalid_parameter_value';
+  end if;
+
+  select app.role() >= 'hr'
+         or exists (select 1 from app.team_leads l where l.team_id = t.id and l.user_id = app.user_id())
+    into full_view
+    from app.teams t
+   where t.id = p_team_id
+     and t.tenant_id = app.tenant_id();
+
+  if full_view is null or (not full_view and not exists (
+    select 1 from app.employees e where e.id = app.employee_id() and e.team_id = p_team_id
+  )) then
+    raise exception 'team % is not visible', p_team_id using errcode = 'insufficient_privilege';
+  end if;
+
+  -- colleagues learn that someone is away, not why
+  return query
+    select e.id, e.first_name || ' ' || e.last_name, d.date, d.portion,
+           case when full_view then r.type::text end,
+           case when full_view then r.status::text end
+      from app.absence_days d
+      join app.absence_requests r on r.id = d.absence_id
+      join app.employees e on e.id = d.employee_id
+     where e.team_id = p_team_id
+       and d.tenant_id = app.tenant_id()
+       and d.superseded_at is null
+       and d.date between p_from and p_to
+       and r.status in ('pending', 'approved', 'cancel_pending')
+     order by e.last_name, e.first_name, d.date;
+end;
+$$;
+
+
+--
 -- Name: tenant_id(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -620,6 +719,79 @@ $$;
 
 
 --
+-- Name: enrollment_finish(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.enrollment_finish(p_session_id uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  account uuid;
+begin
+  update auth.sessions s set enrollment_pending = false
+   where s.id = p_session_id
+     and s.enrollment_pending
+     and (
+       exists (select 1 from auth.totp t where t.user_id = s.user_id and t.confirmed_at is not null)
+       or exists (select 1 from auth.passkeys k where k.user_id = s.user_id)
+     )
+  returning s.user_id into account;
+  if account is null then
+    return false;
+  end if;
+
+  -- any other half-finished session of this person was opened with the password alone
+  delete from auth.sessions s where s.user_id = account and s.enrollment_pending;
+  return true;
+end;
+$$;
+
+
+--
+-- Name: factors(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.factors(p_user_id uuid) RETURNS TABLE(has_totp boolean, passkey_count integer, recovery_left integer)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select exists (select 1 from auth.totp t where t.user_id = p_user_id and t.confirmed_at is not null),
+         (select count(*)::integer from auth.passkeys k where k.user_id = p_user_id),
+         (select count(*)::integer from auth.recovery_codes c where c.user_id = p_user_id and c.used_at is null);
+$$;
+
+
+--
+-- Name: invitation_accept(bytea, text); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.invitation_accept(p_token_hash bytea, p_password_hash text) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  account uuid;
+begin
+  update auth.tokens t set used_at = now()
+    from app.users u
+   where t.token_hash = p_token_hash
+     and t.kind = 'invite'
+     and t.used_at is null
+     and t.expires_at > now()
+     and u.id = t.user_id
+     and u.status = 'invited'
+  returning t.user_id into account;
+
+  if account is not null then
+    perform auth.password_set(account, p_password_hash);
+  end if;
+  return account;
+end;
+$$;
+
+
+--
 -- Name: login_failed(uuid); Type: FUNCTION; Schema: auth; Owner: -
 --
 
@@ -627,13 +799,20 @@ CREATE FUNCTION auth.login_failed(p_user_id uuid) RETURNS timestamp with time zo
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- from the fifth miss in a row the account locks for 1, 2, 4 ... 64 minutes
+  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4 ... 64 minutes
   update auth.credentials c
-     set failed_count = c.failed_count + 1,
+     set failed_count = s.misses,
+         last_failed_at = now(),
          locked_until = case
-           when c.failed_count >= 4 then now() + interval '1 minute' * power(2, least(c.failed_count - 4, 6))
+           when s.misses >= 5 then now() + interval '1 minute' * power(2, least(s.misses - 5, 6))
          end
-   where c.user_id = p_user_id
+    from (
+      select p.user_id,
+             case when p.last_failed_at > now() - interval '24 hours' then p.failed_count else 0 end + 1 as misses
+        from auth.credentials p
+       where p.user_id = p_user_id
+    ) s
+   where c.user_id = s.user_id
   returning c.locked_until;
 $$;
 
@@ -651,7 +830,233 @@ CREATE FUNCTION auth.login_lookup(p_email text) RETURNS TABLE(user_id uuid, tena
     left join auth.credentials c on c.user_id = u.id
    -- search_path is empty, so the citext operator has to be named or = compares case-sensitively
    where u.email operator(public.=) p_email::public.citext
-     and u.status in ('active', 'invited');
+     and u.status = 'active';
+$$;
+
+
+--
+-- Name: mfa_challenge_attempt(bytea); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.mfa_challenge_attempt(p_token_hash bytea) RETURNS uuid
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  -- the attempt is counted before the code is checked, so parallel guesses cannot slip past the limit
+  update auth.mfa_challenges m set attempts = m.attempts + 1
+   where m.token_hash = p_token_hash
+     and m.expires_at > now()
+     and m.attempts < 5
+  returning m.user_id;
+$$;
+
+
+--
+-- Name: mfa_challenge_consume(bytea); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.mfa_challenge_consume(p_token_hash bytea) RETURNS uuid
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  delete from auth.mfa_challenges m
+   where m.token_hash = p_token_hash and m.expires_at > now()
+  returning m.user_id;
+$$;
+
+
+--
+-- Name: mfa_challenge_create(uuid, bytea); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.mfa_challenge_create(p_user_id uuid, p_token_hash bytea) RETURNS timestamp with time zone
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  -- one open step per person, a fresh password login replaces the previous one
+  delete from auth.mfa_challenges m where m.user_id = p_user_id;
+  insert into auth.mfa_challenges (token_hash, user_id)
+  values (p_token_hash, p_user_id)
+  returning expires_at;
+$$;
+
+
+--
+-- Name: mfa_reset(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.mfa_reset(p_user_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  if app.role() is distinct from 'admin'
+    or p_user_id is not distinct from app.user_id()
+    or not exists (select 1 from app.users u where u.id = p_user_id and u.tenant_id = app.tenant_id())
+  then
+    raise exception 'second factors of % cannot be reset from here', p_user_id
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  delete from auth.totp t where t.user_id = p_user_id;
+  delete from auth.passkeys k where k.user_id = p_user_id;
+  delete from auth.recovery_codes c where c.user_id = p_user_id;
+  delete from auth.mfa_challenges m where m.user_id = p_user_id;
+  delete from auth.webauthn_challenges w where w.user_id = p_user_id;
+  delete from auth.sessions s where s.user_id = p_user_id;
+end;
+$$;
+
+
+--
+-- Name: passkey_add(uuid, bytea, bytea, bigint, text[], uuid, boolean, text); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.passkey_add(p_user_id uuid, p_credential_id bytea, p_public_key bytea, p_counter bigint, p_transports text[], p_aaguid uuid, p_backed_up boolean, p_name text) RETURNS uuid
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  insert into auth.passkeys (user_id, credential_id, public_key, counter, transports, aaguid, backed_up, name)
+  values (
+    p_user_id, p_credential_id, p_public_key, p_counter, coalesce(p_transports, '{}'), p_aaguid,
+    p_backed_up, p_name
+  )
+  returning id;
+$$;
+
+
+--
+-- Name: passkey_find(bytea); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.passkey_find(p_credential_id bytea) RETURNS TABLE(id uuid, user_id uuid, public_key bytea, counter bigint, transports text[])
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select k.id, k.user_id, k.public_key, k.counter, k.transports
+    from auth.passkeys k
+    join app.users u on u.id = k.user_id
+   where k.credential_id = p_credential_id
+     and u.status in ('active', 'demo');
+$$;
+
+
+--
+-- Name: passkey_remove(uuid, uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.passkey_remove(p_user_id uuid, p_passkey_id uuid) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  with gone as (
+    delete from auth.passkeys k where k.id = p_passkey_id and k.user_id = p_user_id returning k.id
+  )
+  select exists (select 1 from gone);
+$$;
+
+
+--
+-- Name: passkey_rename(uuid, uuid, text); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.passkey_rename(p_user_id uuid, p_passkey_id uuid, p_name text) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  with renamed as (
+    update auth.passkeys k set name = p_name
+     where k.id = p_passkey_id and k.user_id = p_user_id
+    returning k.id
+  )
+  select exists (select 1 from renamed);
+$$;
+
+
+--
+-- Name: passkey_touch(uuid, bigint, boolean); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.passkey_touch(p_passkey_id uuid, p_counter bigint, p_backed_up boolean) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  -- a counter that does not move forward points to a cloned authenticator; some never count and stay at 0
+  with touched as (
+    update auth.passkeys k
+       set counter = p_counter, backed_up = p_backed_up, last_used_at = now()
+     where k.id = p_passkey_id
+       and (p_counter > k.counter or (p_counter = 0 and k.counter = 0))
+    returning k.id
+  )
+  select exists (select 1 from touched);
+$$;
+
+
+--
+-- Name: passkeys_list(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.passkeys_list(p_user_id uuid) RETURNS TABLE(id uuid, name text, transports text[], backed_up boolean, created_at timestamp with time zone, last_used_at timestamp with time zone)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select k.id, k.name, k.transports, k.backed_up, k.created_at, k.last_used_at
+    from auth.passkeys k
+   where k.user_id = p_user_id
+   order by k.created_at;
+$$;
+
+
+--
+-- Name: password_change(text); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.password_change(p_password_hash text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  account uuid := app.user_id();
+begin
+  if account is null then
+    raise exception 'nobody is signed in' using errcode = '28000';
+  end if;
+
+  perform auth.password_set(account, p_password_hash);
+  -- this device included, the api opens a fresh session right after
+  delete from auth.sessions s where s.user_id = account;
+end;
+$$;
+
+
+--
+-- Name: password_reset(bytea, text); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.password_reset(p_token_hash bytea, p_password_hash text) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  account uuid;
+begin
+  update auth.tokens t set used_at = now()
+    from app.users u
+   where t.token_hash = p_token_hash
+     and t.kind = 'password_reset'
+     and t.used_at is null
+     and t.expires_at > now()
+     and u.id = t.user_id
+     and u.status = 'active'
+  returning t.user_id into account;
+
+  if account is not null then
+    perform auth.password_set(account, p_password_hash);
+    delete from auth.sessions s where s.user_id = account;
+  end if;
+  return account;
+end;
 $$;
 
 
@@ -683,6 +1088,39 @@ CREATE FUNCTION auth.purge_expired() RETURNS void
     AS $$
   delete from auth.sessions s where s.idle_expires_at <= now();
   delete from auth.tokens t where t.expires_at <= now();
+  delete from auth.webauthn_challenges w where w.expires_at <= now() or w.used_at is not null;
+  delete from auth.mfa_challenges m where m.expires_at <= now();
+$$;
+
+
+--
+-- Name: recovery_code_use(uuid, bytea); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.recovery_code_use(p_user_id uuid, p_code_hash bytea) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  with used as (
+    update auth.recovery_codes c set used_at = now()
+     where c.user_id = p_user_id and c.code_hash = p_code_hash and c.used_at is null
+    returning c.id
+  )
+  select exists (select 1 from used);
+$$;
+
+
+--
+-- Name: recovery_codes_replace(uuid, bytea[]); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.recovery_codes_replace(p_user_id uuid, p_code_hashes bytea[]) RETURNS void
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  delete from auth.recovery_codes c where c.user_id = p_user_id;
+  insert into auth.recovery_codes (user_id, code_hash)
+  select p_user_id, h.code_hash from unnest(p_code_hashes) as h (code_hash);
 $$;
 
 
@@ -696,22 +1134,34 @@ CREATE FUNCTION auth.session_create(p_user_id uuid, p_token_hash bytea, p_csrf_h
     AS $$
 declare
   sid uuid;
+  sandbox boolean;
 begin
   update app.users u set last_login_at = now()
-   where u.id = p_user_id and u.status in ('active', 'demo');
+   where u.id = p_user_id and u.status in ('active', 'demo')
+  returning u.status = 'demo' into sandbox;
   if not found then
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  update auth.credentials c set failed_count = 0, locked_until = null
+  -- a lock holds for passkeys too, and signing in does not lift it
+  if exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now()) then
+    raise exception 'user % is locked', p_user_id using errcode = '28000';
+  end if;
+
+  update auth.credentials c set failed_count = 0, locked_until = null, last_failed_at = null
    where c.user_id = p_user_id and c.failed_count > 0;
 
+  -- without a second factor the session only reaches the enrollment endpoints, demo personas excepted
   insert into auth.sessions (
-    user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent
+    user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent,
+    enrollment_pending
   )
   values (
     p_user_id, p_token_hash, p_csrf_hash, now() + interval '12 hours', now() + interval '7 days',
-    p_ip, p_user_agent
+    p_ip, p_user_agent,
+    not sandbox
+      and not exists (select 1 from auth.totp t where t.user_id = p_user_id and t.confirmed_at is not null)
+      and not exists (select 1 from auth.passkeys k where k.user_id = p_user_id)
   )
   returning id into sid;
 
@@ -721,15 +1171,28 @@ $$;
 
 
 --
+-- Name: session_reauth(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.session_reauth(p_session_id uuid) RETURNS timestamp with time zone
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  update auth.sessions s set reauth_at = now() where s.id = p_session_id returning s.reauth_at;
+$$;
+
+
+--
 -- Name: session_resolve(bytea); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_id uuid, user_id uuid, tenant_id uuid, role app.user_role, employee_id uuid, csrf_hash bytea)
+CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_id uuid, user_id uuid, tenant_id uuid, role app.user_role, employee_id uuid, csrf_hash bytea, reauth_at timestamp with time zone, enrollment_pending boolean)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
   with hit as (
-    select s.id, s.last_seen_at, s.csrf_hash, u.id as user_id, u.tenant_id, u.role, u.employee_id
+    select s.id, s.last_seen_at, s.csrf_hash, s.reauth_at, s.enrollment_pending,
+           u.id as user_id, u.tenant_id, u.role, u.employee_id
       from auth.sessions s
       join app.users u on u.id = s.user_id
       join app.tenants t on t.id = u.tenant_id
@@ -747,7 +1210,8 @@ CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_i
      where s.id = hit.id
        and hit.last_seen_at < now() - interval '1 minute'
   )
-  select hit.id, hit.user_id, hit.tenant_id, hit.role, hit.employee_id, hit.csrf_hash
+  select hit.id, hit.user_id, hit.tenant_id, hit.role, hit.employee_id, hit.csrf_hash,
+         hit.reauth_at, hit.enrollment_pending
     from hit;
 $$;
 
@@ -846,19 +1310,150 @@ $$;
 
 
 --
--- Name: token_issue(uuid, auth.token_kind, bytea, interval); Type: FUNCTION; Schema: auth; Owner: -
+-- Name: token_issue(uuid, auth.token_kind, bytea); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.token_issue(p_user_id uuid, p_kind auth.token_kind, p_token_hash bytea, p_ttl interval) RETURNS timestamp with time zone
+CREATE FUNCTION auth.token_issue(p_user_id uuid, p_kind auth.token_kind, p_token_hash bytea) RETURNS timestamp with time zone
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
   -- the open token of the same kind is overwritten, so only the newest link works
   insert into auth.tokens as t (user_id, kind, token_hash, expires_at)
-  values (p_user_id, p_kind, p_token_hash, now() + p_ttl)
+  values (
+    p_user_id, p_kind, p_token_hash,
+    now() + case p_kind when 'invite' then interval '7 days' else interval '30 minutes' end
+  )
   on conflict (user_id, kind) where used_at is null do update
     set token_hash = excluded.token_hash, expires_at = excluded.expires_at, created_at = now()
   returning t.expires_at;
+$$;
+
+
+--
+-- Name: totp_begin(uuid, bytea, integer); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.totp_begin(p_user_id uuid, p_secret_enc bytea, p_key_version integer) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  -- a pending secret is simply replaced, a confirmed one stays until it is removed on purpose
+  with saved as (
+    insert into auth.totp as t (user_id, secret_enc, key_version)
+    values (p_user_id, p_secret_enc, p_key_version)
+    on conflict (user_id) do update
+      set secret_enc = excluded.secret_enc, key_version = excluded.key_version,
+          last_used_step = null, created_at = now()
+      where t.confirmed_at is null
+    returning t.user_id
+  )
+  select exists (select 1 from saved);
+$$;
+
+
+--
+-- Name: totp_confirm(uuid, bigint, bytea[]); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.totp_confirm(p_user_id uuid, p_step bigint, p_code_hashes bytea[]) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  -- the code that confirmed the secret is spent and cannot sign in afterwards
+  update auth.totp t set confirmed_at = now(), last_used_step = p_step
+   where t.user_id = p_user_id and t.confirmed_at is null;
+  if not found then
+    return false;
+  end if;
+
+  if p_code_hashes is not null then
+    perform auth.recovery_codes_replace(p_user_id, p_code_hashes);
+  end if;
+  return true;
+end;
+$$;
+
+
+--
+-- Name: totp_remove(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.totp_remove(p_user_id uuid) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  with gone as (delete from auth.totp t where t.user_id = p_user_id returning t.user_id)
+  select exists (select 1 from gone);
+$$;
+
+
+--
+-- Name: totp_secret(uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.totp_secret(p_user_id uuid) RETURNS TABLE(secret_enc bytea, key_version smallint, confirmed boolean, last_used_step bigint)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select t.secret_enc, t.key_version, t.confirmed_at is not null, t.last_used_step
+    from auth.totp t
+   where t.user_id = p_user_id;
+$$;
+
+
+--
+-- Name: totp_use_step(uuid, bigint); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.totp_use_step(p_user_id uuid, p_step bigint) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  -- a code counts once: its step has to lie after the last one used, parallel requests queue on the row
+  with used as (
+    update auth.totp t set last_used_step = p_step
+     where t.user_id = p_user_id
+       and t.confirmed_at is not null
+       and p_step > coalesce(t.last_used_step, -1)
+    returning t.user_id
+  )
+  select exists (select 1 from used);
+$$;
+
+
+--
+-- Name: webauthn_challenge_consume(bytea, auth.webauthn_purpose, uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.webauthn_challenge_consume(p_challenge bytea, p_purpose auth.webauthn_purpose, p_user_id uuid) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  with used as (
+    update auth.webauthn_challenges w set used_at = now()
+     where w.challenge = p_challenge
+       and w.purpose = p_purpose
+       and w.user_id is not distinct from p_user_id
+       and w.used_at is null
+       and w.expires_at > now()
+    returning w.id
+  )
+  select exists (select 1 from used);
+$$;
+
+
+--
+-- Name: webauthn_challenge_create(bytea, auth.webauthn_purpose, uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.webauthn_challenge_create(p_challenge bytea, p_purpose auth.webauthn_purpose, p_user_id uuid) RETURNS timestamp with time zone
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  insert into auth.webauthn_challenges (challenge, purpose, user_id)
+  values (p_challenge, p_purpose, p_user_id)
+  returning expires_at;
 $$;
 
 
@@ -973,13 +1568,15 @@ CREATE TABLE app.absence_requests (
     decided_at timestamp with time zone,
     decision_note text,
     certificate_confirmed_at timestamp with time zone,
+    certificate_confirmed_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT absence_requests_check CHECK ((end_date >= start_date)),
     CONSTRAINT absence_requests_check1 CHECK (((start_date < end_date) OR (NOT (half_day_start AND half_day_end)))),
     CONSTRAINT absence_requests_check2 CHECK (((status <> ALL (ARRAY['approved'::app.absence_status, 'rejected'::app.absence_status])) OR (decided_by IS NOT NULL) OR (type = 'sick'::app.absence_type))),
     CONSTRAINT absence_requests_check3 CHECK (((decided_by IS NULL) = (decided_at IS NULL))),
-    CONSTRAINT absence_requests_check4 CHECK (((certificate_confirmed_at IS NULL) OR (type = 'sick'::app.absence_type)))
+    CONSTRAINT absence_requests_check4 CHECK (((certificate_confirmed_at IS NULL) OR (type = 'sick'::app.absence_type))),
+    CONSTRAINT absence_requests_check5 CHECK (((certificate_confirmed_at IS NULL) = (certificate_confirmed_by IS NULL)))
 );
 
 ALTER TABLE ONLY app.absence_requests FORCE ROW LEVEL SECURITY;
@@ -1201,6 +1798,7 @@ CREATE TABLE app.tenants (
     CONSTRAINT tenants_check CHECK (((kind = 'sandbox'::app.tenant_kind) = (expires_at IS NOT NULL))),
     CONSTRAINT tenants_flex_cap_minus_min_check CHECK ((flex_cap_minus_min >= 0)),
     CONSTRAINT tenants_flex_cap_plus_min_check CHECK ((flex_cap_plus_min >= 0)),
+    CONSTRAINT tenants_holiday_options_check CHECK ((holiday_options <@ ARRAY['corpus_christi'::text, 'augsburg_peace'::text, 'assumption_day'::text])),
     CONSTRAINT tenants_name_check CHECK ((btrim(name) <> ''::text)),
     CONSTRAINT tenants_slug_check CHECK (((slug)::text ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)),
     CONSTRAINT tenants_timezone_check CHECK ((timezone = 'Europe/Berlin'::text))
@@ -1404,8 +2002,61 @@ CREATE TABLE auth.credentials (
     locked_until timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_failed_at timestamp with time zone,
     CONSTRAINT credentials_failed_count_check CHECK ((failed_count >= 0)),
     CONSTRAINT credentials_password_hash_check CHECK ((password_hash ~~ '$argon2id$%'::text))
+);
+
+
+--
+-- Name: mfa_challenges; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.mfa_challenges (
+    token_hash bytea NOT NULL,
+    user_id uuid NOT NULL,
+    attempts smallint DEFAULT 0 NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '00:05:00'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mfa_challenges_attempts_check CHECK (((attempts >= 0) AND (attempts <= 5))),
+    CONSTRAINT mfa_challenges_token_hash_check CHECK ((octet_length(token_hash) = 32))
+);
+
+
+--
+-- Name: passkeys; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.passkeys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    credential_id bytea NOT NULL,
+    public_key bytea NOT NULL,
+    counter bigint DEFAULT 0 NOT NULL,
+    transports text[] DEFAULT '{}'::text[] NOT NULL,
+    aaguid uuid,
+    backed_up boolean DEFAULT false NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_used_at timestamp with time zone,
+    CONSTRAINT passkeys_counter_check CHECK ((counter >= 0)),
+    CONSTRAINT passkeys_credential_id_check CHECK (((octet_length(credential_id) >= 16) AND (octet_length(credential_id) <= 1023))),
+    CONSTRAINT passkeys_name_check CHECK (((btrim(name) <> ''::text) AND (char_length(name) <= 80))),
+    CONSTRAINT passkeys_public_key_check CHECK ((octet_length(public_key) > 0))
+);
+
+
+--
+-- Name: recovery_codes; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.recovery_codes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    code_hash bytea NOT NULL,
+    used_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT recovery_codes_code_hash_check CHECK ((octet_length(code_hash) = 32))
 );
 
 
@@ -1424,6 +2075,8 @@ CREATE TABLE auth.sessions (
     user_agent text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    reauth_at timestamp with time zone,
+    enrollment_pending boolean DEFAULT false NOT NULL,
     CONSTRAINT sessions_check CHECK ((idle_expires_at <= absolute_expires_at)),
     CONSTRAINT sessions_csrf_hash_check CHECK ((octet_length(csrf_hash) = 32)),
     CONSTRAINT sessions_token_hash_check CHECK ((octet_length(token_hash) = 32))
@@ -1448,6 +2101,39 @@ CREATE TABLE auth.tokens (
 
 
 --
+-- Name: totp; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.totp (
+    user_id uuid NOT NULL,
+    secret_enc bytea NOT NULL,
+    key_version smallint NOT NULL,
+    confirmed_at timestamp with time zone,
+    last_used_step bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT totp_key_version_check CHECK ((key_version > 0)),
+    CONSTRAINT totp_last_used_step_check CHECK ((last_used_step >= 0))
+);
+
+
+--
+-- Name: webauthn_challenges; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.webauthn_challenges (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid,
+    challenge bytea NOT NULL,
+    purpose auth.webauthn_purpose NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '00:05:00'::interval) NOT NULL,
+    used_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT webauthn_challenges_challenge_check CHECK (((octet_length(challenge) >= 16) AND (octet_length(challenge) <= 64))),
+    CONSTRAINT webauthn_challenges_check CHECK (((purpose = 'login'::auth.webauthn_purpose) = (user_id IS NULL)))
+);
+
+
+--
 -- Name: demo_outbox; Type: TABLE; Schema: ops; Owner: -
 --
 
@@ -1459,6 +2145,8 @@ CREATE TABLE ops.demo_outbox (
     body text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+ALTER TABLE ONLY ops.demo_outbox FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -1852,6 +2540,46 @@ ALTER TABLE ONLY auth.credentials
 
 
 --
+-- Name: mfa_challenges mfa_challenges_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_challenges
+    ADD CONSTRAINT mfa_challenges_pkey PRIMARY KEY (token_hash);
+
+
+--
+-- Name: passkeys passkeys_credential_id_key; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.passkeys
+    ADD CONSTRAINT passkeys_credential_id_key UNIQUE (credential_id);
+
+
+--
+-- Name: passkeys passkeys_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.passkeys
+    ADD CONSTRAINT passkeys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: recovery_codes recovery_codes_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.recovery_codes
+    ADD CONSTRAINT recovery_codes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: recovery_codes recovery_codes_user_id_code_hash_key; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.recovery_codes
+    ADD CONSTRAINT recovery_codes_user_id_code_hash_key UNIQUE (user_id, code_hash);
+
+
+--
 -- Name: sessions sessions_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -1881,6 +2609,30 @@ ALTER TABLE ONLY auth.tokens
 
 ALTER TABLE ONLY auth.tokens
     ADD CONSTRAINT tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: totp totp_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.totp
+    ADD CONSTRAINT totp_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: webauthn_challenges webauthn_challenges_challenge_key; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.webauthn_challenges
+    ADD CONSTRAINT webauthn_challenges_challenge_key UNIQUE (challenge);
+
+
+--
+-- Name: webauthn_challenges webauthn_challenges_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.webauthn_challenges
+    ADD CONSTRAINT webauthn_challenges_pkey PRIMARY KEY (id);
 
 
 --
@@ -2027,6 +2779,20 @@ CREATE INDEX log_tenant_subject_idx ON audit.log USING btree (tenant_id, subject
 
 
 --
+-- Name: mfa_challenges_user_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX mfa_challenges_user_idx ON auth.mfa_challenges USING btree (user_id);
+
+
+--
+-- Name: passkeys_user_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX passkeys_user_idx ON auth.passkeys USING btree (user_id);
+
+
+--
 -- Name: sessions_idle_expires_idx; Type: INDEX; Schema: auth; Owner: -
 --
 
@@ -2052,6 +2818,13 @@ CREATE INDEX tokens_expires_idx ON auth.tokens USING btree (expires_at);
 --
 
 CREATE UNIQUE INDEX tokens_open_idx ON auth.tokens USING btree (user_id, kind) WHERE (used_at IS NULL);
+
+
+--
+-- Name: webauthn_challenges_expires_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX webauthn_challenges_expires_idx ON auth.webauthn_challenges USING btree (expires_at);
 
 
 --
@@ -2328,6 +3101,13 @@ CREATE TRIGGER time_entries_period_lock AFTER INSERT OR UPDATE ON app.time_entri
 
 
 --
+-- Name: users users_guard_own; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER users_guard_own BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION app.guard_own_user();
+
+
+--
 -- Name: users users_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -2412,6 +3192,14 @@ ALTER TABLE ONLY app.absence_days
 
 ALTER TABLE ONLY app.absence_days
     ADD CONSTRAINT absence_days_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: absence_requests absence_requests_tenant_id_certificate_confirmed_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.absence_requests
+    ADD CONSTRAINT absence_requests_tenant_id_certificate_confirmed_by_fkey FOREIGN KEY (tenant_id, certificate_confirmed_by) REFERENCES app.users(tenant_id, id);
 
 
 --
@@ -2767,6 +3555,30 @@ ALTER TABLE ONLY auth.credentials
 
 
 --
+-- Name: mfa_challenges mfa_challenges_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_challenges
+    ADD CONSTRAINT mfa_challenges_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: passkeys passkeys_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.passkeys
+    ADD CONSTRAINT passkeys_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: recovery_codes recovery_codes_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.recovery_codes
+    ADD CONSTRAINT recovery_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: sessions sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -2780,6 +3592,22 @@ ALTER TABLE ONLY auth.sessions
 
 ALTER TABLE ONLY auth.tokens
     ADD CONSTRAINT tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: totp totp_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.totp
+    ADD CONSTRAINT totp_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: webauthn_challenges webauthn_challenges_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.webauthn_challenges
+    ADD CONSTRAINT webauthn_challenges_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;
 
 
 --
@@ -3439,6 +4267,33 @@ CREATE POLICY "tenant fence" ON audit.log AS RESTRICTIVE TO zeit_app USING ((ten
 
 
 --
+-- Name: demo_outbox; Type: ROW SECURITY; Schema: ops; Owner: -
+--
+
+ALTER TABLE ops.demo_outbox ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: demo_outbox members read the outbox; Type: POLICY; Schema: ops; Owner: -
+--
+
+CREATE POLICY "members read the outbox" ON ops.demo_outbox FOR SELECT TO zeit_app USING (true);
+
+
+--
+-- Name: demo_outbox tenant fence; Type: POLICY; Schema: ops; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON ops.demo_outbox AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: demo_outbox the app posts mail; Type: POLICY; Schema: ops; Owner: -
+--
+
+CREATE POLICY "the app posts mail" ON ops.demo_outbox FOR INSERT TO zeit_app WITH CHECK (true);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -3455,4 +4310,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260924000100'),
     ('20260924000200'),
     ('20260924000300'),
-    ('20260924000400');
+    ('20260924000400'),
+    ('20260924000500'),
+    ('20260924000600');

@@ -132,8 +132,10 @@ describe('month closing', () => {
 	it('locks a status change but not the certificate of a closed sick note', async () => {
 		await withContext(app, hr.context);
 		const confirmed = await app.query(
-			'update app.absence_requests set certificate_confirmed_at = now() where id = $1',
-			[januarySick]
+			`update app.absence_requests
+			    set certificate_confirmed_at = now(), certificate_confirmed_by = $2
+			  where id = $1`,
+			[januarySick, hr.userId]
 		);
 		expect(confirmed.rowCount).toBe(1);
 

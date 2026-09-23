@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import {
 	employeeRefSchema,
+	inRange,
 	instantSchema,
+	pageOf,
+	pagingShape,
+	queryList,
+	rangeShape,
 	reasonSchema,
 	requestScopes,
 	userRefSchema,
@@ -23,7 +28,7 @@ export const createCorrectionSchema = z
 		z.object({ action: z.literal('void'), entryId: uuidSchema, reason: reasonSchema })
 	])
 	.refine((c) => c.action === 'void' || Date.parse(c.endedAt) > Date.parse(c.startedAt), {
-		error: 'End has to be after start',
+		error: 'correction.endBeforeStart',
 		path: ['endedAt']
 	});
 
@@ -31,7 +36,14 @@ export const correctionSchema = z.object({
 	id: uuidSchema,
 	employee: employeeRefSchema,
 	action: z.enum(correctionActions),
-	targetEntryId: uuidSchema.nullable(),
+	// the entry as it was before; null for add, open end while it is still running
+	target: z
+		.object({
+			entryId: uuidSchema,
+			startedAt: instantSchema,
+			endedAt: instantSchema.nullable()
+		})
+		.nullable(),
 	newStartedAt: instantSchema.nullable(),
 	newEndedAt: instantSchema.nullable(),
 	reason: z.string(),
@@ -43,11 +55,19 @@ export const correctionSchema = z.object({
 	createdAt: instantSchema
 });
 
-export const correctionsQuerySchema = z.object({
-	scope: z.enum(requestScopes).default('mine'),
-	status: z.enum(correctionStatuses).optional()
-});
+export const correctionsQuerySchema = z
+	.object({
+		...rangeShape,
+		scope: z.enum(requestScopes).default('mine'),
+		employee: uuidSchema.optional(),
+		status: queryList(correctionStatuses),
+		...pagingShape
+	})
+	.superRefine(inRange(366));
+
+export const correctionPageSchema = pageOf(correctionSchema);
 
 export type CreateCorrectionInput = z.infer<typeof createCorrectionSchema>;
 export type Correction = z.infer<typeof correctionSchema>;
 export type CorrectionsQuery = z.infer<typeof correctionsQuerySchema>;
+export type CorrectionPage = z.infer<typeof correctionPageSchema>;

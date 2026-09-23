@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FederalState } from '@zeit/shared';
 import { sql } from 'kysely';
-import { hashToken, INVITE_TTL, newToken } from '../auth/tokens';
+import { hashToken, newToken } from '../auth/tokens';
 import type { Database, TenantContext } from '../db/database';
 
 export type NewTenant = {
@@ -39,8 +39,7 @@ export async function createTenant(db: Database, tenant: NewTenant, origin: stri
 			})
 			.returning('id')
 			.executeTakeFirstOrThrow();
-		await sql`select auth.token_issue(${admin.id}, 'invite', ${hashToken(token)},
-			${INVITE_TTL}::interval)`.execute(trx);
+		await sql`select auth.token_issue(${admin.id}, 'invite', ${hashToken(token)})`.execute(trx);
 	});
 
 	return `${origin}/invite#t=${token}`;

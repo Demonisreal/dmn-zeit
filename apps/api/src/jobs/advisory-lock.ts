@@ -1,11 +1,11 @@
 import { sql, type Kysely } from 'kysely';
-import type { Tables } from '../db/database';
+import type { DB } from '../db/schema.generated';
 
 // session lock on one pooled connection; while a deploy overlaps two containers only one runs the job
 export function withAdvisoryLock(
-	db: Kysely<Tables>,
+	db: Kysely<DB>,
 	name: string,
-	work: (conn: Kysely<Tables>) => Promise<void>
+	work: (conn: Kysely<DB>) => Promise<void>
 ): Promise<boolean> {
 	return db.connection().execute(async (conn) => {
 		const { rows } = await sql<{ locked: boolean }>`

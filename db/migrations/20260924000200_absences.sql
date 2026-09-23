@@ -25,6 +25,7 @@ create table app.absence_requests (
   decision_note text,
   -- § 9 BUrlG: vacation days come back only once hr has seen the certificate
   certificate_confirmed_at timestamptz,
+  certificate_confirmed_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (tenant_id, id),
@@ -32,12 +33,14 @@ create table app.absence_requests (
   foreign key (tenant_id, employee_id) references app.employees (tenant_id, id),
   foreign key (tenant_id, requested_by) references app.users (tenant_id, id),
   foreign key (tenant_id, decided_by) references app.users (tenant_id, id),
+  foreign key (tenant_id, certificate_confirmed_by) references app.users (tenant_id, id),
   check (end_date >= start_date),
   check (start_date < end_date or not (half_day_start and half_day_end)),
   -- sick notes need no approval
   check (status not in ('approved', 'rejected') or decided_by is not null or type = 'sick'),
   check ((decided_by is null) = (decided_at is null)),
   check (certificate_confirmed_at is null or type = 'sick'),
+  check ((certificate_confirmed_at is null) = (certificate_confirmed_by is null)),
   constraint absence_requests_no_overlap exclude using gist (
     employee_id with =, daterange(start_date, end_date, '[]') with &&
   ) where (type <> 'sick' and status in ('pending', 'approved', 'cancel_pending'))
@@ -256,8 +259,9 @@ create policy "hr books vacation" on app.vacation_ledger for all to zeit_app
   using ((select app.role()) >= 'hr');
 
 grant select, insert on app.absence_requests to zeit_app;
-grant update (status, decided_by, decided_at, decision_note, certificate_confirmed_at)
-  on app.absence_requests to zeit_app;
+grant update (
+  status, decided_by, decided_at, decision_note, certificate_confirmed_at, certificate_confirmed_by
+) on app.absence_requests to zeit_app;
 grant select, insert on app.absence_days to zeit_app;
 grant update (superseded_at, superseded_by) on app.absence_days to zeit_app;
 grant select, insert on app.vacation_notices to zeit_app;
