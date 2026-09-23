@@ -1,0 +1,6 @@
+dist/
+coverage/
+pnpm-lock.yaml
+.impeccable/
+# hand-kept tables, prettier would pad them to 230 columns
+docs/planung.md

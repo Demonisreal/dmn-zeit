@@ -1,0 +1,25 @@
+name: zeit-dev
+
+services:
+  zeit-dev-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: zeit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      ZEIT_OWNER_PASSWORD: ${ZEIT_OWNER_PASSWORD:-zeit_owner}
+      ZEIT_APP_PASSWORD: ${ZEIT_APP_PASSWORD:-zeit_app}
+    ports:
+      - "127.0.0.1:54330:5432"
+    volumes:
+      - zeit-dev-db:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # tcp on purpose: during init the socket-only temp server already passes pg_isready
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "zeit"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  zeit-dev-db:
