@@ -3,38 +3,21 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from 'kysely';
+import type { ColumnType } from "kysely";
 
-export type AppFederalState =
-	| 'BB'
-	| 'BE'
-	| 'BW'
-	| 'BY'
-	| 'HB'
-	| 'HE'
-	| 'HH'
-	| 'MV'
-	| 'NI'
-	| 'NW'
-	| 'RP'
-	| 'SH'
-	| 'SL'
-	| 'SN'
-	| 'ST'
-	| 'TH';
+export type AppFederalState = "BB" | "BE" | "BW" | "BY" | "HB" | "HE" | "HH" | "MV" | "NI" | "NW" | "RP" | "SH" | "SL" | "SN" | "ST" | "TH";
 
-export type AppFlexCapMode = 'forfeit_at_close' | 'none' | 'warn';
+export type AppFlexCapMode = "forfeit_at_close" | "none" | "warn";
 
-export type AppTenantKind = 'live' | 'sandbox';
+export type AppTenantKind = "live" | "sandbox";
 
-export type AppUserRole = 'admin' | 'employee' | 'hr' | 'team_lead';
+export type AppUserRole = "admin" | "employee" | "hr" | "team_lead";
 
-export type AppUserStatus = 'active' | 'demo' | 'disabled' | 'invited';
+export type AppUserStatus = "active" | "demo" | "disabled" | "invited";
 
-export type Generated<T> =
-	T extends ColumnType<infer S, infer I, infer U>
-		? ColumnType<S, I | undefined, U>
-		: ColumnType<T, T | undefined, T>;
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
 
 export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
 
@@ -43,7 +26,7 @@ export type Json = JsonValue;
 export type JsonArray = JsonValue[];
 
 export type JsonObject = {
-	[x: string]: JsonValue | undefined;
+  [x: string]: JsonValue | undefined;
 };
 
 export type JsonPrimitive = boolean | number | string | null;
@@ -53,73 +36,73 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface AppTenants {
-	carryover_until: Generated<string>;
-	created_at: Generated<Timestamp>;
-	expires_at: Timestamp | null;
-	flex_cap_minus_min: number | null;
-	flex_cap_mode: Generated<AppFlexCapMode>;
-	flex_cap_plus_min: number | null;
-	half_days_dec24_31: Generated<boolean>;
-	holiday_options: Generated<string[]>;
-	id: Generated<string>;
-	kind: Generated<AppTenantKind>;
-	name: string;
-	slug: string;
-	state: AppFederalState;
-	timezone: Generated<string>;
-	updated_at: Generated<Timestamp>;
+  carryover_until: Generated<string>;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp | null;
+  flex_cap_minus_min: number | null;
+  flex_cap_mode: Generated<AppFlexCapMode>;
+  flex_cap_plus_min: number | null;
+  half_days_dec24_31: Generated<boolean>;
+  holiday_options: Generated<string[]>;
+  id: Generated<string>;
+  kind: Generated<AppTenantKind>;
+  name: string;
+  slug: string;
+  state: AppFederalState;
+  timezone: Generated<string>;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface AppUsers {
-	created_at: Generated<Timestamp>;
-	display_name: string;
-	email: string;
-	employee_id: string | null;
-	id: Generated<string>;
-	last_login_at: Timestamp | null;
-	locale: Generated<string>;
-	role: Generated<AppUserRole>;
-	status: Generated<AppUserStatus>;
-	tenant_id: string;
-	updated_at: Generated<Timestamp>;
+  created_at: Generated<Timestamp>;
+  display_name: string;
+  email: string;
+  employee_id: string | null;
+  id: Generated<string>;
+  last_login_at: Timestamp | null;
+  locale: Generated<string>;
+  role: Generated<AppUserRole>;
+  status: Generated<AppUserStatus>;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface AuditLog {
-	action: string;
-	actor_role: AppUserRole | null;
-	actor_user_id: string | null;
-	diff: Json | null;
-	id: Generated<Int8>;
-	ip: string | null;
-	occurred_at: Generated<Timestamp>;
-	request_id: string | null;
-	row_id: string | null;
-	source: string;
-	subject_employee_id: string | null;
-	table_name: string | null;
-	tenant_id: string;
+  action: string;
+  actor_role: AppUserRole | null;
+  actor_user_id: string | null;
+  diff: Json | null;
+  id: Generated<Int8>;
+  ip: string | null;
+  occurred_at: Generated<Timestamp>;
+  request_id: string | null;
+  row_id: string | null;
+  source: string;
+  subject_employee_id: string | null;
+  table_name: string | null;
+  tenant_id: string;
 }
 
 export interface OpsDemoOutbox {
-	body: string;
-	created_at: Generated<Timestamp>;
-	id: Generated<string>;
-	recipient: string;
-	subject: string;
-	tenant_id: string;
+  body: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  recipient: string;
+  subject: string;
+  tenant_id: string;
 }
 
 export interface OpsRateLimits {
-	blocked_until: Timestamp | null;
-	expires_at: Timestamp;
-	hits: number;
-	key: string;
+  blocked_until: Timestamp | null;
+  expires_at: Timestamp;
+  hits: number;
+  key: string;
 }
 
 export interface DB {
-	'app.tenants': AppTenants;
-	'app.users': AppUsers;
-	'audit.log': AuditLog;
-	'ops.demo_outbox': OpsDemoOutbox;
-	'ops.rate_limits': OpsRateLimits;
+  "app.tenants": AppTenants;
+  "app.users": AppUsers;
+  "audit.log": AuditLog;
+  "ops.demo_outbox": OpsDemoOutbox;
+  "ops.rate_limits": OpsRateLimits;
 }

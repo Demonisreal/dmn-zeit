@@ -6,7 +6,7 @@ const rawSql =
 	'Raw SQL skips parameter binding. Use the sql template tag, sql.ref or sql.table instead.';
 
 export default defineConfig(
-	{ ignores: ['**/dist/', '**/coverage/'] },
+	{ ignores: ['**/dist/', '**/coverage/', 'apps/api/src/db/schema.generated.ts'] },
 	js.configs.recommended,
 	tseslint.configs.recommended,
 	{
