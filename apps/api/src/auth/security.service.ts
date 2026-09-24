@@ -133,8 +133,11 @@ export class SecurityService {
 	}
 
 	async passkeyOptions(session: AuthSession): Promise<PublicKeyCredentialCreationOptionsJSON> {
-		const { user } = await this.store.profile(session);
-		return this.webauthn.creationOptions(user);
+		const [{ user }, existing] = await Promise.all([
+			this.store.profile(session),
+			this.factors.passkeys(session.userId)
+		]);
+		return this.webauthn.creationOptions(user, existing);
 	}
 
 	async addPasskey(

@@ -153,6 +153,15 @@ describe('setting up the second factor', () => {
 		expect(again.status).toBe(403);
 		expect(again.body.code).toBe('REAUTH_REQUIRED');
 
+		const next = await browser.post('/security/passkeys/options');
+		expect(next.body.excludeCredentials).toEqual([
+			{
+				id: authenticator.credentialId.toString('base64url'),
+				type: 'public-key',
+				transports: ['internal']
+			}
+		]);
+
 		const login = api.browser();
 		const loginOptions = await login.post('/auth/passkey/options');
 		expect(loginOptions.body.allowCredentials ?? []).toEqual([]);
@@ -164,8 +173,8 @@ describe('setting up the second factor', () => {
 		expect(session.body.user.id).toBe(userId);
 	});
 
-	it('refuses a passkey whose counter does not move forward, as a cloned one would', async () => {
-		const { authenticator } = await api.member();
+	it('refuses a passkey whose counter does not move forward and files it in the trail', async () => {
+		const { authenticator, userId } = await api.member();
 		const browser = api.browser();
 		const sign = async () => {
 			const options = await browser.post('/auth/passkey/options');
@@ -177,6 +186,19 @@ describe('setting up the second factor', () => {
 		const cloned = await sign();
 		expect(cloned.status).toBe(401);
 		expect(cloned.body.code).toBe('INVALID_CREDENTIALS');
+		expect(await actions(userId)).toContain('passkey.counter_rejected');
+	});
+
+	it('files a passkey signature that does not hold as failed login', async () => {
+		const { authenticator, userId } = await api.member();
+		const browser = api.browser();
+		await browser.post('/auth/passkey/options');
+
+		const forged = await browser.post('/auth/passkey/verify', {
+			response: authenticator.assert({ challenge: Buffer.alloc(32, 7).toString('base64url') })
+		});
+		expect(forged.status).toBe(401);
+		expect(await actions(userId)).toContain('login.failed:passkey');
 	});
 
 	it('does not reuse the challenge of a passkey login', async () => {
@@ -227,6 +249,9 @@ describe('the second step of a password login', () => {
 			[userId]
 		);
 		expect(rows[0]).toEqual({ failed_count: 5, locked: true });
+		expect((await actions(userId)).filter((action) => action === 'login.failed:totp')).toHaveLength(
+			5
+		);
 	});
 
 	it('takes a recovery code once, however it is typed', async () => {

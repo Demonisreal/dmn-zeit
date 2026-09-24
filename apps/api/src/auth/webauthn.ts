@@ -12,11 +12,12 @@ import {
 } from '@simplewebauthn/server';
 import type { ApiError, AuthenticationResponse, RegistrationResponse } from '@zeit/shared';
 import type { Config } from '../config';
-import { FactorStore, type NewPasskey } from './factor.store';
+import { FactorStore, type NewPasskey, type PasskeyRow, type Scope } from './factor.store';
 
-export type Assertion = {
-	userId: string;
+export type Assertion = Scope & {
 	passkeyId: string;
+	// false when signature, challenge or user handle did not hold
+	verified: boolean;
 	// the counter did not move forward, the authenticator was most likely cloned
 	cloned: boolean;
 };
@@ -38,11 +39,10 @@ export class WebAuthn {
 		this.rpID = new URL(this.origin).hostname;
 	}
 
-	async creationOptions(user: {
-		id: string;
-		email: string;
-		displayName: string;
-	}): Promise<PublicKeyCredentialCreationOptionsJSON> {
+	async creationOptions(
+		user: { id: string; email: string; displayName: string },
+		existing: PasskeyRow[]
+	): Promise<PublicKeyCredentialCreationOptionsJSON> {
 		const options = await generateRegistrationOptions({
 			rpName: 'DMN Zeit',
 			rpID: this.rpID,
@@ -50,7 +50,12 @@ export class WebAuthn {
 			userID: new Uint8Array(uuidBytes(user.id)),
 			userDisplayName: user.displayName,
 			attestationType: 'none',
-			authenticatorSelection: { residentKey: 'required', userVerification: 'required' }
+			authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+			// the browser then refuses to register an authenticator that is already on the account
+			excludeCredentials: existing.map(({ credentialId, transports }) => ({
+				id: credentialId.toString('base64url'),
+				transports
+			}))
 		});
 		await this.factors.createChallenge(
 			Buffer.from(options.challenge, 'base64url'),
@@ -113,7 +118,7 @@ export class WebAuthn {
 		return options;
 	}
 
-	// null when the assertion does not hold; owner restricts it to the passkeys of one person
+	// null for an unknown passkey or, with owner set, one of somebody else
 	async assert(
 		response: AuthenticationResponse,
 		purpose: 'login' | 'reauth',
@@ -122,12 +127,15 @@ export class WebAuthn {
 		const passkey = await this.factors.findPasskey(Buffer.from(response.rawId, 'base64url'));
 		if (!passkey || (owner && passkey.userId !== owner)) return null;
 
+		const scope = { userId: passkey.userId, tenantId: passkey.tenantId, role: passkey.role };
+		const refused = { ...scope, passkeyId: passkey.id, verified: false, cloned: false };
+
 		const handle = (response.response as { userHandle?: unknown }).userHandle;
 		if (
 			typeof handle !== 'string' ||
 			!Buffer.from(handle, 'base64url').equals(uuidBytes(passkey.userId))
 		) {
-			return null;
+			return refused;
 		}
 
 		const verification = await verifyAuthenticationResponse({
@@ -143,7 +151,8 @@ export class WebAuthn {
 			credential: {
 				id: response.rawId,
 				publicKey: new Uint8Array(passkey.publicKey),
-				counter: Number(passkey.counter),
+				// passkey_touch checks the counter, atomically and so that a clone shows up as one
+				counter: 0,
 				transports: passkey.transports
 			},
 			requireUserVerification: true
@@ -151,10 +160,10 @@ export class WebAuthn {
 			this.logger.warn(`Passkey assertion refused: ${String(error)}`);
 			return null;
 		});
-		if (!verification?.verified) return null;
+		if (!verification?.verified) return refused;
 
 		const { newCounter, credentialBackedUp } = verification.authenticationInfo;
 		const touched = await this.factors.touchPasskey(passkey.id, newCounter, credentialBackedUp);
-		return { userId: passkey.userId, passkeyId: passkey.id, cloned: !touched };
+		return { ...refused, verified: true, cloned: !touched };
 	}
 }

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
 	ApiError,
@@ -17,7 +17,7 @@ import type { AuthSession } from '../common/session.guard';
 import type { Config } from '../config';
 import { AuthService } from './auth.service';
 import { AuthStore } from './auth.store';
-import { FactorStore } from './factor.store';
+import { FactorStore, type Scope } from './factor.store';
 import { hashRecoveryCode } from './recovery-codes';
 import { unseal } from './secrets';
 import { SessionService } from './session.service';
@@ -41,7 +41,6 @@ const wrongFactor = {
 
 @Injectable()
 export class MfaService {
-	private readonly logger = new Logger(MfaService.name);
 	private readonly dataKey: Buffer;
 
 	constructor(
@@ -89,13 +88,13 @@ export class MfaService {
 	}
 
 	totp(request: Request, response: Response, code: string, client: Client): Promise<Session> {
-		return this.secondStep(request, response, client, 'totp', (userId) =>
+		return this.secondStep(request, response, client, 'totp', ({ userId }) =>
 			this.totpMatches(userId, code)
 		);
 	}
 
 	recovery(request: Request, response: Response, code: string, client: Client): Promise<Session> {
-		return this.secondStep(request, response, client, 'recovery', (userId) =>
+		return this.secondStep(request, response, client, 'recovery', ({ userId }) =>
 			this.factors.useRecoveryCode(userId, hashRecoveryCode(code))
 		);
 	}
@@ -106,7 +105,7 @@ export class MfaService {
 		assertion: AuthenticationResponse,
 		client: Client
 	): Promise<Session> {
-		return this.secondStep(request, response, client, 'passkey', async (userId) =>
+		return this.secondStep(request, response, client, 'passkey', async ({ userId }) =>
 			this.trusted(await this.webauthn.assert(assertion, 'login', userId), client)
 		);
 	}
@@ -117,11 +116,12 @@ export class MfaService {
 		assertion: AuthenticationResponse,
 		client: Client
 	): Promise<Session> {
-		const verified = await this.webauthn.assert(assertion, 'login', null);
-		if (!verified || !this.trusted(verified, client)) {
+		const found = await this.webauthn.assert(assertion, 'login', null);
+		if (!found || !(await this.trusted(found, client))) {
+			if (found && !found.verified) await this.loginFailed(found, 'passkey', client);
 			throw new UnauthorizedException(wrongFactor);
 		}
-		return this.signIn(response, verified.userId, client, 'passkey');
+		return this.signIn(response, found.userId, client, 'passkey');
 	}
 
 	async reauth(session: AuthSession, input: ReauthInput, client: Client): Promise<ReauthResult> {
@@ -139,8 +139,8 @@ export class MfaService {
 		assertion: AuthenticationResponse,
 		client: Client
 	): Promise<ReauthResult> {
-		const verified = await this.webauthn.assert(assertion, 'reauth', session.userId);
-		if (!verified || !this.trusted(verified, client)) {
+		const found = await this.webauthn.assert(assertion, 'reauth', session.userId);
+		if (!(await this.trusted(found, client))) {
 			await this.reauthFailed(session, 'passkey', client);
 			throw new ForbiddenException(wrongFactor);
 		}
@@ -152,25 +152,25 @@ export class MfaService {
 		response: Response,
 		client: Client,
 		method: MfaMethod,
-		matches: (userId: string) => Promise<boolean>
+		matches: (scope: Scope) => Promise<boolean>
 	): Promise<Session> {
 		const token = this.sessions.mfaToken(request);
 		if (!token) throw stepExpired();
 
 		const tokenHash = hashToken(token);
-		const userId = await this.factors.attemptMfaChallenge(tokenHash);
-		if (!userId) throw stepExpired();
+		const scope = await this.factors.attemptMfaChallenge(tokenHash);
+		if (!scope) throw stepExpired();
 
-		if (!(await matches(userId))) {
+		if (!(await matches(scope))) {
 			// the password was right already, a wrong second factor counts towards the lock all the same
-			await this.store.loginFailed(userId);
-			this.logger.warn(`Second factor ${method} failed for user ${userId} from ${client.ip}`);
+			await this.store.loginFailed(scope.userId);
+			await this.loginFailed(scope, method, client);
 			throw new UnauthorizedException(wrongFactor);
 		}
 
 		if (!(await this.factors.consumeMfaChallenge(tokenHash))) throw stepExpired();
 		this.sessions.clearMfaCookie(response);
-		return this.signIn(response, userId, client, method);
+		return this.signIn(response, scope.userId, client, method);
 	}
 
 	private async totpMatches(userId: string, code: string): Promise<boolean> {
@@ -181,13 +181,30 @@ export class MfaService {
 		return step !== null && (await this.factors.useTotpStep(userId, step));
 	}
 
-	private trusted(verified: Assertion | null, client: Client): boolean {
-		if (verified?.cloned) {
-			this.logger.warn(
-				`Passkey ${verified.passkeyId} of user ${verified.userId} replayed an old counter from ${client.ip}`
-			);
+	private async trusted(found: Assertion | null, client: Client): Promise<boolean> {
+		if (found?.cloned) {
+			await this.audit.record({
+				tenantId: found.tenantId,
+				userId: found.userId,
+				actor: null,
+				action: 'passkey.counter_rejected',
+				details: { passkeyId: found.passkeyId },
+				client
+			});
 		}
-		return !!verified && !verified.cloned;
+		return !!found?.verified && !found.cloned;
+	}
+
+	// nobody is signed in yet, so the entry has no actor
+	private loginFailed(scope: Scope, method: MfaMethod, client: Client) {
+		return this.audit.record({
+			tenantId: scope.tenantId,
+			userId: scope.userId,
+			actor: null,
+			action: 'login.failed',
+			details: { method },
+			client
+		});
 	}
 
 	private reauthFailed(session: AuthSession, method: MfaMethod, client: Client) {

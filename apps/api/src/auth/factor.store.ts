@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Role } from '@zeit/shared';
 import { sql } from 'kysely';
 import { Database, type TenantContext } from '../db/database';
 
@@ -8,19 +9,22 @@ export type Factors = { hasTotp: boolean; passkeyCount: number; recoveryLeft: nu
 
 export type TotpRow = { sealed: Buffer; confirmed: boolean };
 
+// whose a challenge or passkey is, enough to file a failure in the trail of their tenant
+export type Scope = { userId: string; tenantId: string; role: Role };
+
 export type PasskeyRow = {
 	id: string;
+	credentialId: Buffer;
 	name: string;
+	transports: string[];
 	backedUp: boolean;
 	createdAt: string;
 	lastUsedAt: string | null;
 };
 
-export type StoredPasskey = {
+export type StoredPasskey = Scope & {
 	id: string;
-	userId: string;
 	publicKey: Buffer;
-	counter: string;
 	transports: string[];
 };
 
@@ -91,8 +95,8 @@ export class FactorStore {
 
 	async passkeys(userId: string): Promise<PasskeyRow[]> {
 		const { rows } = await sql<PasskeyRow>`
-			select id, name, backed_up as "backedUp", created_at as "createdAt",
-				last_used_at as "lastUsedAt"
+			select id, credential_id as "credentialId", name, transports, backed_up as "backedUp",
+				created_at as "createdAt", last_used_at as "lastUsedAt"
 			from auth.passkeys_list(${userId})`.execute(this.db);
 		return rows;
 	}
@@ -119,7 +123,8 @@ export class FactorStore {
 
 	async findPasskey(credentialId: Buffer): Promise<StoredPasskey | undefined> {
 		const { rows } = await sql<StoredPasskey>`
-			select id, user_id as "userId", public_key as "publicKey", counter, transports
+			select id, user_id as "userId", tenant_id as "tenantId", role, public_key as "publicKey",
+				transports
 			from auth.passkey_find(${credentialId})`.execute(this.db);
 		return rows[0];
 	}
@@ -155,11 +160,12 @@ export class FactorStore {
 		await sql`select auth.mfa_challenge_create(${userId}, ${tokenHash})`.execute(this.db);
 	}
 
-	// counts the attempt first; null once the step expired, ran out of tries or the account locked
-	async attemptMfaChallenge(tokenHash: Buffer): Promise<string | null> {
-		const { rows } = await sql<{ userId: string | null }>`
-			select auth.mfa_challenge_attempt(${tokenHash}) as "userId"`.execute(this.db);
-		return rows[0]?.userId ?? null;
+	// counts the attempt first; nothing once the step expired, ran out of tries or the account locked
+	async attemptMfaChallenge(tokenHash: Buffer): Promise<Scope | undefined> {
+		const { rows } = await sql<Scope>`
+			select user_id as "userId", tenant_id as "tenantId", role
+			from auth.mfa_challenge_attempt_with_scope(${tokenHash})`.execute(this.db);
+		return rows[0];
 	}
 
 	async consumeMfaChallenge(tokenHash: Buffer): Promise<string | null> {
