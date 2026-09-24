@@ -115,6 +115,36 @@ describe('tokens', () => {
 		const { rows } = await app.query('select auth.password_reset($1, $2) as id', [token, newHash]);
 		expect(rows[0].id).toBeNull();
 	});
+
+	it('names the invited person as the one who activated the account', async () => {
+		const invited = await createUser(tenant, { status: 'invited', role: 'team_lead' });
+		const requester = await createUser(tenant, { role: 'admin' });
+		const token = hash();
+		await app.query(`select auth.token_issue($1, 'invite', $2)`, [invited.userId, token]);
+
+		const client = await withContext(await connectAs('app'), requester.context);
+		await client.query('begin');
+		await client.query('select auth.invitation_accept($1, $2)', [token, newHash]);
+		const { rows: after } = await client.query(
+			`select current_setting('app.user_id') as user_id, current_setting('app.role') as role`
+		);
+		await client.query('commit');
+		expect(after[0]).toEqual({ user_id: requester.userId, role: 'admin' });
+
+		const { rows } = await superuser.query(
+			`select actor_user_id, actor_role, diff
+			   from audit.log
+			  where table_name = 'users' and row_id = $1 and action = 'update'`,
+			[invited.userId]
+		);
+		expect(rows).toEqual([
+			{
+				actor_user_id: invited.userId,
+				actor_role: 'team_lead',
+				diff: { status: ['invited', 'active'] }
+			}
+		]);
+	});
 });
 
 describe('passwords', () => {
@@ -139,6 +169,31 @@ describe('passwords', () => {
 		await expect(bare.query('select auth.password_change($1)', [newHash])).rejects.toMatchObject({
 			code: '28000'
 		});
+	});
+
+	it('swaps a hash only while the old one is still stored and keeps the sessions', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		await signIn(user);
+		const rehash = (from: string, to: string) =>
+			app.query('select auth.password_rehash($1, $2, $3) as swapped', [user.userId, from, to]);
+
+		expect((await rehash(oldHash, newHash)).rows[0].swapped).toBe(true);
+		expect((await rehash(oldHash, `${newHash}x`)).rows[0].swapped).toBe(false);
+		expect((await credentials(user)).password_hash).toBe(newHash);
+		expect(await sessionCount(user)).toBe(1);
+	});
+
+	it('rehashes into argon2id only', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		await expect(
+			app.query('select auth.password_rehash($1, $2, $3)', [
+				user.userId,
+				oldHash,
+				'$2b$12$abcdefghijklmnopqrstuv'
+			])
+		).rejects.toMatchObject({ code: '23514' });
 	});
 
 	it('keeps auth.password_set out of reach of zeit_app', async () => {

@@ -402,8 +402,16 @@ CREATE FUNCTION app.guard_own_user() RETURNS trigger
 declare
   own constant text[] := array['display_name', 'locale', 'updated_at', 'last_login_at'];
 begin
-  -- on their own row people rename themselves or switch the language, admins included
-  if new.id = app.user_id() and to_jsonb(new) - own <> to_jsonb(old) - own then
+  -- own row: name and language only, except invitation_accept activating the invited person
+  if new.id = app.user_id()
+    and to_jsonb(new) - own <> to_jsonb(old) - own
+    and not (
+      current_user = 'zeit_system'
+      and old.status = 'invited'
+      and new.status = 'active'
+      and to_jsonb(new) - own - 'status' = to_jsonb(old) - own - 'status'
+    )
+  then
     raise exception 'only display name and locale can be changed on one''s own user'
       using errcode = 'insufficient_privilege';
   end if;
@@ -772,6 +780,8 @@ CREATE FUNCTION auth.invitation_accept(p_token_hash bytea, p_password_hash text)
     AS $$
 declare
   account uuid;
+  previous_user text := current_setting('app.user_id', true);
+  previous_role text := current_setting('app.role', true);
 begin
   update auth.tokens t set used_at = now()
     from app.users u
@@ -784,7 +794,12 @@ begin
   returning t.user_id into account;
 
   if account is not null then
+    -- the trail names the invited person as the one who activated the account
+    perform set_config('app.user_id', account::text, true),
+            set_config('app.role', (select u.role::text from app.users u where u.id = account), true);
     perform auth.password_set(account, p_password_hash);
+    perform set_config('app.user_id', coalesce(previous_user, ''), true),
+            set_config('app.role', coalesce(previous_role, ''), true);
   end if;
   return account;
 end;
@@ -842,11 +857,14 @@ CREATE FUNCTION auth.mfa_challenge_attempt(p_token_hash bytea) RETURNS uuid
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- the attempt is counted before the code is checked, so parallel guesses cannot slip past the limit
+  -- counted before the code is checked, and once login_failed has locked the account nothing is left
   update auth.mfa_challenges m set attempts = m.attempts + 1
    where m.token_hash = p_token_hash
      and m.expires_at > now()
      and m.attempts < 5
+     and not exists (
+       select 1 from auth.credentials c where c.user_id = m.user_id and c.locked_until > now()
+     )
   returning m.user_id;
 $$;
 
@@ -1028,6 +1046,24 @@ begin
   delete from auth.sessions s where s.user_id = account;
 end;
 $$;
+
+
+--
+-- Name: password_rehash(uuid, text, text); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.password_rehash(p_user_id uuid, p_old_hash text, p_new_hash text) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+  -- a password change in between wins; the $argon2id$ check on the column guards the format
+  with swapped as (
+    update auth.credentials c set password_hash = p_new_hash
+     where c.user_id = p_user_id and c.password_hash = p_old_hash
+    returning c.user_id
+  )
+  select exists (select 1 from swapped);
+$_$;
 
 
 --
@@ -4312,4 +4348,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260924000300'),
     ('20260924000400'),
     ('20260924000500'),
-    ('20260924000600');
+    ('20260924000600'),
+    ('20260924000700');

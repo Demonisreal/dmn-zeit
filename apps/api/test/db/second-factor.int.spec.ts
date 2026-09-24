@@ -270,6 +270,22 @@ describe('mfa challenges', () => {
 		expect(await attempt()).toBeNull();
 	});
 
+	it('stops the second step once misses have locked the account', async () => {
+		const user = await createUser(tenant);
+		await superuser.query(`select auth.password_set($1, '$argon2id$v=19$m=19456,t=2,p=1$eA$eQ')`, [
+			user.userId
+		]);
+		const token = bytes();
+		await app.query('select auth.mfa_challenge_create($1, $2)', [user.userId, token]);
+		const attempt = () => call('select auth.mfa_challenge_attempt($1) as result', [token]);
+
+		expect(await attempt()).toBe(user.userId);
+		// the api reports every wrong code, a fresh password login would otherwise bring five new tries
+		for (let miss = 0; miss < 5; miss++)
+			await app.query('select auth.login_failed($1)', [user.userId]);
+		expect(await attempt()).toBeNull();
+	});
+
 	it('redeems a challenge once', async () => {
 		const user = await createUser(tenant);
 		const token = bytes();

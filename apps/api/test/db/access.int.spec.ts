@@ -100,6 +100,14 @@ describe('privileges', () => {
 		expect(promoted.rowCount).toBe(1);
 	});
 
+	it('leaves activating an invited account to auth.invitation_accept', async () => {
+		const invited = await createUser(tenant, { status: 'invited' });
+		await withContext(app, invited.context);
+		await expect(
+			app.query(`update app.users set status = 'active' where id = $1`, [invited.userId])
+		).rejects.toMatchObject({ code: '42501' });
+	});
+
 	it('links a user only to an employee of the same tenant', async () => {
 		const elsewhere = await insertId(
 			superuser,
