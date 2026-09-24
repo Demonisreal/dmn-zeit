@@ -1,0 +1,53 @@
+{
+	"title": "Posteingang",
+	"more": "Weitere laden",
+	"requestedAt": "gestellt am {{date}}",
+	"absences": {
+		"title": "Abwesenheiten",
+		"empty": "Keine offenen Abwesenheitsanträge.",
+		"cancelRequested": "Stornierung beantragt",
+		"days": "{{days}} Urlaubstage"
+	},
+	"corrections": {
+		"title": "Korrekturen",
+		"empty": "Keine offenen Korrekturanträge.",
+		"action": {
+			"add": "Nachtrag",
+			"change": "Änderung",
+			"void": "Streichung"
+		},
+		"before": "vorher",
+		"after": "nachher",
+		"nothing": "keine Buchung",
+		"removed": "entfällt",
+		"open": "offen",
+		"nextDay": "+1 Tag",
+		"reason": "Begründung:"
+	},
+	"sickNotes": {
+		"title": "Atteste",
+		"empty": "Keine Krankmeldungen mit offenem Attest.",
+		"reportedAt": "gemeldet am {{date}}",
+		"confirm": "Attest bestätigen",
+		"confirmFor": "Attest bestätigen: {{name}}, {{period}}",
+		"confirmed": "Attest von {{name}} bestätigt. Urlaubstage im Zeitraum werden zurückgebucht."
+	},
+	"decision": {
+		"approve": "Genehmigen",
+		"reject": "Ablehnen",
+		"reason": "Begründung für die Ablehnung",
+		"reasonRequired": "Beim Ablehnen ist eine Begründung Pflicht.",
+		"send": "Ablehnung senden",
+		"keep": "Abbrechen"
+	},
+	"decided": {
+		"approved": "Antrag von {{name}} genehmigt.",
+		"rejected": "Antrag von {{name}} abgelehnt."
+	},
+	"errors": {
+		"forbidden": "Über eigene Anträge und Anträge außerhalb des eigenen Teams entscheidet jemand anderes.",
+		"invalidState": "Der Antrag ist inzwischen entschieden oder zurückgezogen.",
+		"locked": "Der Monat ist abgeschlossen, die Buchungen sind gesperrt.",
+		"overlap": "Die Korrektur überschneidet sich mit einer anderen Buchung."
+	}
+}

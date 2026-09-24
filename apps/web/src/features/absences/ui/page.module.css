@@ -1,0 +1,60 @@
+.page {
+	display: grid;
+	gap: 1.5rem;
+	max-width: 80rem;
+}
+
+.head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem 1.5rem;
+	min-height: 2.5rem;
+}
+
+.section {
+	display: grid;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.sectionHead {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.375rem 0.625rem;
+}
+
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75rem 1rem;
+}
+
+.filters > * {
+	flex: 0 1 11rem;
+}
+
+.scroll {
+	overflow-x: auto;
+}
+
+.loading {
+	display: grid;
+	gap: 0.5rem;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.small {
+	font-size: 0.8125rem;
+}
+
+.count {
+	color: var(--muted);
+	font: 500 0.875rem var(--mono);
+}

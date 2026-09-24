@@ -1,0 +1,101 @@
+{
+	"title": "Anträge",
+	"new": "Neuer Antrag",
+	"type": {
+		"vacation": "Urlaub",
+		"sick": "Krankheit",
+		"time_off": "Zeitausgleich"
+	},
+	"status": {
+		"pending": "offen",
+		"approved": "genehmigt",
+		"rejected": "abgelehnt",
+		"withdrawn": "zurückgezogen",
+		"cancel_pending": "Storno beantragt",
+		"cancelled": "storniert",
+		"reported": "gemeldet"
+	},
+	"sickNote": {
+		"open": "Attest offen",
+		"confirmed": "Attest bestätigt"
+	},
+	"halfDay": {
+		"single": "halber Tag",
+		"start": "erster Tag halb",
+		"end": "letzter Tag halb"
+	},
+	"form": {
+		"title": "Abwesenheit eintragen",
+		"type": "Art",
+		"sickHint": "Eine Krankmeldung braucht keine Genehmigung. Das Attest bestätigt die Personalverwaltung, erst danach werden Urlaubstage im Zeitraum zurückgebucht.",
+		"period": "Zeitraum",
+		"halfDays": "Halbe Tage",
+		"halfDay": "Nur ein halber Tag",
+		"halfDayStart": "Erster Tag halb",
+		"halfDayEnd": "Letzter Tag halb",
+		"note": "Notiz",
+		"noteHint": "Freiwillig, die Teamleitung sieht sie beim Entscheiden.",
+		"submit": "Antrag stellen",
+		"submitSick": "Krankmeldung abschicken",
+		"close": "Abbrechen",
+		"created": "Antrag für {{period}} gestellt. Die Teamleitung entscheidet darüber.",
+		"reported": "Krankmeldung für {{period}} erfasst."
+	},
+	"preview": {
+		"title": "Vorschau",
+		"empty": "Sobald ein Zeitraum gewählt ist, steht hier, was der Antrag kostet.",
+		"vacationDays": "Urlaubstage",
+		"fromBucket": "davon aus Anspruch {{year}}",
+		"remainingAfter": "Resturlaub danach",
+		"targetTime": "Sollzeit im Zeitraum",
+		"flexTime": "Gleitzeitkonto",
+		"short": "Der Resturlaub reicht für diesen Zeitraum nicht.",
+		"overlap_one": "Überschneidet sich mit einem bestehenden Antrag.",
+		"overlap_other": "Überschneidet sich mit {{count}} bestehenden Anträgen.",
+		"overlapSick_one": "Überschneidet sich mit einem bestehenden Antrag. Urlaubstage darin werden nach Bestätigung des Attests zurückgebucht (§ 9 BUrlG).",
+		"overlapSick_other": "Überschneidet sich mit {{count}} bestehenden Anträgen. Urlaubstage darin werden nach Bestätigung des Attests zurückgebucht (§ 9 BUrlG).",
+		"days_one": "{{count}} Tag einzeln",
+		"days_other": "{{count}} Tage einzeln",
+		"daysLabel": "Kosten je Tag",
+		"date": "Tag",
+		"target": "Soll",
+		"leave": "Urlaub",
+		"why": "Grund"
+	},
+	"list": {
+		"title": "Meine Anträge",
+		"label": "Meine Anträge {{year}}",
+		"year": "Jahr",
+		"prevYear": "Vorheriges Jahr",
+		"nextYear": "Nächstes Jahr",
+		"type": "Art",
+		"status": "Status",
+		"all": "Alle",
+		"period": "Zeitraum",
+		"vacationDays": "Urlaubstage",
+		"targetTime": "Sollzeit",
+		"actions": "Aktionen",
+		"decisionNote": "Begründung:",
+		"decidedBy": "{{name}}, {{date}}",
+		"empty": "Keine Anträge in {{year}}.",
+		"emptyFiltered": "Keine Anträge in {{year}}, die zum Filter passen.",
+		"resetFilter": "Filter zurücksetzen",
+		"more": "Weitere laden",
+		"withdraw": "Zurückziehen",
+		"cancel": "Stornieren"
+	},
+	"cancel": {
+		"title": "Antrag stornieren?",
+		"body": "{{type}} vom {{period}} ist genehmigt. Die Stornierung bestätigt die Teamleitung, bis dahin bleibt der Antrag bestehen.",
+		"note": "Grund, freiwillig",
+		"keep": "Behalten",
+		"confirm": "Stornierung beantragen"
+	},
+	"errors": {
+		"overlap": "Für diesen Zeitraum gibt es schon einen Antrag.",
+		"locked": "Der Monat ist abgeschlossen, Anträge für diesen Zeitraum sind gesperrt.",
+		"validation": "Bitte die markierten Angaben prüfen.",
+		"invalidState": "Der Antrag hat sich inzwischen geändert. Die Liste zeigt den aktuellen Stand.",
+		"noEmployee": "Diesem Konto ist kein Personalstamm zugeordnet, darum gibt es hier keine Anträge."
+	}
+}

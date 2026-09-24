@@ -8,6 +8,7 @@ import {
 	type TextFieldProps
 } from 'react-aria-components';
 import { useController, type Control, type FieldPath, type FieldValues } from 'react-hook-form';
+import { issueText } from '../../i18n';
 import css from './field.module.css';
 
 // react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
@@ -57,6 +58,7 @@ export function FormField<T extends FieldValues, TOut>({
 	...props
 }: FormFieldProps<T, TOut>) {
 	const { field, fieldState } = useController({ control, name });
+	const message = fieldState.error?.message;
 	return (
 		<Field
 			{...props}
@@ -65,7 +67,7 @@ export function FormField<T extends FieldValues, TOut>({
 			onChange={field.onChange}
 			onBlur={field.onBlur}
 			inputRef={field.ref}
-			error={fieldState.error?.message}
+			error={message === undefined ? undefined : issueText(message)}
 		/>
 	);
 }

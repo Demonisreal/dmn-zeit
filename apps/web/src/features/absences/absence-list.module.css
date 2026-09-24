@@ -1,0 +1,61 @@
+.year {
+	font-family: var(--mono);
+}
+
+.period {
+	min-width: 12rem;
+}
+
+.dates {
+	color: var(--white);
+	font-family: var(--mono);
+	font-size: 0.875rem;
+	white-space: nowrap;
+}
+
+.half {
+	margin-left: 0.25rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.note {
+	max-width: 52ch;
+	margin-top: 0.1875rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+	overflow-wrap: anywhere;
+	white-space: pre-line;
+}
+
+.noteLabel {
+	color: var(--text);
+}
+
+.tags {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
+.decided {
+	display: block;
+	margin-top: 0.125rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+	white-space: nowrap;
+}
+
+.actions {
+	text-align: end;
+	white-space: nowrap;
+}
+
+.rowError {
+	max-width: 22ch;
+	margin-top: 0.25rem;
+	margin-left: auto;
+	color: var(--error);
+	font-size: 0.8125rem;
+	white-space: normal;
+}

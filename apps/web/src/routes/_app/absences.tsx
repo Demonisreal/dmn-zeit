@@ -1,12 +1,37 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
+import { absenceStatuses, absenceTypes, isoDateSchema, yearSchema } from '@zeit/shared';
+import { z } from 'zod';
+import { AbsencesPage } from '../../features/absences/absences-page';
+import { currentYear } from '../../features/absences/dates';
 
-export const Route = createFileRoute('/_app/absences')({
-	staticData: { title: 'requests' },
-	component: AbsencesPage
+const searchSchema = z.object({
+	year: yearSchema.optional().catch(undefined),
+	type: z.enum(absenceTypes).optional().catch(undefined),
+	status: z.enum(absenceStatuses).optional().catch(undefined),
+	// a day from the week page, opens the form with it already filled in
+	start: isoDateSchema.optional().catch(undefined)
 });
 
-function AbsencesPage() {
-	const { t } = useTranslation('nav');
-	return <h1>{t('requests')}</h1>;
+export const Route = createFileRoute('/_app/absences')({
+	validateSearch: searchSchema,
+	staticData: { title: 'requests' },
+	component: AbsencesRoute
+});
+
+function AbsencesRoute() {
+	const { session } = Route.useRouteContext();
+	const search = Route.useSearch();
+	const navigate = Route.useNavigate();
+	return (
+		<AbsencesPage
+			employeeId={session.user.employeeId}
+			start={search.start}
+			year={search.year ?? currentYear()}
+			type={search.type}
+			status={search.status}
+			onSearch={(next) =>
+				void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })
+			}
+		/>
+	);
 }

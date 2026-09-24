@@ -1,8 +1,10 @@
-import { hasCode } from '../lib/api/errors';
+import { ApiRequestError, hasCode } from '../lib/api/errors';
 
 export function errorKey(err: unknown) {
 	if (hasCode(err, 'RATE_LIMITED')) return 'common:errors.rateLimited' as const;
-	// fetch rejects with a TypeError when the server cannot be reached at all
-	if (err instanceof TypeError) return 'common:errors.network' as const;
+	// fetch rejects with a TypeError offline, the proxy answers 502 to 504 while the api is down
+	if (err instanceof TypeError || (err instanceof ApiRequestError && err.status >= 502)) {
+		return 'common:errors.network' as const;
+	}
 	return 'common:errors.unexpected' as const;
 }

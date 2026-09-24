@@ -1,0 +1,31 @@
+{
+	"title": "Teamkalender",
+	"team": "Team",
+	"month": "Monat",
+	"prevMonth": "Vorheriger Monat",
+	"nextMonth": "Nächster Monat",
+	"empty": "In diesem Team ist niemand eingetragen.",
+	"person": "Name",
+	"today": "heute",
+	"absentCount": "Abwesend",
+	"pending": "beantragt",
+	"cancelPending": "Storno beantragt",
+	"halfDay": "halber Tag",
+	"kind": {
+		"vacation": "Urlaub",
+		"sick": "Krankheit",
+		"time_off": "Zeitausgleich",
+		"absent": "abwesend"
+	},
+	"code": {
+		"vacation": "U",
+		"sick": "K",
+		"time_off": "Z",
+		"absent": "A"
+	},
+	"legend": {
+		"types": "U Urlaub, K Krankheit, Z Zeitausgleich.",
+		"absent": "A abwesend, den Grund sehen nur Teamleitung und Personalverwaltung.",
+		"marks": "Gestrichelt: beantragt, noch nicht entschieden. Halb gefüllt: halber Tag."
+	}
+}

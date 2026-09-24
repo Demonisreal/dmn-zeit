@@ -3,7 +3,7 @@ import { formatClock } from '../../i18n/format';
 import styles from './day-bar.module.css';
 
 export type DaySpan = {
-	// minutes after local midnight
+	// minutes after local midnight, to runs past 1440 when a shift ends the next day
 	from: number;
 	to: number;
 	tone?: 'running' | 'violation';
@@ -26,7 +26,7 @@ export function DayBar({ spans }: Props) {
 	const described = spans.map((span) =>
 		span.tone === 'running'
 			? t('dayBar.open', { from: formatClock(span.from) })
-			: t('dayBar.span', { from: formatClock(span.from), to: formatClock(span.to) })
+			: t('dayBar.span', { from: formatClock(span.from), to: formatClock(span.to % (24 * 60)) })
 	);
 	const label =
 		spans.length === 0

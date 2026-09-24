@@ -1,0 +1,18 @@
+.chevron {
+	flex: none;
+	transition: transform 150ms var(--ease);
+}
+
+.chevron[data-direction='left'] {
+	transform: rotate(180deg);
+}
+
+.chevron[data-direction='down'] {
+	transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.chevron {
+		transition: none;
+	}
+}

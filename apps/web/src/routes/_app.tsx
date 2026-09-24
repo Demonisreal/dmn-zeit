@@ -17,6 +17,7 @@ export const Route = createFileRoute('/_app')({
 				search: location.href === '/' ? {} : { next: location.href }
 			});
 		}
+		if (session.security.enrollmentPending) throw redirect({ to: '/security/setup' });
 		// set before the first render, otherwise the page flashes in the browser language
 		if (!applied.has(session)) {
 			applied.add(session);

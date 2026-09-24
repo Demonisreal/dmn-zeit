@@ -1,0 +1,72 @@
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: grid;
+	place-items: center;
+	padding: 1rem;
+	background: rgb(11 11 13 / 0.72);
+}
+
+.modal {
+	width: min(100%, 28rem);
+	max-height: calc(100dvh - 2rem);
+	overflow-y: auto;
+	border: 1px solid var(--edge);
+	border-radius: 8px;
+	background: var(--card);
+	box-shadow: 0 24px 48px -16px rgb(0 0 0 / 0.8);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.overlay[data-entering] {
+		animation: fade 180ms ease-out;
+	}
+
+	.modal[data-entering] {
+		animation: rise 200ms var(--ease);
+	}
+
+	.overlay[data-exiting] {
+		animation: fade 120ms ease-out reverse;
+	}
+}
+
+@keyframes fade {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.98);
+	}
+}
+
+.dialog {
+	display: grid;
+	gap: 1rem;
+	padding: 1.25rem;
+	outline: none;
+}
+
+.body {
+	display: grid;
+	gap: 0.875rem;
+	color: var(--text);
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.5rem 0.75rem;
+	margin-top: 0.25rem;
+}
+
+/* the other way to confirm stays apart from cancel and submit */
+.alt {
+	margin-inline-end: auto;
+}

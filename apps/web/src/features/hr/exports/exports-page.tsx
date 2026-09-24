@@ -1,0 +1,96 @@
+import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
+import { employeesQuery, withSearch } from '../api';
+import { currentMonth, formatMonth, monthsBack } from '../dates';
+import { HrNav } from '../hr-nav';
+import { employeeOptions } from '../people/employee-options';
+import { SelectField } from '../ui/select-field';
+import { LoadError } from '../ui/states';
+import styles from '../ui/page.module.css';
+import { MonthOverview } from './month-overview';
+
+type Props = {
+	month: string;
+	employeeId: string | undefined;
+	onChange: (next: { month?: string | undefined; employee?: string | undefined }) => void;
+};
+
+export function ExportsPage({ month, employeeId, onChange }: Props) {
+	const { t, i18n } = useTranslation('hr');
+	const employees = useQuery(employeesQuery(true));
+	const months = monthsBack(currentMonth(), 12).map((id) => ({
+		id,
+		label: formatMonth(id, i18n.language)
+	}));
+
+	return (
+		<>
+			<HrNav />
+			<div className={styles.page}>
+				<header className={styles.head}>
+					<div>
+						<h1>{t('exports.title')}</h1>
+						<p className={styles.lead}>{t('exports.lead')}</p>
+					</div>
+				</header>
+				<div className={styles.filters}>
+					<SelectField
+						label={t('exports.month')}
+						options={months}
+						value={month}
+						onChange={(key) => onChange({ month: String(key) })}
+					/>
+				</div>
+
+				<section className={styles.section} aria-labelledby="timesheet">
+					<div>
+						<h2 id="timesheet">{t('exports.timesheet')}</h2>
+						<p className={styles.lead}>{t('exports.timesheetLead')}</p>
+					</div>
+					{employees.isError && (
+						<LoadError error={employees.error} onRetry={() => void employees.refetch()} />
+					)}
+					<div className={styles.filters}>
+						<SelectField
+							label={t('exports.employee')}
+							placeholder={t('choose')}
+							options={employeeOptions(employees.data ?? [], i18n.language)}
+							value={employeeId ?? null}
+							onChange={(key) => onChange({ employee: key === null ? undefined : String(key) })}
+						/>
+					</div>
+					{employeeId ? (
+						<p className={styles.actions}>
+							<a
+								href={withSearch('/api/exports/timesheet', {
+									employee: employeeId,
+									month,
+									format: 'csv'
+								})}
+								download
+							>
+								{t('exports.csv')}
+							</a>
+							<Link to="/print/timesheet/$id/$month" params={{ id: employeeId, month }}>
+								{t('exports.print')}
+							</Link>
+						</p>
+					) : (
+						<p className={`${styles.small} ${styles.muted}`}>{t('exports.chooseEmployee')}</p>
+					)}
+				</section>
+
+				<section className={styles.section} aria-labelledby="overview">
+					<div className={styles.sectionHead}>
+						<h2 id="overview">{t('exports.overview')}</h2>
+						<a href={withSearch('/api/exports/month-overview', { month, format: 'csv' })} download>
+							{t('exports.csv')}
+						</a>
+					</div>
+					<MonthOverview month={month} />
+				</section>
+			</div>
+		</>
+	);
+}

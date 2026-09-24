@@ -1,0 +1,18 @@
+{
+	"previous": "Vorheriger Monat",
+	"next": "Nächster Monat",
+	"current": "Dieser Monat",
+	"table": "Buchungen {{month}}",
+	"total": "Monat",
+	"monthEnd": "Ende {{month}}",
+	"empty": "Keine Buchungen in diesem Monat.",
+	"ack": {
+		"open": "Quittieren",
+		"note": "Notiz",
+		"noteHint": "Zum Beispiel, warum die Ausnahme zulässig war. Die Notiz steht im Änderungsprotokoll.",
+		"submit": "Befund quittieren",
+		"cancel": "Abbrechen",
+		"done": "Dieser Befund ist schon quittiert.",
+		"forbidden": "Befunde quittieren nur Teamleitung und Personalverwaltung."
+	}
+}

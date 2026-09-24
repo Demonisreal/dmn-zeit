@@ -6,7 +6,9 @@
 	"logout": "Sign out",
 	"loading": "Loading",
 	"notFound": "Page not found",
+	"loadFailed": "The page could not be loaded",
 	"toStart": "Go to the start page",
+	"retry": "Try again",
 	"roles": {
 		"employee": "Employee",
 		"team_lead": "Team lead",
@@ -28,7 +30,44 @@
 		"required": "Required",
 		"tooShort": "At least {{count}} characters",
 		"tooLong": "At most {{count}} characters",
-		"email": "Not a valid email address"
+		"email": "Not a valid email address",
+		"format": {
+			"month": "Month as YYYY-MM",
+			"monthDay": "Not a valid cut-off day, 29 February is not allowed",
+			"dayCount": "Days with two decimals",
+			"entitlement": "Up to 99 days, at most one decimal",
+			"token": "The link is incomplete",
+			"totp": "Six digits from the authenticator app",
+			"recoveryCode": "Ten characters, like ABCDE-FGH23"
+		},
+		"range": {
+			"unordered": "The end is before the start",
+			"tooLong": "At most {{max}} days"
+		},
+		"absence": {
+			"endBeforeStart": "The end is before the start",
+			"halfDaySingle": "A single day is either half or whole"
+		},
+		"correction": {
+			"endBeforeStart": "Clock out is before clock in"
+		},
+		"flex": {
+			"zeroMinutes": "0 minutes do not change the balance",
+			"payoutPositive": "A payout lowers the balance, the minutes have to be negative"
+		},
+		"vacation": {
+			"zeroDays": "0 days do not change the leave account"
+		},
+		"team": {
+			"duplicateLead": "This person is already on the list"
+		},
+		"text": {
+			"empty": "This field cannot be empty",
+			"controlChars": "No control or formatting characters allowed"
+		},
+		"password": {
+			"common": "This password is on the list of common passwords. Please choose another one."
+		}
 	},
 	"dayBar": {
 		"label": "Entries: {{spans}}",

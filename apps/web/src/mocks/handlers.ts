@@ -8,31 +8,17 @@ import type {
 	Session
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
+import { absenceHandlers } from './absences';
+import { adminHandlers } from './admin';
+import { hrHandlers } from './hr';
+import { securityHandlers } from './security';
+import { mockSession, mockUser } from './session';
+import { weekHandlers } from './week';
 
-// made up person for working on the ui without the api, not demo data
-export const mockUser = { email: 'mara.lenz@example.com', password: 'richtiges-passwort' };
+export { mockSession, mockUser };
+
 export const expiredToken = 'x'.repeat(43);
 export const commonPassword = 'passwort1234';
-
-const signedIn: Session = {
-	user: {
-		id: '3f6c2a9e-8b1d-4c57-9e0a-5d2b7f4a1c38',
-		email: mockUser.email,
-		displayName: 'Mara Lenz',
-		role: 'admin',
-		locale: 'de',
-		status: 'active',
-		employeeId: '8d41b7c2-0e5f-4a93-b6d8-2c7e9f13a054',
-		lastLoginAt: null
-	},
-	tenant: {
-		id: 'c2e8f4a1-6b3d-4f70-8a95-1d4c7b2e9f60',
-		name: 'Musterbetrieb (Beispiel)',
-		kind: 'live',
-		expiresAt: null
-	},
-	csrfToken: 'mock-csrf-token'
-};
 
 let session: Session | null = null;
 
@@ -52,7 +38,7 @@ const checkNewPassword = (token: string, password: string) => {
 			{
 				code: 'VALIDATION',
 				message: 'Invalid input',
-				details: [{ field: 'password', message: 'Too common' }]
+				details: [{ field: 'password', code: 'custom', message: 'password.common' }]
 			},
 			{ status: 400 }
 		);
@@ -61,6 +47,13 @@ const checkNewPassword = (token: string, password: string) => {
 };
 
 export const handlers = [
+	// the security handlers answer /auth/mfa*, /security* and the passkey-only login, everything else falls through
+	...securityHandlers,
+	...weekHandlers,
+	...absenceHandlers,
+	...hrHandlers,
+	...adminHandlers,
+
 	http.get('/api/auth/session', () =>
 		session ? HttpResponse.json(session) : fail(401, 'UNAUTHENTICATED', 'No session')
 	),
@@ -70,7 +63,7 @@ export const handlers = [
 		if (email !== mockUser.email || password !== mockUser.password) {
 			return fail(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
 		}
-		session = signedIn;
+		session = mockSession;
 		return HttpResponse.json(session);
 	}),
 
@@ -95,13 +88,20 @@ export const handlers = [
 		return HttpResponse.json({
 			email: 'jonas.brandt@example.com',
 			displayName: 'Jonas Brandt',
-			tenantName: signedIn.tenant.name
+			tenantName: mockSession.tenant.name
 		} satisfies Invitation);
 	}),
 
 	http.post('/api/auth/invitations/accept', async ({ request }) => {
 		const { token, password } = (await request.json()) as AcceptInvitationInput;
-		return checkNewPassword(token, password) ?? done();
+		// accepting always leaves the setup state, the person still has to register a second factor
+		return (
+			checkNewPassword(token, password) ??
+			HttpResponse.json({
+				...mockSession,
+				security: { enrollmentPending: true, reauthUntil: null }
+			})
+		);
 	}),
 
 	http.patch('/api/me', async ({ request }) => {

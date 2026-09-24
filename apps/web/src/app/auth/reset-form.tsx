@@ -100,7 +100,8 @@ function NewPasswordForm({ token, invalid }: NewPasswordProps) {
 		mutationFn: resetPassword,
 		onSuccess: () => navigate({ to: '/login', search: { notice: 'passwordReset' }, replace: true }),
 		onError: (err) => {
-			if (rejectsPassword(err)) setError('password', { message: t('rejected') });
+			if (rejectsPassword(err))
+				setError('password', { message: t('common:validation.password.common') });
 		}
 	});
 

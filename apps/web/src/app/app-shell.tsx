@@ -40,10 +40,10 @@ export function AppShell({ session, children }: Props) {
 			<a className={styles.skip} href="#main">
 				{t('skipToContent')}
 			</a>
-			<div className={styles.brand}>
-				<Brand />
-			</div>
 			<header className={styles.head}>
+				<div className={styles.brand}>
+					<Brand />
+				</div>
 				<p className={styles.tenant}>{session.tenant.name}</p>
 				<div className={styles.tools}>
 					<DemoSwitch />
@@ -79,6 +79,9 @@ export function AppShell({ session, children }: Props) {
 					<div className={styles.lang}>
 						<LangSwitch />
 					</div>
+					<Link to="/security" className={styles.moreLink} onClick={close}>
+						{t('nav:security')}
+					</Link>
 					<Link to="/sessions" className={styles.moreLink} onClick={close}>
 						{t('nav:sessions')}
 					</Link>

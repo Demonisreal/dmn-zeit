@@ -1,0 +1,6 @@
+/* browsers default a textarea to monospace, base.css only resets inputs and buttons */
+.area {
+	font: inherit;
+	line-height: 1.45;
+	resize: vertical;
+}

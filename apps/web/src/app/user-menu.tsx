@@ -7,7 +7,7 @@ import { useSignOut } from './use-sign-out';
 import css from './user-menu.module.css';
 
 // react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
-const styles = css as Record<'caret' | 'popover' | 'who' | 'email' | 'menu' | 'item', string>;
+const styles = css as Record<'caret' | 'popover' | 'who' | 'email' | 'menu' | 'entry', string>;
 
 type Props = {
 	user: Session['user'];
@@ -32,14 +32,18 @@ export function UserMenu({ user }: Props) {
 				<Menu
 					className={styles.menu}
 					aria-label={t('account')}
-					onAction={(key) =>
-						key === 'logout' ? signOut.mutate() : void navigate({ to: '/sessions' })
-					}
+					onAction={(key) => {
+						if (key === 'logout') signOut.mutate();
+						else void navigate({ to: key === 'security' ? '/security' : '/sessions' });
+					}}
 				>
-					<MenuItem id="sessions" className={styles.item}>
+					<MenuItem id="security" className={styles.entry}>
+						{t('nav:security')}
+					</MenuItem>
+					<MenuItem id="sessions" className={styles.entry}>
 						{t('nav:sessions')}
 					</MenuItem>
-					<MenuItem id="logout" className={styles.item}>
+					<MenuItem id="logout" className={styles.entry}>
 						{t('logout')}
 					</MenuItem>
 				</Menu>

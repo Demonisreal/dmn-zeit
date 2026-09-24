@@ -54,7 +54,21 @@ describe('invitation', () => {
 		expect(screen.getByLabelText('Neues Passwort')).toHaveAttribute('aria-invalid', 'true');
 	});
 
-	it('goes to the login with a note once the password is set', async () => {
+	it('continues straight to the setup of a second factor once the password is set', async () => {
+		renderApp(`/invite#t=${token}`);
+		await screen.findByRole('heading', { name: 'Passwort festlegen' });
+
+		await submit('lang-genug-und-gut', 'lang-genug-und-gut');
+
+		expect(
+			await screen.findByRole('heading', { name: 'Zweiten Faktor einrichten' })
+		).toBeInTheDocument();
+	});
+
+	it('falls back to the login page if accepting answers with no session', async () => {
+		server.use(
+			http.post('/api/auth/invitations/accept', () => new HttpResponse(null, { status: 204 }))
+		);
 		renderApp(`/invite#t=${token}`);
 		await screen.findByRole('heading', { name: 'Passwort festlegen' });
 

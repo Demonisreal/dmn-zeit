@@ -1,0 +1,18 @@
+{
+	"previous": "Previous month",
+	"next": "Next month",
+	"current": "This month",
+	"table": "Time entries {{month}}",
+	"total": "Month",
+	"monthEnd": "end of {{month}}",
+	"empty": "No time entries this month.",
+	"ack": {
+		"open": "Acknowledge",
+		"note": "Note",
+		"noteHint": "For example why the exception was allowed. The note is kept in the audit log.",
+		"submit": "Acknowledge finding",
+		"cancel": "Cancel",
+		"done": "This finding is already acknowledged.",
+		"forbidden": "Only team leads and HR acknowledge findings."
+	}
+}

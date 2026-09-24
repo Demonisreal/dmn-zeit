@@ -1,0 +1,159 @@
+/* on screen the sheet is a preview of the paper, so it is light on the dark app ground */
+.page {
+	display: grid;
+	justify-items: center;
+	gap: 1rem;
+	padding: 1rem;
+}
+
+.toolbar {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.75rem;
+	width: min(100%, 210mm);
+}
+
+.sheet {
+	display: grid;
+	gap: 5mm;
+	width: min(100%, 210mm);
+	min-height: 297mm;
+	padding: 14mm 12mm;
+	border-radius: 2px;
+	background: #fff;
+	color: #1b1c1f;
+	font-size: 9.5pt;
+	line-height: 1.35;
+	box-shadow: 0 16px 40px -20px rgb(0 0 0 / 0.9);
+}
+
+.sheet h1 {
+	color: inherit;
+	font-size: 15pt;
+	letter-spacing: -0.01em;
+}
+
+.head {
+	display: grid;
+	gap: 2mm;
+}
+
+.tenant {
+	color: #55585f;
+}
+
+.meta {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.5mm 6mm;
+	margin: 0;
+}
+
+.meta dt {
+	color: #55585f;
+}
+
+.meta dd {
+	margin: 0;
+	font-variant-numeric: tabular-nums;
+}
+
+.table {
+	width: 100%;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+	padding: 1mm 1.5mm;
+	border-bottom: 0.5pt solid #c9cbd0;
+	text-align: start;
+	vertical-align: top;
+}
+
+.table thead th {
+	border-bottom: 1pt solid #1b1c1f;
+	color: #55585f;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.table tfoot th,
+.table tfoot td {
+	border-top: 1pt solid #1b1c1f;
+	border-bottom: 0;
+	font-weight: 600;
+}
+
+.table .num {
+	font-family: var(--mono);
+	text-align: end;
+	white-space: nowrap;
+}
+
+.date {
+	white-space: nowrap;
+}
+
+.weekday {
+	display: inline-block;
+	min-width: 2.2em;
+	color: #55585f;
+}
+
+.signatures {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12mm;
+	margin-top: 12mm;
+}
+
+.signatures p {
+	padding-top: 1.5mm;
+	border-top: 0.5pt solid #1b1c1f;
+	color: #55585f;
+	font-size: 8.5pt;
+}
+
+.foot {
+	align-self: end;
+	color: #55585f;
+	font-size: 8pt;
+}
+
+@page {
+	size: A4;
+	margin: 12mm;
+}
+
+@media print {
+	:global(html),
+	:global(body) {
+		background: #fff;
+	}
+
+	:global(body)::after {
+		display: none;
+	}
+
+	.page {
+		display: block;
+		padding: 0;
+	}
+
+	.toolbar {
+		display: none;
+	}
+
+	.sheet {
+		width: auto;
+		min-height: 0;
+		padding: 0;
+		box-shadow: none;
+	}
+
+	.table tr {
+		break-inside: avoid;
+	}
+}

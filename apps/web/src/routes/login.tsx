@@ -1,16 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 import { LoginForm } from '../app/auth/login-form';
+import { nextPath } from '../app/auth/next-path';
 import { PublicLayout } from '../app/public-layout';
 import { sessionQuery } from '../lib/api/auth';
 
 const searchSchema = z.object({
-	// only paths inside the app, a backslash would let the browser read it as //host
-	next: z
-		.string()
-		.regex(/^\/(?![/\\])[^\\]*$/)
-		.optional()
-		.catch(undefined),
+	next: nextPath,
 	notice: z.enum(['passwordSet', 'passwordReset']).optional().catch(undefined)
 });
 

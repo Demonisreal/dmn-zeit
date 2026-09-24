@@ -1,8 +1,8 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { mockUser } from '../../mocks/handlers';
+import { mockSession, mockUser } from '../../mocks/handlers';
 import { server } from '../../mocks/server';
 import { renderApp } from '../../test/render-app';
 
@@ -67,6 +67,40 @@ describe('login', () => {
 
 		await fill(mockUser.email, mockUser.password);
 
-		expect(await screen.findByRole('heading', { name: 'Urlaub' })).toBeInTheDocument();
+		// the leave page loads its own data, arriving there is what counts here
+		await waitFor(() => expect(router.state.location.pathname).toBe('/vacation'));
+	});
+
+	it('asks for the second factor when the password alone is not enough', async () => {
+		server.use(
+			http.post('/api/auth/login', () =>
+				HttpResponse.json({ mfaRequired: true, methods: ['totp', 'passkey'] })
+			)
+		);
+		const router = renderApp('/login?next=%2Fvacation');
+		await screen.findByRole('heading', { name: 'Anmelden' });
+
+		await fill(mockUser.email, mockUser.password);
+
+		expect(
+			await screen.findByRole('heading', { name: 'Anmeldung bestätigen' })
+		).toBeInTheDocument();
+		expect(router.state.location.search).toEqual({
+			next: '/vacation',
+			methods: ['totp', 'passkey']
+		});
+	});
+
+	it('keeps a new account on the setup page until a second factor exists', async () => {
+		const pending = { ...mockSession, security: { enrollmentPending: true, reauthUntil: null } };
+		server.use(http.post('/api/auth/login', () => HttpResponse.json(pending)));
+		renderApp('/login');
+		await screen.findByRole('heading', { name: 'Anmelden' });
+
+		await fill(mockUser.email, mockUser.password);
+
+		expect(
+			await screen.findByRole('heading', { name: 'Zweiten Faktor einrichten' })
+		).toBeInTheDocument();
 	});
 });

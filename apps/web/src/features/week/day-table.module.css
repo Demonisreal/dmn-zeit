@@ -1,0 +1,221 @@
+.frame {
+	container-type: inline-size;
+	transition: opacity 150ms ease-out;
+}
+
+/* the previous week stays in view while the next one loads */
+.frame[data-stale] {
+	opacity: 0.6;
+}
+
+.row td[data-toggle] {
+	cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.row:hover > * {
+		background: var(--ink);
+	}
+}
+
+.row[data-free] .toggle,
+.frame .row[data-free] td {
+	color: var(--muted);
+}
+
+.day {
+	width: 1%;
+}
+
+.toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	min-height: 2rem;
+	margin: 0 -0.25rem;
+	padding: 0 0.25rem;
+	border: 0;
+	border-radius: 4px;
+	background: none;
+	color: var(--white);
+	font: 500 0.875rem/1.3 var(--sans);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.toggle svg {
+	color: var(--muted);
+}
+
+.toggle[aria-expanded='true'] svg {
+	color: var(--white);
+}
+
+.dayName {
+	min-width: 2.25rem;
+}
+
+.dayDate {
+	font-family: var(--mono);
+	font-size: 0.8125rem;
+	font-variant-numeric: tabular-nums;
+}
+
+/* on phones the notice column is gone, a small mark next to the day keeps an open finding visible */
+.toggle[data-flag]::after {
+	content: '§';
+	display: none;
+	color: var(--red-hi);
+	font-family: var(--mono);
+	font-size: 0.8125rem;
+}
+
+.barCol {
+	width: 38%;
+	min-width: 7rem;
+}
+
+.barCell {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.barCell > [role='img'] {
+	flex: 1;
+	min-width: 4.5rem;
+}
+
+.edge {
+	flex: none;
+	width: 3px;
+	height: 0.625rem;
+	border-radius: 1px;
+}
+
+.edge[data-on] {
+	background: var(--muted);
+}
+
+.scale {
+	position: relative;
+	display: block;
+	height: 1em;
+	margin-inline: 5px;
+	font-family: var(--mono);
+	font-size: 0.75rem;
+	font-weight: 400;
+}
+
+.scale span {
+	position: absolute;
+	transform: translateX(-50%);
+}
+
+.scale span:nth-child(1) {
+	left: 0;
+	transform: none;
+}
+
+.scale span:nth-child(2) {
+	left: 37.5%;
+}
+
+.scale span:nth-child(3) {
+	left: 75%;
+}
+
+.scale span:nth-child(4) {
+	right: 0;
+	transform: none;
+}
+
+.nextDay {
+	margin-inline-start: 0.25rem;
+	color: var(--muted);
+	font-size: 0.75rem;
+	vertical-align: super;
+}
+
+.running {
+	color: var(--green);
+	font-family: var(--sans);
+	font-size: 0.8125rem;
+}
+
+.tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
+.sumLabel {
+	color: var(--white);
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+/* the shared table draws the line above the sums on td only, the row labels here are th */
+.frame tfoot th {
+	border-top: 1px solid var(--line);
+	border-bottom: 0;
+}
+
+.frame tfoot tr + tr > * {
+	border-top: 0;
+}
+
+.note {
+	display: block;
+	color: var(--muted);
+	font-family: var(--sans);
+	font-size: 0.75rem;
+	font-weight: 400;
+}
+
+.frame .detailRow > td {
+	padding: 0;
+	background: var(--ink);
+}
+
+/* all nine columns need about 58rem, below that the clock times move into the breakdown */
+@container (max-width: 58rem) {
+	.wide {
+		display: none;
+	}
+}
+
+@container (max-width: 38rem) {
+	.mid {
+		display: none;
+	}
+
+	.frame table th,
+	.frame table td {
+		padding-inline: 0.375rem;
+	}
+
+	.toggle {
+		display: grid;
+		grid-template-columns: auto auto;
+		column-gap: 0.25rem;
+	}
+
+	.toggle svg {
+		grid-row: span 2;
+	}
+
+	.toggle[data-flag]::after {
+		display: block;
+		grid-column: 2;
+	}
+
+	.barCol {
+		width: auto;
+		min-width: 0;
+	}
+
+	.scale span:nth-child(3) {
+		display: none;
+	}
+}

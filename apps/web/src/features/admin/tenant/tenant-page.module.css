@@ -1,0 +1,13 @@
+/* settings on the left, the holidays they produce beside them */
+.layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(17rem, 24rem);
+	gap: 2rem 2.5rem;
+	align-items: start;
+}
+
+@media (max-width: 64rem) {
+	.layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

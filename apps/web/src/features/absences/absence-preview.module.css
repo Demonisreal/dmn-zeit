@@ -1,0 +1,118 @@
+.preview {
+	display: grid;
+	align-content: start;
+	gap: 0.75rem;
+	min-width: 0;
+	padding-top: 1rem;
+	border-top: 1px solid var(--edge);
+}
+
+@media (min-width: 64rem) {
+	.preview {
+		padding: 0 0 0 2rem;
+		border-top: 0;
+		border-left: 1px solid var(--edge);
+	}
+}
+
+.preview h3 {
+	color: var(--white);
+	font-size: 0.9375rem;
+	font-weight: 600;
+}
+
+.hint {
+	max-width: 48ch;
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.facts {
+	display: grid;
+	gap: 0.25rem;
+	max-width: 26rem;
+	margin: 0;
+	transition: opacity 150ms ease-out;
+}
+
+.facts[data-stale] {
+	opacity: 0.55;
+}
+
+.facts > div {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.3125rem 0;
+	border-bottom: 1px solid var(--edge);
+}
+
+.facts dt {
+	color: var(--text);
+	font-size: 0.875rem;
+}
+
+.facts dd {
+	margin: 0;
+	color: var(--white);
+	font: 500 0.875rem var(--mono);
+	white-space: nowrap;
+}
+
+.facts dd[data-short] {
+	color: var(--warning);
+}
+
+.facts > .sub dt {
+	padding-left: 0.875rem;
+	color: var(--muted);
+}
+
+.days summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2rem;
+	color: var(--white);
+	font-size: 0.875rem;
+	cursor: default;
+	list-style: none;
+}
+
+.days summary::-webkit-details-marker {
+	display: none;
+}
+
+.days summary::before {
+	content: '';
+	width: 0.375rem;
+	height: 0.375rem;
+	border-right: 1.5px solid var(--text);
+	border-bottom: 1.5px solid var(--text);
+	transform: rotate(-45deg);
+	transition: transform 160ms var(--ease);
+}
+
+.days[open] summary::before {
+	transform: rotate(45deg);
+}
+
+.days summary:focus-visible {
+	border-radius: 2px;
+}
+
+.days table {
+	margin-top: 0.25rem;
+	font-size: 0.875rem;
+}
+
+.date {
+	white-space: nowrap;
+}
+
+/* days without target time stay listed for their reason, but step back */
+.days .off td,
+.days .off td[data-numeric] {
+	color: var(--muted);
+}

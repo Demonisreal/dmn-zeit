@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { Invitation } from '@zeit/shared';
 import { useForm } from 'react-hook-form';
@@ -9,7 +9,7 @@ import { Button } from '../../components/ui/button';
 import { Field, FormField } from '../../components/ui/field';
 import { Notice } from '../../components/ui/notice';
 import { Skeleton } from '../../components/ui/skeleton';
-import { acceptInvitation, inspectInvitation } from '../../lib/api/auth';
+import { acceptInvitation, inspectInvitation, sessionQuery } from '../../lib/api/auth';
 import { hasCode } from '../../lib/api/errors';
 import { errorKey } from '../error-key';
 import styles from './auth.module.css';
@@ -63,6 +63,7 @@ type FormProps = {
 function InviteForm({ token, invitation }: FormProps) {
 	const { t } = useTranslation(['auth', 'common']);
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const { control, handleSubmit, setError } = useForm({
 		resolver: zodResolver(newPasswordSchema),
 		defaultValues: { password: '', confirm: '' }
@@ -70,9 +71,17 @@ function InviteForm({ token, invitation }: FormProps) {
 
 	const accept = useMutation({
 		mutationFn: acceptInvitation,
-		onSuccess: () => navigate({ to: '/login', search: { notice: 'passwordSet' }, replace: true }),
+		onSuccess: async (session) => {
+			if (!session) {
+				return navigate({ to: '/login', search: { notice: 'passwordSet' }, replace: true });
+			}
+			// the new session may only set up the second factor, the setup page is the one way on
+			queryClient.setQueryData(sessionQuery.queryKey, session);
+			await navigate({ to: '/security/setup', replace: true });
+		},
 		onError: (err) => {
-			if (rejectsPassword(err)) setError('password', { message: t('rejected') });
+			if (rejectsPassword(err))
+				setError('password', { message: t('common:validation.password.common') });
 		}
 	});
 

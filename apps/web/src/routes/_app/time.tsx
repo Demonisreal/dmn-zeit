@@ -1,12 +1,22 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
+import { monthSchema, uuidSchema } from '@zeit/shared';
+import { z } from 'zod';
+import { TimePage } from '../../features/time/time-page';
 
-export const Route = createFileRoute('/_app/time')({
-	staticData: { title: 'time' },
-	component: TimePage
+// employee lets the inbox or the team calendar open someone else's month
+const searchSchema = z.object({
+	month: monthSchema.optional().catch(undefined),
+	employee: uuidSchema.optional().catch(undefined)
 });
 
-function TimePage() {
-	const { t } = useTranslation('nav');
-	return <h1>{t('time')}</h1>;
+export const Route = createFileRoute('/_app/time')({
+	validateSearch: searchSchema,
+	staticData: { title: 'time' },
+	component: TimeRoute
+});
+
+function TimeRoute() {
+	const { session } = Route.useRouteContext();
+	const { month, employee } = Route.useSearch();
+	return <TimePage session={session} month={month} employee={employee} />;
 }

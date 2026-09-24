@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { FormField } from '../../components/ui/field';
 import { Notice } from '../../components/ui/notice';
+import { PasskeyLogin } from '../../features/security/passkey-login';
 import { login, sessionQuery } from '../../lib/api/auth';
 import { hasCode } from '../../lib/api/errors';
 import { errorKey } from '../error-key';
@@ -30,8 +31,12 @@ export function LoginForm({ next, notice }: Props) {
 
 	const signIn = useMutation({
 		mutationFn: login,
-		onSuccess: async (session) => {
-			queryClient.setQueryData(sessionQuery.queryKey, session);
+		onSuccess: async (result) => {
+			// the password was right, the second factor is asked on its own page
+			if ('mfaRequired' in result) {
+				return navigate({ to: '/login/verify', search: { next, methods: result.methods } });
+			}
+			queryClient.setQueryData(sessionQuery.queryKey, result);
 			await navigate({ href: next ?? '/' });
 		}
 	});
@@ -71,6 +76,7 @@ export function LoginForm({ next, notice }: Props) {
 				</Button>
 				<Link to="/reset">{t('login.forgot')}</Link>
 			</div>
+			<PasskeyLogin next={next} />
 			<p className={styles.aside}>{t('login.inviteOnly')}</p>
 		</form>
 	);

@@ -1,0 +1,26 @@
+.controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75rem 1rem;
+}
+
+.controls > :first-child:not([role='group']) {
+	min-width: 12rem;
+}
+
+.month {
+	display: inline-block;
+	min-width: 9.5rem;
+}
+
+.team {
+	margin-top: -1rem;
+	color: var(--muted);
+}
+
+.legend {
+	max-width: 80ch;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}

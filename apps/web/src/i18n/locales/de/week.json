@@ -1,0 +1,178 @@
+{
+	"label": "KW {{week}}",
+	"range": "{{from}} bis {{to}}",
+	"previous": "Vorherige Woche",
+	"next": "Nächste Woche",
+	"current": "Diese Woche",
+	"table": "Buchungen KW {{week}}",
+	"empty": "Keine Buchungen in dieser Woche.",
+	"emptyCurrent": "Noch keine Buchungen in dieser Woche. Mit „Kommen“ beginnt die Erfassung.",
+	"noEmployee": {
+		"title": "Zu diesem Konto gibt es keinen Personalstamm",
+		"text": "Stempeln und Wochenbuch gibt es nur für Konten mit Personalnummer. Die Personalverwaltung kann das Konto mit einem Personalstamm verknüpfen."
+	},
+	"col": {
+		"day": "Tag",
+		"bar": "Tagesleiste von 6 bis 22 Uhr",
+		"in": "Kommen",
+		"out": "Gehen",
+		"break": "Pause",
+		"worked": "Ist",
+		"target": "Soll",
+		"diff": "Differenz",
+		"notice": "Hinweis"
+	},
+	"total": "Woche",
+	"untilToday": "bis heute",
+	"flex": "Gleitzeitsaldo",
+	"asOf": "Stand {{date}}",
+	"flexRetry": "Saldo neu laden",
+	"loadFailed": "Nicht geladen.",
+	"clock": {
+		"label": "Stempeln",
+		"today": "Heute",
+		"off": "Nicht eingestempelt",
+		"working": "Läuft seit {{time}}",
+		"onBreak": "Pause seit {{time}}",
+		"in": "Kommen",
+		"break": "Pause",
+		"resume": "Weiter",
+		"out": "Gehen",
+		"loadFailed": "Stempelstatus nicht geladen.",
+		"changed": "Der Stempelstatus hat sich inzwischen geändert, zum Beispiel an einem anderen Gerät. Die Anzeige ist wieder aktuell."
+	},
+	"row": {
+		"toggle": "Herleitung",
+		"running": "läuft"
+	},
+	"detail": {
+		"entries": "Buchungen",
+		"none": "Keine Buchungen",
+		"span": "{{from}} bis {{to}}",
+		"since": "seit {{from}}",
+		"nextDay": "Folgetag",
+		"gap": "Pause",
+		"gapShort": "unter 15 Minuten, zählt nicht als Pause nach § 4 ArbZG",
+		"breaks": "Pausen gesamt",
+		"calc": "Rechnung",
+		"worked": "Ist",
+		"workedHint": "Summe der Buchungen",
+		"target": "Soll",
+		"credited": "Gutschrift",
+		"diff": "Differenz",
+		"holiday": "Feiertag",
+		"halfDay": "halber Tag",
+		"absence": "Abwesenheit",
+		"findings": "Hinweise",
+		"ruleVersion": "Regelversion {{version}}",
+		"acked": "Quittiert von {{name}} am {{date}}",
+		"legal": "Hinweise nach dem Arbeitszeitgesetz, keine Rechtsberatung.",
+		"locked": "Monat abgeschlossen, Buchungen gesperrt. Korrekturen nur über die Personalverwaltung."
+	},
+	"source": {
+		"correction": "Korrektur"
+	},
+	"absence": {
+		"vacation": "Urlaub",
+		"sick": "Krankheit",
+		"time_off": "Zeitausgleich"
+	},
+	"absenceStatus": {
+		"pending": "beantragt",
+		"approved": "genehmigt",
+		"rejected": "abgelehnt",
+		"withdrawn": "zurückgezogen",
+		"cancel_pending": "Stornierung beantragt",
+		"cancelled": "storniert"
+	},
+	"correction": {
+		"open": "Korrektur beantragen",
+		"title": "Korrekturantrag",
+		"action": "Was soll sich ändern?",
+		"add": "Fehlende Buchung nachtragen",
+		"change": "Buchung ändern",
+		"void": "Buchung streichen",
+		"entry": "Buchung",
+		"pickEntry": "Bitte eine Buchung wählen",
+		"start": "Kommen",
+		"end": "Gehen",
+		"same": "Kommen und Gehen sind gleich",
+		"duration": "Dauer {{minutes}}",
+		"durationNextDay": "Dauer {{minutes}}, Gehen am Folgetag",
+		"reason": "Begründung",
+		"reasonHint": "Mindestens 10 Zeichen. Wer den Antrag entscheidet, sieht die Begründung. Sie bleibt im Änderungsprotokoll.",
+		"submit": "Antrag stellen",
+		"cancel": "Abbrechen",
+		"sent": "Korrekturantrag gestellt. Die Buchung ändert sich erst mit der Genehmigung.",
+		"locked": "Der Monat ist abgeschlossen, Buchungen sind gesperrt.",
+		"overlap": "Die Zeit überschneidet sich mit einer anderen Buchung."
+	},
+	"requests": {
+		"title": "Offene Anträge",
+		"absences_one": "{{count}} Abwesenheit",
+		"absences_other": "{{count}} Abwesenheiten",
+		"corrections_one": "{{count}} Korrekturantrag",
+		"corrections_other": "{{count}} Korrekturanträge",
+		"none": "Keine offenen Anträge",
+		"link": "Zu den Anträgen"
+	},
+	"leave": {
+		"title": "Urlaubskonto",
+		"available": "Tage verfügbar",
+		"pending": "{{days}} Tage beantragt, noch nicht genehmigt",
+		"link": "Zum Urlaubskonto"
+	},
+	"explain": {
+		"target": {
+			"workday": "{{weekday}}: {{minutes}} laut Vertrag",
+			"half_holiday": "{{code}}, halber Tag: {{minutes}} Soll",
+			"holiday": "{{code}}: Feiertag, kein Soll",
+			"no_contract": "Für diesen Tag ist kein Vertrag hinterlegt, kein Soll",
+			"outside_employment": "Außerhalb des Beschäftigungszeitraums, kein Soll"
+		},
+		"unknown": "Keine Erklärung vorhanden"
+	},
+	"finding": {
+		"ARBZG_3_OVER_8": "Mehr als 8 Stunden gearbeitet ({{minutes}}). Zulässig, wenn im Durchschnitt von sechs Kalendermonaten oder 24 Wochen 8 Stunden werktäglich nicht überschritten werden.",
+		"ARBZG_3_OVER_10": "Mehr als 10 Stunden gearbeitet ({{minutes}}). Die Höchstarbeitszeit ist überschritten.",
+		"ARBZG_4_BREAK_SHORT": "Pause zu kurz: {{requiredMinutes}} vorgeschrieben, {{actualMinutes}} gemacht. Es zählen nur Pausen ab 15 Minuten.",
+		"ARBZG_4_CONTINUOUS_6H": "{{continuousMinutes}} am Stück gearbeitet. Länger als 6 Stunden ohne Pause ist nicht erlaubt.",
+		"ARBZG_5_REST_UNDER_11H": "Ruhezeit seit dem letzten Arbeitsende nur {{restMinutes}}. Vorgeschrieben sind 11 Stunden.",
+		"ARBZG_9_SUNDAY": "Arbeit an einem Sonntag. Erlaubt nur in den Ausnahmen nach § 10 ArbZG.",
+		"ARBZG_9_HOLIDAY": "Arbeit an einem gesetzlichen Feiertag. Erlaubt nur in den Ausnahmen nach § 10 ArbZG."
+	},
+	"weekday": {
+		"mon": "Montag",
+		"tue": "Dienstag",
+		"wed": "Mittwoch",
+		"thu": "Donnerstag",
+		"fri": "Freitag",
+		"sat": "Samstag",
+		"sun": "Sonntag"
+	},
+	"holiday": {
+		"new_year": "Neujahr",
+		"epiphany": "Heilige Drei Könige",
+		"womens_day": "Internationaler Frauentag",
+		"good_friday": "Karfreitag",
+		"easter_sunday": "Ostersonntag",
+		"easter_monday": "Ostermontag",
+		"labour_day": "Tag der Arbeit",
+		"liberation_day": "Tag der Befreiung",
+		"ascension_day": "Christi Himmelfahrt",
+		"whit_sunday": "Pfingstsonntag",
+		"whit_monday": "Pfingstmontag",
+		"corpus_christi": "Fronleichnam",
+		"augsburg_peace": "Augsburger Friedensfest",
+		"assumption_day": "Mariä Himmelfahrt",
+		"world_childrens_day": "Weltkindertag",
+		"german_unity_day": "Tag der Deutschen Einheit",
+		"reformation_day": "Reformationstag",
+		"all_saints_day": "Allerheiligen",
+		"repentance_day": "Buß- und Bettag",
+		"christmas_eve": "Heiligabend",
+		"christmas_day": "1. Weihnachtstag",
+		"boxing_day": "2. Weihnachtstag",
+		"new_years_eve": "Silvester"
+	}
+}

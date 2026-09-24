@@ -1,0 +1,117 @@
+{
+	"title": "Urlaub",
+	"year": "Jahr",
+	"prevYear": "Vorheriges Jahr",
+	"nextYear": "Nächstes Jahr",
+	"legal": "Berechnet nach dem Bundesurlaubsgesetz. Die Angaben sind Hinweise, keine Rechtsberatung.",
+	"account": {
+		"title": "Urlaubskonto",
+		"label": "Urlaubskonto {{year}}",
+		"bucket": "Anspruchsjahr",
+		"entitlement": "Anspruch",
+		"taken": "Genommen",
+		"refunded": "Zurückgebucht",
+		"adjusted": "Korrektur",
+		"expired": "Verfallen",
+		"remaining": "Rest",
+		"deadline": "Frist",
+		"noDeadline": "keine",
+		"carryOver": "Übertrag",
+		"derivation": "Herleitung",
+		"available": "Verfügbar",
+		"pending": "abzüglich {{days}} Tage in offenen Anträgen",
+		"empty": "Für {{year}} gibt es kein Urlaubskonto."
+	},
+	"derivation": {
+		"entitlement": "Anspruch {{year}}: {{days}} Tage",
+		"ledger": "Buchungen",
+		"ledgerLabel": "Buchungen im Anspruchsjahr {{year}}",
+		"noEntries": "Noch keine Buchungen.",
+		"expiry": "Verfall:"
+	},
+	"ledger": {
+		"date": "Datum",
+		"entry": "Buchung",
+		"days": "Tage",
+		"balance": "Stand",
+		"remark": "Bemerkung",
+		"notice": "nach Hinweis vom {{date}}",
+		"type": {
+			"entitlement": "Anspruch",
+			"adjustment": "Korrektur",
+			"taken": "Urlaub genommen",
+			"refund_sick": "Rückbuchung Krankheit",
+			"refund_cancel": "Rückbuchung Storno",
+			"expiry": "Verfall",
+			"manual": "Manuelle Buchung"
+		}
+	},
+	"notice": {
+		"none": "Kein Hinweis zum Urlaubsverfall erteilt.",
+		"open": "Hinweis zum Urlaubsverfall vom {{sent}}, noch nicht quittiert.",
+		"acknowledged": "Hinweis zum Urlaubsverfall vom {{sent}}, quittiert am {{acknowledged}}."
+	},
+	"forfeiture": {
+		"text": "Resturlaub aus {{year}}: {{days}} Tage. Was bis zum {{deadline}} nicht genommen ist, verfällt (§ 7 Abs. 3 BUrlG).",
+		"sent": "Hinweis zum Urlaubsverfall vom {{sent}}",
+		"acknowledge": "Hinweis quittieren",
+		"done": "Hinweis zum Urlaubsverfall quittiert."
+	},
+	"errors": {
+		"noEmployee": "Diesem Konto ist kein Personalstamm zugeordnet, darum gibt es kein Urlaubskonto."
+	},
+	"explain": {
+		"vacation": {
+			"entitlement": {
+				"full_year": "Voller Jahresanspruch laut Vertrag: {{days}} Tage",
+				"pro_rata_one": "Anteilig für {{count}} Monat: {{days}} Tage (§ 5 Abs. 1 BUrlG)",
+				"pro_rata_other": "Anteilig für {{count}} Monate: {{days}} Tage (§ 5 Abs. 1 BUrlG)",
+				"full_on_exit": "Austritt nach dem 30. Juni, der volle Jahresanspruch von {{days}} Tagen bleibt (§ 5 Abs. 1 Buchst. c BUrlG)",
+				"rounded_up": "{{exact}} Tage auf {{rounded}} aufgerundet (§ 5 Abs. 2 BUrlG)",
+				"statutory_minimum": "Der gesetzliche Mindesturlaub ist höher und gilt: {{days}} Tage (§ 3 BUrlG)",
+				"waiting_period": "Wartezeit nach § 4 BUrlG bis einschließlich {{until}}, der volle Anspruch entsteht erst danach",
+				"no_employment": "In diesem Jahr nicht beschäftigt, kein Anspruch"
+			},
+			"day": {
+				"workday": "Arbeitstag",
+				"half_workday": "Halber Arbeitstag",
+				"half_holiday": "Halber Feiertag ({{code}}), die andere Hälfte ist Urlaub",
+				"holiday": "Feiertag: {{code}}",
+				"non_working_day": "Laut Vertrag kein Arbeitstag",
+				"outside_employment": "Außerhalb des Beschäftigungszeitraums"
+			},
+			"expiry": {
+				"not_due": "Noch nicht fällig",
+				"no_notice": "Frist abgelaufen, ohne Hinweis verfällt aber kein Urlaub (BAG 2019)",
+				"forfeited": "Nach Hinweis mit Ablauf des {{deadline}} verfallen (§ 7 Abs. 3 BUrlG)"
+			},
+			"sick_refund_one": "Krank an {{count}} Urlaubstag, {{days}} Tage zurückgebucht (§ 9 BUrlG)",
+			"sick_refund_other": "Krank an {{count}} Urlaubstagen, {{days}} Tage zurückgebucht (§ 9 BUrlG)"
+		}
+	},
+	"holiday": {
+		"new_year": "Neujahr",
+		"epiphany": "Heilige Drei Könige",
+		"womens_day": "Internationaler Frauentag",
+		"good_friday": "Karfreitag",
+		"easter_sunday": "Ostersonntag",
+		"easter_monday": "Ostermontag",
+		"labour_day": "Tag der Arbeit",
+		"liberation_day": "Tag der Befreiung",
+		"ascension_day": "Christi Himmelfahrt",
+		"whit_sunday": "Pfingstsonntag",
+		"whit_monday": "Pfingstmontag",
+		"corpus_christi": "Fronleichnam",
+		"augsburg_peace": "Augsburger Friedensfest",
+		"assumption_day": "Mariä Himmelfahrt",
+		"world_childrens_day": "Weltkindertag",
+		"german_unity_day": "Tag der Deutschen Einheit",
+		"reformation_day": "Reformationstag",
+		"all_saints_day": "Allerheiligen",
+		"repentance_day": "Buß- und Bettag",
+		"christmas_eve": "Heiligabend",
+		"christmas_day": "1. Weihnachtstag",
+		"boxing_day": "2. Weihnachtstag",
+		"new_years_eve": "Silvester"
+	}
+}

@@ -10,7 +10,10 @@
 	"inbox": "Inbox",
 	"teamCalendar": "Team calendar",
 	"sessions": "Sessions",
+	"security": "Security",
 	"login": "Sign in",
 	"invite": "Invitation",
-	"reset": "Reset password"
+	"reset": "Reset password",
+	"verify": "Confirm sign-in",
+	"securitySetup": "Set up a second factor"
 }

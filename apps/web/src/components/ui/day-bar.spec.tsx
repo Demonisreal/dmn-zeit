@@ -18,6 +18,12 @@ describe('DayBar', () => {
 		);
 	});
 
+	it('reads the end of a shift past midnight as a clock time', () => {
+		render(<DayBar spans={[{ from: 1290, to: 1485 }]} />);
+
+		expect(screen.getByRole('img')).toHaveAccessibleName('Buchungen: 21:30 bis 00:45');
+	});
+
 	it('says when there is nothing', () => {
 		render(<DayBar spans={[]} />);
 

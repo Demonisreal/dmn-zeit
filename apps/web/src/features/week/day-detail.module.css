@@ -1,0 +1,192 @@
+.detail {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+	gap: 1.25rem 2.5rem;
+	padding: 1rem 1.125rem 1.25rem 1.75rem;
+	font-size: 0.875rem;
+	overflow-wrap: anywhere;
+	animation: reveal 180ms var(--ease);
+}
+
+@keyframes reveal {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+@keyframes fade {
+	from {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.detail {
+		animation-name: fade;
+	}
+}
+
+.block {
+	display: grid;
+	align-content: start;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.block h3 {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	letter-spacing: 0;
+}
+
+.wide {
+	grid-column: 1 / -1;
+}
+
+.timeline {
+	display: grid;
+	gap: 0.25rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.timeline li,
+.line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25rem 0.75rem;
+	color: var(--white);
+}
+
+.timeline .gap {
+	padding-inline-start: 1rem;
+	color: var(--muted);
+}
+
+.line {
+	padding-top: 0.375rem;
+	border-top: 1px solid var(--edge);
+	color: var(--text);
+}
+
+.mono {
+	font-family: var(--mono);
+	font-size: 0.8125rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.amount {
+	margin-inline-start: auto;
+	color: var(--white);
+	font-family: var(--mono);
+	font-size: 0.8125rem;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.gap .amount {
+	color: var(--muted);
+}
+
+.hint {
+	flex-basis: 100%;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.running {
+	color: var(--green);
+	font-size: 0.8125rem;
+}
+
+.calc {
+	display: grid;
+	gap: 0.375rem;
+	margin: 0;
+}
+
+.calc > div {
+	display: grid;
+	grid-template-columns: 7rem minmax(0, 1fr);
+	gap: 0 0.75rem;
+}
+
+.calc dt {
+	color: var(--text);
+}
+
+.calc dt > span {
+	display: inline-block;
+	width: 1.5ch;
+	color: var(--muted);
+	font-family: var(--mono);
+}
+
+.calc dd {
+	display: grid;
+	grid-template-columns: 5rem minmax(0, 1fr);
+	align-items: baseline;
+	column-gap: 0.75rem;
+	margin: 0;
+}
+
+.calc dd .amount {
+	margin-inline-start: 0;
+	text-align: end;
+}
+
+.result {
+	padding-top: 0.375rem;
+	border-top: 1px solid var(--line);
+}
+
+.result dt {
+	color: var(--white);
+	font-weight: 600;
+}
+
+.findings {
+	display: grid;
+	gap: 0.75rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.findings > li {
+	display: flex;
+	align-items: baseline;
+	gap: 0.75rem;
+}
+
+.finding {
+	display: grid;
+	gap: 0.25rem;
+	min-width: 0;
+	max-width: 70ch;
+	color: var(--white);
+}
+
+.acked {
+	color: var(--text);
+	font-size: 0.8125rem;
+}
+
+@media (max-width: 30rem) {
+	.detail {
+		padding-inline: 0.75rem;
+	}
+
+	.findings > li {
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+}

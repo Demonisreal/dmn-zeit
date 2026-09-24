@@ -1,0 +1,53 @@
+{
+	"title": "Inbox",
+	"more": "Load more",
+	"requestedAt": "requested on {{date}}",
+	"absences": {
+		"title": "Absences",
+		"empty": "No open absence requests.",
+		"cancelRequested": "Cancellation requested",
+		"days": "{{days}} leave days"
+	},
+	"corrections": {
+		"title": "Corrections",
+		"empty": "No open correction requests.",
+		"action": {
+			"add": "Missed entry",
+			"change": "Change",
+			"void": "Removal"
+		},
+		"before": "before",
+		"after": "after",
+		"nothing": "no time entry",
+		"removed": "removed",
+		"open": "open",
+		"nextDay": "+1 day",
+		"reason": "Reason:"
+	},
+	"sickNotes": {
+		"title": "Medical certificates",
+		"empty": "No sick leave with an open medical certificate.",
+		"reportedAt": "reported on {{date}}",
+		"confirm": "Confirm certificate",
+		"confirmFor": "Confirm certificate: {{name}}, {{period}}",
+		"confirmed": "Medical certificate for {{name}} confirmed. Leave days in the period are booked back."
+	},
+	"decision": {
+		"approve": "Approve",
+		"reject": "Reject",
+		"reason": "Reason for rejecting",
+		"reasonRequired": "Rejecting needs a reason.",
+		"send": "Send rejection",
+		"keep": "Back"
+	},
+	"decided": {
+		"approved": "Request from {{name}} approved.",
+		"rejected": "Request from {{name}} rejected."
+	},
+	"errors": {
+		"forbidden": "Someone else decides on your own requests and on requests outside your team.",
+		"invalidState": "The request has been decided or withdrawn in the meantime.",
+		"locked": "The month is closed, its time entries are locked.",
+		"overlap": "The correction overlaps another time entry."
+	}
+}

@@ -3,8 +3,13 @@ import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { i18n } from '../i18n';
 import { queryClient } from '../lib/api/query-client';
+import { resetMockAbsences } from '../mocks/absences';
+import { resetMockAdmin } from '../mocks/admin';
 import { resetMockSession } from '../mocks/handlers';
+import { resetMockHr } from '../mocks/hr';
+import { resetMockSecurity } from '../mocks/security';
 import { server } from '../mocks/server';
+import { resetMockWeek } from '../mocks/week';
 
 // jsdom cannot scroll, the router still resets the scroll position on every navigation
 window.scrollTo = () => {};
@@ -19,6 +24,11 @@ afterEach(() => {
 	server.resetHandlers();
 	queryClient.clear();
 	resetMockSession();
+	resetMockSecurity();
+	resetMockWeek();
+	resetMockAbsences();
+	resetMockHr();
+	resetMockAdmin();
 });
 
 afterAll(() => server.close());

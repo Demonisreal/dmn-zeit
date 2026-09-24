@@ -1,0 +1,55 @@
+.nav {
+	margin: -0.5rem 0 1.5rem;
+	border-bottom: 1px solid var(--edge);
+}
+
+/* nine entries do not fit a phone, the row scrolls sideways instead of wrapping into a block */
+.list {
+	display: flex;
+	gap: 0.25rem;
+	margin: 0;
+	padding: 0;
+	overflow-x: auto;
+	list-style: none;
+	scrollbar-width: none;
+}
+
+.link {
+	display: flex;
+	align-items: center;
+	min-height: 2.5rem;
+	padding-inline: 0.625rem;
+	color: var(--text);
+	font-size: 0.875rem;
+	text-decoration: none;
+	white-space: nowrap;
+	transition: color 150ms ease-out;
+}
+
+.list li:first-child .link {
+	padding-inline-start: 0;
+}
+
+.link:focus-visible {
+	outline-offset: -2px;
+}
+
+.link[aria-current='page'] {
+	color: var(--white);
+	text-decoration-line: underline;
+	text-decoration-color: var(--red);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.55em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.link:hover {
+		color: var(--white);
+	}
+}
+
+@media (pointer: coarse) {
+	.link {
+		min-height: 2.75rem;
+	}
+}

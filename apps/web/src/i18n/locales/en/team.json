@@ -1,0 +1,31 @@
+{
+	"title": "Team calendar",
+	"team": "Team",
+	"month": "Month",
+	"prevMonth": "Previous month",
+	"nextMonth": "Next month",
+	"empty": "Nobody is assigned to this team.",
+	"person": "Name",
+	"today": "today",
+	"absentCount": "Absent",
+	"pending": "requested",
+	"cancelPending": "cancellation requested",
+	"halfDay": "half day",
+	"kind": {
+		"vacation": "Leave",
+		"sick": "Sick leave",
+		"time_off": "Time off in lieu",
+		"absent": "absent"
+	},
+	"code": {
+		"vacation": "L",
+		"sick": "S",
+		"time_off": "T",
+		"absent": "A"
+	},
+	"legend": {
+		"types": "L leave, S sick leave, T time off in lieu.",
+		"absent": "A absent, only team leads and HR see the reason.",
+		"marks": "Dashed: requested, not decided yet. Half filled: half day."
+	}
+}

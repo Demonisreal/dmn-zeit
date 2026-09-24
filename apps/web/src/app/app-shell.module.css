@@ -1,11 +1,10 @@
 .shell {
 	display: grid;
-	grid-template-columns: auto minmax(0, 1fr);
 	grid-template-rows: auto auto minmax(0, 1fr);
 	grid-template-areas:
-		'brand head'
-		'nav nav'
-		'main main';
+		'head'
+		'nav'
+		'main';
 	min-height: 100dvh;
 }
 
@@ -27,23 +26,20 @@
 	transform: none;
 }
 
-.brand {
-	grid-area: brand;
-	display: flex;
-	align-items: center;
-	height: 3.25rem;
-	padding-inline: 1rem 0.5rem;
-	border-bottom: 1px solid var(--edge);
-}
-
 .head {
 	grid-area: head;
 	display: flex;
 	align-items: center;
 	gap: 1rem;
 	height: 3.25rem;
-	padding-inline: 0.5rem;
+	padding-inline: 1rem 0.5rem;
 	border-bottom: 1px solid var(--edge);
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	height: 100%;
 }
 
 .tenant {
@@ -122,16 +118,25 @@
 		grid-template-columns: 12rem minmax(0, 1fr);
 		grid-template-rows: auto minmax(0, 1fr);
 		grid-template-areas:
-			'brand head'
+			'head head'
 			'nav main';
 	}
 
+	/* the brand cell lines up with the navigation column below it */
+	.head {
+		display: grid;
+		grid-template-columns: 12rem minmax(0, 1fr) auto;
+		gap: 0;
+		padding-inline: 0 1rem;
+	}
+
 	.brand {
+		padding-inline: 1rem;
 		border-right: 1px solid var(--edge);
 		background: var(--ink);
 	}
 
-	.head {
+	.tenant {
 		padding-inline: 1.75rem 1rem;
 	}
 

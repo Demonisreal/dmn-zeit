@@ -1,0 +1,41 @@
+.diff {
+	width: 100%;
+	max-width: 60rem;
+	border-collapse: collapse;
+	font-size: 0.8125rem;
+}
+
+/* sits inside a row of the audit table, whose cell rules would reach in otherwise */
+table.diff th,
+table.diff td {
+	padding: 0.25rem 0.75rem 0.25rem 0;
+	border: 0;
+	font-size: 0.8125rem;
+	text-align: start;
+	vertical-align: top;
+}
+
+table.diff thead th {
+	color: var(--muted);
+	font-weight: 500;
+}
+
+table.diff tbody th {
+	color: var(--text);
+	font-weight: 400;
+	white-space: nowrap;
+}
+
+table.diff .before,
+table.diff .after {
+	font-family: var(--mono);
+	overflow-wrap: anywhere;
+}
+
+table.diff .before {
+	color: var(--muted);
+}
+
+table.diff .after {
+	color: var(--white);
+}

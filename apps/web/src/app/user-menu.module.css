@@ -62,7 +62,7 @@
 	outline: none;
 }
 
-.item {
+.entry {
 	display: flex;
 	align-items: center;
 	min-height: 2.25rem;
@@ -73,12 +73,12 @@
 	outline: none;
 }
 
-.item[data-focused] {
+.entry[data-focused] {
 	background: var(--edge);
 	color: var(--white);
 }
 
-.item[data-focus-visible] {
+.entry[data-focus-visible] {
 	outline: 2px solid var(--red);
 	outline-offset: -2px;
 }

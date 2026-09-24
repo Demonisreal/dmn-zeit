@@ -1,0 +1,101 @@
+{
+	"title": "Requests",
+	"new": "New request",
+	"type": {
+		"vacation": "Leave",
+		"sick": "Sick leave",
+		"time_off": "Time off in lieu"
+	},
+	"status": {
+		"pending": "pending",
+		"approved": "approved",
+		"rejected": "rejected",
+		"withdrawn": "withdrawn",
+		"cancel_pending": "cancellation requested",
+		"cancelled": "cancelled",
+		"reported": "reported"
+	},
+	"sickNote": {
+		"open": "Certificate open",
+		"confirmed": "Certificate confirmed"
+	},
+	"halfDay": {
+		"single": "half day",
+		"start": "first day half",
+		"end": "last day half"
+	},
+	"form": {
+		"title": "Enter an absence",
+		"type": "Type",
+		"sickHint": "Sick leave needs no approval. HR confirms the medical certificate, only then are leave days in the period booked back.",
+		"period": "Period",
+		"halfDays": "Half days",
+		"halfDay": "Half day only",
+		"halfDayStart": "First day half",
+		"halfDayEnd": "Last day half",
+		"note": "Note",
+		"noteHint": "Optional, the team lead sees it when deciding.",
+		"submit": "Submit request",
+		"submitSick": "Report sick leave",
+		"close": "Close",
+		"created": "Request for {{period}} submitted. The team lead decides on it.",
+		"reported": "Sick leave for {{period}} recorded."
+	},
+	"preview": {
+		"title": "Preview",
+		"empty": "Once a period is chosen, this shows what the request costs.",
+		"vacationDays": "Leave days",
+		"fromBucket": "of which from {{year}} entitlement",
+		"remainingAfter": "Remaining leave afterwards",
+		"targetTime": "Target time in period",
+		"flexTime": "Flextime account",
+		"short": "Remaining leave does not cover this period.",
+		"overlap_one": "Overlaps an existing request.",
+		"overlap_other": "Overlaps {{count}} existing requests.",
+		"overlapSick_one": "Overlaps an existing request. Leave days in it are booked back once the medical certificate is confirmed (§ 9 BUrlG).",
+		"overlapSick_other": "Overlaps {{count}} existing requests. Leave days in them are booked back once the medical certificate is confirmed (§ 9 BUrlG).",
+		"days_one": "{{count}} day in detail",
+		"days_other": "{{count}} days in detail",
+		"daysLabel": "Cost per day",
+		"date": "Day",
+		"target": "Target",
+		"leave": "Leave",
+		"why": "Reason"
+	},
+	"list": {
+		"title": "My requests",
+		"label": "My requests {{year}}",
+		"year": "Year",
+		"prevYear": "Previous year",
+		"nextYear": "Next year",
+		"type": "Type",
+		"status": "Status",
+		"all": "All",
+		"period": "Period",
+		"vacationDays": "Leave days",
+		"targetTime": "Target time",
+		"actions": "Actions",
+		"decisionNote": "Reason:",
+		"decidedBy": "{{name}}, {{date}}",
+		"empty": "No requests in {{year}}.",
+		"emptyFiltered": "No requests in {{year}} match the filter.",
+		"resetFilter": "Reset filter",
+		"more": "Load more",
+		"withdraw": "Withdraw",
+		"cancel": "Cancel"
+	},
+	"cancel": {
+		"title": "Cancel request?",
+		"body": "{{type}} from {{period}} is approved. The team lead confirms the cancellation, until then the request stands.",
+		"note": "Reason, optional",
+		"keep": "Keep",
+		"confirm": "Request cancellation"
+	},
+	"errors": {
+		"overlap": "There is already a request for this period.",
+		"locked": "The month is closed, requests for this period are locked.",
+		"validation": "Please check the marked fields.",
+		"invalidState": "The request has changed in the meantime. The list shows the current state.",
+		"noEmployee": "This account has no employee record, so there are no requests here."
+	}
+}

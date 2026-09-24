@@ -1,0 +1,178 @@
+{
+	"label": "Wk {{week}}",
+	"range": "{{from}} to {{to}}",
+	"previous": "Previous week",
+	"next": "Next week",
+	"current": "This week",
+	"table": "Time entries Wk {{week}}",
+	"empty": "No time entries this week.",
+	"emptyCurrent": "No time entries this week yet. Recording starts with “Clock in”.",
+	"noEmployee": {
+		"title": "This account has no employee record",
+		"text": "Clocking and the week page are only available for accounts with a personnel number. HR can link this account to an employee record."
+	},
+	"col": {
+		"day": "Day",
+		"bar": "Day bar from 6:00 to 22:00",
+		"in": "In",
+		"out": "Out",
+		"break": "Break",
+		"worked": "Worked",
+		"target": "Target",
+		"diff": "Difference",
+		"notice": "Notice"
+	},
+	"total": "Week",
+	"untilToday": "through today",
+	"flex": "Flextime balance",
+	"asOf": "as of {{date}}",
+	"flexRetry": "Reload balance",
+	"loadFailed": "Not loaded.",
+	"clock": {
+		"label": "Clock",
+		"today": "Today",
+		"off": "Not clocked in",
+		"working": "Running since {{time}}",
+		"onBreak": "On break since {{time}}",
+		"in": "Clock in",
+		"break": "Start break",
+		"resume": "Resume",
+		"out": "Clock out",
+		"loadFailed": "Clock status not loaded.",
+		"changed": "The clock status changed in the meantime, for example on another device. The display is up to date again."
+	},
+	"row": {
+		"toggle": "breakdown",
+		"running": "running"
+	},
+	"detail": {
+		"entries": "Time entries",
+		"none": "No time entries",
+		"span": "{{from}} to {{to}}",
+		"since": "since {{from}}",
+		"nextDay": "next day",
+		"gap": "Break",
+		"gapShort": "under 15 minutes, not a break under § 4 ArbZG",
+		"breaks": "Breaks in total",
+		"calc": "Calculation",
+		"worked": "Worked",
+		"workedHint": "Sum of the time entries",
+		"target": "Target",
+		"credited": "Credit",
+		"diff": "Difference",
+		"holiday": "Public holiday",
+		"halfDay": "half day",
+		"absence": "Absence",
+		"findings": "Notices",
+		"ruleVersion": "Rule version {{version}}",
+		"acked": "Acknowledged by {{name}} on {{date}}",
+		"legal": "Notices under the Arbeitszeitgesetz (Working Hours Act), not legal advice.",
+		"locked": "Month closed, time entries locked. Corrections only through HR."
+	},
+	"source": {
+		"correction": "Correction"
+	},
+	"absence": {
+		"vacation": "Leave",
+		"sick": "Sick leave",
+		"time_off": "Time off in lieu"
+	},
+	"absenceStatus": {
+		"pending": "requested",
+		"approved": "approved",
+		"rejected": "rejected",
+		"withdrawn": "withdrawn",
+		"cancel_pending": "cancellation requested",
+		"cancelled": "cancelled"
+	},
+	"correction": {
+		"open": "Request a correction",
+		"title": "Correction request",
+		"action": "What should change?",
+		"add": "Add a missed entry",
+		"change": "Change a time entry",
+		"void": "Void a time entry",
+		"entry": "Time entry",
+		"pickEntry": "Please pick a time entry",
+		"start": "Clock in",
+		"end": "Clock out",
+		"same": "Clock in and clock out are the same",
+		"duration": "Duration {{minutes}}",
+		"durationNextDay": "Duration {{minutes}}, clock out on the next day",
+		"reason": "Reason",
+		"reasonHint": "At least 10 characters. Whoever decides the request sees the reason. It stays in the audit log.",
+		"submit": "Submit request",
+		"cancel": "Cancel",
+		"sent": "Correction request submitted. The time entry only changes once it is approved.",
+		"locked": "The month is closed, time entries are locked.",
+		"overlap": "The time overlaps another time entry."
+	},
+	"requests": {
+		"title": "Open requests",
+		"absences_one": "{{count}} absence",
+		"absences_other": "{{count}} absences",
+		"corrections_one": "{{count}} correction request",
+		"corrections_other": "{{count}} correction requests",
+		"none": "No open requests",
+		"link": "Go to requests"
+	},
+	"leave": {
+		"title": "Leave account",
+		"available": "days available",
+		"pending": "{{days}} days requested, not yet approved",
+		"link": "Go to leave account"
+	},
+	"explain": {
+		"target": {
+			"workday": "{{weekday}}: {{minutes}} per contract",
+			"half_holiday": "{{code}}, half day: {{minutes}} target time",
+			"holiday": "{{code}}: public holiday, no target time",
+			"no_contract": "No contract on file for this day, no target time",
+			"outside_employment": "Outside the period of employment, no target time"
+		},
+		"unknown": "No explanation available"
+	},
+	"finding": {
+		"ARBZG_3_OVER_8": "Worked more than 8 hours ({{minutes}}). Allowed if the average over six calendar months or 24 weeks stays at 8 hours per workday.",
+		"ARBZG_3_OVER_10": "Worked more than 10 hours ({{minutes}}). The maximum working time is exceeded.",
+		"ARBZG_4_BREAK_SHORT": "Break too short: {{requiredMinutes}} required, {{actualMinutes}} taken. Only breaks of 15 minutes or more count.",
+		"ARBZG_4_CONTINUOUS_6H": "Worked {{continuousMinutes}} in a row. More than 6 hours without a break is not allowed.",
+		"ARBZG_5_REST_UNDER_11H": "Rest period since the last shift only {{restMinutes}}. 11 hours are required.",
+		"ARBZG_9_SUNDAY": "Work on a Sunday. Only allowed under the exceptions in § 10 ArbZG.",
+		"ARBZG_9_HOLIDAY": "Work on a public holiday. Only allowed under the exceptions in § 10 ArbZG."
+	},
+	"weekday": {
+		"mon": "Monday",
+		"tue": "Tuesday",
+		"wed": "Wednesday",
+		"thu": "Thursday",
+		"fri": "Friday",
+		"sat": "Saturday",
+		"sun": "Sunday"
+	},
+	"holiday": {
+		"new_year": "New Year's Day",
+		"epiphany": "Epiphany",
+		"womens_day": "International Women's Day",
+		"good_friday": "Good Friday",
+		"easter_sunday": "Easter Sunday",
+		"easter_monday": "Easter Monday",
+		"labour_day": "Labour Day",
+		"liberation_day": "Liberation Day",
+		"ascension_day": "Ascension Day",
+		"whit_sunday": "Whit Sunday",
+		"whit_monday": "Whit Monday",
+		"corpus_christi": "Corpus Christi",
+		"augsburg_peace": "Augsburg Peace Festival",
+		"assumption_day": "Assumption Day",
+		"world_childrens_day": "World Children's Day",
+		"german_unity_day": "German Unity Day",
+		"reformation_day": "Reformation Day",
+		"all_saints_day": "All Saints' Day",
+		"repentance_day": "Day of Repentance and Prayer",
+		"christmas_eve": "Christmas Eve",
+		"christmas_day": "Christmas Day",
+		"boxing_day": "Boxing Day",
+		"new_years_eve": "New Year's Eve"
+	}
+}

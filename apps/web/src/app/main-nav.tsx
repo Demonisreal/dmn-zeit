@@ -5,8 +5,10 @@ import styles from './main-nav.module.css';
 
 const entries = [
 	{ to: '/', label: 'week', role: 'employee' },
+	{ to: '/time', label: 'time', role: 'employee' },
 	{ to: '/absences', label: 'requests', role: 'employee' },
 	{ to: '/vacation', label: 'vacation', role: 'employee' },
+	{ to: '/inbox', label: 'inbox', role: 'team_lead' },
 	{ to: '/team/calendar', label: 'team', role: 'team_lead' },
 	{ to: '/hr', label: 'hr', role: 'hr' },
 	{ to: '/admin', label: 'admin', role: 'admin' }

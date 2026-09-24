@@ -1,0 +1,117 @@
+{
+	"title": "Leave",
+	"year": "Year",
+	"prevYear": "Previous year",
+	"nextYear": "Next year",
+	"legal": "Calculated under the Bundesurlaubsgesetz (Federal Leave Act). This is guidance, not legal advice.",
+	"account": {
+		"title": "Leave account",
+		"label": "Leave account {{year}}",
+		"bucket": "Entitlement year",
+		"entitlement": "Entitlement",
+		"taken": "Taken",
+		"refunded": "Booked back",
+		"adjusted": "Adjustment",
+		"expired": "Forfeited",
+		"remaining": "Remaining",
+		"deadline": "Deadline",
+		"noDeadline": "none",
+		"carryOver": "carry-over",
+		"derivation": "derivation",
+		"available": "Available",
+		"pending": "less {{days}} days in open requests",
+		"empty": "There is no leave account for {{year}}."
+	},
+	"derivation": {
+		"entitlement": "Entitlement {{year}}: {{days}} days",
+		"ledger": "Entries",
+		"ledgerLabel": "Entries for entitlement year {{year}}",
+		"noEntries": "No entries yet.",
+		"expiry": "Forfeiture:"
+	},
+	"ledger": {
+		"date": "Date",
+		"entry": "Entry",
+		"days": "Days",
+		"balance": "Balance",
+		"remark": "Remark",
+		"notice": "after the notice of {{date}}",
+		"type": {
+			"entitlement": "Entitlement",
+			"adjustment": "Adjustment",
+			"taken": "Leave taken",
+			"refund_sick": "Booked back, sick leave",
+			"refund_cancel": "Booked back, cancellation",
+			"expiry": "Forfeiture",
+			"manual": "Manual entry"
+		}
+	},
+	"notice": {
+		"none": "No leave forfeiture notice issued.",
+		"open": "Leave forfeiture notice of {{sent}}, not acknowledged yet.",
+		"acknowledged": "Leave forfeiture notice of {{sent}}, acknowledged on {{acknowledged}}."
+	},
+	"forfeiture": {
+		"text": "Remaining leave from {{year}}: {{days}} days. Whatever is not taken by {{deadline}} is forfeited (§ 7 Abs. 3 BUrlG).",
+		"sent": "Leave forfeiture notice of {{sent}}",
+		"acknowledge": "Acknowledge notice",
+		"done": "Leave forfeiture notice acknowledged."
+	},
+	"errors": {
+		"noEmployee": "This account has no employee record, so there is no leave account."
+	},
+	"explain": {
+		"vacation": {
+			"entitlement": {
+				"full_year": "Full annual entitlement per contract: {{days}} days",
+				"pro_rata_one": "Pro rata for {{count}} month: {{days}} days (§ 5 Abs. 1 BUrlG)",
+				"pro_rata_other": "Pro rata for {{count}} months: {{days}} days (§ 5 Abs. 1 BUrlG)",
+				"full_on_exit": "Leaving after 30 June, the full annual entitlement of {{days}} days remains (§ 5 Abs. 1 Buchst. c BUrlG)",
+				"rounded_up": "{{exact}} days rounded up to {{rounded}} (§ 5 Abs. 2 BUrlG)",
+				"statutory_minimum": "The statutory minimum is higher and applies: {{days}} days (§ 3 BUrlG)",
+				"waiting_period": "Waiting period under § 4 BUrlG until {{until}} inclusive, the full entitlement only arises afterwards",
+				"no_employment": "Not employed in this year, no entitlement"
+			},
+			"day": {
+				"workday": "Workday",
+				"half_workday": "Half workday",
+				"half_holiday": "Half public holiday ({{code}}), the other half is leave",
+				"holiday": "Public holiday: {{code}}",
+				"non_working_day": "Not a workday under the contract",
+				"outside_employment": "Outside the employment period"
+			},
+			"expiry": {
+				"not_due": "Not due yet",
+				"no_notice": "Deadline passed, but without a notice no leave is forfeited (BAG 2019)",
+				"forfeited": "Forfeited after {{deadline}} following the notice (§ 7 Abs. 3 BUrlG)"
+			},
+			"sick_refund_one": "Sick on {{count}} leave day, {{days}} days booked back (§ 9 BUrlG)",
+			"sick_refund_other": "Sick on {{count}} leave days, {{days}} days booked back (§ 9 BUrlG)"
+		}
+	},
+	"holiday": {
+		"new_year": "New Year's Day",
+		"epiphany": "Epiphany",
+		"womens_day": "International Women's Day",
+		"good_friday": "Good Friday",
+		"easter_sunday": "Easter Sunday",
+		"easter_monday": "Easter Monday",
+		"labour_day": "Labour Day",
+		"liberation_day": "Liberation Day",
+		"ascension_day": "Ascension Day",
+		"whit_sunday": "Whit Sunday",
+		"whit_monday": "Whit Monday",
+		"corpus_christi": "Corpus Christi",
+		"augsburg_peace": "Augsburg Peace Festival",
+		"assumption_day": "Assumption Day",
+		"world_childrens_day": "World Children's Day",
+		"german_unity_day": "German Unity Day",
+		"reformation_day": "Reformation Day",
+		"all_saints_day": "All Saints' Day",
+		"repentance_day": "Day of Repentance and Prayer",
+		"christmas_eve": "Christmas Eve",
+		"christmas_day": "Christmas Day",
+		"boxing_day": "Boxing Day",
+		"new_years_eve": "New Year's Eve"
+	}
+}

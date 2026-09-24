@@ -1,12 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
+import { SessionList } from '../../features/security/session-list';
 
 export const Route = createFileRoute('/_app/sessions')({
 	staticData: { title: 'sessions' },
-	component: SessionsPage
+	component: SessionList
 });
-
-function SessionsPage() {
-	const { t } = useTranslation('nav');
-	return <h1>{t('sessions')}</h1>;
-}

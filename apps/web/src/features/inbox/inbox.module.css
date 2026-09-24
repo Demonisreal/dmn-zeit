@@ -1,0 +1,154 @@
+.list {
+	display: grid;
+	max-width: 62rem;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var(--edge);
+	list-style: none;
+}
+
+.item {
+	display: grid;
+	gap: 0.75rem 2rem;
+	padding: 0.875rem 0 1rem;
+	border-bottom: 1px solid var(--edge);
+}
+
+@media (min-width: 48rem) {
+	.item {
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: start;
+	}
+}
+
+.body {
+	display: grid;
+	gap: 0.25rem;
+	min-width: 0;
+}
+
+.who {
+	color: var(--white);
+	font-weight: 600;
+}
+
+.what {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25rem 0.625rem;
+}
+
+.mono {
+	color: var(--white);
+	font: 0.875rem var(--mono);
+	white-space: nowrap;
+}
+
+.amount {
+	color: var(--text);
+	font: 0.875rem var(--mono);
+	white-space: nowrap;
+}
+
+.note {
+	max-width: 64ch;
+	margin-top: 0.125rem;
+	font-size: 0.875rem;
+	overflow-wrap: anywhere;
+	white-space: pre-line;
+}
+
+.noteLabel {
+	color: var(--muted);
+}
+
+.quiet {
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.change {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	gap: 0.125rem 1rem;
+	margin: 0.25rem 0 0.125rem;
+	font-size: 0.875rem;
+}
+
+.change > div {
+	display: contents;
+}
+
+.change dt {
+	color: var(--muted);
+}
+
+.change dd {
+	margin: 0;
+	color: var(--muted);
+	font-family: var(--mono);
+}
+
+.change [data-changed] {
+	color: var(--white);
+	font-weight: 600;
+}
+
+.open {
+	color: var(--warning);
+}
+
+.nextDay {
+	margin-left: 0.125rem;
+	color: var(--muted);
+	font: 400 0.75rem var(--sans);
+}
+
+.duration {
+	margin-left: 0.625rem;
+	color: var(--text);
+}
+
+.decision {
+	display: grid;
+	justify-items: start;
+	gap: 0.5rem;
+}
+
+@media (min-width: 48rem) {
+	.decision {
+		justify-items: end;
+	}
+}
+
+.buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.reject {
+	display: grid;
+	justify-items: start;
+	gap: 0.625rem;
+	width: min(100%, 22rem);
+}
+
+.reject > :first-child {
+	width: 100%;
+}
+
+.error {
+	max-width: 30ch;
+	color: var(--error);
+	font-size: 0.8125rem;
+}
+
+.empty {
+	max-width: 62rem;
+	padding: 0.75rem 0;
+	border-top: 1px solid var(--edge);
+	color: var(--muted);
+	font-size: 0.875rem;
+}

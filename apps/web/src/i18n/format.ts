@@ -32,7 +32,6 @@ export function formatTime(instant: string, lng: string) {
 	}).format(new Date(instant));
 }
 
-// leave days arrive as numeric strings with two decimals
 export function formatDays(days: string, lng: string) {
 	return new Intl.NumberFormat(tagFor(lng), {
 		minimumFractionDigits: 2,

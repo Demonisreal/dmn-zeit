@@ -16,12 +16,27 @@ import { Route as ResetRouteImport } from './routes/reset';
 import { Route as AppIndexRouteImport } from './routes/_app/index';
 import { Route as AppAbsencesRouteImport } from './routes/_app/absences';
 import { Route as AppInboxRouteImport } from './routes/_app/inbox';
+import { Route as AppSecurityRouteImport } from './routes/_app/security';
 import { Route as AppSessionsRouteImport } from './routes/_app/sessions';
 import { Route as AppTimeRouteImport } from './routes/_app/time';
 import { Route as AppVacationRouteImport } from './routes/_app/vacation';
+import { Route as LoginVerifyRouteImport } from './routes/login_.verify';
+import { Route as SecuritySetupRouteImport } from './routes/security.setup';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
+import { Route as AppAdminTenantRouteImport } from './routes/_app/admin/tenant';
 import { Route as AppHrIndexRouteImport } from './routes/_app/hr/index';
+import { Route as AppHrAuditRouteImport } from './routes/_app/hr/audit';
+import { Route as AppHrExportsRouteImport } from './routes/_app/hr/exports';
+import { Route as AppHrFindingsRouteImport } from './routes/_app/hr/findings';
+import { Route as AppHrFlexRouteImport } from './routes/_app/hr/flex';
+import { Route as AppHrNoticesRouteImport } from './routes/_app/hr/notices';
+import { Route as AppHrTeamsRouteImport } from './routes/_app/hr/teams';
+import { Route as AppHrWorkModelsRouteImport } from './routes/_app/hr/work-models';
 import { Route as AppTeamCalendarRouteImport } from './routes/_app/team/calendar';
+import { Route as AppHrMonthsIndexRouteImport } from './routes/_app/hr/months.index';
+import { Route as AppHrMonthsMonthRouteImport } from './routes/_app/hr/months.$month';
+import { Route as AppHrPeopleIdRouteImport } from './routes/_app/hr/people.$id';
+import { Route as PrintTimesheetIdMonthRouteImport } from './routes/print/timesheet.$id.$month';
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -57,6 +72,11 @@ const AppInboxRoute = AppInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => AppRoute,
 } as any);
+const AppSecurityRoute = AppSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppSessionsRoute = AppSessionsRouteImport.update({
   id: '/sessions',
   path: '/sessions',
@@ -72,9 +92,24 @@ const AppVacationRoute = AppVacationRouteImport.update({
   path: '/vacation',
   getParentRoute: () => AppRoute,
 } as any);
+const LoginVerifyRoute = LoginVerifyRouteImport.update({
+  id: '/login_/verify',
+  path: '/login/verify',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const SecuritySetupRoute = SecuritySetupRouteImport.update({
+  id: '/security/setup',
+  path: '/security/setup',
+  getParentRoute: () => rootRouteImport,
+} as any);
 const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppAdminTenantRoute = AppAdminTenantRouteImport.update({
+  id: '/admin/tenant',
+  path: '/admin/tenant',
   getParentRoute: () => AppRoute,
 } as any);
 const AppHrIndexRoute = AppHrIndexRouteImport.update({
@@ -82,10 +117,65 @@ const AppHrIndexRoute = AppHrIndexRouteImport.update({
   path: '/hr/',
   getParentRoute: () => AppRoute,
 } as any);
+const AppHrAuditRoute = AppHrAuditRouteImport.update({
+  id: '/hr/audit',
+  path: '/hr/audit',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrExportsRoute = AppHrExportsRouteImport.update({
+  id: '/hr/exports',
+  path: '/hr/exports',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrFindingsRoute = AppHrFindingsRouteImport.update({
+  id: '/hr/findings',
+  path: '/hr/findings',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrFlexRoute = AppHrFlexRouteImport.update({
+  id: '/hr/flex',
+  path: '/hr/flex',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrNoticesRoute = AppHrNoticesRouteImport.update({
+  id: '/hr/notices',
+  path: '/hr/notices',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrTeamsRoute = AppHrTeamsRouteImport.update({
+  id: '/hr/teams',
+  path: '/hr/teams',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrWorkModelsRoute = AppHrWorkModelsRouteImport.update({
+  id: '/hr/work-models',
+  path: '/hr/work-models',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppTeamCalendarRoute = AppTeamCalendarRouteImport.update({
   id: '/team/calendar',
   path: '/team/calendar',
   getParentRoute: () => AppRoute,
+} as any);
+const AppHrMonthsIndexRoute = AppHrMonthsIndexRouteImport.update({
+  id: '/hr/months/',
+  path: '/hr/months/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrMonthsMonthRoute = AppHrMonthsMonthRouteImport.update({
+  id: '/hr/months/$month',
+  path: '/hr/months/$month',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppHrPeopleIdRoute = AppHrPeopleIdRouteImport.update({
+  id: '/hr/people/$id',
+  path: '/hr/people/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const PrintTimesheetIdMonthRoute = PrintTimesheetIdMonthRouteImport.update({
+  id: '/print/timesheet/$id/$month',
+  path: '/print/timesheet/$id/$month',
+  getParentRoute: () => rootRouteImport,
 } as any);
 
 export interface FileRoutesByFullPath {
@@ -95,12 +185,27 @@ export interface FileRoutesByFullPath {
   '/reset': typeof ResetRoute;
   '/absences': typeof AppAbsencesRoute;
   '/inbox': typeof AppInboxRoute;
+  '/security': typeof AppSecurityRoute;
   '/sessions': typeof AppSessionsRoute;
   '/time': typeof AppTimeRoute;
   '/vacation': typeof AppVacationRoute;
+  '/login/verify': typeof LoginVerifyRoute;
+  '/security/setup': typeof SecuritySetupRoute;
+  '/admin/tenant': typeof AppAdminTenantRoute;
+  '/hr/audit': typeof AppHrAuditRoute;
+  '/hr/exports': typeof AppHrExportsRoute;
+  '/hr/findings': typeof AppHrFindingsRoute;
+  '/hr/flex': typeof AppHrFlexRoute;
+  '/hr/notices': typeof AppHrNoticesRoute;
+  '/hr/teams': typeof AppHrTeamsRoute;
+  '/hr/work-models': typeof AppHrWorkModelsRoute;
   '/team/calendar': typeof AppTeamCalendarRoute;
   '/admin/': typeof AppAdminIndexRoute;
   '/hr/': typeof AppHrIndexRoute;
+  '/hr/months/$month': typeof AppHrMonthsMonthRoute;
+  '/hr/people/$id': typeof AppHrPeopleIdRoute;
+  '/print/timesheet/$id/$month': typeof PrintTimesheetIdMonthRoute;
+  '/hr/months/': typeof AppHrMonthsIndexRoute;
 }
 export interface FileRoutesByTo {
   '/invite': typeof InviteRoute;
@@ -108,13 +213,28 @@ export interface FileRoutesByTo {
   '/reset': typeof ResetRoute;
   '/absences': typeof AppAbsencesRoute;
   '/inbox': typeof AppInboxRoute;
+  '/security': typeof AppSecurityRoute;
   '/sessions': typeof AppSessionsRoute;
   '/time': typeof AppTimeRoute;
   '/vacation': typeof AppVacationRoute;
+  '/login/verify': typeof LoginVerifyRoute;
+  '/security/setup': typeof SecuritySetupRoute;
   '/': typeof AppIndexRoute;
+  '/admin/tenant': typeof AppAdminTenantRoute;
+  '/hr/audit': typeof AppHrAuditRoute;
+  '/hr/exports': typeof AppHrExportsRoute;
+  '/hr/findings': typeof AppHrFindingsRoute;
+  '/hr/flex': typeof AppHrFlexRoute;
+  '/hr/notices': typeof AppHrNoticesRoute;
+  '/hr/teams': typeof AppHrTeamsRoute;
+  '/hr/work-models': typeof AppHrWorkModelsRoute;
   '/team/calendar': typeof AppTeamCalendarRoute;
   '/admin': typeof AppAdminIndexRoute;
   '/hr': typeof AppHrIndexRoute;
+  '/hr/months/$month': typeof AppHrMonthsMonthRoute;
+  '/hr/people/$id': typeof AppHrPeopleIdRoute;
+  '/print/timesheet/$id/$month': typeof PrintTimesheetIdMonthRoute;
+  '/hr/months': typeof AppHrMonthsIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -124,13 +244,28 @@ export interface FileRoutesById {
   '/reset': typeof ResetRoute;
   '/_app/absences': typeof AppAbsencesRoute;
   '/_app/inbox': typeof AppInboxRoute;
+  '/_app/security': typeof AppSecurityRoute;
   '/_app/sessions': typeof AppSessionsRoute;
   '/_app/time': typeof AppTimeRoute;
   '/_app/vacation': typeof AppVacationRoute;
+  '/login_/verify': typeof LoginVerifyRoute;
+  '/security/setup': typeof SecuritySetupRoute;
   '/_app/': typeof AppIndexRoute;
+  '/_app/admin/tenant': typeof AppAdminTenantRoute;
+  '/_app/hr/audit': typeof AppHrAuditRoute;
+  '/_app/hr/exports': typeof AppHrExportsRoute;
+  '/_app/hr/findings': typeof AppHrFindingsRoute;
+  '/_app/hr/flex': typeof AppHrFlexRoute;
+  '/_app/hr/notices': typeof AppHrNoticesRoute;
+  '/_app/hr/teams': typeof AppHrTeamsRoute;
+  '/_app/hr/work-models': typeof AppHrWorkModelsRoute;
   '/_app/team/calendar': typeof AppTeamCalendarRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
   '/_app/hr/': typeof AppHrIndexRoute;
+  '/_app/hr/months/$month': typeof AppHrMonthsMonthRoute;
+  '/_app/hr/people/$id': typeof AppHrPeopleIdRoute;
+  '/print/timesheet/$id/$month': typeof PrintTimesheetIdMonthRoute;
+  '/_app/hr/months/': typeof AppHrMonthsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -141,12 +276,27 @@ export interface FileRouteTypes {
     | '/reset'
     | '/absences'
     | '/inbox'
+    | '/security'
     | '/sessions'
     | '/time'
     | '/vacation'
+    | '/login/verify'
+    | '/security/setup'
+    | '/admin/tenant'
+    | '/hr/audit'
+    | '/hr/exports'
+    | '/hr/findings'
+    | '/hr/flex'
+    | '/hr/notices'
+    | '/hr/teams'
+    | '/hr/work-models'
     | '/team/calendar'
     | '/admin/'
-    | '/hr/';
+    | '/hr/'
+    | '/hr/months/$month'
+    | '/hr/people/$id'
+    | '/print/timesheet/$id/$month'
+    | '/hr/months/';
   fileRoutesByTo: FileRoutesByTo;
   to:
     | '/invite'
@@ -154,13 +304,28 @@ export interface FileRouteTypes {
     | '/reset'
     | '/absences'
     | '/inbox'
+    | '/security'
     | '/sessions'
     | '/time'
     | '/vacation'
+    | '/login/verify'
+    | '/security/setup'
     | '/'
+    | '/admin/tenant'
+    | '/hr/audit'
+    | '/hr/exports'
+    | '/hr/findings'
+    | '/hr/flex'
+    | '/hr/notices'
+    | '/hr/teams'
+    | '/hr/work-models'
     | '/team/calendar'
     | '/admin'
-    | '/hr';
+    | '/hr'
+    | '/hr/months/$month'
+    | '/hr/people/$id'
+    | '/print/timesheet/$id/$month'
+    | '/hr/months';
   id:
     | '__root__'
     | '/_app'
@@ -169,13 +334,28 @@ export interface FileRouteTypes {
     | '/reset'
     | '/_app/absences'
     | '/_app/inbox'
+    | '/_app/security'
     | '/_app/sessions'
     | '/_app/time'
     | '/_app/vacation'
+    | '/login_/verify'
+    | '/security/setup'
     | '/_app/'
+    | '/_app/admin/tenant'
+    | '/_app/hr/audit'
+    | '/_app/hr/exports'
+    | '/_app/hr/findings'
+    | '/_app/hr/flex'
+    | '/_app/hr/notices'
+    | '/_app/hr/teams'
+    | '/_app/hr/work-models'
     | '/_app/team/calendar'
     | '/_app/admin/'
-    | '/_app/hr/';
+    | '/_app/hr/'
+    | '/_app/hr/months/$month'
+    | '/_app/hr/people/$id'
+    | '/print/timesheet/$id/$month'
+    | '/_app/hr/months/';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -183,6 +363,9 @@ export interface RootRouteChildren {
   InviteRoute: typeof InviteRoute;
   LoginRoute: typeof LoginRoute;
   ResetRoute: typeof ResetRoute;
+  LoginVerifyRoute: typeof LoginVerifyRoute;
+  SecuritySetupRoute: typeof SecuritySetupRoute;
+  PrintTimesheetIdMonthRoute: typeof PrintTimesheetIdMonthRoute;
 }
 
 declare module '@tanstack/react-router' {
@@ -236,6 +419,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInboxRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/security': {
+      id: '/_app/security';
+      path: '/security';
+      fullPath: '/security';
+      preLoaderRoute: typeof AppSecurityRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/sessions': {
       id: '/_app/sessions';
       path: '/sessions';
@@ -257,11 +447,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVacationRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/login_/verify': {
+      id: '/login_/verify';
+      path: '/login/verify';
+      fullPath: '/login/verify';
+      preLoaderRoute: typeof LoginVerifyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/security/setup': {
+      id: '/security/setup';
+      path: '/security/setup';
+      fullPath: '/security/setup';
+      preLoaderRoute: typeof SecuritySetupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/_app/admin/': {
       id: '/_app/admin/';
       path: '/admin';
       fullPath: '/admin/';
       preLoaderRoute: typeof AppAdminIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/admin/tenant': {
+      id: '/_app/admin/tenant';
+      path: '/admin/tenant';
+      fullPath: '/admin/tenant';
+      preLoaderRoute: typeof AppAdminTenantRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/hr/': {
@@ -271,6 +482,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHrIndexRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/hr/audit': {
+      id: '/_app/hr/audit';
+      path: '/hr/audit';
+      fullPath: '/hr/audit';
+      preLoaderRoute: typeof AppHrAuditRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/exports': {
+      id: '/_app/hr/exports';
+      path: '/hr/exports';
+      fullPath: '/hr/exports';
+      preLoaderRoute: typeof AppHrExportsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/findings': {
+      id: '/_app/hr/findings';
+      path: '/hr/findings';
+      fullPath: '/hr/findings';
+      preLoaderRoute: typeof AppHrFindingsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/flex': {
+      id: '/_app/hr/flex';
+      path: '/hr/flex';
+      fullPath: '/hr/flex';
+      preLoaderRoute: typeof AppHrFlexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/notices': {
+      id: '/_app/hr/notices';
+      path: '/hr/notices';
+      fullPath: '/hr/notices';
+      preLoaderRoute: typeof AppHrNoticesRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/teams': {
+      id: '/_app/hr/teams';
+      path: '/hr/teams';
+      fullPath: '/hr/teams';
+      preLoaderRoute: typeof AppHrTeamsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/work-models': {
+      id: '/_app/hr/work-models';
+      path: '/hr/work-models';
+      fullPath: '/hr/work-models';
+      preLoaderRoute: typeof AppHrWorkModelsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/team/calendar': {
       id: '/_app/team/calendar';
       path: '/team/calendar';
@@ -278,31 +538,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamCalendarRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/hr/months/': {
+      id: '/_app/hr/months/';
+      path: '/hr/months';
+      fullPath: '/hr/months/';
+      preLoaderRoute: typeof AppHrMonthsIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/months/$month': {
+      id: '/_app/hr/months/$month';
+      path: '/hr/months/$month';
+      fullPath: '/hr/months/$month';
+      preLoaderRoute: typeof AppHrMonthsMonthRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/hr/people/$id': {
+      id: '/_app/hr/people/$id';
+      path: '/hr/people/$id';
+      fullPath: '/hr/people/$id';
+      preLoaderRoute: typeof AppHrPeopleIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/print/timesheet/$id/$month': {
+      id: '/print/timesheet/$id/$month';
+      path: '/print/timesheet/$id/$month';
+      fullPath: '/print/timesheet/$id/$month';
+      preLoaderRoute: typeof PrintTimesheetIdMonthRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 interface AppRouteChildren {
   AppAbsencesRoute: typeof AppAbsencesRoute;
   AppInboxRoute: typeof AppInboxRoute;
+  AppSecurityRoute: typeof AppSecurityRoute;
   AppSessionsRoute: typeof AppSessionsRoute;
   AppTimeRoute: typeof AppTimeRoute;
   AppVacationRoute: typeof AppVacationRoute;
   AppIndexRoute: typeof AppIndexRoute;
+  AppAdminTenantRoute: typeof AppAdminTenantRoute;
+  AppHrAuditRoute: typeof AppHrAuditRoute;
+  AppHrExportsRoute: typeof AppHrExportsRoute;
+  AppHrFindingsRoute: typeof AppHrFindingsRoute;
+  AppHrFlexRoute: typeof AppHrFlexRoute;
+  AppHrNoticesRoute: typeof AppHrNoticesRoute;
+  AppHrTeamsRoute: typeof AppHrTeamsRoute;
+  AppHrWorkModelsRoute: typeof AppHrWorkModelsRoute;
   AppTeamCalendarRoute: typeof AppTeamCalendarRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
   AppHrIndexRoute: typeof AppHrIndexRoute;
+  AppHrMonthsMonthRoute: typeof AppHrMonthsMonthRoute;
+  AppHrPeopleIdRoute: typeof AppHrPeopleIdRoute;
+  AppHrMonthsIndexRoute: typeof AppHrMonthsIndexRoute;
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAbsencesRoute: AppAbsencesRoute,
   AppInboxRoute: AppInboxRoute,
+  AppSecurityRoute: AppSecurityRoute,
   AppSessionsRoute: AppSessionsRoute,
   AppTimeRoute: AppTimeRoute,
   AppVacationRoute: AppVacationRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAdminTenantRoute: AppAdminTenantRoute,
+  AppHrAuditRoute: AppHrAuditRoute,
+  AppHrExportsRoute: AppHrExportsRoute,
+  AppHrFindingsRoute: AppHrFindingsRoute,
+  AppHrFlexRoute: AppHrFlexRoute,
+  AppHrNoticesRoute: AppHrNoticesRoute,
+  AppHrTeamsRoute: AppHrTeamsRoute,
+  AppHrWorkModelsRoute: AppHrWorkModelsRoute,
   AppTeamCalendarRoute: AppTeamCalendarRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppHrIndexRoute: AppHrIndexRoute,
+  AppHrMonthsMonthRoute: AppHrMonthsMonthRoute,
+  AppHrPeopleIdRoute: AppHrPeopleIdRoute,
+  AppHrMonthsIndexRoute: AppHrMonthsIndexRoute,
 };
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
@@ -312,6 +624,9 @@ const rootRouteChildren: RootRouteChildren = {
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
   ResetRoute: ResetRoute,
+  LoginVerifyRoute: LoginVerifyRoute,
+  SecuritySetupRoute: SecuritySetupRoute,
+  PrintTimesheetIdMonthRoute: PrintTimesheetIdMonthRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

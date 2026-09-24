@@ -6,7 +6,9 @@
 	"logout": "Abmelden",
 	"loading": "Wird geladen",
 	"notFound": "Seite nicht gefunden",
+	"loadFailed": "Seite konnte nicht geladen werden",
 	"toStart": "Zur Startseite",
+	"retry": "Erneut versuchen",
 	"roles": {
 		"employee": "Beschäftigte",
 		"team_lead": "Teamleitung",
@@ -28,7 +30,44 @@
 		"required": "Pflichtfeld",
 		"tooShort": "Mindestens {{count}} Zeichen",
 		"tooLong": "Höchstens {{count}} Zeichen",
-		"email": "Keine gültige E-Mail-Adresse"
+		"email": "Keine gültige E-Mail-Adresse",
+		"format": {
+			"month": "Monat im Format JJJJ-MM",
+			"monthDay": "Kein gültiger Stichtag, der 29.02. ist nicht erlaubt",
+			"dayCount": "Tage mit zwei Nachkommastellen",
+			"entitlement": "Bis 99 Tage, höchstens eine Nachkommastelle",
+			"token": "Der Link ist unvollständig",
+			"totp": "Sechs Ziffern aus der Authenticator-App",
+			"recoveryCode": "Zehn Zeichen, wie ABCDE-FGH23"
+		},
+		"range": {
+			"unordered": "Das Ende liegt vor dem Anfang",
+			"tooLong": "Höchstens {{max}} Tage"
+		},
+		"absence": {
+			"endBeforeStart": "Das Ende liegt vor dem Beginn",
+			"halfDaySingle": "Ein einzelner Tag ist entweder halb oder ganz"
+		},
+		"correction": {
+			"endBeforeStart": "Gehen liegt vor Kommen"
+		},
+		"flex": {
+			"zeroMinutes": "0 Minuten ändern den Saldo nicht",
+			"payoutPositive": "Eine Auszahlung senkt den Saldo, die Minuten müssen negativ sein"
+		},
+		"vacation": {
+			"zeroDays": "0 Tage ändern das Urlaubskonto nicht"
+		},
+		"team": {
+			"duplicateLead": "Diese Person steht schon in der Liste"
+		},
+		"text": {
+			"empty": "Dieses Feld darf nicht leer sein",
+			"controlChars": "Keine Steuer- oder Formatierungszeichen erlaubt"
+		},
+		"password": {
+			"common": "Dieses Passwort steht auf der Liste häufiger Passwörter. Bitte ein anderes wählen."
+		}
 	},
 	"dayBar": {
 		"label": "Buchungen: {{spans}}",

@@ -1,0 +1,171 @@
+.stepYear {
+	font-family: var(--mono);
+}
+
+.scroll {
+	overflow-x: auto;
+}
+
+.scroll > table {
+	min-width: 44rem;
+}
+
+.bucket {
+	padding-block: 0.25rem;
+}
+
+.toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2rem;
+	margin-left: -0.375rem;
+	padding: 0 0.5rem 0 0.375rem;
+	border: 0;
+	border-radius: 4px;
+	background: none;
+	color: var(--white);
+	cursor: default;
+	transition: background-color 150ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.toggle:hover {
+		background: var(--card);
+	}
+}
+
+.caret {
+	width: 0.375rem;
+	height: 0.375rem;
+	border-right: 1.5px solid var(--text);
+	border-bottom: 1.5px solid var(--text);
+	transform: rotate(-45deg);
+	transition: transform 160ms var(--ease);
+}
+
+.toggle[aria-expanded='true'] .caret {
+	transform: rotate(45deg);
+}
+
+.year {
+	font: 600 0.9375rem var(--mono);
+}
+
+.carry {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 400;
+}
+
+.remaining {
+	font-weight: 600;
+}
+
+.deadline {
+	font-family: var(--mono);
+	font-size: 0.875rem;
+	white-space: nowrap;
+}
+
+.pending {
+	margin-left: 0.75rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 400;
+}
+
+tr.detailRow > td {
+	padding: 0.25rem 0.75rem 1.25rem 1.625rem;
+	background: var(--ink);
+}
+
+.detail {
+	display: grid;
+	gap: 1.125rem;
+	max-width: 56rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.detail {
+		animation: reveal 180ms var(--ease);
+	}
+}
+
+@keyframes reveal {
+	from {
+		opacity: 0;
+		transform: translateY(-3px);
+	}
+}
+
+.block {
+	display: grid;
+	gap: 0.375rem;
+}
+
+.block h3 {
+	padding-top: 0.75rem;
+	color: var(--white);
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+.reasons {
+	display: grid;
+	gap: 0.25rem;
+	margin: 0;
+	padding-left: 1.125rem;
+	font-size: 0.875rem;
+}
+
+.reasons li::marker {
+	color: var(--muted);
+}
+
+.block table {
+	font-size: 0.875rem;
+}
+
+.block table th,
+.block table td {
+	padding-block: 0.375rem;
+}
+
+.date {
+	font-family: var(--mono);
+	white-space: nowrap;
+}
+
+.remark {
+	max-width: 36ch;
+	color: var(--muted);
+	overflow-wrap: anywhere;
+}
+
+.expiry {
+	max-width: 72ch;
+	font-size: 0.875rem;
+}
+
+.label {
+	color: var(--white);
+	font-weight: 600;
+}
+
+.quiet {
+	margin-top: 0.125rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.error {
+	margin-top: 0.25rem;
+	color: var(--error);
+	font-size: 0.8125rem;
+}
+
+.legal {
+	color: var(--muted);
+	font-size: 0.8125rem;
+}

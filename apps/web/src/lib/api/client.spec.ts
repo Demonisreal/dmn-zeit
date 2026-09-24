@@ -57,7 +57,9 @@ describe('request', () => {
 					{
 						code: 'VALIDATION',
 						message: 'Invalid input',
-						details: [{ field: 'reason', message: 'Too short' }]
+						details: [
+							{ field: 'reason', code: 'too_small', message: 'Too short', params: { minimum: 10 } }
+						]
 					},
 					{ status: 400 }
 				)
@@ -70,7 +72,9 @@ describe('request', () => {
 		expect(err).toMatchObject({
 			status: 400,
 			code: 'VALIDATION',
-			details: [{ field: 'reason', message: 'Too short' }]
+			details: [
+				{ field: 'reason', code: 'too_small', message: 'Too short', params: { minimum: 10 } }
+			]
 		});
 	});
 
