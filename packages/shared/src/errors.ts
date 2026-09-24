@@ -32,6 +32,8 @@ export const validationKeys = [
 	'format.token',
 	'format.totp',
 	'format.recoveryCode',
+	'text.empty',
+	'text.controlChars',
 	'range.unordered',
 	'range.tooLong',
 	'absence.endBeforeStart',

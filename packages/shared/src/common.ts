@@ -12,10 +12,36 @@ export const queryYearSchema = z.coerce.number().pipe(yearSchema);
 export const dayCountSchema = z.string().regex(/^-?\d{1,3}\.\d{2}$/, 'format.dayCount');
 export const portionSchema = z.literal([0.5, 1]);
 
-export const emailSchema = z.string().trim().max(254).pipe(z.email());
-export const displayNameSchema = z.string().trim().min(1).max(80);
-export const reasonSchema = z.string().trim().min(10).max(1000);
-export const noteSchema = z.string().trim().min(1).max(500);
+// \p{Cc} covers C0, DEL and C1 without putting control characters into the source
+const CONTROL = /\p{Cc}/u;
+const CONTROL_BUT_NEWLINE = /(?!\n)\p{Cc}/u;
+// bidi overrides and isolates show text other than what is stored, u+2028/9 break lines
+const HIDDEN = /[\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
+// trim() keeps zero-width space and joiners; inside text they matter for emoji and scripts
+const EDGES = /^[\s\u200b-\u200d\ufeff]+|[\s\u200b-\u200d\ufeff]+$/g;
+
+function text(max: number, min: number, control: RegExp, prepare: (raw: string) => string) {
+	return z
+		.string()
+		.transform((raw) => prepare(raw).normalize('NFC').replace(EDGES, ''))
+		.pipe(
+			z
+				.string()
+				.refine((clean) => clean.length > 0, { error: 'text.empty', abort: true })
+				.min(min)
+				.max(max)
+				.refine((clean) => !control.test(clean) && !HIDDEN.test(clean), 'text.controlChars')
+		);
+}
+
+export const plainText = (max: number, min = 1) => text(max, min, CONTROL, (raw) => raw);
+export const multilineText = (max: number, min = 1) =>
+	text(max, min, CONTROL_BUT_NEWLINE, (raw) => raw.replace(/\r\n?/g, '\n'));
+
+export const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
+export const displayNameSchema = plainText(80);
+export const reasonSchema = multilineText(1000, 10);
+export const noteSchema = multilineText(500);
 export const capMinutesSchema = z.int().min(0).max(60000);
 
 export const requestScopes = ['mine', 'inbox', 'all'] as const;

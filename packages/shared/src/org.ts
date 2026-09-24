@@ -3,6 +3,7 @@ import {
 	capMinutesSchema,
 	instantSchema,
 	isoDateSchema,
+	plainText,
 	userRefSchema,
 	uuidSchema
 } from './common';
@@ -22,8 +23,8 @@ export const weekdayMinutesSchema = z.object({
 	sun: dayMinutes
 });
 
-const nameSchema = z.string().trim().min(1).max(80);
-const personnelNoSchema = z.string().trim().min(1).max(20);
+const nameSchema = plainText(80);
+const personnelNoSchema = plainText(20);
 // contracts store numeric(4,1)
 const entitlementSchema = z.string().regex(/^\d{1,2}(\.\d)?$/, 'format.entitlement');
 

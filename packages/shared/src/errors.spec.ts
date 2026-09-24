@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import { createAbsenceSchema } from './absences';
 import { tokenSchema } from './auth';
-import { dayCountSchema, monthSchema } from './common';
+import { dayCountSchema, displayNameSchema, monthSchema, noteSchema } from './common';
 import { createCorrectionSchema } from './corrections';
 import { apiErrorSchema, validationKeys, type ValidationKey } from './errors';
 import { createFlexBookingSchema } from './flex';
@@ -72,6 +72,8 @@ const failures: [ValidationKey, ZodType, unknown][] = [
 	['format.token', tokenSchema, 'short'],
 	['format.totp', totpCodeSchema, '12345'],
 	['format.recoveryCode', recoveryCodeSchema, 'ABCDE-FGH10'],
+	['text.empty', noteSchema, '   '],
+	['text.controlChars', displayNameSchema, 'Anna\tBerg'],
 	['range.unordered', daysQuerySchema, { from: '2026-10-04', to: '2026-09-28' }],
 	['range.tooLong', daysQuerySchema, { from: '2026-01-01', to: '2026-12-31' }],
 	[

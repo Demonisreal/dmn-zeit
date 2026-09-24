@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { instantSchema, uuidSchema } from './common';
+import { instantSchema, plainText, uuidSchema } from './common';
 
 // authenticator apps show the code as "123 456"
 export const totpCodeSchema = z
@@ -59,7 +59,7 @@ export const reauthSchema = z.object({
 
 export const reauthResultSchema = z.object({ reauthUntil: instantSchema });
 
-const passkeyNameSchema = z.string().trim().min(1).max(60);
+const passkeyNameSchema = plainText(60);
 
 export const passkeySchema = z.object({
 	id: uuidSchema,

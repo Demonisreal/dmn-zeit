@@ -3,6 +3,7 @@ import {
 	capMinutesSchema,
 	instantSchema,
 	isoDateSchema,
+	plainText,
 	portionSchema,
 	queryYearSchema,
 	uuidSchema
@@ -91,7 +92,7 @@ export const tenantSchema = z.object({
 
 export const updateTenantSchema = z
 	.object({
-		name: z.string().trim().min(1).max(120),
+		name: plainText(120),
 		state: z.enum(federalStates),
 		holidayOptions: z.array(z.enum(optionalHolidays)).max(optionalHolidays.length),
 		halfDaysDec24And31: z.boolean(),

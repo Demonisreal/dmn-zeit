@@ -6,6 +6,7 @@ import {
 	instantSchema,
 	isoDateSchema,
 	noteSchema,
+	plainText,
 	rangeShape,
 	userRefSchema,
 	uuidSchema
@@ -56,7 +57,7 @@ export const ackFindingSchema = z.object({
 	employeeId: uuidSchema,
 	date: isoDateSchema,
 	code: z.enum(arbzgCodes),
-	ruleVersion: z.string().min(1).max(40),
+	ruleVersion: plainText(40),
 	note: noteSchema
 });
 
