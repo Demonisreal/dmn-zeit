@@ -169,8 +169,11 @@ describe('passkeys', () => {
 		const user = await createUser(tenant);
 		const credential = bytes();
 		const id = await addPasskey(user, credential);
-		const find = () => app.query('select id, user_id from auth.passkey_find($1)', [credential]);
-		expect((await find()).rows).toEqual([{ id, user_id: user.userId }]);
+		const find = () =>
+			app.query('select id, user_id, tenant_id, role from auth.passkey_find($1)', [credential]);
+		expect((await find()).rows).toEqual([
+			{ id, user_id: user.userId, tenant_id: tenant, role: 'employee' }
+		]);
 
 		await superuser.query(`update app.users set status = 'disabled' where id = $1`, [user.userId]);
 		expect((await find()).rows).toEqual([]);
@@ -203,6 +206,16 @@ describe('passkeys', () => {
 		const touch = () => call('select auth.passkey_touch($1, 0, false) as result', [id]);
 		expect(await touch()).toBe(true);
 		expect(await touch()).toBe(true);
+	});
+
+	it('lists the credential ids for excludeCredentials', async () => {
+		const user = await createUser(tenant);
+		const credential = bytes();
+		await addPasskey(user, credential);
+		const { rows } = await app.query('select credential_id from auth.passkeys_list($1)', [
+			user.userId
+		]);
+		expect(rows).toEqual([{ credential_id: credential }]);
 	});
 
 	it('renames and removes only passkeys of their owner', async () => {
@@ -268,6 +281,24 @@ describe('mfa challenges', () => {
 		const attempt = () => call('select auth.mfa_challenge_attempt($1) as result', [token]);
 		for (let i = 0; i < 5; i++) expect(await attempt()).toBe(user.userId);
 		expect(await attempt()).toBeNull();
+	});
+
+	it('names tenant and role with the attempt and shares the count with the short form', async () => {
+		const user = await createUser(tenant, { role: 'hr' });
+		const token = bytes();
+		await app.query('select auth.mfa_challenge_create($1, $2)', [user.userId, token]);
+		const scoped = () =>
+			app.query('select * from auth.mfa_challenge_attempt_with_scope($1)', [token]);
+
+		expect((await scoped()).rows).toEqual([
+			{ user_id: user.userId, tenant_id: tenant, role: 'hr' }
+		]);
+		for (let i = 0; i < 4; i++) {
+			expect(await call('select auth.mfa_challenge_attempt($1) as result', [token])).toBe(
+				user.userId
+			);
+		}
+		expect((await scoped()).rows).toEqual([]);
 	});
 
 	it('stops the second step once misses have locked the account', async () => {

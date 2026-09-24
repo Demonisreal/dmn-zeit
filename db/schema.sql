@@ -857,15 +857,33 @@ CREATE FUNCTION auth.mfa_challenge_attempt(p_token_hash bytea) RETURNS uuid
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
+  -- kept for callers that only need the person
+  select a.user_id from auth.mfa_challenge_attempt_with_scope(p_token_hash) a;
+$$;
+
+
+--
+-- Name: mfa_challenge_attempt_with_scope(bytea); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.mfa_challenge_attempt_with_scope(p_token_hash bytea) RETURNS TABLE(user_id uuid, tenant_id uuid, role app.user_role)
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
   -- counted before the code is checked, and once login_failed has locked the account nothing is left
-  update auth.mfa_challenges m set attempts = m.attempts + 1
-   where m.token_hash = p_token_hash
-     and m.expires_at > now()
-     and m.attempts < 5
-     and not exists (
-       select 1 from auth.credentials c where c.user_id = m.user_id and c.locked_until > now()
-     )
-  returning m.user_id;
+  with counted as (
+    update auth.mfa_challenges m set attempts = m.attempts + 1
+     where m.token_hash = p_token_hash
+       and m.expires_at > now()
+       and m.attempts < 5
+       and not exists (
+         select 1 from auth.credentials c where c.user_id = m.user_id and c.locked_until > now()
+       )
+    returning m.user_id
+  )
+  select u.id, u.tenant_id, u.role
+    from counted
+    join app.users u on u.id = counted.user_id;
 $$;
 
 
@@ -947,11 +965,11 @@ $$;
 -- Name: passkey_find(bytea); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.passkey_find(p_credential_id bytea) RETURNS TABLE(id uuid, user_id uuid, public_key bytea, counter bigint, transports text[])
+CREATE FUNCTION auth.passkey_find(p_credential_id bytea) RETURNS TABLE(id uuid, user_id uuid, public_key bytea, counter bigint, transports text[], tenant_id uuid, role app.user_role)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  select k.id, k.user_id, k.public_key, k.counter, k.transports
+  select k.id, k.user_id, k.public_key, k.counter, k.transports, u.tenant_id, u.role
     from auth.passkeys k
     join app.users u on u.id = k.user_id
    where k.credential_id = p_credential_id
@@ -1015,11 +1033,11 @@ $$;
 -- Name: passkeys_list(uuid); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.passkeys_list(p_user_id uuid) RETURNS TABLE(id uuid, name text, transports text[], backed_up boolean, created_at timestamp with time zone, last_used_at timestamp with time zone)
+CREATE FUNCTION auth.passkeys_list(p_user_id uuid) RETURNS TABLE(id uuid, credential_id bytea, name text, transports text[], backed_up boolean, created_at timestamp with time zone, last_used_at timestamp with time zone)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  select k.id, k.name, k.transports, k.backed_up, k.created_at, k.last_used_at
+  select k.id, k.credential_id, k.name, k.transports, k.backed_up, k.created_at, k.last_used_at
     from auth.passkeys k
    where k.user_id = p_user_id
    order by k.created_at;
@@ -4349,4 +4367,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260924000400'),
     ('20260924000500'),
     ('20260924000600'),
-    ('20260924000700');
+    ('20260924000700'),
+    ('20260924000800');
