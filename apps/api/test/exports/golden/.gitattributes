@@ -1,0 +1,2 @@
+# byte for byte like the api sends them: bom and crlf stay
+*.csv -text

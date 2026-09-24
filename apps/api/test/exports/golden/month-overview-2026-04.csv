@@ -1,0 +1,4 @@
+﻿personnel_no;name;target_minutes;worked_minutes;credited_minutes;diff_minutes;flex_balance_minutes;vacation_days;sick_days;open_findings
+P-300;Otto Aussen;9600;0;0;-9600;-9600;0,00;0,00;0
+'@P-200;'=SUM(A1) Kolleg;9600;0;0;-9600;-9600;0,00;0,00;0
+P-100;Wim Werner;9600;1020;960;-7620;-7620;1,00;1,00;3
