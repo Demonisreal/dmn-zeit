@@ -153,17 +153,13 @@ export const annualEntitlement = (
 				]
 			: [];
 
-	// § 5 Abs. 1 Buchst. c BUrlG only cuts the entitlement for an exit up to 30 June; leaving
-	// later with the waiting period already met keeps the full annual amount, no twelfths
-	const exitsThisYear = employment.exitDate !== null && employment.exitDate.year === year;
-	const fullOnExit = exitsThisYear && waitingPeriodMet && employedTo.month > 6;
-	const to = fullOnExit ? newYearsEve : employedTo;
 	const entersThisYear = employment.entryDate.year === year;
-	const runsUninterrupted = (!entersThisYear && !exitsThisYear) || fullOnExit;
-	// § 5 Abs. 1 Buchst. a BUrlG: only twelfths of the minimum if waiting runs past the year
+	const exitsThisYear = employment.exitDate !== null && employment.exitDate.year === year;
+	const wholeYear = !entersThisYear && !exitsThisYear;
+	// § 5 Abs. 1 BUrlG: full minimum once the waiting period is met, on exit only after 30 June
 	const fullMinimum =
-		runsUninterrupted ||
-		(entersThisYear && !exitsThisYear && waitingPeriodMet && lastWaitingDay.year === year);
+		wholeYear ||
+		(waitingPeriodMet && (exitsThisYear ? employedTo.month > 6 : lastWaitingDay.year === year));
 
 	// simplified § 5 Abs. 1 BUrlG: one employed day makes the whole calendar month count
 	const twelfths = (first: number, last: number, amount: (terms: Contract) => Fraction) => {
@@ -183,7 +179,7 @@ export const annualEntitlement = (
 	const settle = (agreed: Fraction, basis: Explanation) => {
 		const minimum = fullMinimum
 			? twelfths(1, 12, statutoryDays)
-			: twelfths(from.month, to.month, statutoryDays);
+			: twelfths(from.month, employedTo.month, statutoryDays);
 		if (compare(minimum, agreed) <= 0) {
 			return entitlement(agreed, [basis], notes);
 		}
@@ -198,16 +194,17 @@ export const annualEntitlement = (
 	};
 
 	const contract = contractAt(employment, from);
-	if (runsUninterrupted && contract && contract === contractAt(employment, to)) {
+	if (wholeYear && contract && contract === contractAt(employment, employedTo)) {
 		return settle(contract.vacationDaysYear, {
-			key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.full_year',
+			key: 'vacation.entitlement.full_year',
 			params: { days: toDecimal(contract.vacationDaysYear, 2) }
 		});
 	}
-	const exact = twelfths(from.month, to.month, (terms) => terms.vacationDaysYear);
+	// entry and exit year cut the agreed days to twelfths, the usual pro rata clause of a contract
+	const exact = twelfths(from.month, employedTo.month, (terms) => terms.vacationDaysYear);
 	return settle(exact, {
-		key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.pro_rata',
-		params: { months: to.month - from.month + 1, days: toDecimal(exact, 2) }
+		key: 'vacation.entitlement.pro_rata',
+		params: { months: employedTo.month - from.month + 1, days: toDecimal(exact, 2) }
 	});
 };
 

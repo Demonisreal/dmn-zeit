@@ -188,13 +188,36 @@ describe('annualEntitlement', () => {
 		);
 	});
 
-	it('grants the full year when leaving after 30 june with the waiting period already met', () => {
+	it('cuts the agreed days to twelfths when leaving after 30 june', () => {
 		const leaver = employed('2020-01-01', '2026-09-30', contract('2020-01-01', fraction(30)));
 		expect(annualEntitlement(leaver, 2026, settled)).toEqual({
-			exact: fraction(30),
-			rounded: fraction(30),
-			explanations: [{ key: 'vacation.entitlement.full_on_exit', params: { days: '30.00' } }]
+			exact: fraction(45, 2),
+			rounded: fraction(23),
+			explanations: [
+				{ key: 'vacation.entitlement.pro_rata', params: { months: 9, days: '22.50' } },
+				{ key: 'vacation.entitlement.rounded_up', params: { exact: '22.50', rounded: 23 } }
+			]
 		});
+	});
+
+	it('keeps the full minimum when leaving after 30 june with the waiting period met', () => {
+		const leaver = employed('2020-01-01', '2026-08-31', contract('2020-01-01', fraction(24)));
+		expect(annualEntitlement(leaver, 2026, settled)).toEqual({
+			exact: fraction(20),
+			rounded: fraction(20),
+			explanations: [
+				{ key: 'vacation.entitlement.pro_rata', params: { months: 8, days: '16.00' } },
+				{ key: 'vacation.entitlement.statutory_minimum', params: { days: '20.00' } }
+			]
+		});
+	});
+
+	it('cuts the minimum to twelfths as well when leaving up to 30 june', () => {
+		const leaver = employed('2020-01-01', '2026-06-30', contract('2020-01-01', fraction(18)));
+		expect(annualEntitlement(leaver, 2026, settled).explanations).toEqual([
+			{ key: 'vacation.entitlement.pro_rata', params: { months: 6, days: '9.00' } },
+			{ key: 'vacation.entitlement.statutory_minimum', params: { days: '10.00' } }
+		]);
 	});
 
 	it('still cuts the entitlement to twelfths for an exit right after 30 june without the waiting period', () => {
@@ -204,15 +227,12 @@ describe('annualEntitlement', () => {
 		expect(exact).toEqual(fraction(25, 2));
 	});
 
-	it('grants the full year for a first and only year once entry and exit surround 30 june', () => {
-		const vestedAndGone = employed(
-			'2026-01-01',
-			'2026-09-30',
-			contract('2026-01-01', fraction(30))
-		);
-		const { exact, explanations } = annualEntitlement(vestedAndGone, 2026, settled);
-		expect(explanations[0]?.key).toBe('vacation.entitlement.full_on_exit');
-		expect(exact).toEqual(fraction(30));
+	it('gives no more for leaving in december of the entry year than for staying', () => {
+		const terms = contract('2026-03-01', fraction(30));
+		const staying = annualEntitlement(employed('2026-03-01', null, terms), 2026, settled);
+		const leaving = annualEntitlement(employed('2026-03-01', '2026-12-15', terms), 2026, settled);
+		expect(staying.exact).toEqual(fraction(25));
+		expect(leaving).toEqual(staying);
 	});
 
 	it('names the last day of the waiting period while it is still running', () => {
@@ -229,22 +249,16 @@ describe('annualEntitlement', () => {
 		expect(annualEntitlement(joiner, 2026, day('2026-09-15')).explanations).toHaveLength(1);
 	});
 
-	it('grants only twelfths for an exit after 30 june until the waiting period has passed', () => {
-		const leaver = employed('2026-01-01', '2026-09-30', contract('2026-01-01', fraction(30)));
-		expect(annualEntitlement(leaver, 2026, day('2026-03-01'))).toEqual({
-			exact: fraction(45, 2),
-			rounded: fraction(23),
-			explanations: [
-				{ key: 'vacation.entitlement.pro_rata', params: { months: 9, days: '22.50' } },
-				{ key: 'vacation.entitlement.rounded_up', params: { exact: '22.50', rounded: 23 } },
-				{ key: 'vacation.entitlement.waiting_period', params: { until: '2026-06-30' } }
-			]
-		});
-		expect(annualEntitlement(leaver, 2026, day('2026-07-01'))).toEqual({
-			exact: fraction(30),
-			rounded: fraction(30),
-			explanations: [{ key: 'vacation.entitlement.full_on_exit', params: { days: '30.00' } }]
-		});
+	it('grants the full minimum on exit only once the waiting period has passed', () => {
+		const leaver = employed('2026-01-01', '2026-09-30', contract('2026-01-01', fraction(24)));
+		expect(annualEntitlement(leaver, 2026, day('2026-03-01')).explanations).toEqual([
+			{ key: 'vacation.entitlement.pro_rata', params: { months: 9, days: '18.00' } },
+			{ key: 'vacation.entitlement.waiting_period', params: { until: '2026-06-30' } }
+		]);
+		expect(annualEntitlement(leaver, 2026, day('2026-07-01')).explanations).toEqual([
+			{ key: 'vacation.entitlement.pro_rata', params: { months: 9, days: '18.00' } },
+			{ key: 'vacation.entitlement.statutory_minimum', params: { days: '20.00' } }
+		]);
 	});
 
 	it('keeps naming a waiting period that reaches into the next year', () => {
@@ -799,11 +813,40 @@ describe('vacation properties', () => {
 			expect(compare(exact, multiply(minimum, fraction(months, 12)))).toBeGreaterThanOrEqual(0);
 
 			const lastWaitingDay = entry.add({ months: 6 }).subtract({ days: 1 });
-			const waitedThisYear =
-				lastWaitingDay.year === 2026 && Temporal.PlainDate.compare(asOf, lastWaitingDay) > 0;
-			if (exit === null && (entry.year < 2026 || waitedThisYear)) {
+			const waited = Temporal.PlainDate.compare(asOf, lastWaitingDay) > 0;
+			const staysAllYear =
+				exit === null && (entry.year < 2026 || (waited && lastWaitingDay.year === 2026));
+			const leavesLate =
+				exit?.year === 2026 &&
+				exit.month > 6 &&
+				waited &&
+				Temporal.PlainDate.compare(exit, lastWaitingDay) >= 0;
+			if (staysAllYear || leavesLate) {
 				expect(compare(exact, minimum)).toBeGreaterThanOrEqual(0);
 			}
+		}
+	);
+
+	test.prop(
+		[
+			tenths,
+			workingWeek,
+			fc.integer({ min: -400, max: 364 }),
+			offset,
+			fc.integer({ min: -200, max: 900 })
+		],
+		{ numRuns: 1000 }
+	)(
+		'leaving within the year never gives more than staying',
+		(amount, week, entryOffset, exitOffset, asOfOffset) => {
+			const entry = inYear(entryOffset);
+			const exit = inYear(exitOffset);
+			fc.pre(Temporal.PlainDate.compare(exit, entry) >= 0);
+			const terms = contract(entry, fraction(amount, 10), week);
+			const asOf = inYear(asOfOffset);
+			const leaving = annualEntitlement(employed(entry, exit, terms), 2026, asOf).exact;
+			const staying = annualEntitlement(employed(entry, null, terms), 2026, asOf).exact;
+			expect(compare(leaving, staying)).toBeLessThanOrEqual(0);
 		}
 	);
 
