@@ -10,6 +10,7 @@ import {
 	isNegative,
 	isZero,
 	max,
+	multiply,
 	subtract,
 	type Fraction
 } from '../fraction';
@@ -132,10 +133,10 @@ describe('annualEntitlement', () => {
 	});
 
 	it('rounds up a fraction above half a day', () => {
-		const joiner = employed('2026-06-01', null, contract('2026-06-01', fraction(25)));
+		const joiner = employed('2026-08-01', null, contract('2026-08-01', fraction(23)));
 		const { exact, rounded } = annualEntitlement(joiner, 2026, settled);
-		expect(exact).toEqual(fraction(175, 12));
-		expect(rounded).toEqual(fraction(15));
+		expect(exact).toEqual(fraction(115, 12));
+		expect(rounded).toEqual(fraction(10));
 	});
 
 	it('sums each month with its own contract when the working days change', () => {
@@ -263,6 +264,66 @@ describe('annualEntitlement', () => {
 			(explanation) => explanation.key
 		);
 		expect(keys).not.toContain('vacation.entitlement.waiting_period');
+	});
+
+	it('lifts the entry year to the statutory minimum once the waiting period has passed', () => {
+		const joiner = employed('2026-04-01', null, contract('2026-04-01', fraction(22)));
+		expect(annualEntitlement(joiner, 2026, settled)).toEqual({
+			exact: fraction(20),
+			rounded: fraction(20),
+			explanations: [
+				{ key: 'vacation.entitlement.pro_rata', params: { months: 9, days: '16.50' } },
+				{ key: 'vacation.entitlement.statutory_minimum', params: { days: '20.00' } }
+			]
+		});
+	});
+
+	it('compares with twelfths of the minimum while the waiting period still runs', () => {
+		const joiner = employed('2026-04-01', null, contract('2026-04-01', fraction(22)));
+		expect(annualEntitlement(joiner, 2026, day('2026-09-30'))).toEqual({
+			exact: fraction(33, 2),
+			rounded: fraction(17),
+			explanations: [
+				{ key: 'vacation.entitlement.pro_rata', params: { months: 9, days: '16.50' } },
+				{ key: 'vacation.entitlement.rounded_up', params: { exact: '16.50', rounded: 17 } },
+				{ key: 'vacation.entitlement.waiting_period', params: { until: '2026-09-30' } }
+			]
+		});
+		expect(annualEntitlement(joiner, 2026, day('2026-10-01')).exact).toEqual(fraction(20));
+	});
+
+	it('reaches the full minimum for an entry on 1 july but not on 2 july', () => {
+		const first = employed('2026-07-01', null, contract('2026-07-01', fraction(22)));
+		const second = employed('2026-07-02', null, contract('2026-07-02', fraction(22)));
+		expect(annualEntitlement(first, 2026, settled).exact).toEqual(fraction(20));
+		expect(annualEntitlement(second, 2026, settled).exact).toEqual(fraction(11));
+	});
+
+	it('converts the minimum to the working days of the week', () => {
+		const threeDays = { mon: 480, tue: 480, wed: 480, thu: 0, fri: 0, sat: 0, sun: 0 };
+		const staff = employed('2020-01-01', null, contract('2020-01-01', fraction(10), threeDays));
+		expect(annualEntitlement(staff, 2026, settled).explanations).toEqual([
+			{ key: 'vacation.entitlement.full_year', params: { days: '10.00' } },
+			{ key: 'vacation.entitlement.statutory_minimum', params: { days: '12.00' } }
+		]);
+	});
+
+	it('sums the minimum month by month when the working days change', () => {
+		const threeDays = { mon: 480, tue: 480, wed: 480, thu: 0, fri: 0, sat: 0, sun: 0 };
+		const switcher = employed(
+			'2020-01-01',
+			null,
+			contract('2020-01-01', fraction(18)),
+			contract('2026-07-01', fraction(10), threeDays)
+		);
+		expect(annualEntitlement(switcher, 2026, settled)).toEqual({
+			exact: fraction(16),
+			rounded: fraction(16),
+			explanations: [
+				{ key: 'vacation.entitlement.pro_rata', params: { months: 12, days: '14.00' } },
+				{ key: 'vacation.entitlement.statutory_minimum', params: { days: '16.00' } }
+			]
+		});
 	});
 });
 
@@ -593,7 +654,7 @@ describe('vacation properties', () => {
 	const offset = fc.integer({ min: 0, max: 364 });
 
 	test.prop([tenths, offset, offset, offset, offset, fc.boolean()], { numRuns: 1000 })(
-		'pro rata entitlement never exceeds the full year and never shrinks with more months',
+		'pro rata entitlement stays within the full year or the minimum and grows with more months',
 		(amount, start, gapIn, gapLength, gapOut, beyondYear) => {
 			const full = fraction(amount, 10);
 			const terms = contract('2020-01-01', full);
@@ -609,7 +670,7 @@ describe('vacation properties', () => {
 			expect(compare(annualEntitlement(narrow, 2026, settled).exact, wideDays)).toBeLessThanOrEqual(
 				0
 			);
-			expect(compare(wideDays, full)).toBeLessThanOrEqual(0);
+			expect(compare(wideDays, max(full, fraction(20)))).toBeLessThanOrEqual(0);
 		}
 	);
 
@@ -625,7 +686,7 @@ describe('vacation properties', () => {
 		],
 		{ numRuns: 1000 }
 	)(
-		'entitlement grows with a later exit and never exceeds the largest contract in force',
+		'entitlement grows with a later exit and stays within the largest contract or the minimum',
 		(drafts, entryOffset, exitA, exitB) => {
 			const entry = inYear(entryOffset);
 			const contracts = drafts.map(({ shift, amount }, index) =>
@@ -641,7 +702,7 @@ describe('vacation properties', () => {
 			expect(
 				compare(annualEntitlement(earlier, 2026, settled).exact, laterDays)
 			).toBeLessThanOrEqual(0);
-			expect(compare(laterDays, largest)).toBeLessThanOrEqual(0);
+			expect(compare(laterDays, max(largest, fraction(20)))).toBeLessThanOrEqual(0);
 		}
 	);
 
@@ -699,6 +760,50 @@ describe('vacation properties', () => {
 		(amount, entryOffset, exitOffset) => {
 			const { rounded } = entitlementFrom(amount, entryOffset, exitOffset);
 			expect(compare(fractionalPart(rounded), fraction(1, 2))).toBeLessThan(0);
+		}
+	);
+
+	const workingWeek = fc.record({
+		mon: fc.integer({ min: 0, max: 600 }),
+		tue: fc.integer({ min: 0, max: 600 }),
+		wed: fc.integer({ min: 0, max: 600 }),
+		thu: fc.integer({ min: 0, max: 600 }),
+		fri: fc.integer({ min: 0, max: 600 }),
+		sat: fc.integer({ min: 0, max: 600 }),
+		sun: fc.integer({ min: 0, max: 600 })
+	});
+
+	test.prop(
+		[
+			tenths,
+			workingWeek,
+			fc.integer({ min: -400, max: 364 }),
+			fc.option(fc.integer({ min: 0, max: 500 }), { nil: null }),
+			fc.integer({ min: -200, max: 900 })
+		],
+		{ numRuns: 1000 }
+	)(
+		'the entitlement never falls below the statutory share of the months employed',
+		(amount, week, entryOffset, stay, asOfOffset) => {
+			const entry = inYear(entryOffset);
+			const exit = stay === null ? null : entry.add({ days: stay });
+			const staff = employed(entry, exit, contract(entry, fraction(amount, 10), week));
+			const asOf = inYear(asOfOffset);
+			const { exact } = annualEntitlement(staff, 2026, asOf);
+
+			const workdays = Object.values(week).filter((minutes) => minutes > 0).length;
+			const minimum = fraction(24 * workdays, 6);
+			const from = entry.year < 2026 ? 1 : entry.year === 2026 ? entry.month : 13;
+			const to = exit === null || exit.year > 2026 ? 12 : exit.year === 2026 ? exit.month : 0;
+			const months = Math.max(0, to - from + 1);
+			expect(compare(exact, multiply(minimum, fraction(months, 12)))).toBeGreaterThanOrEqual(0);
+
+			const lastWaitingDay = entry.add({ months: 6 }).subtract({ days: 1 });
+			const waitedThisYear =
+				lastWaitingDay.year === 2026 && Temporal.PlainDate.compare(asOf, lastWaitingDay) > 0;
+			if (exit === null && (entry.year < 2026 || waitedThisYear)) {
+				expect(compare(exact, minimum)).toBeGreaterThanOrEqual(0);
+			}
 		}
 	);
 

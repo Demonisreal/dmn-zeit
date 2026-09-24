@@ -93,16 +93,20 @@ const contractAt = (employment: Employment, date: Temporal.PlainDate): Contract 
 	return current;
 };
 
-const entitlement = (exact: Fraction, basis: Explanation, notes: Explanation[]): Entitlement => {
+// § 3 Abs. 1 BUrlG: 24 days on a six-day week, scaled to the weekdays the contract works
+const statutoryDays = (contract: Contract): Fraction =>
+	fraction(24 * WEEKDAYS.filter((weekday) => contract.minutes[weekday] > 0).length, 6);
+
+const entitlement = (exact: Fraction, basis: Explanation[], notes: Explanation[]): Entitlement => {
 	if (compare(fractionalPart(exact), fraction(1, 2)) < 0) {
-		return { exact, rounded: exact, explanations: [basis, ...notes] };
+		return { exact, rounded: exact, explanations: [...basis, ...notes] };
 	}
 	const rounded = fraction(floor(exact) + 1);
 	return {
 		exact,
 		rounded,
 		explanations: [
-			basis,
+			...basis,
 			{
 				key: 'vacation.entitlement.rounded_up',
 				params: { exact: toDecimal(exact, 2), rounded: rounded.num }
@@ -126,64 +130,85 @@ export const annualEntitlement = (
 			? employment.exitDate
 			: newYearsEve;
 	if (Temporal.PlainDate.compare(from, employedTo) > 0) {
-		return entitlement(fraction(0), { key: 'vacation.entitlement.no_employment', params: {} }, []);
+		return entitlement(
+			fraction(0),
+			[{ key: 'vacation.entitlement.no_employment', params: {} }],
+			[]
+		);
 	}
 
-	// § 4 BUrlG: full entitlement from this day on, but only once asOf has actually reached it
-	const fullFrom = employment.entryDate.add({ months: 6 });
-	const waitingPeriodMet =
-		Temporal.PlainDate.compare(fullFrom, employedTo) <= 0 &&
-		Temporal.PlainDate.compare(fullFrom, asOf) <= 0;
-	const waitingPeriodRuns =
-		Temporal.PlainDate.compare(asOf, fullFrom) < 0 &&
-		(employment.exitDate === null ||
-			Temporal.PlainDate.compare(fullFrom, employment.exitDate) <= 0);
-	const notes: Explanation[] = waitingPeriodRuns
-		? [
-				{
-					key: 'vacation.entitlement.waiting_period',
-					params: { until: fullFrom.subtract({ days: 1 }).toString() }
-				}
-			]
-		: [];
+	// § 4 BUrlG: six months end with this day, and they only count once asOf is past it
+	const lastWaitingDay = employment.entryDate.add({ months: 6 }).subtract({ days: 1 });
+	const completes =
+		employment.exitDate === null ||
+		Temporal.PlainDate.compare(employment.exitDate, lastWaitingDay) >= 0;
+	const waitingPeriodMet = completes && Temporal.PlainDate.compare(asOf, lastWaitingDay) > 0;
+	const notes: Explanation[] =
+		completes && !waitingPeriodMet
+			? [
+					{
+						key: 'vacation.entitlement.waiting_period',
+						params: { until: lastWaitingDay.toString() }
+					}
+				]
+			: [];
 
 	// § 5 Abs. 1 Buchst. c BUrlG only cuts the entitlement for an exit up to 30 June; leaving
 	// later with the waiting period already met keeps the full annual amount, no twelfths
 	const exitsThisYear = employment.exitDate !== null && employment.exitDate.year === year;
 	const fullOnExit = exitsThisYear && waitingPeriodMet && employedTo.month > 6;
 	const to = fullOnExit ? newYearsEve : employedTo;
-
-	const contract = contractAt(employment, from);
 	const entersThisYear = employment.entryDate.year === year;
 	const runsUninterrupted = (!entersThisYear && !exitsThisYear) || fullOnExit;
-	if (runsUninterrupted && contract && contract === contractAt(employment, to)) {
-		return entitlement(
-			contract.vacationDaysYear,
-			{
-				key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.full_year',
-				params: { days: toDecimal(contract.vacationDaysYear, 2) }
-			},
-			notes
-		);
-	}
+	// § 5 Abs. 1 Buchst. a BUrlG: only twelfths of the minimum if waiting runs past the year
+	const fullMinimum =
+		runsUninterrupted ||
+		(entersThisYear && !exitsThisYear && waitingPeriodMet && lastWaitingDay.year === year);
 
 	// simplified § 5 Abs. 1 BUrlG: one employed day makes the whole calendar month count
-	let exact = fraction(0);
-	for (let month = from.month; month <= to.month; month++) {
-		const firstDay = month === from.month ? from : from.with({ month, day: 1 });
-		const monthContract = contractAt(employment, firstDay);
-		if (monthContract) {
-			exact = add(exact, multiply(monthContract.vacationDaysYear, fraction(1, 12)));
+	const twelfths = (first: number, last: number, amount: (terms: Contract) => Fraction) => {
+		let total = fraction(0);
+		for (let month = first; month <= last; month++) {
+			// months before the entry use the first terms, the full minimum spans all twelve
+			const terms = contractAt(
+				employment,
+				month <= from.month ? from : from.with({ month, day: 1 })
+			);
+			if (terms) {
+				total = add(total, multiply(amount(terms), fraction(1, 12)));
+			}
 		}
+		return total;
+	};
+	const settle = (agreed: Fraction, basis: Explanation) => {
+		const minimum = fullMinimum
+			? twelfths(1, 12, statutoryDays)
+			: twelfths(from.month, to.month, statutoryDays);
+		if (compare(minimum, agreed) <= 0) {
+			return entitlement(agreed, [basis], notes);
+		}
+		return entitlement(
+			minimum,
+			[
+				basis,
+				{ key: 'vacation.entitlement.statutory_minimum', params: { days: toDecimal(minimum, 2) } }
+			],
+			notes
+		);
+	};
+
+	const contract = contractAt(employment, from);
+	if (runsUninterrupted && contract && contract === contractAt(employment, to)) {
+		return settle(contract.vacationDaysYear, {
+			key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.full_year',
+			params: { days: toDecimal(contract.vacationDaysYear, 2) }
+		});
 	}
-	return entitlement(
-		exact,
-		{
-			key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.pro_rata',
-			params: { months: to.month - from.month + 1, days: toDecimal(exact, 2) }
-		},
-		notes
-	);
+	const exact = twelfths(from.month, to.month, (terms) => terms.vacationDaysYear);
+	return settle(exact, {
+		key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.pro_rata',
+		params: { months: to.month - from.month + 1, days: toDecimal(exact, 2) }
+	});
 };
 
 const dayOff = (date: Temporal.PlainDate, key: string, params: Explanation['params']): DayCost => ({

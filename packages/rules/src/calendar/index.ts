@@ -23,8 +23,6 @@ export type WorkdaySummary = {
 };
 
 const byStart = (a: Span, b: Span) => Temporal.Instant.compare(a.start, b.start);
-const minutesOf = (spans: readonly Span[]) =>
-	spans.reduce((sum, span) => sum + span.start.until(span.end).total('minutes'), 0);
 
 // an entry belongs to the local date it started on, even when it runs past midnight
 export const workdayOf = (start: Temporal.Instant, timeZone: string): Temporal.PlainDate =>
@@ -46,6 +44,10 @@ export const splitByLocalDate = (span: Span, timeZone: string): DaySlice[] => {
 
 export const monthDays = (month: Temporal.PlainYearMonth): Temporal.PlainDate[] =>
 	Array.from({ length: month.daysInMonth }, (_, i) => month.toPlainDate({ day: i + 1 }));
+
+// stamps carry seconds, everything shown or checked counts whole minutes of the exact sum
+export const wholeMinutes = (spans: readonly Span[]): number =>
+	Math.round(spans.reduce((sum, span) => sum + span.start.until(span.end).total('minutes'), 0));
 
 export const gapsBetween = (spans: readonly Span[]): Span[] => {
 	const gaps: Span[] = [];
@@ -84,9 +86,8 @@ export const summarizeWorkday = (
 
 	const gaps = gapsBetween(spans);
 	return {
-		// stamps carry seconds, the day contract counts whole minutes
-		workedMinutes: Math.round(minutesOf(spans)),
-		breakMinutes: Math.round(minutesOf(gaps)),
+		workedMinutes: wholeMinutes(spans),
+		breakMinutes: wholeMinutes(gaps),
 		gaps,
 		firstStart: first.start,
 		lastEnd: last.end,

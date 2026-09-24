@@ -1,28 +1,28 @@
 import { fc, test } from '@fast-check/vitest';
 import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Span } from '../calendar';
+import { summarizeWorkday, type Span } from '../calendar';
 import type { Holiday } from '../holidays';
 import {
-	checkWorkdays,
-	groupWorkdays,
+	checkShifts,
+	groupShifts,
 	RULESETS,
 	ruleSetFor,
 	type Finding,
 	type RuleSet,
-	type Workday
+	type Shift
 } from './index';
 
 const TZ = 'Europe/Berlin';
 
 const at = (local: string) => Temporal.ZonedDateTime.from(`${local}[${TZ}]`).toInstant();
-const shift = (from: string, to: string): Span => ({ start: at(from), end: at(to) });
+const entry = (from: string, to: string): Span => ({ start: at(from), end: at(to) });
 const date = (iso: string) => Temporal.PlainDate.from(iso);
-const day = (iso: string, ...shifts: Span[]): Workday => ({ date: date(iso), shifts });
+const day = (iso: string, ...entries: Span[]): Shift => ({ date: date(iso), entries });
 const statutory = (iso: string): Holiday => ({ date: date(iso), code: 'labour_day', portion: 1 });
 const everything = { from: date('2000-01-01'), to: date('2099-12-31') };
-const check = (days: Workday[], holidays: string[] = [], range = everything) =>
-	checkWorkdays(days, { timeZone: TZ, holidays: holidays.map(statutory), range });
+const check = (shifts: Shift[], holidays: string[] = [], range = everything) =>
+	checkShifts(shifts, { timeZone: TZ, holidays: holidays.map(statutory), range });
 const codes = (findings: Finding[]) => findings.map((finding) => finding.code);
 
 describe('ruleSetFor', () => {
@@ -69,7 +69,7 @@ describe('ruleSetFor', () => {
 
 		it('checks each day against the limits valid on that day', () => {
 			const long = (iso: string) =>
-				day(iso, shift(`${iso}T06:00`, `${iso}T11:00`), shift(`${iso}T11:45`, `${iso}T17:45`));
+				day(iso, entry(`${iso}T06:00`, `${iso}T11:00`), entry(`${iso}T11:45`, `${iso}T17:45`));
 			const findings = check([long('2026-12-29'), long('2027-01-05')]);
 			expect(findings.map(({ code, ruleVersion }) => [code, ruleVersion])).toEqual([
 				['ARBZG_3_OVER_10', 'arbzg-1994'],
@@ -79,13 +79,13 @@ describe('ruleSetFor', () => {
 
 		it('judges the rest period by the rule set of the following day', () => {
 			const findings = check([
-				day('2026-12-30', shift('2026-12-30T18:00', '2026-12-30T22:00')),
+				day('2026-12-30', entry('2026-12-30T18:00', '2026-12-30T22:00')),
 				day(
 					'2026-12-31',
-					shift('2026-12-31T08:00', '2026-12-31T12:00'),
-					shift('2026-12-31T18:00', '2026-12-31T22:00')
+					entry('2026-12-31T08:00', '2026-12-31T12:00'),
+					entry('2026-12-31T18:00', '2026-12-31T22:00')
 				),
-				day('2027-01-01', shift('2027-01-01T08:00', '2027-01-01T12:00'))
+				day('2027-01-01', entry('2027-01-01T08:00', '2027-01-01T12:00'))
 			]);
 			expect(findings.map(({ code, date, facts }) => [code, date.toString(), facts])).toEqual([
 				['ARBZG_5_REST_UNDER_11H', '2026-12-31', { restMinutes: 600 }]
@@ -94,41 +94,67 @@ describe('ruleSetFor', () => {
 	});
 });
 
-describe('groupWorkdays', () => {
-	it('groups shifts by the local date they start on, in order', () => {
-		const morning = shift('2026-03-02T08:00', '2026-03-02T12:00');
-		const afternoon = shift('2026-03-02T12:30', '2026-03-02T16:30');
-		const tuesday = shift('2026-03-03T09:00', '2026-03-03T13:00');
-		expect(groupWorkdays([tuesday, afternoon, morning], TZ)).toEqual([
-			{ date: date('2026-03-02'), shifts: [morning, afternoon] },
-			{ date: date('2026-03-03'), shifts: [tuesday] }
+describe('groupShifts', () => {
+	it('keeps a night shift with a break after midnight together on the day it began', () => {
+		const evening = entry('2026-03-02T22:00', '2026-03-03T01:00');
+		const night = entry('2026-03-03T01:30', '2026-03-03T06:00');
+		expect(groupShifts([night, evening], TZ)).toEqual([
+			{ date: date('2026-03-02'), entries: [evening, night] }
 		]);
 	});
 
-	it('keeps a night shift on the day it started', () => {
-		const night = shift('2026-03-02T22:00', '2026-03-03T06:00');
-		expect(groupWorkdays([night], TZ)).toEqual([{ date: date('2026-03-02'), shifts: [night] }]);
+	it('keeps a gap of two hours and 59 minutes within the shift', () => {
+		const late = entry('2026-03-02T20:00', '2026-03-03T00:00');
+		const early = entry('2026-03-03T02:59', '2026-03-03T05:00');
+		expect(groupShifts([late, early], TZ)).toHaveLength(1);
 	});
 
-	it('uses the local date rather than the utc date', () => {
-		const early = shift('2026-03-03T00:30', '2026-03-03T04:00');
+	it('starts a new shift after a gap of three hours', () => {
+		const late = entry('2026-03-02T20:00', '2026-03-03T00:00');
+		const early = entry('2026-03-03T03:00', '2026-03-03T07:00');
+		expect(groupShifts([late, early], TZ)).toEqual([
+			{ date: date('2026-03-02'), entries: [late] },
+			{ date: date('2026-03-03'), entries: [early] }
+		]);
+	});
+
+	it('keeps a split shift on one date together whatever the gap', () => {
+		const morning = entry('2026-03-02T06:00', '2026-03-02T10:00');
+		const evening = entry('2026-03-02T16:00', '2026-03-02T20:00');
+		expect(groupShifts([evening, morning], TZ)).toEqual([
+			{ date: date('2026-03-02'), entries: [morning, evening] }
+		]);
+	});
+
+	it('separates two days with the usual night rest', () => {
+		const morning = entry('2026-03-02T08:00', '2026-03-02T12:00');
+		const afternoon = entry('2026-03-02T12:30', '2026-03-02T16:30');
+		const tuesday = entry('2026-03-03T09:00', '2026-03-03T13:00');
+		expect(groupShifts([tuesday, afternoon, morning], TZ)).toEqual([
+			{ date: date('2026-03-02'), entries: [morning, afternoon] },
+			{ date: date('2026-03-03'), entries: [tuesday] }
+		]);
+	});
+
+	it('dates a shift by the local day rather than the utc day', () => {
+		const early = entry('2026-03-03T00:30', '2026-03-03T04:00');
 		expect(early.start.toString()).toBe('2026-03-02T23:30:00Z');
-		expect(groupWorkdays([early], TZ)[0]?.date).toEqual(date('2026-03-03'));
+		expect(groupShifts([early], TZ)[0]?.date).toEqual(date('2026-03-03'));
 	});
 
-	it('returns no workdays without shifts', () => {
-		expect(groupWorkdays([], TZ)).toEqual([]);
+	it('returns no shifts without entries', () => {
+		expect(groupShifts([], TZ)).toEqual([]);
 	});
 });
 
-describe('checkWorkdays', () => {
+describe('checkShifts', () => {
 	it('accepts a regular eight hour day with a half hour break', () => {
 		expect(
 			check([
 				day(
 					'2026-03-02',
-					shift('2026-03-02T08:00', '2026-03-02T12:00'),
-					shift('2026-03-02T12:30', '2026-03-02T16:30')
+					entry('2026-03-02T08:00', '2026-03-02T12:00'),
+					entry('2026-03-02T12:30', '2026-03-02T16:30')
 				)
 			])
 		).toEqual([]);
@@ -138,8 +164,8 @@ describe('checkWorkdays', () => {
 		const findings = check([
 			day(
 				'2026-03-02',
-				shift('2026-03-02T07:00', '2026-03-02T11:30'),
-				shift('2026-03-02T12:00', '2026-03-02T16:00')
+				entry('2026-03-02T07:00', '2026-03-02T11:30'),
+				entry('2026-03-02T12:00', '2026-03-02T16:00')
 			)
 		]);
 		expect(findings).toEqual([
@@ -157,8 +183,8 @@ describe('checkWorkdays', () => {
 		const findings = check([
 			day(
 				'2026-03-02',
-				shift('2026-03-02T07:00', '2026-03-02T12:00'),
-				shift('2026-03-02T12:45', '2026-03-02T18:25')
+				entry('2026-03-02T07:00', '2026-03-02T12:00'),
+				entry('2026-03-02T12:45', '2026-03-02T18:25')
 			)
 		]);
 		expect(findings).toEqual([
@@ -175,13 +201,13 @@ describe('checkWorkdays', () => {
 	it('treats exactly eight hours as regular and exactly ten hours as still allowed', () => {
 		const eight = day(
 			'2026-03-02',
-			shift('2026-03-02T07:00', '2026-03-02T11:00'),
-			shift('2026-03-02T11:30', '2026-03-02T15:30')
+			entry('2026-03-02T07:00', '2026-03-02T11:00'),
+			entry('2026-03-02T11:30', '2026-03-02T15:30')
 		);
 		const ten = day(
 			'2026-03-04',
-			shift('2026-03-04T06:00', '2026-03-04T11:00'),
-			shift('2026-03-04T11:45', '2026-03-04T16:45')
+			entry('2026-03-04T06:00', '2026-03-04T11:00'),
+			entry('2026-03-04T11:45', '2026-03-04T16:45')
 		);
 		expect(codes(check([eight]))).toEqual([]);
 		expect(codes(check([ten]))).toEqual(['ARBZG_3_OVER_8']);
@@ -191,8 +217,8 @@ describe('checkWorkdays', () => {
 		const findings = check([
 			day(
 				'2026-03-02',
-				shift('2026-03-02T07:00', '2026-03-02T12:00'),
-				shift('2026-03-02T12:30', '2026-03-02T17:00')
+				entry('2026-03-02T07:00', '2026-03-02T12:00'),
+				entry('2026-03-02T12:30', '2026-03-02T17:00')
 			)
 		]);
 		expect(codes(findings)).toEqual(['ARBZG_3_OVER_8', 'ARBZG_4_BREAK_SHORT']);
@@ -203,8 +229,8 @@ describe('checkWorkdays', () => {
 		const findings = check([
 			day(
 				'2026-03-02',
-				shift('2026-03-02T07:00', '2026-03-02T12:00'),
-				shift('2026-03-02T12:45', '2026-03-02T17:00')
+				entry('2026-03-02T07:00', '2026-03-02T12:00'),
+				entry('2026-03-02T12:45', '2026-03-02T17:00')
 			)
 		]);
 		expect(codes(findings)).toEqual(['ARBZG_3_OVER_8']);
@@ -214,9 +240,9 @@ describe('checkWorkdays', () => {
 		const findings = check([
 			day(
 				'2026-03-02',
-				shift('2026-03-02T08:00', '2026-03-02T12:00'),
-				shift('2026-03-02T12:10', '2026-03-02T12:40'),
-				shift('2026-03-02T12:50', '2026-03-02T14:50')
+				entry('2026-03-02T08:00', '2026-03-02T12:00'),
+				entry('2026-03-02T12:10', '2026-03-02T12:40'),
+				entry('2026-03-02T12:50', '2026-03-02T14:50')
 			)
 		]);
 		expect(findings.map(({ code, facts }) => [code, facts])).toEqual([
@@ -229,16 +255,16 @@ describe('checkWorkdays', () => {
 		const findings = check([
 			day(
 				'2026-03-02',
-				shift('2026-03-02T08:00', '2026-03-02T11:00'),
-				shift('2026-03-02T11:15', '2026-03-02T14:00'),
-				shift('2026-03-02T14:15', '2026-03-02T15:00')
+				entry('2026-03-02T08:00', '2026-03-02T11:00'),
+				entry('2026-03-02T11:15', '2026-03-02T14:00'),
+				entry('2026-03-02T14:15', '2026-03-02T15:00')
 			)
 		]);
 		expect(findings).toEqual([]);
 	});
 
 	it('flags six hours and 45 minutes in one stretch', () => {
-		const findings = check([day('2026-03-02', shift('2026-03-02T08:00', '2026-03-02T14:45'))]);
+		const findings = check([day('2026-03-02', entry('2026-03-02T08:00', '2026-03-02T14:45'))]);
 		expect(findings.map(({ code, facts }) => [code, facts])).toEqual([
 			['ARBZG_4_BREAK_SHORT', { requiredMinutes: 30, actualMinutes: 0 }],
 			['ARBZG_4_CONTINUOUS_6H', { continuousMinutes: 405 }]
@@ -246,19 +272,19 @@ describe('checkWorkdays', () => {
 	});
 
 	it('allows exactly six hours without a break', () => {
-		expect(check([day('2026-03-02', shift('2026-03-02T08:00', '2026-03-02T14:00'))])).toEqual([]);
+		expect(check([day('2026-03-02', entry('2026-03-02T08:00', '2026-03-02T14:00'))])).toEqual([]);
 	});
 
 	it('measures the break thresholds by working time, not by time spent at work', () => {
 		const six = day(
 			'2026-03-02',
-			shift('2026-03-02T08:00', '2026-03-02T12:00'),
-			shift('2026-03-02T12:20', '2026-03-02T14:20')
+			entry('2026-03-02T08:00', '2026-03-02T12:00'),
+			entry('2026-03-02T12:20', '2026-03-02T14:20')
 		);
 		const nine = day(
 			'2026-03-04',
-			shift('2026-03-04T07:00', '2026-03-04T12:00'),
-			shift('2026-03-04T12:30', '2026-03-04T16:30')
+			entry('2026-03-04T07:00', '2026-03-04T12:00'),
+			entry('2026-03-04T12:30', '2026-03-04T16:30')
 		);
 		expect(check([six])).toEqual([]);
 		expect(codes(check([nine]))).toEqual(['ARBZG_3_OVER_8']);
@@ -266,8 +292,8 @@ describe('checkWorkdays', () => {
 
 	it('flags a rest period of nine hours and 15 minutes on the following day', () => {
 		const findings = check([
-			day('2026-03-02', shift('2026-03-02T18:00', '2026-03-02T22:00')),
-			day('2026-03-03', shift('2026-03-03T07:15', '2026-03-03T11:15'))
+			day('2026-03-02', entry('2026-03-02T18:00', '2026-03-02T22:00')),
+			day('2026-03-03', entry('2026-03-03T07:15', '2026-03-03T11:15'))
 		]);
 		expect(findings).toEqual([
 			{
@@ -282,16 +308,16 @@ describe('checkWorkdays', () => {
 
 	it('accepts exactly eleven hours of rest', () => {
 		const findings = check([
-			day('2026-03-02', shift('2026-03-02T18:00', '2026-03-02T22:00')),
-			day('2026-03-03', shift('2026-03-03T09:00', '2026-03-03T13:00'))
+			day('2026-03-02', entry('2026-03-02T18:00', '2026-03-02T22:00')),
+			day('2026-03-03', entry('2026-03-03T09:00', '2026-03-03T13:00'))
 		]);
 		expect(findings).toEqual([]);
 	});
 
 	it('compares rest periods in date order whatever order the days come in', () => {
 		const findings = check([
-			day('2026-03-04', shift('2026-03-04T06:00', '2026-03-04T10:00')),
-			day('2026-03-03', shift('2026-03-03T16:00', '2026-03-03T20:00'))
+			day('2026-03-04', entry('2026-03-04T06:00', '2026-03-04T10:00')),
+			day('2026-03-03', entry('2026-03-03T16:00', '2026-03-03T20:00'))
 		]);
 		expect(findings.map(({ code, date, facts }) => [code, date.toString(), facts])).toEqual([
 			['ARBZG_5_REST_UNDER_11H', '2026-03-04', { restMinutes: 600 }]
@@ -300,15 +326,15 @@ describe('checkWorkdays', () => {
 
 	it('measures rest in real minutes across the switch to summer time', () => {
 		const findings = check([
-			day('2026-03-28', shift('2026-03-28T18:00', '2026-03-28T22:00')),
-			day('2026-03-29', shift('2026-03-29T09:00', '2026-03-29T13:00'))
+			day('2026-03-28', entry('2026-03-28T18:00', '2026-03-28T22:00')),
+			day('2026-03-29', entry('2026-03-29T09:00', '2026-03-29T13:00'))
 		]);
 		expect(codes(findings)).toEqual(['ARBZG_5_REST_UNDER_11H', 'ARBZG_9_SUNDAY']);
 		expect(findings[0]?.facts).toEqual({ restMinutes: 600 });
 	});
 
 	it('warns about work on a sunday', () => {
-		const findings = check([day('2026-03-01', shift('2026-03-01T10:00', '2026-03-01T14:00'))]);
+		const findings = check([day('2026-03-01', entry('2026-03-01T10:00', '2026-03-01T14:00'))]);
 		expect(findings).toEqual([
 			{
 				code: 'ARBZG_9_SUNDAY',
@@ -322,7 +348,7 @@ describe('checkWorkdays', () => {
 
 	it('warns about work on a public holiday', () => {
 		const findings = check(
-			[day('2026-05-01', shift('2026-05-01T10:00', '2026-05-01T14:00'))],
+			[day('2026-05-01', entry('2026-05-01T10:00', '2026-05-01T14:00'))],
 			['2026-05-01']
 		);
 		expect(codes(findings)).toEqual(['ARBZG_9_HOLIDAY']);
@@ -331,7 +357,7 @@ describe('checkWorkdays', () => {
 
 	it('reports a holiday on a sunday under both rules', () => {
 		const findings = check(
-			[day('2026-04-05', shift('2026-04-05T10:00', '2026-04-05T14:00'))],
+			[day('2026-04-05', entry('2026-04-05T10:00', '2026-04-05T14:00'))],
 			['2026-04-03', '2026-04-05', '2026-04-06']
 		);
 		expect(codes(findings)).toEqual(['ARBZG_9_HOLIDAY', 'ARBZG_9_SUNDAY']);
@@ -342,10 +368,10 @@ describe('checkWorkdays', () => {
 			{ date: date('2026-12-24'), code: 'christmas_eve', portion: 0.5 },
 			{ date: date('2026-12-31'), code: 'new_years_eve', portion: 0.5 }
 		];
-		const findings = checkWorkdays(
+		const findings = checkShifts(
 			[
-				day('2026-12-24', shift('2026-12-24T08:00', '2026-12-24T12:00')),
-				day('2026-12-31', shift('2026-12-31T08:00', '2026-12-31T12:00'))
+				day('2026-12-24', entry('2026-12-24T08:00', '2026-12-24T12:00')),
+				day('2026-12-31', entry('2026-12-31T08:00', '2026-12-31T12:00'))
 			],
 			{ timeZone: TZ, holidays: halfDays, range: everything }
 		);
@@ -355,8 +381,8 @@ describe('checkWorkdays', () => {
 	it('uses the day before the range only to measure the rest period', () => {
 		const findings = check(
 			[
-				day('2026-03-02', shift('2026-03-02T11:00', '2026-03-02T22:00')),
-				day('2026-03-03', shift('2026-03-03T07:15', '2026-03-03T11:15'))
+				day('2026-03-02', entry('2026-03-02T11:00', '2026-03-02T22:00')),
+				day('2026-03-03', entry('2026-03-03T07:15', '2026-03-03T11:15'))
 			],
 			[],
 			{ from: date('2026-03-03'), to: date('2026-03-03') }
@@ -369,8 +395,8 @@ describe('checkWorkdays', () => {
 	it('reports nothing for days after the range', () => {
 		const findings = check(
 			[
-				day('2026-03-02', shift('2026-03-02T18:00', '2026-03-02T22:00')),
-				day('2026-03-03', shift('2026-03-03T07:15', '2026-03-03T11:15'))
+				day('2026-03-02', entry('2026-03-02T18:00', '2026-03-02T22:00')),
+				day('2026-03-03', entry('2026-03-03T07:15', '2026-03-03T11:15'))
 			],
 			[],
 			{ from: date('2026-03-01'), to: date('2026-03-02') }
@@ -378,14 +404,73 @@ describe('checkWorkdays', () => {
 		expect(findings).toEqual([]);
 	});
 
-	it('ignores workdays without shifts', () => {
+	it('ignores shifts without entries', () => {
 		expect(check([day('2026-03-01')], ['2026-03-01'])).toEqual([]);
+	});
+
+	it('checks a night shift with a break after midnight as one shift', () => {
+		const shifts = groupShifts(
+			[
+				entry('2026-03-02T20:00', '2026-03-03T00:30'),
+				entry('2026-03-03T01:00', '2026-03-03T05:00')
+			],
+			TZ
+		);
+		expect(check(shifts)).toEqual([
+			{
+				code: 'ARBZG_3_OVER_8',
+				severity: 'info',
+				date: date('2026-03-02'),
+				ruleVersion: 'arbzg-1994',
+				facts: { minutes: 510 }
+			}
+		]);
+	});
+
+	it('measures the rest from the end of a night shift to the next shift', () => {
+		const shifts = groupShifts(
+			[
+				entry('2026-03-02T18:00', '2026-03-02T21:00'),
+				entry('2026-03-02T21:30', '2026-03-03T01:00'),
+				entry('2026-03-03T08:00', '2026-03-03T12:00')
+			],
+			TZ
+		);
+		expect(check(shifts).map(({ code, date, facts }) => [code, date.toString(), facts])).toEqual([
+			['ARBZG_5_REST_UNDER_11H', '2026-03-03', { restMinutes: 420 }]
+		]);
+	});
+
+	it('counts whole minutes, so a few seconds past eight hours stay regular', () => {
+		const stamped = (from: string, to: string) => ({
+			start: Temporal.Instant.from(from),
+			end: Temporal.Instant.from(to)
+		});
+		const findings = check([
+			day(
+				'2026-03-02',
+				stamped('2026-03-02T07:00:00Z', '2026-03-02T11:00:20Z'),
+				stamped('2026-03-02T11:30:00Z', '2026-03-02T15:29:50Z')
+			)
+		]);
+		expect(findings).toEqual([]);
+	});
+
+	it('reports the rest period in whole minutes', () => {
+		const findings = check([
+			day('2026-03-02', {
+				start: at('2026-03-02T18:00'),
+				end: Temporal.Instant.from('2026-03-02T21:00:40Z')
+			}),
+			day('2026-03-03', entry('2026-03-03T07:15', '2026-03-03T11:15'))
+		]);
+		expect(findings[0]?.facts).toEqual({ restMinutes: 554 });
 	});
 
 	it('sorts findings by date and then by code', () => {
 		const findings = check([
-			day('2026-03-02', shift('2026-03-02T07:00', '2026-03-02T17:30')),
-			day('2026-03-01', shift('2026-03-01T06:00', '2026-03-01T13:00'))
+			day('2026-03-02', entry('2026-03-02T07:00', '2026-03-02T17:30')),
+			day('2026-03-01', entry('2026-03-01T06:00', '2026-03-01T13:00'))
 		]);
 		expect(findings.map(({ code, date }) => [date.toString(), code])).toEqual([
 			['2026-03-01', 'ARBZG_4_BREAK_SHORT'],
@@ -400,15 +485,15 @@ describe('checkWorkdays', () => {
 
 type Piece = { gap: number; length: number };
 
-// the gap of the first piece only moves the start, every later gap lies between two shifts
-const workday = (parts: readonly Piece[], iso = '2026-03-02'): Workday => {
+// the gap of the first piece only moves the start, every later gap lies between two entries
+const shiftOf = (parts: readonly Piece[], iso = '2026-03-02'): Shift => {
 	let cursor = at(`${iso}T06:00`);
-	const shifts = parts.map(({ gap, length }) => {
+	const entries = parts.map(({ gap, length }) => {
 		const start = cursor.add({ minutes: gap });
 		cursor = start.add({ minutes: length });
 		return { start, end: cursor };
 	});
-	return { date: date(iso), shifts };
+	return { date: date(iso), entries };
 };
 
 const piece = fc.record({
@@ -428,7 +513,7 @@ const overtimeLevel = (findings: Finding[]) =>
 const breakCodes = (findings: Finding[]) =>
 	codes(findings).filter((code) => code.startsWith('ARBZG_4_'));
 
-describe('checkWorkdays properties', () => {
+describe('checkShifts properties', () => {
 	test.prop([pieces, fc.nat(), fc.integer({ min: 1, max: 600 })], { numRuns: 1000 })(
 		'more work never removes a § 3 finding',
 		(parts, pick, extra) => {
@@ -436,18 +521,18 @@ describe('checkWorkdays properties', () => {
 			const longer = parts.map((part, i) =>
 				i === index ? { ...part, length: part.length + extra } : part
 			);
-			expect(overtimeLevel(check([workday(longer)]))).toBeGreaterThanOrEqual(
-				overtimeLevel(check([workday(parts)]))
+			expect(overtimeLevel(check([shiftOf(longer)]))).toBeGreaterThanOrEqual(
+				overtimeLevel(check([shiftOf(parts)]))
 			);
 		}
 	);
 
 	test.prop([pieces, piece, fc.nat()], { numRuns: 1000 })(
-		'an extra shift never removes a § 3 finding',
+		'an extra entry never removes a § 3 finding',
 		(parts, extra, pick) => {
 			const withExtra = parts.toSpliced(pick % (parts.length + 1), 0, extra);
-			expect(overtimeLevel(check([workday(withExtra)]))).toBeGreaterThanOrEqual(
-				overtimeLevel(check([workday(parts)]))
+			expect(overtimeLevel(check([shiftOf(withExtra)]))).toBeGreaterThanOrEqual(
+				overtimeLevel(check([shiftOf(parts)]))
 			);
 		}
 	);
@@ -461,8 +546,8 @@ describe('checkWorkdays properties', () => {
 		const longer = parts.map((part, i) =>
 			i === index ? { ...part, gap: part.gap + extra } : part
 		);
-		const before = breakCodes(check([workday(parts)]));
-		for (const code of breakCodes(check([workday(longer)]))) {
+		const before = breakCodes(check([shiftOf(parts)]));
+		for (const code of breakCodes(check([shiftOf(longer)]))) {
 			expect(before).toContain(code);
 		}
 	});
@@ -480,7 +565,7 @@ describe('checkWorkdays properties', () => {
 		numRuns: 1000
 	})('a range reports exactly the findings its days get in the full check', (drafts, a, b) => {
 		const days = drafts.map(({ offset, parts }) =>
-			workday(parts, origin.add({ days: offset }).toString())
+			shiftOf(parts, origin.add({ days: offset }).toString())
 		);
 		const from = origin.add({ days: Math.min(a, b) });
 		const to = origin.add({ days: Math.max(a, b) });
@@ -489,4 +574,69 @@ describe('checkWorkdays properties', () => {
 			Temporal.PlainDate.compare(finding.date, to) <= 0;
 		expect(check(days, [], { from, to })).toEqual(check(days).filter(inside));
 	});
+
+	// seconds on every stamp, the way now() of the database writes them
+	const stamped = fc.array(
+		fc.record({
+			gap: fc.integer({ min: 0, max: 3600 }),
+			length: fc.integer({ min: 1, max: 7200 })
+		}),
+		{ minLength: 1, maxLength: 6 }
+	);
+
+	test.prop([stamped], { numRuns: 1000 })(
+		'a shift reports the same whole minutes the workday summary shows',
+		(parts) => {
+			let cursor = at('2026-03-02T06:00');
+			const entries = parts.map(({ gap, length }) => {
+				const start = cursor.add({ seconds: gap });
+				cursor = start.add({ seconds: length });
+				return { start, end: cursor };
+			});
+			const summary = summarizeWorkday(entries, cursor, TZ);
+			const shifts = groupShifts(entries, TZ);
+			const findings = check(shifts);
+
+			expect(shifts).toHaveLength(1);
+			const overtime = findings.find((finding) => finding.code.startsWith('ARBZG_3_'));
+			if (summary.workedMinutes <= 480) {
+				expect(overtime).toBeUndefined();
+			} else {
+				expect(overtime?.facts).toEqual({ minutes: summary.workedMinutes });
+			}
+			for (const finding of findings) {
+				for (const fact of Object.values(finding.facts)) {
+					expect(Number.isInteger(fact)).toBe(true);
+				}
+			}
+		}
+	);
+
+	const spread = fc.array(
+		fc.record({ gap: fc.integer({ min: 0, max: 900 }), length: fc.integer({ min: 1, max: 300 }) }),
+		{ minLength: 1, maxLength: 10 }
+	);
+
+	test.prop([spread], { numRuns: 1000 })(
+		'shifts break only at three hours without work and never within one date',
+		(parts) => {
+			const shifts = groupShifts(shiftOf(parts).entries, TZ);
+			const local = (instant: Temporal.Instant) => instant.toZonedDateTimeISO(TZ).toPlainDate();
+			shifts.forEach((shift, i) => {
+				const [first] = shift.entries;
+				expect(shift.date).toEqual(first && local(first.start));
+				shift.entries.slice(1).forEach((current, k) => {
+					const gap = shift.entries[k]!.end.until(current.start).total('minutes');
+					expect(gap < 180 || local(current.start).equals(shift.date)).toBe(true);
+				});
+				const previous = shifts[i - 1];
+				if (previous) {
+					const gap = previous.entries.at(-1)!.end.until(first!.start).total('minutes');
+					expect(gap).toBeGreaterThanOrEqual(180);
+					expect(Temporal.PlainDate.compare(previous.date, shift.date)).toBeLessThan(0);
+				}
+			});
+			expect(shifts.flatMap((shift) => shift.entries)).toEqual(shiftOf(parts).entries);
+		}
+	);
 });
