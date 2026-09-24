@@ -4,7 +4,7 @@ import type { Explanation } from '../explanation';
 export type CapMode = 'none' | 'forfeit_at_close' | 'warn';
 export type FlexBookingType = 'opening' | 'manual' | 'payout' | 'cap_forfeit';
 
-// credited covers vacation, sickness and holidays; time off credits nothing and so costs the target
+// only vacation and sickness credit minutes; a holiday lowers the target, time off costs it
 export type DayMinutes = {
 	targetMinutes: number;
 	workedMinutes: number;

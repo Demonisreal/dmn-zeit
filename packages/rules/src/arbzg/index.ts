@@ -1,5 +1,6 @@
 import { Temporal } from 'temporal-polyfill';
-import type { Span } from '../calendar';
+import { gapsBetween, type Span } from '../calendar';
+import type { Holiday } from '../holidays';
 
 export type ArbzgCode =
 	| 'ARBZG_3_OVER_8'
@@ -43,7 +44,9 @@ export type Finding = {
 
 export type CheckContext = {
 	timeZone: string;
-	holidays: readonly Temporal.PlainDate[];
+	holidays: readonly Holiday[];
+	// days before from only lead into the first rest period, nothing outside gets reported
+	range: { from: Temporal.PlainDate; to: Temporal.PlainDate };
 };
 
 // a reform of the act becomes a new entry here, old findings keep the version they were made with
@@ -88,45 +91,53 @@ export const groupWorkdays = (shifts: readonly Span[], timeZone: string): Workda
 };
 
 export const checkWorkdays = (days: readonly Workday[], context: CheckContext): Finding[] => {
+	const { from, to } = context.range;
 	const findings: Finding[] = [];
 	let previousEnd: Temporal.Instant | undefined;
 
 	for (const day of days.toSorted((a, b) => Temporal.PlainDate.compare(a.date, b.date))) {
-		const [first, ...later] = day.shifts.toSorted(byStart);
-		if (!first) {
+		const shifts = day.shifts.toSorted(byStart);
+		const first = shifts[0];
+		const last = shifts.at(-1);
+		if (!first || !last) {
 			continue;
 		}
+		const restMinutes = previousEnd ? minutesBetween(previousEnd, first.start) : null;
+		previousEnd = last.end;
+		if (
+			Temporal.PlainDate.compare(day.date, from) < 0 ||
+			Temporal.PlainDate.compare(day.date, to) > 0
+		) {
+			continue;
+		}
+
 		const { version, limits } = ruleSetFor(day.date);
 		const flag = (code: ArbzgCode, severity: Severity, facts: Finding['facts'] = {}) => {
 			findings.push({ code, severity, date: day.date, ruleVersion: version, facts });
 		};
 
-		if (previousEnd) {
-			const restMinutes = minutesBetween(previousEnd, first.start);
-			if (restMinutes < limits.minRestMinutes) {
-				flag('ARBZG_5_REST_UNDER_11H', 'warning', { restMinutes });
-			}
+		if (restMinutes !== null && restMinutes < limits.minRestMinutes) {
+			flag('ARBZG_5_REST_UNDER_11H', 'warning', { restMinutes });
 		}
 
-		let minutes = minutesBetween(first.start, first.end);
-		let continuous = minutes;
-		let longest = minutes;
+		const minutes = shifts.reduce((sum, shift) => sum + minutesBetween(shift.start, shift.end), 0);
 		let breakMinutes = 0;
-		let end = first.end;
-		for (const shift of later) {
-			const gap = minutesBetween(end, shift.start);
+		let longest = 0;
+		let stretchStart = first.start;
+		let shortGaps = 0;
+		for (const gap of gapsBetween(shifts)) {
+			const length = minutesBetween(gap.start, gap.end);
 			// § 4 ArbZG: gaps under 15 min are no break and do not end the stretch either
-			if (gap >= limits.minBreakMinutes) {
-				breakMinutes += gap;
-				continuous = 0;
+			if (length < limits.minBreakMinutes) {
+				shortGaps += length;
+				continue;
 			}
-			const length = minutesBetween(shift.start, shift.end);
-			minutes += length;
-			continuous += length;
-			longest = Math.max(longest, continuous);
-			end = shift.end;
+			breakMinutes += length;
+			longest = Math.max(longest, minutesBetween(stretchStart, gap.start) - shortGaps);
+			stretchStart = gap.end;
+			shortGaps = 0;
 		}
-		previousEnd = end;
+		longest = Math.max(longest, minutesBetween(stretchStart, last.end) - shortGaps);
 
 		if (minutes > limits.maxDailyMinutes) {
 			flag('ARBZG_3_OVER_10', 'warning', { minutes });
@@ -147,7 +158,10 @@ export const checkWorkdays = (days: readonly Workday[], context: CheckContext): 
 			flag('ARBZG_4_CONTINUOUS_6H', 'warning', { continuousMinutes: longest });
 		}
 
-		if (context.holidays.some((holiday) => holiday.equals(day.date))) {
+		// 24.12. and 31.12. are company half days, § 9 only protects statutory holidays
+		if (
+			context.holidays.some((holiday) => holiday.portion === 1 && holiday.date.equals(day.date))
+		) {
 			flag('ARBZG_9_HOLIDAY', 'warning');
 		}
 		if (day.date.dayOfWeek === 7) {

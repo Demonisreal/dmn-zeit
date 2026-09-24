@@ -1,5 +1,10 @@
 import { fc, test } from '@fast-check/vitest';
+import { Temporal } from 'temporal-polyfill';
 import { describe, expect, it } from 'vitest';
+import { targetMinutes, type Employment } from '../contracts';
+import { fraction } from '../fraction';
+import type { Holiday } from '../holidays';
+import { daysForRange } from '../vacation';
 import { accountBalance, applyCap, dayBalance, type DayMinutes, type FlexBooking } from './index';
 
 const worked = (workedMinutes: number, targetMinutes = 480): DayMinutes => ({
@@ -23,6 +28,52 @@ describe('dayBalance', () => {
 
 	it('counts work on a day without target entirely as plus', () => {
 		expect(dayBalance(worked(240, 0))).toBe(240);
+	});
+});
+
+describe('dayBalance on holidays', () => {
+	const date = (iso: string) => Temporal.PlainDate.from(iso);
+	const staff: Employment = {
+		entryDate: date('2020-01-01'),
+		exitDate: null,
+		contracts: [
+			{
+				validFrom: date('2020-01-01'),
+				minutes: { mon: 480, tue: 480, wed: 480, thu: 480, fri: 480, sat: 0, sun: 0 },
+				vacationDaysYear: fraction(30),
+				vacationBasisDays: 5,
+				capOverride: null
+			}
+		]
+	};
+	const labourDay: Holiday = { date: date('2026-05-01'), code: 'labour_day', portion: 1 };
+	const christmasEve: Holiday = { date: date('2026-12-24'), code: 'christmas_eve', portion: 0.5 };
+	const on = (holiday: Holiday, workedMinutes: number, creditedMinutes = 0): DayMinutes => ({
+		targetMinutes: targetMinutes(staff, holiday.date, holiday).minutes,
+		workedMinutes,
+		creditedMinutes
+	});
+
+	it('leaves a holiday neutral through the zero target, with nothing credited', () => {
+		expect(dayBalance(on(labourDay, 0))).toBe(0);
+	});
+
+	it('counts work on a holiday entirely as plus', () => {
+		expect(dayBalance(on(labourDay, 240))).toBe(240);
+	});
+
+	it('credits only the other half of christmas eve for a vacation day', () => {
+		const [cost] = daysForRange(
+			{ start: christmasEve.date, end: christmasEve.date, halfDayStart: false, halfDayEnd: false },
+			staff,
+			[christmasEve]
+		);
+		expect(cost?.targetMinutes).toBe(240);
+		expect(dayBalance(on(christmasEve, 0, cost?.targetMinutes))).toBe(0);
+	});
+
+	it('charges half the target for time off on christmas eve', () => {
+		expect(dayBalance(on(christmasEve, 0))).toBe(-240);
 	});
 });
 

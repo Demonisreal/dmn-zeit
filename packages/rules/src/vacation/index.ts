@@ -44,6 +44,7 @@ export type Bucket = {
 };
 
 export type Allocation = {
+	date: Temporal.PlainDate;
 	year: number;
 	days: Fraction;
 };
@@ -92,9 +93,9 @@ const contractAt = (employment: Employment, date: Temporal.PlainDate): Contract 
 	return current;
 };
 
-const entitlement = (exact: Fraction, basis: Explanation): Entitlement => {
+const entitlement = (exact: Fraction, basis: Explanation, notes: Explanation[]): Entitlement => {
 	if (compare(fractionalPart(exact), fraction(1, 2)) < 0) {
-		return { exact, rounded: exact, explanations: [basis] };
+		return { exact, rounded: exact, explanations: [basis, ...notes] };
 	}
 	const rounded = fraction(floor(exact) + 1);
 	return {
@@ -105,12 +106,17 @@ const entitlement = (exact: Fraction, basis: Explanation): Entitlement => {
 			{
 				key: 'vacation.entitlement.rounded_up',
 				params: { exact: toDecimal(exact, 2), rounded: rounded.num }
-			}
+			},
+			...notes
 		]
 	};
 };
 
-export const annualEntitlement = (employment: Employment, year: number): Entitlement => {
+export const annualEntitlement = (
+	employment: Employment,
+	year: number,
+	asOf: Temporal.PlainDate
+): Entitlement => {
 	const newYear = Temporal.PlainDate.from({ year, month: 1, day: 1 });
 	const newYearsEve = Temporal.PlainDate.from({ year, month: 12, day: 31 });
 	const from =
@@ -120,14 +126,30 @@ export const annualEntitlement = (employment: Employment, year: number): Entitle
 			? employment.exitDate
 			: newYearsEve;
 	if (Temporal.PlainDate.compare(from, employedTo) > 0) {
-		return entitlement(fraction(0), { key: 'vacation.entitlement.no_employment', params: {} });
+		return entitlement(fraction(0), { key: 'vacation.entitlement.no_employment', params: {} }, []);
 	}
+
+	// § 4 BUrlG: full entitlement from this day on, but only once asOf has actually reached it
+	const fullFrom = employment.entryDate.add({ months: 6 });
+	const waitingPeriodMet =
+		Temporal.PlainDate.compare(fullFrom, employedTo) <= 0 &&
+		Temporal.PlainDate.compare(fullFrom, asOf) <= 0;
+	const waitingPeriodRuns =
+		Temporal.PlainDate.compare(asOf, fullFrom) < 0 &&
+		(employment.exitDate === null ||
+			Temporal.PlainDate.compare(fullFrom, employment.exitDate) <= 0);
+	const notes: Explanation[] = waitingPeriodRuns
+		? [
+				{
+					key: 'vacation.entitlement.waiting_period',
+					params: { until: fullFrom.subtract({ days: 1 }).toString() }
+				}
+			]
+		: [];
 
 	// § 5 Abs. 1 Buchst. c BUrlG only cuts the entitlement for an exit up to 30 June; leaving
 	// later with the waiting period already met keeps the full annual amount, no twelfths
 	const exitsThisYear = employment.exitDate !== null && employment.exitDate.year === year;
-	const waitingPeriodMet =
-		Temporal.PlainDate.compare(employment.entryDate.add({ months: 6 }), employedTo) <= 0;
 	const fullOnExit = exitsThisYear && waitingPeriodMet && employedTo.month > 6;
 	const to = fullOnExit ? newYearsEve : employedTo;
 
@@ -135,10 +157,14 @@ export const annualEntitlement = (employment: Employment, year: number): Entitle
 	const entersThisYear = employment.entryDate.year === year;
 	const runsUninterrupted = (!entersThisYear && !exitsThisYear) || fullOnExit;
 	if (runsUninterrupted && contract && contract === contractAt(employment, to)) {
-		return entitlement(contract.vacationDaysYear, {
-			key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.full_year',
-			params: { days: toDecimal(contract.vacationDaysYear, 2) }
-		});
+		return entitlement(
+			contract.vacationDaysYear,
+			{
+				key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.full_year',
+				params: { days: toDecimal(contract.vacationDaysYear, 2) }
+			},
+			notes
+		);
 	}
 
 	// simplified § 5 Abs. 1 BUrlG: one employed day makes the whole calendar month count
@@ -150,10 +176,14 @@ export const annualEntitlement = (employment: Employment, year: number): Entitle
 			exact = add(exact, multiply(monthContract.vacationDaysYear, fraction(1, 12)));
 		}
 	}
-	return entitlement(exact, {
-		key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.pro_rata',
-		params: { months: to.month - from.month + 1, days: toDecimal(exact, 2) }
-	});
+	return entitlement(
+		exact,
+		{
+			key: fullOnExit ? 'vacation.entitlement.full_on_exit' : 'vacation.entitlement.pro_rata',
+			params: { months: to.month - from.month + 1, days: toDecimal(exact, 2) }
+		},
+		notes
+	);
 };
 
 const dayOff = (date: Temporal.PlainDate, key: string, params: Explanation['params']): DayCost => ({
@@ -216,17 +246,13 @@ export const daysForRange = (
 	return costs;
 };
 
-// buckets that expire before the first day do not count
-export const allocate = (
-	days: Fraction,
-	buckets: readonly Bucket[],
-	firstDay: Temporal.PlainDate
-): AllocationPlan => {
-	const open = buckets
-		.filter(
-			(bucket) =>
-				bucket.deadline === null || Temporal.PlainDate.compare(bucket.deadline, firstDay) >= 0
-		)
+// a bucket pays from 1 january of its year through its deadline, none means no expiry
+const paysOn = (bucket: Bucket, date: Temporal.PlainDate) =>
+	date.year >= bucket.year &&
+	(bucket.deadline === null || Temporal.PlainDate.compare(date, bucket.deadline) <= 0);
+
+export const allocate = (days: readonly TakenDay[], buckets: readonly Bucket[]): AllocationPlan => {
+	const balances = buckets
 		.toSorted((a, b) => {
 			if (a.deadline === null) {
 				return b.deadline === null ? 0 : 1;
@@ -235,18 +261,28 @@ export const allocate = (
 				return -1;
 			}
 			return Temporal.PlainDate.compare(a.deadline, b.deadline);
-		});
+		})
+		.map((bucket) => ({ bucket, left: bucket.remaining }));
 
 	const allocations: Allocation[] = [];
-	let missing = days;
-	for (const bucket of open) {
-		const drawn = min(bucket.remaining, missing);
-		if (compare(drawn, fraction(0)) > 0) {
-			allocations.push({ year: bucket.year, days: drawn });
-			missing = subtract(missing, drawn);
+	let shortfall = fraction(0);
+	// earliest day first, a later day could otherwise drain a bucket the earlier day depends on
+	for (const day of days.toSorted((a, b) => Temporal.PlainDate.compare(a.date, b.date))) {
+		let missing = day.vacationDays;
+		for (const balance of balances) {
+			if (!paysOn(balance.bucket, day.date)) {
+				continue;
+			}
+			const drawn = min(balance.left, missing);
+			if (compare(drawn, fraction(0)) > 0) {
+				allocations.push({ date: day.date, year: balance.bucket.year, days: drawn });
+				balance.left = subtract(balance.left, drawn);
+				missing = subtract(missing, drawn);
+			}
 		}
+		shortfall = add(shortfall, missing);
 	}
-	return { allocations, shortfall: missing };
+	return { allocations, shortfall };
 };
 
 export const expiryDecision = (

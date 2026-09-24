@@ -60,6 +60,6 @@ export const max = (a: Fraction, b: Fraction): Fraction => (compare(a, b) >= 0 ?
 export const isZero = (a: Fraction): boolean => a.num === 0;
 export const isNegative = (a: Fraction): boolean => a.num < 0;
 export const negate = (a: Fraction): Fraction => fraction(-a.num, a.den);
-// integer part rounded towards zero, e.g. for splitting off the whole days before rounding
+// integer part rounded down, e.g. for splitting off the whole days before rounding
 export const floor = (a: Fraction): number => Math.floor(a.num / a.den);
 export const fractionalPart = (a: Fraction): Fraction => subtract(a, fraction(floor(a)));

@@ -8,6 +8,8 @@ const functions = [
 	'workdayOf',
 	'splitByLocalDate',
 	'monthDays',
+	'gapsBetween',
+	'summarizeWorkday',
 	'easterSunday',
 	'holidaysFor',
 	'contractOn',

@@ -2,6 +2,7 @@ import { fc, test } from '@fast-check/vitest';
 import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Span } from '../calendar';
+import type { Holiday } from '../holidays';
 import {
 	checkWorkdays,
 	groupWorkdays,
@@ -18,8 +19,10 @@ const at = (local: string) => Temporal.ZonedDateTime.from(`${local}[${TZ}]`).toI
 const shift = (from: string, to: string): Span => ({ start: at(from), end: at(to) });
 const date = (iso: string) => Temporal.PlainDate.from(iso);
 const day = (iso: string, ...shifts: Span[]): Workday => ({ date: date(iso), shifts });
-const check = (days: Workday[], holidays: string[] = []) =>
-	checkWorkdays(days, { timeZone: TZ, holidays: holidays.map((iso) => date(iso)) });
+const statutory = (iso: string): Holiday => ({ date: date(iso), code: 'labour_day', portion: 1 });
+const everything = { from: date('2000-01-01'), to: date('2099-12-31') };
+const check = (days: Workday[], holidays: string[] = [], range = everything) =>
+	checkWorkdays(days, { timeZone: TZ, holidays: holidays.map(statutory), range });
 const codes = (findings: Finding[]) => findings.map((finding) => finding.code);
 
 describe('ruleSetFor', () => {
@@ -246,6 +249,21 @@ describe('checkWorkdays', () => {
 		expect(check([day('2026-03-02', shift('2026-03-02T08:00', '2026-03-02T14:00'))])).toEqual([]);
 	});
 
+	it('measures the break thresholds by working time, not by time spent at work', () => {
+		const six = day(
+			'2026-03-02',
+			shift('2026-03-02T08:00', '2026-03-02T12:00'),
+			shift('2026-03-02T12:20', '2026-03-02T14:20')
+		);
+		const nine = day(
+			'2026-03-04',
+			shift('2026-03-04T07:00', '2026-03-04T12:00'),
+			shift('2026-03-04T12:30', '2026-03-04T16:30')
+		);
+		expect(check([six])).toEqual([]);
+		expect(codes(check([nine]))).toEqual(['ARBZG_3_OVER_8']);
+	});
+
 	it('flags a rest period of nine hours and 15 minutes on the following day', () => {
 		const findings = check([
 			day('2026-03-02', shift('2026-03-02T18:00', '2026-03-02T22:00')),
@@ -319,6 +337,47 @@ describe('checkWorkdays', () => {
 		expect(codes(findings)).toEqual(['ARBZG_9_HOLIDAY', 'ARBZG_9_SUNDAY']);
 	});
 
+	it('raises no § 9 finding on the company half days 24 and 31 december', () => {
+		const halfDays: Holiday[] = [
+			{ date: date('2026-12-24'), code: 'christmas_eve', portion: 0.5 },
+			{ date: date('2026-12-31'), code: 'new_years_eve', portion: 0.5 }
+		];
+		const findings = checkWorkdays(
+			[
+				day('2026-12-24', shift('2026-12-24T08:00', '2026-12-24T12:00')),
+				day('2026-12-31', shift('2026-12-31T08:00', '2026-12-31T12:00'))
+			],
+			{ timeZone: TZ, holidays: halfDays, range: everything }
+		);
+		expect(findings).toEqual([]);
+	});
+
+	it('uses the day before the range only to measure the rest period', () => {
+		const findings = check(
+			[
+				day('2026-03-02', shift('2026-03-02T11:00', '2026-03-02T22:00')),
+				day('2026-03-03', shift('2026-03-03T07:15', '2026-03-03T11:15'))
+			],
+			[],
+			{ from: date('2026-03-03'), to: date('2026-03-03') }
+		);
+		expect(findings.map(({ code, date, facts }) => [code, date.toString(), facts])).toEqual([
+			['ARBZG_5_REST_UNDER_11H', '2026-03-03', { restMinutes: 555 }]
+		]);
+	});
+
+	it('reports nothing for days after the range', () => {
+		const findings = check(
+			[
+				day('2026-03-02', shift('2026-03-02T18:00', '2026-03-02T22:00')),
+				day('2026-03-03', shift('2026-03-03T07:15', '2026-03-03T11:15'))
+			],
+			[],
+			{ from: date('2026-03-01'), to: date('2026-03-02') }
+		);
+		expect(findings).toEqual([]);
+	});
+
 	it('ignores workdays without shifts', () => {
 		expect(check([day('2026-03-01')], ['2026-03-01'])).toEqual([]);
 	});
@@ -342,14 +401,14 @@ describe('checkWorkdays', () => {
 type Piece = { gap: number; length: number };
 
 // the gap of the first piece only moves the start, every later gap lies between two shifts
-const workday = (parts: readonly Piece[]): Workday => {
-	let cursor = at('2026-03-02T06:00');
+const workday = (parts: readonly Piece[], iso = '2026-03-02'): Workday => {
+	let cursor = at(`${iso}T06:00`);
 	const shifts = parts.map(({ gap, length }) => {
 		const start = cursor.add({ minutes: gap });
 		cursor = start.add({ minutes: length });
 		return { start, end: cursor };
 	});
-	return { date: date('2026-03-02'), shifts };
+	return { date: date(iso), shifts };
 };
 
 const piece = fc.record({
@@ -396,18 +455,38 @@ describe('checkWorkdays properties', () => {
 	test.prop(
 		[fc.array(piece, { minLength: 2, maxLength: 6 }), fc.nat(), fc.integer({ min: 1, max: 120 })],
 		{ numRuns: 1000 }
-	)(
-		'a longer break never adds a § 4 finding',
-		(parts, pick, extra) => {
-			// index 0 is left out, stretching its gap would only move the start of the day
-			const index = 1 + (pick % (parts.length - 1));
-			const longer = parts.map((part, i) =>
-				i === index ? { ...part, gap: part.gap + extra } : part
-			);
-			const before = breakCodes(check([workday(parts)]));
-			for (const code of breakCodes(check([workday(longer)]))) {
-				expect(before).toContain(code);
-			}
+	)('a longer break never adds a § 4 finding', (parts, pick, extra) => {
+		// index 0 is left out, stretching its gap would only move the start of the day
+		const index = 1 + (pick % (parts.length - 1));
+		const longer = parts.map((part, i) =>
+			i === index ? { ...part, gap: part.gap + extra } : part
+		);
+		const before = breakCodes(check([workday(parts)]));
+		for (const code of breakCodes(check([workday(longer)]))) {
+			expect(before).toContain(code);
+		}
+	});
+
+	const origin = date('2026-03-02');
+	const week = fc.uniqueArray(
+		fc.record({ offset: fc.integer({ min: 0, max: 9 }), parts: pieces }),
+		{
+			selector: (draft) => draft.offset,
+			maxLength: 5
 		}
 	);
+
+	test.prop([week, fc.integer({ min: 0, max: 9 }), fc.integer({ min: 0, max: 9 })], {
+		numRuns: 1000
+	})('a range reports exactly the findings its days get in the full check', (drafts, a, b) => {
+		const days = drafts.map(({ offset, parts }) =>
+			workday(parts, origin.add({ days: offset }).toString())
+		);
+		const from = origin.add({ days: Math.min(a, b) });
+		const to = origin.add({ days: Math.max(a, b) });
+		const inside = (finding: Finding) =>
+			Temporal.PlainDate.compare(finding.date, from) >= 0 &&
+			Temporal.PlainDate.compare(finding.date, to) <= 0;
+		expect(check(days, [], { from, to })).toEqual(check(days).filter(inside));
+	});
 });

@@ -45,12 +45,13 @@ export type HolidayCode =
 	| 'boxing_day'
 	| 'new_years_eve';
 
-// holidays that only some municipalities keep
+// opt-in for holidays kept only locally: corpus christi in SN/TH, assumption day in BY, augsburg
 export type OptionalHoliday = 'corpus_christi' | 'augsburg_peace' | 'assumption_day';
 
 export type Holiday = {
 	date: Temporal.PlainDate;
 	code: HolidayCode;
+	// half only for the company days 24.12. and 31.12., a statutory holiday is always whole
 	portion: 0.5 | 1;
 };
 
@@ -119,13 +120,14 @@ export const holidaysFor = (
 	if (state === 'BE' && (year === 2020 || year === 2025)) {
 		add('liberation_day', on(5, 8));
 	}
-	// no district granularity, so opting into corpus_christi adds nothing outside these six
-	if (oneOf('BW', 'BY', 'HE', 'NW', 'RP', 'SL')) {
+	// statewide in these six, SN and TH keep it only in some catholic municipalities
+	if (oneOf('BW', 'BY', 'HE', 'NW', 'RP', 'SL') || (oneOf('SN', 'TH') && opted('corpus_christi'))) {
 		add('corpus_christi', afterEaster(60));
 	}
 	if (state === 'BY' && opted('augsburg_peace')) {
 		add('augsburg_peace', on(8, 8));
 	}
+	// statewide only in SL, in BY it depends on the municipality
 	if (state === 'SL' || (state === 'BY' && opted('assumption_day'))) {
 		add('assumption_day', on(8, 15));
 	}

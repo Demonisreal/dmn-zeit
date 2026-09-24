@@ -186,11 +186,24 @@ describe('holidaysFor special cases', () => {
 		}
 	});
 
-	it('keeps corpus christi regardless of the optional list', () => {
-		expect(codes(2026, 'HE')).toContain('corpus_christi');
-		expect(codes(2026, 'SN', { optional: ['corpus_christi'], halfDays: false })).not.toContain(
-			'corpus_christi'
-		);
+	it('keeps corpus christi in the six catholic states without any option', () => {
+		for (const state of ['BW', 'BY', 'HE', 'NW', 'RP', 'SL'] as const) {
+			expect(dateOf(2026, state, 'corpus_christi')).toBe('2026-06-04');
+		}
+	});
+
+	it('adds corpus christi in saxony and thuringia only when opted in', () => {
+		const opted: HolidayOptions = { optional: ['corpus_christi'], halfDays: false };
+		for (const state of ['SN', 'TH'] as const) {
+			expect(codes(2026, state)).not.toContain('corpus_christi');
+			expect(dateOf(2026, state, 'corpus_christi', opted)).toBe('2026-06-04');
+		}
+		expect(codes(2026, 'HB', opted)).not.toContain('corpus_christi');
+	});
+
+	it('lists corpus christi once when a catholic state opts in anyway', () => {
+		const opted: HolidayOptions = { optional: ['corpus_christi'], halfDays: false };
+		expect(codes(2026, 'HE', opted).filter((code) => code === 'corpus_christi')).toHaveLength(1);
 	});
 
 	it('adds assumption day in bavaria only when opted in', () => {

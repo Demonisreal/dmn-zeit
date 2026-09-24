@@ -107,7 +107,7 @@ describe('arithmetic', () => {
 		expect(negate(fraction(3, 4))).toEqual(fraction(-3, 4));
 	});
 
-	it('splits off the whole part, keeping the sign towards zero', () => {
+	it('splits off the whole part by rounding down, also below zero', () => {
 		expect(floor(fraction(7, 2))).toBe(3);
 		expect(floor(fraction(-7, 2))).toBe(-4);
 	});
