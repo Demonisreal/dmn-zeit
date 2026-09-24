@@ -1,7 +1,14 @@
 import { correctionPageSchema, correctionSchema } from '@zeit/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { startApi, type Api, type Browser } from '../auth/api';
-import { createPerson, createTeam, createTenant, type Person } from '../helpers/pg';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { expectContract, startApi, type Api, type Browser } from '../auth/api';
+import {
+	createPerson,
+	createTeam,
+	createTenant,
+	createUser,
+	type Account,
+	type Person
+} from '../helpers/pg';
 import { addEntry, closeMonth, signedIn } from '../time/people';
 
 type Member = Person & { browser: Browser };
@@ -74,7 +81,8 @@ describe('POST /api/corrections for the own times', () => {
 		});
 
 		expect(answer.status).toBe(201);
-		expect(correctionSchema.parse(answer.body)).toMatchObject({
+		expectContract(correctionSchema, answer.body);
+		expect(answer.body).toMatchObject({
 			employee: { id: worker.employeeId, name: 'Erika Muster' },
 			action: 'change',
 			target: { entryId: entry },
@@ -101,6 +109,7 @@ describe('POST /api/corrections for the own times', () => {
 			note: 'Passt'
 		});
 		expect(approved.status).toBe(200);
+		expectContract(correctionSchema, approved.body);
 		expect(approved.body).toMatchObject({
 			status: 'approved',
 			decidedBy: { id: lead.userId },
@@ -232,6 +241,42 @@ describe('POST /api/corrections for someone else', () => {
 		expect(rows[0].requests).toBe(0);
 	});
 
+	it('tells the person by mail, which an own request does not', async () => {
+		const at = day();
+		const { rows } = await api.superuser.query<{ email: string }>(
+			'select email from app.users where id = $1',
+			[colleague.userId]
+		);
+		const sentBefore = api.mails.length;
+
+		const own = await colleague.browser.post('/corrections', {
+			action: 'add',
+			employeeId: colleague.employeeId,
+			startedAt: at('07:00'),
+			endedAt: at('09:00'),
+			reason
+		});
+		expect(own.body.status).toBe('pending');
+		const direct = await hr.browser.post('/corrections', {
+			action: 'add',
+			employeeId: colleague.employeeId,
+			startedAt: at('13:00'),
+			endedAt: at('17:30'),
+			reason
+		});
+		expect(direct.status).toBe(201);
+
+		// the queue keeps its order, a mail for the own request would have gone out first
+		await vi.waitFor(() => expect(api.mails.length).toBeGreaterThan(sentBefore));
+		const sent = api.mails.slice(sentBefore);
+		expect(sent.map((mail) => [mail.to, mail.subject])).toEqual([
+			[rows[0]!.email, 'Ihre Arbeitszeit wurde korrigiert']
+		]);
+		const [year, month, date] = at('00:00').slice(0, 10).split('-');
+		expect(sent[0]!.text).toContain(`Nachgetragen: ${date}.${month}.${year}, 13:00–17:30`);
+		expect(sent[0]!.text).toContain(`Begründung: ${reason}`);
+	});
+
 	it('reports an overlap with an existing entry as a conflict', async () => {
 		const at = day();
 		await addEntry(api, colleague, at('08:00'), at('12:00'));
@@ -309,6 +354,18 @@ describe('deciding and withdrawing', () => {
 		expect((await hr.browser.post(`/corrections/${id}/approve`, {})).status).toBe(200);
 	});
 
+	it('applies a request once when lead and hr approve it at the same moment', async () => {
+		const id = await pending();
+		const answers = await Promise.all([
+			lead.browser.post(`/corrections/${id}/approve`, {}),
+			hr.browser.post(`/corrections/${id}/approve`, {})
+		]);
+		expect(answers.map((answer) => answer.status).sort()).toEqual([200, 409]);
+		expect(
+			(await entriesOf(worker.employeeId)).filter((row) => row.request_id === id)
+		).toHaveLength(1);
+	});
+
 	it('rejects only with a note and changes no entry', async () => {
 		const id = await pending();
 		expect((await lead.browser.post(`/corrections/${id}/reject`, {})).status).toBe(400);
@@ -317,6 +374,7 @@ describe('deciding and withdrawing', () => {
 			note: 'Laut Dienstplan frei'
 		});
 		expect(rejected.status).toBe(200);
+		expectContract(correctionSchema, rejected.body);
 		expect(rejected.body).toMatchObject({
 			status: 'rejected',
 			decisionNote: 'Laut Dienstplan frei'
@@ -334,6 +392,7 @@ describe('deciding and withdrawing', () => {
 
 		const withdrawn = await worker.browser.post(`/corrections/${id}/withdraw`);
 		expect(withdrawn.status).toBe(200);
+		expectContract(correctionSchema, withdrawn.body);
 		expect(withdrawn.body.status).toBe('withdrawn');
 		expect((await worker.browser.post(`/corrections/${id}/withdraw`)).status).toBe(409);
 		expect((await lead.browser.post(`/corrections/${id}/approve`, {})).status).toBe(409);
@@ -346,6 +405,7 @@ describe('GET /api/corrections', () => {
 	it('shows everyone their own corrections', async () => {
 		const answer = await worker.browser.get(`/corrections?scope=mine&${range}`);
 		expect(answer.status).toBe(200);
+		expectContract(correctionPageSchema, answer.body);
 		const page = correctionPageSchema.parse(answer.body);
 		expect(page.items.length).toBeGreaterThan(0);
 		expect(page.items.every((correction) => correction.employee.id === worker.employeeId)).toBe(
@@ -370,6 +430,47 @@ describe('GET /api/corrections', () => {
 		expect(other.body.items).toEqual([]);
 	});
 
+	it('opens the inbox without a range, from the oldest open request to the newest', async () => {
+		const at = day();
+		const old = await worker.browser.post('/corrections', {
+			action: 'add',
+			employeeId: worker.employeeId,
+			startedAt: at('08:00'),
+			endedAt: at('10:00'),
+			reason
+		});
+		const ahead = await colleague.browser.post('/corrections', {
+			action: 'add',
+			employeeId: colleague.employeeId,
+			startedAt: at('08:00'),
+			endedAt: at('10:00'),
+			reason
+		});
+		// the range filters on the day a request was filed, so that is the date pushed far out
+		const refile = (id: string, createdAt: string) =>
+			api.superuser.query('update app.correction_requests set created_at = $2 where id = $1', [
+				id,
+				createdAt
+			]);
+		await refile(old.body.id, '2019-03-04T09:00:00+01:00');
+		await refile(ahead.body.id, '2031-11-17T09:00:00+01:00');
+
+		const inbox = await lead.browser.get('/corrections?scope=inbox');
+		expect(inbox.status).toBe(200);
+		const ids = inbox.body.items.map((correction: { id: string }) => correction.id);
+		expect(ids[0]).toBe(ahead.body.id);
+		expect(ids.at(-1)).toBe(old.body.id);
+
+		const bounded = await lead.browser.get(`/corrections?scope=inbox&${range}`);
+		const boundedIds = bounded.body.items.map((correction: { id: string }) => correction.id);
+		expect(boundedIds).not.toContain(old.body.id);
+		expect(boundedIds).not.toContain(ahead.body.id);
+
+		const unbounded = await hr.browser.get('/corrections?scope=all');
+		expect(unbounded.status).toBe(400);
+		expect(unbounded.body.details[0]).toMatchObject({ field: 'from', message: 'range.required' });
+	});
+
 	it('gives hr the whole tenant and pages through it', async () => {
 		const first = await hr.browser.get(`/corrections?scope=all&${range}&limit=2`);
 		expect(first.body.items).toHaveLength(2);
@@ -388,5 +489,61 @@ describe('GET /api/corrections', () => {
 			(await otherLead.browser.get(`/corrections?scope=all&${range}&employee=${worker.employeeId}`))
 				.status
 		).toBe(403);
+	});
+});
+
+describe('another tenant', () => {
+	let foreignHr: Account & { browser: Browser };
+	let request: string;
+
+	beforeAll(async () => {
+		foreignHr = await signedIn(api, await createUser(await createTenant(), { role: 'hr' }));
+		const at = day();
+		const filed = await worker.browser.post('/corrections', {
+			action: 'add',
+			employeeId: worker.employeeId,
+			startedAt: at('08:00'),
+			endedAt: at('10:00'),
+			reason
+		});
+		request = filed.body.id;
+	});
+
+	it('reaches neither the people, the entries nor the requests of this one', async () => {
+		const at = day();
+		const entry = await addEntry(api, worker, at('08:00'), at('12:00'));
+
+		const add = await foreignHr.browser.post('/corrections', {
+			action: 'add',
+			employeeId: worker.employeeId,
+			startedAt: at('13:00'),
+			endedAt: at('14:00'),
+			reason
+		});
+		expect(add.status).toBe(404);
+		expect(
+			(await foreignHr.browser.post('/corrections', { action: 'void', entryId: entry, reason }))
+				.status
+		).toBe(404);
+		expect((await foreignHr.browser.post(`/corrections/${request}/approve`, {})).status).toBe(404);
+		expect(
+			(await foreignHr.browser.post(`/corrections/${request}/reject`, { note: 'Kenne ich nicht' }))
+				.status
+		).toBe(404);
+
+		const listed = await foreignHr.browser.get(
+			`/corrections?scope=all&from=2026-01-01&to=2026-12-31&employee=${worker.employeeId}`
+		);
+		expect(listed.body.items).toEqual([]);
+		expect((await foreignHr.browser.get('/corrections?scope=inbox')).body.items).toEqual([]);
+
+		expect(await entriesOf(worker.employeeId)).toContainEqual(
+			expect.objectContaining({ id: entry, voided_by_request_id: null })
+		);
+		const { rows } = await api.superuser.query(
+			'select status from app.correction_requests where id = $1',
+			[request]
+		);
+		expect(rows[0].status).toBe('pending');
 	});
 });

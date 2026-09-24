@@ -145,7 +145,8 @@ describe('GET /api/audit', () => {
 			actorRole: 'hr',
 			source: 'trigger',
 			table: 'employees',
-			diff: { last_name: ['Alt', 'Neu'] }
+			changes: { last_name: ['Alt', 'Neu'] },
+			context: null
 		});
 		expect(byId.get(unknown)).toMatchObject({ actorUserId: stranger.userId, actorName: null });
 	});
@@ -205,10 +206,34 @@ describe('GET /api/audit', () => {
 				actorUserId: hrAccount.userId,
 				actorName: 'Petra Personal',
 				subjectEmployeeId: person.employeeId,
-				diff: { last_name: ['Muster', 'Neumann'] },
+				changes: { last_name: ['Muster', 'Neumann'] },
+				context: null,
 				requestId: expect.any(String)
 			})
 		);
+	});
+
+	it('keeps what the api recorded apart from the changes', async () => {
+		const { userId, email } = await api.member({ tenantId: tenant });
+		await api.browser().post('/auth/login', { email, password: 'nicht das passwort' });
+		const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+
+		const answer = await hr.get(`/audit?from=${today}&to=${today}&table=users&row=${userId}`);
+		expect(auditPageSchema.safeParse(answer.body).success).toBe(true);
+		expect(answer.body.items).toEqual([
+			expect.objectContaining({
+				source: 'app',
+				action: 'login.failed',
+				changes: null,
+				context: { method: 'password' }
+			}),
+			expect.objectContaining({
+				source: 'trigger',
+				action: 'insert',
+				changes: expect.objectContaining({ id: [null, userId] }),
+				context: null
+			})
+		]);
 	});
 
 	it('checks the query', async () => {

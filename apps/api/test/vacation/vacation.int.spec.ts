@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import {
+	sendVacationNoticesResultSchema,
 	vacationAccountSchema,
 	vacationLedgerEntrySchema,
+	vacationNoticePageSchema,
 	vacationNoticeSchema
 } from '@zeit/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
 import { grant, member, office, today, type Member, type Office } from '../absences/office';
 import { expectContract, startApi, type Api } from '../auth/api';
 import { signedIn } from '../helpers/desk';
@@ -148,8 +149,13 @@ describe('vacation notices', () => {
 		});
 
 		expect(answer.status).toBe(201);
-		expectContract(z.array(vacationNoticeSchema), answer.body);
-		expect(answer.body).toEqual([
+		expectContract(sendVacationNoticesResultSchema, answer.body);
+		expect(answer.body.skipped).toEqual([]);
+		// one batch shares its sent_at, the order within it follows the ids
+		const sent = [...answer.body.sent].sort((a, b) =>
+			a.employee.name.localeCompare(b.employee.name)
+		);
+		expect(sent).toEqual([
 			expect.objectContaining({
 				employee: { id: o.colleague.employeeId, name: 'Clara Kolleg' },
 				remainingDays: '30.00',
@@ -164,7 +170,7 @@ describe('vacation notices', () => {
 				remainingDays: '28.50'
 			})
 		]);
-		workerNotice = answer.body[1].id;
+		workerNotice = sent[1].id;
 
 		await vi.waitFor(() =>
 			expect(
@@ -215,7 +221,7 @@ describe('vacation notices', () => {
 			channel: 'letter'
 		});
 		expect(letter.status).toBe(201);
-		expect(letter.body[0]).toMatchObject({ remainingDays: '0.00', channel: 'letter' });
+		expect(letter.body.sent[0]).toMatchObject({ remainingDays: '0.00', channel: 'letter' });
 	});
 
 	it('is sent by hr only and for known people', async () => {
@@ -233,8 +239,10 @@ describe('vacation notices', () => {
 		const names = async (desk: Office['worker']['desk']) => {
 			const answer = await desk.get('/vacation/notices?year=2026');
 			expect(answer.status).toBe(200);
-			expectContract(z.array(vacationNoticeSchema), answer.body);
-			return answer.body.map((notice: { employee: { name: string } }) => notice.employee.name);
+			expectContract(vacationNoticePageSchema, answer.body);
+			return answer.body.items
+				.map((notice: { employee: { name: string } }) => notice.employee.name)
+				.sort();
 		};
 		expect(await names(o.worker.desk)).toEqual(['Wim Werner']);
 		expect(await names(o.lead.desk)).toEqual(['Clara Kolleg', 'Wim Werner']);
@@ -242,6 +250,26 @@ describe('vacation notices', () => {
 		expect(await names(o.outsider.desk)).toEqual([]);
 		expect(await names(stranger.desk)).toEqual([]);
 		expect(await names(elsewhere.hr.desk)).toEqual([]);
+	});
+
+	it('pages through the notices, newest first', async () => {
+		const first = await o.hr.desk.get('/vacation/notices?year=2026&limit=2');
+		expect(first.status).toBe(200);
+		expect(first.body.items).toHaveLength(2);
+		expect(first.body.items[0].employee.name).toBe('Paul Papier');
+		expect(first.body.nextCursor).toEqual(expect.any(String));
+
+		const rest = await o.hr.desk.get(
+			`/vacation/notices?year=2026&limit=2&cursor=${first.body.nextCursor}`
+		);
+		expect(rest.body.items).toHaveLength(1);
+		expect(rest.body.nextCursor).toBeNull();
+		const ids = [...first.body.items, ...rest.body.items].map((notice) => notice.id);
+		expect(new Set(ids).size).toBe(3);
+
+		const broken = await o.hr.desk.get('/vacation/notices?year=2026&cursor=kaputt');
+		expect(broken.status).toBe(400);
+		expect(broken.body.details[0]).toMatchObject({ field: 'cursor' });
 	});
 
 	it('lets the person acknowledge the own notice once', async () => {
@@ -255,6 +283,53 @@ describe('vacation notices', () => {
 		expect((await o.colleague.desk.post(path, {})).status).toBe(404);
 		expect((await o.lead.desk.post(path, {})).status).toBe(404);
 		expect((await o.hr.desk.post(path, {})).status).toBe(404);
+	});
+
+	it('skips who was told about the same year today and still serves the rest', async () => {
+		const fresh = await office(api);
+		await grant(api, fresh.worker, 2026, '30.00');
+		const send = (employeeIds: string[], bucketYear = 2026) =>
+			fresh.hr.desk.post('/vacation/notices', { bucketYear, employeeIds, channel: 'email' });
+		const greeted = () =>
+			api.mails
+				.filter((mail) => mail.tenantId === fresh.tenantId)
+				.map((mail) => mail.text.split(',')[0]);
+
+		expect((await send([fresh.worker.employeeId])).status).toBe(201);
+		const again = await send([fresh.worker.employeeId, fresh.colleague.employeeId]);
+
+		expect(again.status).toBe(201);
+		expectContract(sendVacationNoticesResultSchema, again.body);
+		expect(again.body.skipped).toEqual([{ id: fresh.worker.employeeId, name: 'Wim Werner' }]);
+		expect(again.body.sent).toEqual([
+			expect.objectContaining({
+				employee: { id: fresh.colleague.employeeId, name: 'Clara Kolleg' }
+			})
+		]);
+		await vi.waitFor(() => expect(greeted()).toContain('Hallo Clara Kolleg'));
+		expect(greeted().filter((line) => line === 'Hallo Wim Werner')).toHaveLength(1);
+		const { rows } = await api.superuser.query(
+			'select count(*)::int as n from app.vacation_notices where employee_id = $1',
+			[fresh.worker.employeeId]
+		);
+		expect(rows[0].n).toBe(1);
+
+		const nextYear = await send([fresh.worker.employeeId], 2027);
+		expect(nextYear.body).toMatchObject({ sent: [expect.anything()], skipped: [] });
+	});
+
+	it('lets only one of several clicks at once through', async () => {
+		const fresh = await office(api);
+		const body = { bucketYear: 2026, employeeIds: [fresh.worker.employeeId], channel: 'in_app' };
+
+		// two requests seldom overlap in here, five reliably do
+		const clicks = await Promise.all(
+			Array.from({ length: 5 }, () => fresh.hr.desk.post('/vacation/notices', body))
+		);
+
+		expect(clicks.map((click) => click.status)).toEqual([201, 201, 201, 201, 201]);
+		expect(clicks.flatMap((click) => click.body.sent)).toHaveLength(1);
+		expect(clicks.flatMap((click) => click.body.skipped)).toHaveLength(4);
 	});
 
 	it('lets one address send ten batches an hour', async () => {

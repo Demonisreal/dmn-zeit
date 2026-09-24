@@ -57,6 +57,17 @@ describe('absencesQuerySchema', () => {
 		expect(parsed.status).toBeUndefined();
 	});
 
+	it('shows the inbox without a range', () => {
+		expect(absencesQuerySchema.safeParse({ scope: 'inbox' }).success).toBe(true);
+		expect(absencesQuerySchema.safeParse({ ...range, scope: 'inbox' }).success).toBe(true);
+	});
+
+	it.each(['mine', 'all'])('wants a range for %s', (scope) => {
+		expect(absencesQuerySchema.safeParse({ scope }).error?.issues).toMatchObject([
+			{ message: 'range.required', path: ['from'] }
+		]);
+	});
+
 	it('stops at a year', () => {
 		expect(absencesQuerySchema.safeParse({ from: '2028-01-01', to: '2028-12-31' }).success).toBe(
 			true

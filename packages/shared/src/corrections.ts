@@ -3,10 +3,10 @@ import {
 	employeeRefSchema,
 	inRange,
 	instantSchema,
+	isoDateSchema,
 	pageOf,
 	pagingShape,
 	queryList,
-	rangeShape,
 	reasonSchema,
 	requestScopes,
 	userRefSchema,
@@ -57,13 +57,21 @@ export const correctionSchema = z.object({
 
 export const correctionsQuerySchema = z
 	.object({
-		...rangeShape,
+		from: isoDateSchema.optional(),
+		to: isoDateSchema.optional(),
 		scope: z.enum(requestScopes).default('mine'),
 		employee: uuidSchema.optional(),
 		status: queryList(correctionStatuses),
 		...pagingShape
 	})
-	.superRefine(inRange(366));
+	.superRefine((query, ctx) => {
+		if (query.scope === 'inbox') return;
+		if (query.from === undefined || query.to === undefined) {
+			ctx.addIssue({ code: 'custom', message: 'range.required', path: ['from'] });
+			return;
+		}
+		inRange(366)({ from: query.from, to: query.to }, ctx);
+	});
 
 export const correctionPageSchema = pageOf(correctionSchema);
 

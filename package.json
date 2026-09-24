@@ -20,7 +20,7 @@
 		"db:migrate": "pnpm db:dbmate up",
 		"db:rollback": "pnpm db:dbmate rollback",
 		"db:new": "pnpm db:dbmate new",
-		"db:codegen": "pnpm --filter @zeit/api exec kysely-codegen --dialect postgres --url postgres://zeit_owner:zeit_owner@127.0.0.1:54330/zeit --exclude-pattern {auth.*,public.*,schema_migrations} --date-parser string --out-file src/db/schema.generated.ts"
+		"db:codegen": "pnpm --filter @zeit/api exec kysely-codegen"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

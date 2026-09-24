@@ -171,3 +171,23 @@ describe('POST /api/absences/:id/confirm-sick-note', () => {
 		).toEqual([expect.objectContaining({ days: '1.00' })]);
 	});
 });
+
+describe('POST /api/absences with a sick note', () => {
+	it('refuses a second sick note over the same days and keeps nothing of it', async () => {
+		await file(o.outsider, 'sick', '2026-08-03', '2026-08-05');
+		const twice = await o.outsider.desk.post('/absences', {
+			employeeId: o.outsider.employeeId,
+			type: 'sick',
+			startDate: '2026-08-05',
+			endDate: '2026-08-07'
+		});
+
+		expect(twice.status).toBe(409);
+		expect(twice.body.code).toBe('TIME_OVERLAP');
+		const { rows } = await api.superuser.query(
+			'select count(*)::int as n from app.absence_requests where employee_id = $1',
+			[o.outsider.employeeId]
+		);
+		expect(rows[0].n).toBe(1);
+	});
+});

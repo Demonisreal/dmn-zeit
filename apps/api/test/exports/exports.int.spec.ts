@@ -5,7 +5,7 @@ import type request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { expectContract, startApi, type Api } from '../auth/api';
 import { createTeam, createTenant } from '../helpers/pg';
-import { absentOn, hire, seat, type Hire, type Seat } from '../months/firm';
+import { absentOn, book, hire, seat, type Hire, type Seat } from '../months/firm';
 import { addEntry } from '../time/people';
 
 let api: Api;
@@ -262,13 +262,39 @@ describe('exports of a closed month', () => {
 				targetMinutes: 9600,
 				flexBalanceMinutes: -7620
 			});
-			const sheet = await timesheet(hr.desk, wim.employeeId);
-			expect(sheet.body.flexBalanceMinutes).toBe(-7620);
+			// the closings are hr only, people and their leads get the one row through month_snapshot
+			for (const desk of [hr.desk, wim.desk, lead.desk]) {
+				const sheet = await timesheet(desk, wim.employeeId);
+				expect(sheet.body).toMatchObject({ closed: true, flexBalanceMinutes: -7620 });
+			}
 		} finally {
 			await api.superuser.query('update app.employees set exit_date = null where id = $1', [
 				wim.employeeId
 			]);
 		}
+	});
+});
+
+describe('exports after a closed december', () => {
+	it('carry its balance into the open months of the new year', async () => {
+		const firm = await createTenant();
+		const hanna = await seat(api, firm, 'hr');
+		// one working day in december at -480, the booking leaves +520 to carry over
+		const ute = await hire(api, firm, 'Ute Unter', { entryDate: '2025-12-31' });
+		await book(api, ute, 1000, '2025-12-31');
+		expect((await hanna.desk.post('/months/2025-12/close')).status).toBe(201);
+
+		const sheet = await timesheet(ute.desk, ute.employeeId, 'json', '2026-01');
+		expect(sheet.body).toMatchObject({
+			closed: false,
+			totals: { diffMinutes: -10080 },
+			flexBalanceMinutes: -9560
+		});
+		const summary = await overview(hanna.desk, 'json', '2026-01');
+		expect(summary.body).toMatchObject({
+			closed: false,
+			rows: [{ diffMinutes: -10080, flexBalanceMinutes: -9560 }]
+		});
 	});
 });
 

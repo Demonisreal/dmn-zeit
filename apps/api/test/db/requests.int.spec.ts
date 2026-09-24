@@ -193,6 +193,32 @@ describe('absence requests', () => {
 		expect(sick).toBeTruthy();
 	});
 
+	it('keeps sick notes of one person apart', async () => {
+		await requestAbsence(worker, 'sick', '2026-11-02', '2026-11-04', 'approved');
+		await expect(
+			requestAbsence(worker, 'sick', '2026-11-04', '2026-11-06', 'approved')
+		).rejects.toMatchObject({
+			code: '23P01',
+			constraint: 'absence_requests_sick_no_overlap'
+		});
+	});
+
+	it('lets two people be sick on the same days', async () => {
+		await requestAbsence(worker, 'sick', '2026-11-09', '2026-11-11', 'approved');
+		await expect(
+			requestAbsence(lead, 'sick', '2026-11-10', '2026-11-12', 'approved')
+		).resolves.toBeTruthy();
+	});
+
+	it('frees the dates once a sick note is cancelled', async () => {
+		const first = await requestAbsence(worker, 'sick', '2026-11-16', '2026-11-18', 'approved');
+		await withContext(app, lead.context);
+		await app.query(`update app.absence_requests set status = 'cancelled' where id = $1`, [first]);
+		await expect(
+			requestAbsence(worker, 'sick', '2026-11-16', '2026-11-18', 'approved')
+		).resolves.toBeTruthy();
+	});
+
 	it('does not let a person approve their own vacation', async () => {
 		await withContext(app, worker.context);
 		await expect(

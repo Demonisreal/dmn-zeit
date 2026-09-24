@@ -79,6 +79,22 @@ describe('month closing', () => {
 		expect(await closedThrough()).toBe('2026-01-31');
 	});
 
+	it('shows the closings and their snapshots to hr and admins only', async () => {
+		const lead = await createPerson(tenant, { role: 'team_lead' });
+		for (const reader of [worker, lead]) {
+			await withContext(app, reader.context);
+			const { rows } = await app.query('select * from app.month_closings');
+			expect(rows).toEqual([]);
+		}
+		for (const reader of [hr, admin]) {
+			await withContext(app, reader.context);
+			const { rows } = await app.query<{ month: string }>(
+				'select month::text from app.month_closings order by month'
+			);
+			expect(rows.map((row) => row.month)).toEqual(['2025-12-01', '2026-01-01']);
+		}
+	});
+
 	it('locks time entries of a closed month', async () => {
 		await expect(
 			superuser.query(

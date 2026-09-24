@@ -174,14 +174,13 @@ export class ExportsService {
 		if (!employee) throw new NotFoundException('Employee not found');
 
 		const now = this.clock.now();
-		const [tenant, lastClosed, { figures }] = await Promise.all([
+		const [tenant, { figures }] = await Promise.all([
 			this.store.tenant(trx),
-			this.closings.lastClosed(trx),
 			this.months.figures(trx, [employeeId], month, now)
 		]);
-		const closed = isClosed(month, lastClosed);
-		const snapshot = closed ? (await this.closings.latestClose(trx, month))?.snapshot : null;
-		const { days, row } = figures.get(employeeId)!;
+		const { sheet, days, row } = figures.get(employeeId)!;
+		const closed = isClosed(month, sheet.employee.closedThrough);
+		const snapshot = closed ? await this.store.monthSnapshot(trx, employeeId, month) : null;
 
 		return {
 			tenant,
@@ -207,8 +206,7 @@ export class ExportsService {
 				holiday: day.holiday?.code ?? null
 			})),
 			totals: totalsOf(days),
-			flexBalanceMinutes:
-				snapshot?.employees[employeeId]?.flexBalanceMinutes ?? row.flexBalanceMinutes,
+			flexBalanceMinutes: snapshot?.flexBalanceMinutes ?? row.flexBalanceMinutes,
 			generatedAt: now.toISOString()
 		};
 	}

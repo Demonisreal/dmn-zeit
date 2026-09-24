@@ -5,6 +5,8 @@ import {
 	explanationSchema,
 	instantSchema,
 	isoDateSchema,
+	pageOf,
+	pagingShape,
 	queryYearSchema,
 	reasonSchema,
 	userRefSchema,
@@ -105,7 +107,14 @@ export const vacationNoticeSchema = z.object({
 	acknowledgedAt: instantSchema.nullable()
 });
 
-export const vacationNoticesQuerySchema = z.object({ year: queryYearSchema });
+export const vacationNoticesQuerySchema = z.object({ year: queryYearSchema, ...pagingShape });
+export const vacationNoticePageSchema = pageOf(vacationNoticeSchema);
+
+export const sendVacationNoticesResultSchema = z.object({
+	sent: z.array(vacationNoticeSchema),
+	// already notified today for the same bucket year
+	skipped: z.array(employeeRefSchema)
+});
 
 export type VacationLedgerEntry = z.infer<typeof vacationLedgerEntrySchema>;
 export type VacationBucket = z.infer<typeof vacationBucketSchema>;
@@ -115,3 +124,5 @@ export type CreateVacationAdjustmentInput = z.infer<typeof createVacationAdjustm
 export type CreateVacationNoticesInput = z.infer<typeof createVacationNoticesSchema>;
 export type VacationNotice = z.infer<typeof vacationNoticeSchema>;
 export type VacationNoticesQuery = z.infer<typeof vacationNoticesQuerySchema>;
+export type VacationNoticePage = z.infer<typeof vacationNoticePageSchema>;
+export type SendVacationNoticesResult = z.infer<typeof sendVacationNoticesResultSchema>;

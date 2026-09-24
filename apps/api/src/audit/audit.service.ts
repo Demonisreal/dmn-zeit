@@ -76,7 +76,8 @@ export class AuditService {
 					table: row.table_name,
 					rowId: row.row_id,
 					subjectEmployeeId: row.subject_employee_id,
-					diff: row.diff as AuditEntry['diff'],
+					changes: row.source === 'trigger' ? (row.diff as AuditEntry['changes']) : null,
+					context: row.source === 'app' ? (row.diff as AuditEntry['context']) : null,
 					requestId: row.request_id,
 					ip: row.ip
 				})),

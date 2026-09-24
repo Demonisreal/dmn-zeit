@@ -1,5 +1,6 @@
 import { monthChecklistSchema, monthClosingSchema, type Role } from '@zeit/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { MonthSnapshot } from '../../src/months/snapshot';
 import { expectContract, startApi, type Api } from '../auth/api';
 import { createPerson, createTeam, createTenant, type Person } from '../helpers/pg';
 import { addEntry } from '../time/people';
@@ -43,6 +44,14 @@ async function capBookings(tenantId: string) {
 		[tenantId]
 	);
 	return rows;
+}
+
+async function snapshotOf(closingId: string) {
+	const { rows } = await api.superuser.query<{ snapshot: MonthSnapshot }>(
+		'select snapshot from app.month_closings where id = $1',
+		[closingId]
+	);
+	return rows[0]!.snapshot;
 }
 
 const checklist = (desk: Seat['desk'], month: string) => desk.get(`/months/${month}/checklist`);
@@ -452,6 +461,69 @@ describe('POST /api/months/:month/close', () => {
 			expect(await closedThrough(api, wim.employeeId)).toBe('2026-01-31');
 			expect((await reopen(f.admin.desk, '2026-01')).status).toBe(201);
 			expect(await closedThrough(api, wim.employeeId)).toBeNull();
+		});
+	});
+});
+
+describe('balance carried over from december', () => {
+	// one working day in december: -480 against the target, the booking lifts the first to +520
+	async function lastYear() {
+		const f = await firm();
+		const plus = await hire(api, f.tenantId, 'Otto Ueber', { entryDate: '2025-12-31' });
+		const minus = await hire(api, f.tenantId, 'Ute Unter', { entryDate: '2025-12-31' });
+		await book(api, plus, 1000, '2025-12-31');
+		const december = await close(f.hr.desk, '2025-12');
+		expect(december.status).toBe(201);
+		return { ...f, plus, minus, december: december.body.id as string };
+	}
+
+	it('starts the new year from what the december closing froze', async () => {
+		const f = await lastYear();
+		const january = await close(f.hr.desk, '2026-01');
+		const february = await close(f.hr.desk, '2026-02');
+
+		expect((await snapshotOf(f.december)).employees).toMatchObject({
+			[f.plus.employeeId]: { flexBalanceMinutes: 520 },
+			[f.minus.employeeId]: { flexBalanceMinutes: -480 }
+		});
+		// 21 working days in january, 20 in february, and nobody worked a minute
+		expect((await snapshotOf(january.body.id)).employees).toMatchObject({
+			[f.plus.employeeId]: { diffMinutes: -10080, flexBalanceMinutes: -9560 },
+			[f.minus.employeeId]: { diffMinutes: -10080, flexBalanceMinutes: -10560 }
+		});
+		expect((await snapshotOf(february.body.id)).employees).toMatchObject({
+			[f.plus.employeeId]: { diffMinutes: -9600, flexBalanceMinutes: -19160 },
+			[f.minus.employeeId]: { diffMinutes: -9600, flexBalanceMinutes: -20160 }
+		});
+	});
+
+	it('caps the balance with the carry-over in it', async () => {
+		const f = await lastYear();
+		// capped from january on only, so december hands over its +520 and -480 in full
+		await capped(f.tenantId);
+		// january alone ends at +200 and 0, both well inside +300 and -120
+		await book(api, f.plus, 10280, '2026-01-31');
+		await book(api, f.minus, 10080, '2026-01-31');
+
+		const january = await close(f.hr.desk, '2026-01');
+		expect(january.status).toBe(201);
+		expect(await capBookings(f.tenantId)).toEqual([
+			{
+				employee_id: f.plus.employeeId,
+				minutes: -420,
+				effective_date: '2026-01-31',
+				month_closing_id: january.body.id
+			},
+			{
+				employee_id: f.minus.employeeId,
+				minutes: 360,
+				effective_date: '2026-01-31',
+				month_closing_id: january.body.id
+			}
+		]);
+		expect((await snapshotOf(january.body.id)).employees).toMatchObject({
+			[f.plus.employeeId]: { flexBalanceMinutes: 300 },
+			[f.minus.employeeId]: { flexBalanceMinutes: -120 }
 		});
 	});
 });

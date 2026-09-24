@@ -207,7 +207,7 @@ export class MonthsService {
 		});
 	}
 
-	// no balance is carried into a new year yet, so the account starts on 1 january
+	// counted from 1 january, on top of what the closed december of the year before handed over
 	async figures(
 		trx: Trx,
 		employeeIds: readonly string[],
@@ -235,12 +235,13 @@ export class MonthsService {
 				bookings.filter((booking) => booking.employeeId === id),
 				sheet.employee.closedThrough
 			);
+			const checkpoint = await this.time.checkpoint(trx, id, Number(month.slice(0, 4)));
 			figures.set(id, {
 				sheet,
 				days: ofMonth,
 				row: {
 					...totalsOf(ofMonth),
-					flexBalanceMinutes: flex.balanceMinutes,
+					flexBalanceMinutes: flex.balanceMinutes + (checkpoint ?? 0),
 					vacationDays: leave.get(id)?.vacationDays ?? '0.00',
 					sickDays: leave.get(id)?.sickDays ?? '0.00',
 					openFindings: unacked.length

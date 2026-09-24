@@ -3,7 +3,8 @@ import type {
 	Correction,
 	CorrectionAction,
 	CorrectionStatus,
-	CorrectionsQuery
+	CorrectionsQuery,
+	Locale
 } from '@zeit/shared';
 import { sql } from 'kysely';
 import type { AuthSession } from '../common/session.guard';
@@ -42,17 +43,22 @@ export class CorrectionsStore {
 		query: CorrectionsQuery,
 		after: Cursor | undefined
 	): Promise<Correction[]> {
-		let select = this.select(trx)
-			.where(
+		let select = this.select(trx);
+		// only the inbox may come without a range, it has to show every open request however old
+		if (query.from !== undefined) {
+			select = select.where(
 				'c.created_at',
 				'>=',
 				sql<string>`${query.from}::date::timestamp at time zone 'Europe/Berlin'`
-			)
-			.where(
+			);
+		}
+		if (query.to !== undefined) {
+			select = select.where(
 				'c.created_at',
 				'<',
 				sql<string>`(${query.to}::date + 1)::timestamp at time zone 'Europe/Berlin'`
 			);
+		}
 
 		if (query.scope === 'mine') {
 			select = select.where(sql<boolean>`c.employee_id = ${reader.employeeId}::uuid`);
@@ -93,6 +99,15 @@ export class CorrectionsStore {
 			])
 			.where('id', '=', id)
 			.executeTakeFirst();
+	}
+
+	async hasEmployee(trx: Trx, id: string): Promise<boolean> {
+		const employee = await trx
+			.selectFrom('app.employees')
+			.select('id')
+			.where('id', '=', id)
+			.executeTakeFirst();
+		return employee !== undefined;
 	}
 
 	// a pending request on a closed month could never be approved
@@ -161,6 +176,21 @@ export class CorrectionsStore {
 			.where('voided_at', 'is', null)
 			.executeTakeFirst();
 		return voided.numUpdatedRows > 0n;
+	}
+
+	// app.users is open to hr, the only ones who correct directly
+	async recipient(
+		trx: Trx,
+		employeeId: string
+	): Promise<{ email: string; displayName: string; locale: Locale } | undefined> {
+		const user = await trx
+			.selectFrom('app.users')
+			.select(['email', 'display_name', 'locale'])
+			.where('employee_id', '=', employeeId)
+			.executeTakeFirst();
+		return (
+			user && { email: user.email, displayName: user.display_name, locale: user.locale as Locale }
+		);
 	}
 
 	async addEntry(

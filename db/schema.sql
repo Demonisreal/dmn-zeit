@@ -392,6 +392,38 @@ $$;
 
 
 --
+-- Name: flex_checkpoint(uuid, integer); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.flex_checkpoint(p_employee_id uuid, p_year integer) RETURNS integer
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  minutes integer;
+begin
+  -- without employee or role in the context the check comes out null, not false
+  if (p_employee_id = app.employee_id() or app.leads(p_employee_id) or app.role() >= 'hr') is not true then
+    raise exception 'employee % is not visible', p_employee_id using errcode = 'insufficient_privilege';
+  end if;
+
+  -- a december reopened and not closed again has no balance to carry over yet
+  select case when c.action = 'close' then
+           (c.snapshot -> 'employees' -> p_employee_id::text ->> 'flexBalanceMinutes')::integer
+         end
+    into minutes
+    from app.month_closings c
+   where c.tenant_id = app.tenant_id()
+     and c.month = make_date(p_year - 1, 12, 1)
+   order by c.created_at desc
+   limit 1;
+
+  return minutes;
+end;
+$$;
+
+
+--
 -- Name: guard_own_user(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -543,6 +575,35 @@ CREATE FUNCTION app.leads(p_employee_id uuid) RETURNS boolean
      where e.id = p_employee_id
        and l.user_id = app.user_id()
   )
+$$;
+
+
+--
+-- Name: month_snapshot(uuid, date); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.month_snapshot(p_employee_id uuid, p_month date) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  figures jsonb;
+begin
+  if (p_employee_id = app.employee_id() or app.leads(p_employee_id) or app.role() >= 'hr') is not true then
+    raise exception 'employee % is not visible', p_employee_id using errcode = 'insufficient_privilege';
+  end if;
+
+  -- only the one row, the rest of the snapshot stays with hr
+  select case when c.action = 'close' then c.snapshot -> 'employees' -> p_employee_id::text end
+    into figures
+    from app.month_closings c
+   where c.tenant_id = app.tenant_id()
+     and c.month = date_trunc('month', p_month)::date
+   order by c.created_at desc
+   limit 1;
+
+  return figures;
+end;
 $$;
 
 
@@ -2258,6 +2319,14 @@ ALTER TABLE ONLY app.absence_requests
 
 
 --
+-- Name: absence_requests absence_requests_sick_no_overlap; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.absence_requests
+    ADD CONSTRAINT absence_requests_sick_no_overlap EXCLUDE USING gist (employee_id WITH =, daterange(start_date, end_date, '[]'::text) WITH &&) WHERE (((type = 'sick'::app.absence_type) AND (status = ANY (ARRAY['approved'::app.absence_status, 'cancel_pending'::app.absence_status]))));
+
+
+--
 -- Name: absence_requests absence_requests_tenant_id_employee_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -3848,6 +3917,13 @@ CREATE POLICY "hr manages work models" ON app.work_models TO zeit_app USING ((( 
 
 
 --
+-- Name: month_closings hr reads closings; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr reads closings" ON app.month_closings FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
 -- Name: contracts hr reads contracts; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -3971,13 +4047,6 @@ CREATE POLICY "leads void entries" ON app.time_entries FOR UPDATE TO zeit_app US
 --
 
 CREATE POLICY "manage own absence days" ON app.absence_days TO zeit_app USING ((employee_id = ( SELECT app.employee_id() AS employee_id)));
-
-
---
--- Name: month_closings members read closings; Type: POLICY; Schema: app; Owner: -
---
-
-CREATE POLICY "members read closings" ON app.month_closings FOR SELECT TO zeit_app USING (true);
 
 
 --
@@ -4368,4 +4437,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260924000500'),
     ('20260924000600'),
     ('20260924000700'),
-    ('20260924000800');
+    ('20260924000800'),
+    ('20260925000000');

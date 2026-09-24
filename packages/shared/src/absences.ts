@@ -13,7 +13,6 @@ import {
 	pagingShape,
 	portionSchema,
 	queryList,
-	rangeShape,
 	requestScopes,
 	userRefSchema,
 	uuidSchema
@@ -94,14 +93,22 @@ export const absenceSchema = z.object({
 
 export const absencesQuerySchema = z
 	.object({
-		...rangeShape,
+		from: isoDateSchema.optional(),
+		to: isoDateSchema.optional(),
 		scope: z.enum(requestScopes).default('mine'),
 		employee: uuidSchema.optional(),
 		status: queryList(absenceStatuses),
 		type: queryList(absenceTypes),
 		...pagingShape
 	})
-	.superRefine(inRange(366));
+	.superRefine((query, ctx) => {
+		if (query.scope === 'inbox') return;
+		if (query.from === undefined || query.to === undefined) {
+			ctx.addIssue({ code: 'custom', message: 'range.required', path: ['from'] });
+			return;
+		}
+		inRange(366)({ from: query.from, to: query.to }, ctx);
+	});
 
 export const absencePageSchema = pageOf(absenceSchema);
 

@@ -25,6 +25,7 @@ export type ErrorCode = (typeof errorCodes)[number];
 
 // messages of our own checks are i18n keys; zod's built-in messages the web localizes by code
 export const validationKeys = [
+	'format.date',
 	'format.month',
 	'format.monthDay',
 	'format.dayCount',
@@ -34,6 +35,7 @@ export const validationKeys = [
 	'format.recoveryCode',
 	'text.empty',
 	'text.controlChars',
+	'range.required',
 	'range.unordered',
 	'range.tooLong',
 	'absence.endBeforeStart',

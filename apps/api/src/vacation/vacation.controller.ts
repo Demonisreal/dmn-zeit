@@ -11,9 +11,11 @@ import {
 import type {
 	CreateVacationAdjustmentInput,
 	CreateVacationNoticesInput,
+	SendVacationNoticesResult,
 	VacationAccount,
 	VacationLedgerEntry,
 	VacationNotice,
+	VacationNoticePage,
 	VacationNoticesQuery,
 	VacationQuery
 } from '@zeit/shared';
@@ -53,7 +55,7 @@ export class VacationController {
 	sendNotices(
 		@CurrentSession() session: AuthSession,
 		@Body(new ZodPipe(createVacationNoticesSchema)) body: CreateVacationNoticesInput
-	): Promise<VacationNotice[]> {
+	): Promise<SendVacationNoticesResult> {
 		return this.vacation.sendNotices(session, body);
 	}
 
@@ -61,8 +63,8 @@ export class VacationController {
 	notices(
 		@CurrentSession() session: AuthSession,
 		@Query(new ZodPipe(vacationNoticesQuerySchema)) query: VacationNoticesQuery
-	): Promise<VacationNotice[]> {
-		return this.vacation.notices(session, query.year);
+	): Promise<VacationNoticePage> {
+		return this.vacation.notices(session, query);
 	}
 
 	@Post('me/vacation/notices/:id/acknowledge')

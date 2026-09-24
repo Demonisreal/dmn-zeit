@@ -17,9 +17,12 @@ import type {
 	ApiError,
 	CreateVacationAdjustmentInput,
 	CreateVacationNoticesInput,
+	SendVacationNoticesResult,
 	VacationAccount,
 	VacationLedgerEntry,
-	VacationNotice
+	VacationNotice,
+	VacationNoticePage,
+	VacationNoticesQuery
 } from '@zeit/shared';
 import { hasRole } from '@zeit/shared';
 import { Temporal } from 'temporal-polyfill';
@@ -29,6 +32,7 @@ import type { AuthSession } from '../common/session.guard';
 import { Database } from '../db/database';
 import { MailQueue } from '../mail/mail.queue';
 import { MailTransport } from '../mail/mail.transport';
+import { decodeCursor, encodeCursor } from '../time/cursor';
 import { berlinToday, bucketsOf, deadlineOf, usableDays } from './buckets';
 import { leaveNoticeMail, NOTICE_TEXT_VERSION } from './vacation.mail';
 import { VacationStore } from './vacation.store';
@@ -134,11 +138,11 @@ export class VacationService {
 	async sendNotices(
 		session: AuthSession,
 		input: CreateVacationNoticesInput
-	): Promise<VacationNotice[]> {
+	): Promise<SendVacationNoticesResult> {
 		const today = berlinToday(this.clock.now());
-		const employeeIds = [...new Set(input.employeeIds)];
+		const requested = [...new Set(input.employeeIds)];
 
-		const { notices, mails } = await this.db.withTenant(session, async (trx) => {
+		const { sent, skipped, mails } = await this.db.withTenant(session, async (trx) => {
 			const { carryoverUntil } = await this.store.calendar(trx);
 			const deadline = deadlineOf(input.bucketYear, carryoverUntil);
 			// a notice has to leave time to take the days, one after the deadline cannot do that
@@ -150,8 +154,8 @@ export class VacationService {
 				} satisfies ApiError);
 			}
 
-			const people = await this.store.employees(trx, employeeIds);
-			const unknown = employeeIds.filter((id) => !people.has(id));
+			const people = await this.store.employees(trx, requested);
+			const unknown = requested.filter((id) => !people.has(id));
 			if (unknown.length > 0) {
 				throw new NotFoundException({
 					code: 'NOT_FOUND',
@@ -160,8 +164,8 @@ export class VacationService {
 				} satisfies ApiError);
 			}
 
-			const recipients = await this.store.recipients(trx, employeeIds);
-			const unreachable = employeeIds.filter((id) => !recipients.has(id));
+			const recipients = await this.store.recipients(trx, requested);
+			const unreachable = requested.filter((id) => !recipients.has(id));
 			if (input.channel === 'email' && unreachable.length > 0) {
 				throw new ConflictException({
 					code: 'INVALID_STATE',
@@ -169,6 +173,11 @@ export class VacationService {
 					details: { employeeIds: unreachable }
 				} satisfies ApiError);
 			}
+
+			const told = await this.store.notifiedToday(trx, input.bucketYear, requested);
+			const skipped = requested.filter((id) => told.has(id)).map((id) => people.get(id)!);
+			const employeeIds = requested.filter((id) => !told.has(id));
+			if (employeeIds.length === 0) return { sent: [], skipped, mails: [] };
 
 			const remaining = await this.store.remainingIn(trx, input.bucketYear, employeeIds);
 			// an overdrawn bucket has nothing left to forfeit, the notice then says zero
@@ -188,36 +197,47 @@ export class VacationService {
 					textVersion: NOTICE_TEXT_VERSION
 				}))
 			);
-			const notices = await this.store.noticeList(trx, { ids });
-			if (input.channel !== 'email') return { notices, mails: [] };
+			const sent = await this.store.noticeList(trx, { ids });
+			if (input.channel !== 'email') return { sent, skipped, mails: [] };
 
-			const mails = [...recipients].map(([employeeId, recipient]) => ({
-				to: recipient.email,
-				...leaveNoticeMail(recipient.locale, {
-					name: recipient.displayName,
-					year: input.bucketYear,
-					days: left(employeeId),
-					deadline: deadline.toString()
-				})
-			}));
-			return { notices, mails };
+			const mails = [...recipients]
+				.filter(([employeeId]) => !told.has(employeeId))
+				.map(([employeeId, recipient]) => ({
+					to: recipient.email,
+					...leaveNoticeMail(recipient.locale, {
+						name: recipient.displayName,
+						year: input.bucketYear,
+						days: left(employeeId),
+						deadline: deadline.toString()
+					})
+				}));
+			return { sent, skipped, mails };
 		});
 
 		this.queue.later(async () => {
 			for (const mail of mails) await this.mail.send({ tenantId: session.tenantId, ...mail });
 		});
-		return notices;
+		return { sent, skipped };
 	}
 
-	notices(session: AuthSession, year: number): Promise<VacationNotice[]> {
-		return this.db.withTenant(session, (trx) =>
-			this.store.noticeList(trx, {
-				year,
+	notices(session: AuthSession, query: VacationNoticesQuery): Promise<VacationNoticePage> {
+		const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
+		return this.db.withTenant(session, async (trx) => {
+			const rows = await this.store.noticeList(trx, {
+				year: query.year,
+				limit: query.limit + 1,
+				...(after && { after }),
 				...(!hasRole(session.role, 'hr') && {
 					visibleTo: { employeeId: session.employeeId, leads: session.role === 'team_lead' }
 				})
-			})
-		);
+			});
+			const items = rows.slice(0, query.limit);
+			const last = items.at(-1);
+			return {
+				items,
+				nextCursor: rows.length > query.limit && last ? encodeCursor(last.sentAt, last.id) : null
+			};
+		});
 	}
 
 	acknowledge(session: AuthSession, id: string): Promise<VacationNotice> {

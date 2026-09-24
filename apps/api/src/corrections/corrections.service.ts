@@ -17,7 +17,10 @@ import type {
 import { assertCanSee } from '../common/scope';
 import type { AuthSession } from '../common/session.guard';
 import { Database, type Trx } from '../db/database';
+import { MailQueue } from '../mail/mail.queue';
+import { MailTransport } from '../mail/mail.transport';
 import { decodeCursor, encodeCursor } from '../time/cursor';
+import { correctedMail } from './corrections.mail';
 import { CorrectionsStore, type Decision } from './corrections.store';
 
 const periodLocked = {
@@ -30,12 +33,14 @@ const periodLocked = {
 export class CorrectionsService {
 	constructor(
 		private readonly db: Database,
-		private readonly store: CorrectionsStore
+		private readonly store: CorrectionsStore,
+		private readonly mail: MailTransport,
+		private readonly queue: MailQueue
 	) {}
 
-	// own times always wait for a second person; hr corrects anyone else's right away
-	create(session: AuthSession, input: CreateCorrectionInput): Promise<Correction> {
-		return this.db.withTenant(session, async (trx) => {
+	// own times always wait for a second person; hr corrects anyone else's right away and says so
+	async create(session: AuthSession, input: CreateCorrectionInput): Promise<Correction> {
+		const { correction, mail } = await this.db.withTenant(session, async (trx) => {
 			let employeeId: string;
 			let target: { id: string; startedAt: string } | null = null;
 			if (input.action === 'add') {
@@ -51,6 +56,10 @@ export class CorrectionsService {
 			const direct = employeeId !== session.employeeId;
 			if (direct && !hasRole(session.role, 'hr')) {
 				throw new ForbiddenException('Only hr corrects the times of someone else');
+			}
+			// someone from another tenant would otherwise only trip the foreign key, as a bare 409
+			if (direct && input.action === 'add' && !(await this.store.hasEmployee(trx, employeeId))) {
+				throw new NotFoundException('Employee not found');
 			}
 
 			const stamps = [target?.startedAt, span?.startedAt].filter((at) => at !== undefined);
@@ -68,9 +77,21 @@ export class CorrectionsService {
 				direct
 			});
 			const correction = await this.found(trx, id);
-			if (direct) await this.apply(trx, session, correction);
-			return correction;
+			if (!direct) return { correction, mail: null };
+
+			await this.apply(trx, session, correction);
+			const recipient = await this.store.recipient(trx, employeeId);
+			return {
+				correction,
+				mail: recipient && {
+					to: recipient.email,
+					...correctedMail(recipient.locale, { name: recipient.displayName, correction })
+				}
+			};
 		});
+
+		if (mail) this.queue.later(() => this.mail.send({ tenantId: session.tenantId, ...mail }));
+		return correction;
 	}
 
 	list(session: AuthSession, query: CorrectionsQuery): Promise<CorrectionPage> {

@@ -414,6 +414,29 @@ describe('GET /api/absences', () => {
 		).toEqual(expect.arrayContaining(['Clara Kolleg', 'Lena Leitung', 'Otto Aussen']));
 	});
 
+	it('shows the whole inbox without a range, only the other lists want one', async () => {
+		const early = await request(o.worker, {
+			type: 'time_off',
+			startDate: '2025-02-03',
+			endDate: '2025-02-03'
+		});
+		const late = await request(o.worker, {
+			type: 'time_off',
+			startDate: '2029-06-04',
+			endDate: '2029-06-05'
+		});
+
+		const inbox = await o.lead.desk.get('/absences?scope=inbox');
+		expect(inbox.status).toBe(200);
+		const ids = inbox.body.items.map((absence: { id: string }) => absence.id);
+		expect(ids.at(0)).toBe(early.body.id);
+		expect(ids.at(-1)).toBe(late.body.id);
+
+		const all = await o.lead.desk.get('/absences?scope=all');
+		expect(all.status).toBe(400);
+		expect(all.body.details[0]).toMatchObject({ field: 'from', message: 'range.required' });
+	});
+
 	it('keeps the lead to the own team and everyone else to their own requests', async () => {
 		const team = await o.lead.desk.get(`/absences?${year}&scope=all`);
 		const names = team.body.items.map(

@@ -1,10 +1,22 @@
 import { z } from 'zod';
 
+const YEAR_MIN = 1900;
+const YEAR_MAX = 2100;
+
+// zod already refuses 02-30, but lets year 0000 through, which pg refuses
+const yearInBounds = (raw: string) => {
+	const year = Number(raw.slice(0, 4));
+	return year >= YEAR_MIN && year <= YEAR_MAX;
+};
+
 export const uuidSchema = z.uuid();
-export const isoDateSchema = z.iso.date();
+export const isoDateSchema = z.iso.date().refine(yearInBounds, 'format.date');
 // stamps always carry their offset, otherwise the day of a shift depends on the reader's zone
-export const instantSchema = z.iso.datetime({ offset: true });
-export const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'format.month');
+export const instantSchema = z.iso.datetime({ offset: true }).refine(yearInBounds, 'format.date');
+export const monthSchema = z
+	.string()
+	.regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'format.month')
+	.refine(yearInBounds, 'format.month');
 export const yearSchema = z.int().min(2000).max(2100);
 export const queryYearSchema = z.coerce.number().pipe(yearSchema);
 

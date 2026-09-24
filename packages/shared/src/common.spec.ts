@@ -19,6 +19,20 @@ describe('isoDateSchema', () => {
 		expect(isoDateSchema.safeParse('2026-3-9').success).toBe(false);
 		expect(isoDateSchema.safeParse('2026-03-09T00:00:00Z').success).toBe(false);
 	});
+
+	it('refuses days the month does not have', () => {
+		expect(isoDateSchema.safeParse('2026-02-30').success).toBe(false);
+		expect(isoDateSchema.safeParse('2026-02-28').success).toBe(true);
+		expect(isoDateSchema.safeParse('2024-02-29').success).toBe(true);
+	});
+
+	it('stays between 1900 and 2100', () => {
+		expect(isoDateSchema.safeParse('0000-01-01').success).toBe(false);
+		expect(isoDateSchema.safeParse('9999-12-31').success).toBe(false);
+		expect(isoDateSchema.safeParse('1899-12-31').success).toBe(false);
+		expect(isoDateSchema.safeParse('1900-01-01').success).toBe(true);
+		expect(isoDateSchema.safeParse('2100-12-31').success).toBe(true);
+	});
 });
 
 describe('instantSchema', () => {
@@ -31,6 +45,12 @@ describe('instantSchema', () => {
 	it('refuses a stamp without offset', () => {
 		expect(instantSchema.safeParse('2026-03-29T02:30:00').success).toBe(false);
 	});
+
+	it('checks the date part like a date', () => {
+		expect(instantSchema.safeParse('2026-02-30T08:00:00+01:00').success).toBe(false);
+		expect(instantSchema.safeParse('0000-01-01T00:00:00Z').success).toBe(false);
+		expect(instantSchema.safeParse('9999-12-31T23:59:59+01:00').success).toBe(false);
+	});
 });
 
 describe('monthSchema', () => {
@@ -38,6 +58,12 @@ describe('monthSchema', () => {
 		expect(monthSchema.safeParse('2026-09').success).toBe(true);
 		expect(monthSchema.safeParse('2026-13').success).toBe(false);
 		expect(monthSchema.safeParse('2026-9').success).toBe(false);
+	});
+
+	it('knows the same years as a date', () => {
+		expect(monthSchema.safeParse('0000-01').success).toBe(false);
+		expect(monthSchema.safeParse('9999-12').success).toBe(false);
+		expect(monthSchema.safeParse('2100-12').success).toBe(true);
 	});
 });
 

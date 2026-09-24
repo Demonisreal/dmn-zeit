@@ -202,10 +202,10 @@ export class AbsencesService {
 
 		const filter: Filter = (eb) => {
 			const leads = sql<boolean>`app.leads(${eb.ref('r.employee_id')})`;
-			const where: Expression<SqlBool>[] = [
-				eb('r.start_date', '<=', query.to),
-				eb('r.end_date', '>=', query.from)
-			];
+			// only the inbox may come without a range, it then shows every open request
+			const where: Expression<SqlBool>[] = [];
+			if (query.to) where.push(eb('r.start_date', '<=', query.to));
+			if (query.from) where.push(eb('r.end_date', '>=', query.from));
 			if (query.scope === 'mine') where.push(eb('r.employee_id', '=', own!));
 			if (query.scope === 'inbox') {
 				where.push(eb('r.status', 'in', ['pending', 'cancel_pending']));

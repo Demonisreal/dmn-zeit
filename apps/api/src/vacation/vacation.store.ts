@@ -18,6 +18,7 @@ import type {
 import { sql } from 'kysely';
 import { Temporal } from 'temporal-polyfill';
 import type { Trx } from '../db/database';
+import type { Cursor } from '../time/time.store';
 import type { LedgerEntry, NoticeRow } from './buckets';
 
 export type LeaveCalendar = {
@@ -57,6 +58,8 @@ type NoticeFilter = {
 	ids?: readonly string[];
 	// without it everything rls lets through, e.g. for hr
 	visibleTo?: { employeeId: string | null; leads: boolean };
+	after?: Cursor;
+	limit?: number;
 };
 
 export function holidaysBetween(
@@ -262,6 +265,27 @@ export class VacationStore {
 		return new Map(rows.map((row) => [row.employee_id, row.days]));
 	}
 
+	// sent_at comes from the database clock, so "today" has to come from there too
+	async notifiedToday(
+		trx: Trx,
+		year: number,
+		employeeIds: readonly string[]
+	): Promise<Set<string>> {
+		// a double click sends two batches at once, the second has to wait and see the first
+		await sql`
+			select pg_advisory_xact_lock(
+				hashtextextended('vacation_notices ' || app.tenant_id()::text, 0))`.execute(trx);
+		const rows = await trx
+			.selectFrom('app.vacation_notices')
+			.select('employee_id')
+			.distinct()
+			.where('bucket_year', '=', year)
+			.where('employee_id', 'in', employeeIds)
+			.where('sent_at', '>=', sql<string>`date_trunc('day', now(), 'Europe/Berlin')`)
+			.execute();
+		return new Set(rows.map((row) => row.employee_id));
+	}
+
 	async insertNotices(trx: Trx, notices: NewNotice[]): Promise<string[]> {
 		const rows = await trx
 			.insertInto('app.vacation_notices')
@@ -299,9 +323,8 @@ export class VacationStore {
 				'n.text_version',
 				'n.acknowledged_at'
 			])
-			.orderBy('e.last_name')
-			.orderBy('e.first_name')
-			.orderBy('n.sent_at');
+			.orderBy('n.sent_at', 'desc')
+			.orderBy('n.id', 'desc');
 		if (filter.year !== undefined) query = query.where('n.bucket_year', '=', filter.year);
 		if (filter.ids) query = query.where('n.id', 'in', filter.ids);
 		const viewer = filter.visibleTo;
@@ -313,6 +336,13 @@ export class VacationStore {
 				])
 			);
 		}
+		const after = filter.after;
+		if (after) {
+			query = query.where((eb) =>
+				eb(eb.refTuple('n.sent_at', 'n.id'), '<', eb.tuple(after.at, after.id))
+			);
+		}
+		if (filter.limit !== undefined) query = query.limit(filter.limit);
 
 		const rows = await query.execute();
 		const names = await this.userNames(

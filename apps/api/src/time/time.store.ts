@@ -342,4 +342,11 @@ export class TimeStore {
 			createdAt: row.created_at
 		}));
 	}
+
+	// the closings are hr only, the definer function hands out the one balance
+	async checkpoint(trx: Trx, employeeId: string, year: number): Promise<number | null> {
+		const { rows } = await sql<{ minutes: number | null }>`
+			select app.flex_checkpoint(${employeeId}, ${year}) as minutes`.execute(trx);
+		return rows[0]?.minutes ?? null;
+	}
 }

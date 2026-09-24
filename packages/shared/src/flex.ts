@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+	explanationSchema,
 	instantSchema,
 	isoDateSchema,
 	monthSchema,
@@ -57,6 +58,7 @@ export const flexAccountSchema = z.object({
 	employeeId: uuidSchema,
 	year: z.int(),
 	openingMinutes: z.int(),
+	openingExplanation: explanationSchema,
 	balanceMinutes: z.int(),
 	// the day the balance is counted through, today for the running year
 	asOf: isoDateSchema,

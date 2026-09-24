@@ -1,7 +1,7 @@
 import { findingSchema, ruleSetSchema } from '@zeit/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { startApi, type Api, type Browser } from '../auth/api';
+import { expectContract, startApi, type Api, type Browser } from '../auth/api';
 import {
 	createContract,
 	createPerson,
@@ -58,6 +58,7 @@ describe('GET /api/compliance/findings', () => {
 		const answer = await findings(lead.browser, 'from=2026-09-20&to=2026-09-22');
 
 		expect(answer.status).toBe(200);
+		expectContract(z.array(findingSchema), answer.body);
 		const list = z.array(findingSchema).parse(answer.body);
 		expect(summary(list)).toEqual([
 			[lead.employeeId, '2026-09-20', 'ARBZG_9_SUNDAY'],
@@ -118,7 +119,8 @@ describe('POST /api/compliance/findings/ack', () => {
 			...breakShort
 		});
 		expect(answer.status).toBe(201);
-		expect(findingSchema.parse(answer.body)).toMatchObject({
+		expectContract(findingSchema, answer.body);
+		expect(answer.body).toMatchObject({
 			code: 'ARBZG_4_BREAK_SHORT',
 			ack: { by: { id: lead.userId }, note: breakShort.note }
 		});
@@ -182,7 +184,8 @@ describe('GET /api/compliance/rule-versions', () => {
 	it('lists the rule sets for everyone', async () => {
 		const answer = await worker.browser.get('/compliance/rule-versions');
 		expect(answer.status).toBe(200);
-		expect(z.array(ruleSetSchema).parse(answer.body)).toEqual([
+		expectContract(z.array(ruleSetSchema), answer.body);
+		expect(answer.body).toEqual([
 			{
 				version: 'arbzg-1994',
 				validFrom: '1994-07-01',
@@ -197,5 +200,31 @@ describe('GET /api/compliance/rule-versions', () => {
 				}
 			}
 		]);
+	});
+});
+
+describe('another tenant', () => {
+	it('sees none of the findings here and acknowledges none of them', async () => {
+		const foreignHr = await signedIn(api, await createUser(await createTenant(), { role: 'hr' }));
+
+		expect((await findings(foreignHr.browser, 'from=2026-09-20&to=2026-09-22')).body).toEqual([]);
+		const one = await findings(
+			foreignHr.browser,
+			`from=2026-09-20&to=2026-09-22&employee=${worker.employeeId}`
+		);
+		expect(one.status).toBe(200);
+		expect(one.body).toEqual([]);
+
+		const ack = await foreignHr.browser.post('/compliance/findings/ack', {
+			employeeId: worker.employeeId,
+			...breakShort,
+			code: 'ARBZG_4_CONTINUOUS_6H'
+		});
+		expect(ack.status).toBe(404);
+		const { rows } = await api.superuser.query(
+			'select count(*)::int as acks from app.finding_acks where created_by = $1',
+			[foreignHr.userId]
+		);
+		expect(rows[0].acks).toBe(0);
 	});
 });

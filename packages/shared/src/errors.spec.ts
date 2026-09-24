@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
-import { createAbsenceSchema } from './absences';
+import { absencesQuerySchema, createAbsenceSchema } from './absences';
 import { tokenSchema } from './auth';
-import { dayCountSchema, displayNameSchema, monthSchema, noteSchema } from './common';
+import {
+	dayCountSchema,
+	displayNameSchema,
+	isoDateSchema,
+	monthSchema,
+	noteSchema
+} from './common';
 import { createCorrectionSchema } from './corrections';
 import { apiErrorSchema, validationKeys, type ValidationKey } from './errors';
 import { createFlexBookingSchema } from './flex';
@@ -61,6 +67,7 @@ const entryId = '0b8a6c2e-5d4f-4e3a-8b1c-9d7e6f5a4b3c';
 const reason = 'Gehen vergessen, war um 17 Uhr weg';
 
 const failures: [ValidationKey, ZodType, unknown][] = [
+	['format.date', isoDateSchema, '0000-01-01'],
 	['format.month', monthSchema, '2026-13'],
 	['format.monthDay', updateTenantSchema, { carryoverUntil: '02-29' }],
 	['format.dayCount', dayCountSchema, '1.5'],
@@ -74,6 +81,7 @@ const failures: [ValidationKey, ZodType, unknown][] = [
 	['format.recoveryCode', recoveryCodeSchema, 'ABCDE-FGH10'],
 	['text.empty', noteSchema, '   '],
 	['text.controlChars', displayNameSchema, 'Anna\tBerg'],
+	['range.required', absencesQuerySchema, { scope: 'all' }],
 	['range.unordered', daysQuerySchema, { from: '2026-10-04', to: '2026-09-28' }],
 	['range.tooLong', daysQuerySchema, { from: '2026-01-01', to: '2026-12-31' }],
 	[
