@@ -8,5 +8,7 @@ coverage/
 .env.local
 .env.*.local
 
+.claude/worktrees/
+
 .impeccable/review/
 .impeccable/decision/
