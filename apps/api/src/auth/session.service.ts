@@ -11,6 +11,7 @@ import { csrfTokenFor, hashToken, newToken } from './tokens';
 @Injectable()
 export class SessionService {
 	readonly cookieName: string;
+	readonly mfaCookieName: string;
 	private readonly cookie: CookieOptions;
 	private readonly mode: AppMode;
 
@@ -21,8 +22,23 @@ export class SessionService {
 		// __Host- requires Secure and Secure requires https, so plain http://localhost gets the bare name
 		const secure = new URL(config.get('APP_ORIGIN', { infer: true })).protocol === 'https:';
 		this.cookieName = secure ? '__Host-zeit_sid' : 'zeit_sid';
+		this.mfaCookieName = secure ? '__Host-zeit_mfa' : 'zeit_mfa';
 		this.cookie = { httpOnly: true, secure, sameSite: 'strict', path: '/' };
 		this.mode = config.get('APP_MODE', { infer: true });
+	}
+
+	// the pending second step of a password login, as long as the challenge in the database lives
+	setMfaCookie(response: Response, token: string) {
+		response.cookie(this.mfaCookieName, token, { ...this.cookie, maxAge: 5 * 60_000 });
+	}
+
+	mfaToken(request: Request): string | undefined {
+		const token: unknown = request.cookies?.[this.mfaCookieName];
+		return typeof token === 'string' ? token : undefined;
+	}
+
+	clearMfaCookie(response: Response) {
+		response.clearCookie(this.mfaCookieName, this.cookie);
 	}
 
 	async open(response: Response, userId: string, client: Client): Promise<Session> {

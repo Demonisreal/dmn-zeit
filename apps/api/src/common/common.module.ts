@@ -1,9 +1,10 @@
 import { Global, Module } from '@nestjs/common';
+import { Audit } from './audit';
 import { Clock } from './clock';
 
 @Global()
 @Module({
-	providers: [Clock],
-	exports: [Clock]
+	providers: [Clock, Audit],
+	exports: [Clock, Audit]
 })
 export class CommonModule {}

@@ -13,6 +13,7 @@ import type {
 	InspectInvitationInput,
 	Invitation,
 	LoginInput,
+	LoginResult,
 	ResetPasswordInput,
 	Session
 } from '@zeit/shared';
@@ -22,6 +23,7 @@ import { Public } from '../common/session.guard';
 import { ThrottlePerEmail } from '../common/throttle';
 import { ZodPipe } from '../common/zod.pipe';
 import { AuthService } from './auth.service';
+import { MfaService } from './mfa.service';
 import { NotInDemoGuard } from './not-in-demo.guard';
 import { SessionService } from './session.service';
 
@@ -31,6 +33,7 @@ import { SessionService } from './session.service';
 export class AuthController {
 	constructor(
 		private readonly auth: AuthService,
+		private readonly mfa: MfaService,
 		private readonly sessions: SessionService
 	) {}
 
@@ -41,9 +44,12 @@ export class AuthController {
 		@Body(new ZodPipe(loginSchema)) body: LoginInput,
 		@CurrentClient() client: Client,
 		@Res({ passthrough: true }) response: Response
-	): Promise<Session> {
-		const userId = await this.auth.login(body, client.requestId);
-		return this.sessions.open(response, userId, client);
+	): Promise<LoginResult> {
+		const userId = await this.auth.login(body, client);
+		const methods = await this.mfa.methodsFor(userId);
+		if (methods.length > 0) return this.mfa.challenge(response, userId, methods);
+		// without any second factor the session only reaches the setup, the database marks it so
+		return this.mfa.signIn(response, userId, client, 'password');
 	}
 
 	@Post('password/forgot')
@@ -74,12 +80,15 @@ export class AuthController {
 		return this.auth.inspectInvitation(body.token);
 	}
 
+	// straight into a session that can only set up the second factor
 	@Post('invitations/accept')
-	@HttpCode(204)
+	@HttpCode(200)
 	async acceptInvitation(
 		@Body(new ZodPipe(acceptInvitationSchema)) body: AcceptInvitationInput,
-		@CurrentClient() client: Client
-	) {
-		await this.auth.acceptInvitation(body, client.requestId);
+		@CurrentClient() client: Client,
+		@Res({ passthrough: true }) response: Response
+	): Promise<Session> {
+		const userId = await this.auth.acceptInvitation(body, client.requestId);
+		return this.sessions.open(response, userId, client);
 	}
 }

@@ -21,7 +21,9 @@ export class ResendTransport extends MailTransport {
 			signal: AbortSignal.timeout(10_000)
 		});
 		if (!reply.ok) {
-			throw new Error(`Resend answered ${reply.status}: ${await reply.text()}`);
+			// only the error name goes to the log, resend may quote the recipient or the text back
+			const answer = (await reply.json().catch(() => null)) as { name?: unknown } | null;
+			throw new Error(`Resend answered ${reply.status} ${String(answer?.name ?? '')}`.trim());
 		}
 	}
 }

@@ -25,9 +25,17 @@ const parsers = new TypeOverrides();
 parsers.setTypeParser(types.builtins.TIMESTAMPTZ, isoInstant);
 parsers.setTypeParser(types.builtins.DATE, (text) => text);
 
+// a burst of requests queues in the api instead of flooding postgres with connections
+export const POOL = { max: 10, connectionTimeoutMillis: 5_000, idleTimeoutMillis: 30_000 };
+
 export class Database extends Kysely<DB> implements OnApplicationShutdown {
 	constructor(url: string) {
-		const pool = new Pool({ connectionString: url, types: parsers, options: '-c TimeZone=UTC' });
+		const pool = new Pool({
+			...POOL,
+			connectionString: url,
+			types: parsers,
+			options: '-c TimeZone=UTC'
+		});
 		// an idle client losing its connection would otherwise take the whole process down
 		pool.on('error', (error) => new Logger(Database.name).warn(`Idle client: ${error.message}`));
 		super({ dialect: new PostgresDialect({ pool }) });

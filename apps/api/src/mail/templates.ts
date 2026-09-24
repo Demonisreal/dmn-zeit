@@ -2,17 +2,24 @@ import type { Locale } from '@zeit/shared';
 
 type MailText = { subject: string; text: string };
 
+// names come from people, a line break in one would open a new header line or fake a paragraph
+export function clean(text: string): string {
+	return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').trim();
+}
+
 export function invitationMail(
 	locale: Locale,
 	{ name, tenant, link }: { name: string; tenant: string; link: string }
 ): MailText {
+	const person = clean(name);
+	const company = clean(tenant);
 	if (locale === 'en') {
 		return {
-			subject: `Invitation to DMN Zeit (${tenant})`,
+			subject: `Invitation to DMN Zeit (${company})`,
 			text: [
-				`Hello ${name},`,
+				`Hello ${person},`,
 				'',
-				`${tenant} has set up an account for you in DMN Zeit, the time tracking of your company. Use this link to choose your password:`,
+				`${company} has set up an account for you in DMN Zeit, the time tracking of your company. Use this link to choose your password:`,
 				'',
 				link,
 				'',
@@ -21,11 +28,11 @@ export function invitationMail(
 		};
 	}
 	return {
-		subject: `Einladung zu DMN Zeit (${tenant})`,
+		subject: `Einladung zu DMN Zeit (${company})`,
 		text: [
-			`Hallo ${name},`,
+			`Hallo ${person},`,
 			'',
-			`${tenant} hat für Sie einen Zugang zu DMN Zeit angelegt, der Zeiterfassung Ihres Betriebs. Über diesen Link legen Sie Ihr Passwort fest:`,
+			`${company} hat für Sie einen Zugang zu DMN Zeit angelegt, der Zeiterfassung Ihres Betriebs. Über diesen Link legen Sie Ihr Passwort fest:`,
 			'',
 			link,
 			'',
@@ -42,7 +49,7 @@ export function resetMail(
 		return {
 			subject: 'Reset your DMN Zeit password',
 			text: [
-				`Hello ${name},`,
+				`Hello ${clean(name)},`,
 				'',
 				'a new password was requested for your DMN Zeit account. Use this link to set it:',
 				'',
@@ -55,7 +62,7 @@ export function resetMail(
 	return {
 		subject: 'Passwort für DMN Zeit zurücksetzen',
 		text: [
-			`Hallo ${name},`,
+			`Hallo ${clean(name)},`,
 			'',
 			'für Ihren Zugang zu DMN Zeit wurde ein neues Passwort angefordert. Über diesen Link legen Sie es fest:',
 			'',
@@ -71,7 +78,7 @@ export function passwordChangedMail(locale: Locale, { name }: { name: string }):
 		return {
 			subject: 'Your DMN Zeit password was changed',
 			text: [
-				`Hello ${name},`,
+				`Hello ${clean(name)},`,
 				'',
 				'the password of your DMN Zeit account was just changed. Other signed-in devices were signed out.',
 				'',
@@ -82,11 +89,152 @@ export function passwordChangedMail(locale: Locale, { name }: { name: string }):
 	return {
 		subject: 'Ihr Passwort für DMN Zeit wurde geändert',
 		text: [
-			`Hallo ${name},`,
+			`Hallo ${clean(name)},`,
 			'',
 			'das Passwort Ihres Zugangs zu DMN Zeit wurde soeben geändert. Andere angemeldete Geräte wurden dabei abgemeldet.',
 			'',
 			'Waren Sie das nicht, setzen Sie über „Passwort vergessen“ ein neues Passwort und informieren Sie Ihre Administration.'
 		].join('\n')
 	};
+}
+
+type Notice = { subject: string; lines: string[] };
+
+const notYou: Record<Locale, string> = {
+	de: 'Waren Sie das nicht, wenden Sie sich bitte umgehend an Ihre Administration.',
+	en: 'If this was not you, please contact your administrator right away.'
+};
+
+function notice(locale: Locale, name: string, texts: Record<Locale, Notice>): MailText {
+	const { subject, lines } = texts[locale];
+	const greeting = locale === 'en' ? `Hello ${clean(name)},` : `Hallo ${clean(name)},`;
+	return { subject, text: [greeting, '', ...lines].join('\n') };
+}
+
+export function totpEnabledMail(locale: Locale, { name }: { name: string }): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Authenticator-App für DMN Zeit eingerichtet',
+			lines: [
+				'für Ihren Zugang zu DMN Zeit wurde eine Authenticator-App als zweiter Faktor eingerichtet.',
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'Authenticator app set up for DMN Zeit',
+			lines: [
+				'an authenticator app was set up as second factor for your DMN Zeit account.',
+				'',
+				notYou.en
+			]
+		}
+	});
+}
+
+export function totpRemovedMail(locale: Locale, { name }: { name: string }): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Authenticator-App aus DMN Zeit entfernt',
+			lines: [
+				'die Authenticator-App wurde als zweiter Faktor Ihres Zugangs zu DMN Zeit entfernt.',
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'Authenticator app removed from DMN Zeit',
+			lines: [
+				'the authenticator app was removed as second factor of your DMN Zeit account.',
+				'',
+				notYou.en
+			]
+		}
+	});
+}
+
+export function passkeyAddedMail(
+	locale: Locale,
+	{ name, passkey }: { name: string; passkey: string }
+): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Neuer Passkey für DMN Zeit',
+			lines: [
+				`Ihrem Zugang zu DMN Zeit wurde der Passkey „${clean(passkey)}“ hinzugefügt.`,
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'New passkey for DMN Zeit',
+			lines: [`the passkey "${clean(passkey)}" was added to your DMN Zeit account.`, '', notYou.en]
+		}
+	});
+}
+
+export function passkeyRemovedMail(
+	locale: Locale,
+	{ name, passkey }: { name: string; passkey: string }
+): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Passkey aus DMN Zeit entfernt',
+			lines: [
+				`der Passkey „${clean(passkey)}“ wurde aus Ihrem Zugang zu DMN Zeit entfernt.`,
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'Passkey removed from DMN Zeit',
+			lines: [
+				`the passkey "${clean(passkey)}" was removed from your DMN Zeit account.`,
+				'',
+				notYou.en
+			]
+		}
+	});
+}
+
+export function recoveryCodesRenewedMail(locale: Locale, { name }: { name: string }): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Neue Wiederherstellungscodes für DMN Zeit',
+			lines: [
+				'für Ihren Zugang zu DMN Zeit wurden neue Wiederherstellungscodes erzeugt. Die bisherigen gelten nicht mehr.',
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'New recovery codes for DMN Zeit',
+			lines: [
+				'new recovery codes were created for your DMN Zeit account. The previous ones no longer work.',
+				'',
+				notYou.en
+			]
+		}
+	});
+}
+
+export function mfaResetMail(locale: Locale, { name }: { name: string }): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Zwei-Faktor-Anmeldung für DMN Zeit zurückgesetzt',
+			lines: [
+				'Ihre Administration hat die Zwei-Faktor-Anmeldung Ihres Zugangs zu DMN Zeit zurückgesetzt und alle Sitzungen beendet. Beim nächsten Anmelden richten Sie eine Authenticator-App oder einen Passkey neu ein.',
+				'',
+				'Haben Sie das nicht veranlasst, fragen Sie bitte bei Ihrer Administration nach.'
+			]
+		},
+		en: {
+			subject: 'Two-factor sign-in for DMN Zeit was reset',
+			lines: [
+				'your administrator reset the two-factor sign-in of your DMN Zeit account and ended all sessions. At your next sign-in you set up an authenticator app or a passkey again.',
+				'',
+				'If you did not ask for this, please check with your administrator.'
+			]
+		}
+	});
 }

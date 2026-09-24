@@ -60,6 +60,35 @@ export class AuthStore {
 		await sql`select auth.login_failed(${userId})`.execute(this.db);
 	}
 
+	// swaps the hash only while it is still the one that was checked, every session stays
+	async rehash(userId: string, oldHash: string, newHash: string): Promise<void> {
+		await sql`select auth.password_rehash(${userId}, ${oldHash}, ${newHash})`.execute(this.db);
+	}
+
+	// someone else in the tenant, as an admin sees them
+	async person(
+		ctx: TenantContext,
+		userId: string
+	): Promise<
+		{ email: string; displayName: string; locale: Locale; employeeId: string | null } | undefined
+	> {
+		const row = await this.db.withTenant(ctx, (trx) =>
+			trx
+				.selectFrom('app.users')
+				.select(['email', 'display_name', 'locale', 'employee_id'])
+				.where('id', '=', userId)
+				.executeTakeFirst()
+		);
+		return (
+			row && {
+				email: row.email,
+				displayName: row.display_name,
+				locale: row.locale as Locale,
+				employeeId: row.employee_id
+			}
+		);
+	}
+
 	async createSession(userId: string, session: NewSession): Promise<void> {
 		await sql`select auth.session_create(${userId}, ${session.tokenHash}, ${session.csrfHash},
 			${session.ip}::inet, ${session.userAgent})`.execute(this.db);
@@ -172,7 +201,6 @@ export class AuthStore {
 		passwordHash: string
 	): Promise<string | null> {
 		return this.db.transaction().execute(async (trx) => {
-			// no app.user_id here, guard_own_user would take the activation for a self-promotion
 			await sql`select set_config('app.request_id', ${requestId}, true)`.execute(trx);
 			const { rows } = await sql<{ userId: string | null }>`
 				select auth.invitation_accept(${tokenHash}, ${passwordHash}) as "userId"`.execute(trx);

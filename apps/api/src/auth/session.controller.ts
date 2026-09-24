@@ -16,6 +16,8 @@ import type { ActiveSession, ChangePasswordInput, Session } from '@zeit/shared';
 import type { Request, Response } from 'express';
 import { CurrentClient, type Client } from '../common/client.decorator';
 import { CurrentSession } from '../common/current-session.decorator';
+import { AllowDuringEnrollment } from '../common/enrollment.guard';
+import { RequireReauth } from '../common/reauth.guard';
 import type { AuthSession } from '../common/session.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { AuthService } from './auth.service';
@@ -29,12 +31,14 @@ export class SessionController {
 	) {}
 
 	@Get('session')
+	@AllowDuringEnrollment()
 	current(@CurrentSession() session: AuthSession, @Req() request: Request): Promise<Session> {
 		return this.sessions.current(session, request);
 	}
 
 	@Post('logout')
 	@HttpCode(204)
+	@AllowDuringEnrollment()
 	async logout(
 		@CurrentSession() session: AuthSession,
 		@Res({ passthrough: true }) response: Response
@@ -44,6 +48,7 @@ export class SessionController {
 
 	@Post('password/change')
 	@HttpCode(200)
+	@RequireReauth()
 	@Throttle({ default: { limit: 10, ttl: minutes(1) } })
 	async changePassword(
 		@CurrentSession() session: AuthSession,
@@ -51,7 +56,7 @@ export class SessionController {
 		@CurrentClient() client: Client,
 		@Res({ passthrough: true }) response: Response
 	): Promise<Session> {
-		await this.auth.changePassword(session, body);
+		await this.auth.changePassword(session, body, client);
 		return this.sessions.open(response, session.userId, client);
 	}
 

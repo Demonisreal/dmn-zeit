@@ -1,5 +1,7 @@
+import { activeSessionSchema } from '@zeit/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cookieFrom, startApi, type Api } from './api';
+import { z } from 'zod';
+import { cookieFrom, expectContract, startApi, type Api } from './api';
 
 let api: Api;
 
@@ -24,6 +26,7 @@ describe('own sessions', () => {
 		const answer = await laptop.get('/auth/sessions');
 
 		expect(answer.status).toBe(200);
+		expectContract(z.array(activeSessionSchema), answer.body);
 		expect(answer.body).toHaveLength(2);
 		expect(answer.body.filter((session: { current: boolean }) => session.current)).toHaveLength(1);
 		expect(answer.body[0]).toMatchObject({ ip: expect.stringMatching(/^203\.0\.113\./) });
@@ -68,6 +71,7 @@ describe('own sessions', () => {
 describe('POST /api/auth/password/change', () => {
 	it('ends every session, opens a new one and sends a notice', async () => {
 		const { person, laptop, phone } = await twoDevices();
+		expect((await laptop.reauth()).status).toBe(200);
 		const answer = await laptop.post('/auth/password/change', {
 			currentPassword: 'kaffee ohne milch bitte',
 			newPassword: 'ein ganz neues passwort'
@@ -90,6 +94,7 @@ describe('POST /api/auth/password/change', () => {
 
 	it('refuses a wrong current password without logging anyone out', async () => {
 		const { laptop, phone } = await twoDevices();
+		await laptop.reauth();
 		const answer = await laptop.post('/auth/password/change', {
 			currentPassword: 'kaffee mit milch',
 			newPassword: 'ein ganz neues passwort'

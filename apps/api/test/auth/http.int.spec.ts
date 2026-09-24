@@ -1,3 +1,4 @@
+import type { Server } from 'node:http';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { cookieFrom, startApi, type Api } from './api';
@@ -36,6 +37,33 @@ describe('headers and errors of a json api', () => {
 		expect(answer.headers['x-content-type-options']).toBe('nosniff');
 		expect(answer.headers['strict-transport-security']).toBeUndefined();
 		expect(answer.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+		expect(answer.headers['x-powered-by']).toBeUndefined();
+	});
+
+	it('answers methods it has no route for with its own 404', async () => {
+		// one after the other, every supertest request binds the server on its own
+		const calls = [
+			() => request(api.http).trace('/api/health'),
+			() => request(api.http).delete('/api/health'),
+			() => request(api.http).put('/api/auth/login')
+		];
+		for (const call of calls) {
+			const answer = await call();
+			expect(answer.status).toBe(404);
+			expect(answer.body).toMatchObject({ code: 'NOT_FOUND' });
+		}
+	});
+
+	it('drops slow and oversized clients early', async () => {
+		// imported here, at the top it would load app.module before startApi sets the test env
+		const { HEADERS_TIMEOUT, KEEP_ALIVE_TIMEOUT, MAX_HEADERS, REQUEST_TIMEOUT } =
+			await import('../../src/app');
+		const server: Server = api.http;
+		expect(server.headersTimeout).toBe(HEADERS_TIMEOUT);
+		expect(server.requestTimeout).toBe(REQUEST_TIMEOUT);
+		expect(server.keepAliveTimeout).toBe(KEEP_ALIVE_TIMEOUT);
+		expect(server.maxHeadersCount).toBe(MAX_HEADERS);
+		expect(HEADERS_TIMEOUT).toBeLessThan(REQUEST_TIMEOUT);
 	});
 
 	it('answers broken json in its own format', async () => {

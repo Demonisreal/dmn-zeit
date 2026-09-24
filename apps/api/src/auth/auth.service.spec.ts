@@ -5,6 +5,8 @@ import type { Locale, Role } from '@zeit/shared';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Clock } from '../common/clock';
 import type { AuthSession } from '../common/session.guard';
+import type { Audit } from '../common/audit';
+import { MailQueue } from '../mail/mail.queue';
 import { MemoryTransport } from '../mail/memory.transport';
 import type { AuthStore, TokenKind } from './auth.store';
 import { AuthService } from './auth.service';
@@ -99,6 +101,9 @@ class FakeStore {
 		Object.assign(this.byId(token.userId), { passwordHash, status: 'active' });
 		return token.userId;
 	});
+	rehash = vi.fn(async (userId: string, _oldHash: string, newHash: string) => {
+		this.byId(userId).passwordHash = newHash;
+	});
 	changePassword = vi.fn(async ({ userId }: { userId: string }, passwordHash: string) => {
 		Object.assign(this.byId(userId), { passwordHash, loggedOutEverywhere: true });
 	});
@@ -148,13 +153,16 @@ function setup() {
 
 	const clock = { now: () => new Date('2026-09-24T08:00:00Z') };
 	const mail = new MemoryTransport();
+	const audit = { record: vi.fn(async () => {}) };
 	const auth = new AuthService(
 		store as unknown as AuthStore,
 		mail,
+		new MailQueue(),
+		audit as unknown as Audit,
 		clock as Clock,
 		new ConfigService({ APP_ORIGIN: 'https://zeit.example.com', PASSWORD_PEPPER: pepper })
 	);
-	return { auth, store, clock, mail, anna: store.accounts[0]!, ben: store.accounts[1]! };
+	return { auth, store, audit, clock, mail, anna: store.accounts[0]!, ben: store.accounts[1]! };
 }
 
 async function failure(call: Promise<unknown>) {
@@ -168,6 +176,8 @@ async function failure(call: Promise<unknown>) {
 	}
 	throw new Error('expected the call to fail');
 }
+
+const client = { requestId: 'r1', ip: '203.0.113.7', userAgent: 'vitest' };
 
 const annasSession = {
 	id: 's1',
@@ -184,7 +194,7 @@ const annasSession = {
 describe('AuthService.login', () => {
 	it('returns the user for the right password, whatever the case of the address', async () => {
 		const { auth } = setup();
-		expect(await auth.login({ email: 'Anna@Muster.test', password: PASSWORD }, 'r1')).toBe(
+		expect(await auth.login({ email: 'Anna@Muster.test', password: PASSWORD }, client)).toBe(
 			'u-anna'
 		);
 	});
@@ -192,9 +202,9 @@ describe('AuthService.login', () => {
 	it('gives the same answer for an unknown address, a wrong password and an open invitation', async () => {
 		const { auth } = setup();
 		const answers = await Promise.all([
-			failure(auth.login({ email: 'nobody@muster.test', password: PASSWORD }, 'r1')),
-			failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, 'r1')),
-			failure(auth.login({ email: 'ben@muster.test', password: PASSWORD }, 'r1'))
+			failure(auth.login({ email: 'nobody@muster.test', password: PASSWORD }, client)),
+			failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, client)),
+			failure(auth.login({ email: 'ben@muster.test', password: PASSWORD }, client))
 		]);
 		expect(new Set(answers.map((answer) => JSON.stringify(answer))).size).toBe(1);
 		expect(answers[0]).toMatchObject({ status: 401, code: 'INVALID_CREDENTIALS' });
@@ -202,8 +212,8 @@ describe('AuthService.login', () => {
 
 	it('counts only real guesses at a real password towards the lock', async () => {
 		const { auth, store, anna, ben } = setup();
-		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, 'r1'));
-		await failure(auth.login({ email: 'ben@muster.test', password: 'kaffee mit milch' }, 'r1'));
+		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, client));
+		await failure(auth.login({ email: 'ben@muster.test', password: 'kaffee mit milch' }, client));
 
 		expect(anna.failures).toBe(1);
 		expect(ben.failures).toBe(0);
@@ -215,43 +225,49 @@ describe('AuthService.login', () => {
 		anna.lockedUntil = '2026-09-24T08:04:00Z';
 
 		expect(
-			await failure(auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1'))
+			await failure(auth.login({ email: 'anna@muster.test', password: PASSWORD }, client))
 		).toMatchObject({ code: 'INVALID_CREDENTIALS' });
 		expect(store.loginFailed).not.toHaveBeenCalled();
 
 		clock.now = () => new Date('2026-09-24T08:04:01Z');
-		expect(await auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1')).toBe(
+		expect(await auth.login({ email: 'anna@muster.test', password: PASSWORD }, client)).toBe(
 			'u-anna'
 		);
 	});
 
-	it('rehashes a password stored with weaker parameters', async () => {
+	it('rehashes a password stored with weaker parameters, without ending any session', async () => {
 		const { auth, store, anna } = setup();
-		anna.passwordHash = await hash(PASSWORD, { memoryCost: 4096, timeCost: 1, secret: pepper });
+		const weak = await hash(PASSWORD, { memoryCost: 4096, timeCost: 1, secret: pepper });
+		anna.passwordHash = weak;
 
-		await auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1');
-		expect(store.changePassword).toHaveBeenCalledWith(
-			expect.objectContaining({ userId: 'u-anna', tenantId: 't1', requestId: 'r1' }),
+		await auth.login({ email: 'anna@muster.test', password: PASSWORD }, client);
+		expect(store.rehash).toHaveBeenCalledWith(
+			'u-anna',
+			weak,
 			expect.stringMatching(/m=19456,t=2,p=1/)
 		);
+		expect(store.changePassword).not.toHaveBeenCalled();
 	});
 
 	it('leaves a current hash alone', async () => {
 		const { auth, store } = setup();
-		await auth.login({ email: 'anna@muster.test', password: PASSWORD }, 'r1');
-		expect(store.changePassword).not.toHaveBeenCalled();
+		await auth.login({ email: 'anna@muster.test', password: PASSWORD }, client);
+		expect(store.rehash).not.toHaveBeenCalled();
+	});
+
+	it('writes a wrong password to the trail, not an unknown address', async () => {
+		const { auth, audit } = setup();
+		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, client));
+		await failure(auth.login({ email: 'nobody@muster.test', password: PASSWORD }, client));
+
+		expect(audit.record).toHaveBeenCalledTimes(1);
+		expect(audit.record).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: 'u-anna', actor: null, action: 'login.failed' })
+		);
 	});
 });
 
 describe('AuthService password reset', () => {
-	it('lets a mail still on its way go out before the app shuts down', async () => {
-		const { auth, mail } = setup();
-		auth.forgotPassword('anna@muster.test', 'r1');
-
-		await auth.beforeApplicationShutdown();
-		expect(mail.sent).toHaveLength(1);
-	});
-
 	it('answers before it looks the address up', async () => {
 		const { auth, store, mail } = setup();
 		auth.forgotPassword('anna@muster.test', 'r1');
@@ -344,7 +360,7 @@ describe('AuthService invitations', () => {
 			passwordHash: expect.stringMatching(/^\$argon2id\$/)
 		});
 		expect(
-			await auth.login({ email: 'ben@muster.test', password: 'mein eigenes passwort' }, 'r1')
+			await auth.login({ email: 'ben@muster.test', password: 'mein eigenes passwort' }, client)
 		).toBe('u-ben');
 
 		expect(
@@ -363,27 +379,29 @@ describe('AuthService invitations', () => {
 
 describe('AuthService.changePassword', () => {
 	it('needs the current password and counts a wrong one', async () => {
-		const { auth, anna, store } = setup();
+		const { auth, anna, store, audit } = setup();
 		const input = { currentPassword: 'kaffee mit milch', newPassword: 'ein ganz neues passwort' };
 
-		expect(await failure(auth.changePassword(annasSession, input))).toMatchObject({
+		expect(await failure(auth.changePassword(annasSession, input, client))).toMatchObject({
 			status: 403,
 			code: 'INVALID_CREDENTIALS'
 		});
 		expect(anna.failures).toBe(1);
 		expect(store.changePassword).not.toHaveBeenCalled();
+		expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'reauth.failed' }));
 	});
 
 	it('swaps the password, ends the other sessions and sends a notice', async () => {
 		const { auth, anna, mail } = setup();
-		await auth.changePassword(annasSession, {
-			currentPassword: PASSWORD,
-			newPassword: 'ein ganz neues passwort'
-		});
+		await auth.changePassword(
+			annasSession,
+			{ currentPassword: PASSWORD, newPassword: 'ein ganz neues passwort' },
+			client
+		);
 
 		expect(anna.loggedOutEverywhere).toBe(true);
 		expect(
-			await auth.login({ email: 'anna@muster.test', password: 'ein ganz neues passwort' }, 'r1')
+			await auth.login({ email: 'anna@muster.test', password: 'ein ganz neues passwort' }, client)
 		).toBe('u-anna');
 		await vi.waitFor(() => expect(mail.sent[0]).toMatchObject({ to: 'anna@muster.test' }));
 	});
@@ -396,7 +414,8 @@ describe('AuthService.changePassword', () => {
 
 		await auth.changePassword(
 			{ ...annasSession, userId: ben.userId, role: 'employee' },
-			{ currentPassword: 'mein eigenes passwort', newPassword: 'ein ganz neues passwort' }
+			{ currentPassword: 'mein eigenes passwort', newPassword: 'ein ganz neues passwort' },
+			client
 		);
 		await vi.waitFor(() =>
 			expect(mail.sent[0]?.subject).toBe('Your DMN Zeit password was changed')
@@ -407,10 +426,11 @@ describe('AuthService.changePassword', () => {
 		const { auth } = setup();
 		expect(
 			await failure(
-				auth.changePassword(annasSession, {
-					currentPassword: PASSWORD,
-					newPassword: 'qwertz123456'
-				})
+				auth.changePassword(
+					annasSession,
+					{ currentPassword: PASSWORD, newPassword: 'qwertz123456' },
+					client
+				)
 			)
 		).toMatchObject({
 			code: 'VALIDATION',

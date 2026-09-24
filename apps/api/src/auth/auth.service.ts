@@ -1,9 +1,7 @@
 import {
 	BadRequestException,
-	BeforeApplicationShutdown,
 	ForbiddenException,
 	Injectable,
-	Logger,
 	UnauthorizedException
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,10 +13,13 @@ import type {
 	LoginInput,
 	ResetPasswordInput
 } from '@zeit/shared';
+import { Audit } from '../common/audit';
+import type { Client } from '../common/client.decorator';
 import { Clock } from '../common/clock';
 import type { AuthSession } from '../common/session.guard';
 import type { Config } from '../config';
 import type { TenantContext } from '../db/database';
+import { MailQueue } from '../mail/mail.queue';
 import { MailTransport } from '../mail/mail.transport';
 import { passwordChangedMail, resetMail } from '../mail/templates';
 import { AuthStore, type Credential, type Profile } from './auth.store';
@@ -64,17 +65,18 @@ function contextOf(credential: Credential, requestId: string): TenantContext & {
 	};
 }
 
+type Checked = { credential: Credential & { passwordHash: string }; matched: boolean };
+
 @Injectable()
-export class AuthService implements BeforeApplicationShutdown {
-	private readonly logger = new Logger(AuthService.name);
+export class AuthService {
 	private readonly origin: string;
 	private readonly pepper: Buffer;
-	// mails that go out after the answer
-	private readonly pending = new Set<Promise<void>>();
 
 	constructor(
 		private readonly store: AuthStore,
 		private readonly mail: MailTransport,
+		private readonly queue: MailQueue,
+		private readonly audit: Audit,
 		private readonly clock: Clock,
 		config: ConfigService<Config, true>
 	) {
@@ -82,34 +84,68 @@ export class AuthService implements BeforeApplicationShutdown {
 		this.pepper = config.get('PASSWORD_PEPPER', { infer: true });
 	}
 
-	async login(input: LoginInput, requestId: string): Promise<string> {
-		const credential = await this.check(input.email, input.password);
-		if (!credential) throw new UnauthorizedException(invalidCredentials);
-
-		if (needsRehash(credential.passwordHash)) {
-			// password_change also ends the other sessions, fine for the rare raise of the parameters
-			const rehashed = await hashPassword(input.password, this.pepper);
-			await this.store.changePassword(contextOf(credential, requestId), rehashed);
+	// the password step only, the caller decides between a second factor and a session
+	async login(input: LoginInput, client: Client): Promise<string> {
+		const checked = await this.check(input.email, input.password);
+		if (checked && !checked.matched) {
+			await this.audit.record({
+				tenantId: checked.credential.tenantId,
+				userId: checked.credential.userId,
+				actor: null,
+				action: 'login.failed',
+				details: { method: 'password' },
+				client
+			});
 		}
-		return credential.userId;
+		if (!checked?.matched) throw new UnauthorizedException(invalidCredentials);
+
+		const { userId, passwordHash } = checked.credential;
+		if (needsRehash(passwordHash)) {
+			await this.store.rehash(
+				userId,
+				passwordHash,
+				await hashPassword(input.password, this.pepper)
+			);
+		}
+		return userId;
+	}
+
+	// password change and step-up both want the current password, counted like a login
+	async confirmPassword(session: AuthSession, password: string, client: Client): Promise<Profile> {
+		const profile = await this.store.profile(session);
+		const checked = await this.check(profile.user.email, password);
+		if (checked?.matched) return profile;
+
+		if (checked) {
+			await this.audit.record({
+				tenantId: session.tenantId,
+				userId: session.userId,
+				employeeId: session.employeeId,
+				actor: { userId: session.userId, role: session.role },
+				action: 'reauth.failed',
+				details: { method: 'password' },
+				client
+			});
+		}
+		throw new ForbiddenException(invalidCredentials);
 	}
 
 	// the caller opens the new session, all others are gone after this
-	async changePassword(session: AuthSession, input: ChangePasswordInput): Promise<void> {
+	async changePassword(
+		session: AuthSession,
+		input: ChangePasswordInput,
+		client: Client
+	): Promise<void> {
 		if (isCommonPassword(input.newPassword)) throw commonPassword('newPassword');
 
-		const profile = await this.store.profile(session);
-		if (!(await this.check(profile.user.email, input.currentPassword))) {
-			throw new ForbiddenException(invalidCredentials);
-		}
-
+		const profile = await this.confirmPassword(session, input.currentPassword, client);
 		await this.store.changePassword(session, await hashPassword(input.newPassword, this.pepper));
-		this.later(() => this.mailPasswordChanged(profile));
+		this.queue.later(() => this.mailPasswordChanged(profile));
 	}
 
 	forgotPassword(email: string, requestId: string): void {
 		// after the answer, its timing must not tell whether the address has an account
-		this.later(() => this.sendReset(email, requestId));
+		this.queue.later(() => this.sendReset(email, requestId));
 	}
 
 	async sendReset(email: string, requestId: string): Promise<void> {
@@ -138,7 +174,7 @@ export class AuthService implements BeforeApplicationShutdown {
 		const userId = await this.store.resetPassword(tokenHash, passwordHash);
 		if (!userId) throw tokenInvalid();
 
-		this.later(async () => {
+		this.queue.later(async () => {
 			const credential = await this.store.credential(owner.email);
 			if (credential) {
 				await this.mailPasswordChanged(await this.store.profile(contextOf(credential, requestId)));
@@ -152,7 +188,8 @@ export class AuthService implements BeforeApplicationShutdown {
 		return { email: owner.email, displayName: owner.displayName, tenantName: owner.tenantName };
 	}
 
-	async acceptInvitation(input: AcceptInvitationInput, requestId: string): Promise<void> {
+	// the new account, the caller opens its first session to set up the second factor
+	async acceptInvitation(input: AcceptInvitationInput, requestId: string): Promise<string> {
 		if (isCommonPassword(input.password)) throw commonPassword('password');
 
 		const tokenHash = hashToken(input.token);
@@ -160,29 +197,27 @@ export class AuthService implements BeforeApplicationShutdown {
 		if (!(await this.store.inspectToken(tokenHash, 'invite'))) throw tokenInvalid();
 
 		const passwordHash = await hashPassword(input.password, this.pepper);
-		if (!(await this.store.acceptInvitation(requestId, tokenHash, passwordHash))) {
-			throw tokenInvalid();
-		}
+		const userId = await this.store.acceptInvitation(requestId, tokenHash, passwordHash);
+		if (!userId) throw tokenInvalid();
+		return userId;
 	}
 
-	// null for unknown, locked, password-less and wrong alike; only a wrong guess counts towards the lock
-	private async check(
-		email: string,
-		password: string
-	): Promise<(Credential & { passwordHash: string }) | null> {
+	// undefined for unknown, locked and password-less alike; only a wrong guess counts towards the lock
+	private async check(email: string, password: string): Promise<Checked | undefined> {
 		const credential = await this.store.credential(email);
 		const locked =
 			!!credential?.lockedUntil && Date.parse(credential.lockedUntil) > this.clock.now().getTime();
 		if (!credential?.passwordHash || locked) {
 			await dummyVerify(password, this.pepper);
-			return null;
+			return undefined;
 		}
 
+		const known = { ...credential, passwordHash: credential.passwordHash };
 		if (await verifyPassword(credential.passwordHash, password, this.pepper)) {
-			return { ...credential, passwordHash: credential.passwordHash };
+			return { credential: known, matched: true };
 		}
 		await this.store.loginFailed(credential.userId);
-		return null;
+		return { credential: known, matched: false };
 	}
 
 	private async mailPasswordChanged({ user, tenant }: Profile): Promise<void> {
@@ -191,18 +226,5 @@ export class AuthService implements BeforeApplicationShutdown {
 			to: user.email,
 			...passwordChangedMail(user.locale, { name: user.displayName })
 		});
-	}
-
-	private later(work: () => Promise<void>) {
-		const job: Promise<void> = new Promise((resolve) => setImmediate(resolve))
-			.then(work)
-			.catch((error: unknown) => this.logger.error(error))
-			.finally(() => this.pending.delete(job));
-		this.pending.add(job);
-	}
-
-	// a job that reaches for a connection while the pool closes would hold up the shutdown for good
-	async beforeApplicationShutdown() {
-		await Promise.allSettled(this.pending);
 	}
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Config } from '../config';
 import { Database } from '../db/database';
+import { MailQueue } from './mail.queue';
 import { MailTransport } from './mail.transport';
 import { MemoryTransport } from './memory.transport';
 import { OutboxTransport } from './outbox.transport';
@@ -9,6 +10,7 @@ import { ResendTransport } from './resend.transport';
 
 @Module({
 	providers: [
+		MailQueue,
 		{
 			provide: MailTransport,
 			inject: [ConfigService, Database],
@@ -28,6 +30,6 @@ import { ResendTransport } from './resend.transport';
 			}
 		}
 	],
-	exports: [MailTransport]
+	exports: [MailTransport, MailQueue]
 })
 export class MailModule {}

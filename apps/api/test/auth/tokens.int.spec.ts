@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import { invitationSchema } from '@zeit/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTenant } from '../../src/cli/tenant-create';
 import { Database } from '../../src/db/database';
 import { databaseUrl } from '../helpers/pg';
-import { startApi, type Api } from './api';
+import { expectContract, startApi, type Api } from './api';
 
 let api: Api;
 
@@ -26,6 +27,7 @@ describe('invitations', () => {
 
 		const inspected = await browser.post('/auth/invitations/inspect', { token });
 		expect(inspected.status).toBe(200);
+		expectContract(invitationSchema, inspected.body);
 		expect(inspected.body).toEqual({
 			email,
 			displayName: 'Erika Muster',
@@ -34,7 +36,9 @@ describe('invitations', () => {
 
 		const accept = () =>
 			browser.post('/auth/invitations/accept', { token, password: 'mein eigenes passwort' });
-		expect((await accept()).status).toBe(204);
+		const accepted = await accept();
+		expect(accepted.status).toBe(200);
+		expect(accepted.body.security).toEqual({ enrollmentPending: true, reauthUntil: null });
 
 		const again = await accept();
 		expect(again.status).toBe(400);
@@ -69,13 +73,13 @@ describe('invitations', () => {
 		expect(
 			(await browser.post('/auth/invitations/accept', { token, password: 'mein eigenes passwort' }))
 				.status
-		).toBe(204);
+		).toBe(200);
 
 		const admin = await api.browser().signIn(email, 'mein eigenes passwort');
 		expect(admin.body.user).toMatchObject({ role: 'admin', status: 'active' });
 	});
 
-	it('writes the activation to the trail, tied to the request', async () => {
+	it('writes the activation to the trail, with the invited person as actor', async () => {
 		const { token, userId } = await api.invited();
 		await api
 			.browser()
@@ -88,7 +92,7 @@ describe('invitations', () => {
 			[userId]
 		);
 		expect(rows[0]).toEqual({
-			actor_user_id: null,
+			actor_user_id: userId,
 			diff: { status: ['invited', 'active'] },
 			has_request: true
 		});

@@ -1,6 +1,6 @@
 import { sessionSchema } from '@zeit/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { cookieFrom, startApi, type Api } from './api';
+import { cookieFrom, expectContract, startApi, type Api } from './api';
 
 let api: Api;
 
@@ -20,7 +20,7 @@ describe('POST /api/auth/login', () => {
 		expect(cookieFrom(answer, 'zeit_sid')).toMatch(
 			/^zeit_sid=[\w-]{43}; Path=\/; HttpOnly; SameSite=Strict$/
 		);
-		expect(sessionSchema.safeParse(answer.body).success).toBe(true);
+		expectContract(sessionSchema, answer.body);
 		expect(answer.body).toMatchObject({ user: { email }, mode: 'test' });
 
 		const reload = await browser.get('/auth/session');
