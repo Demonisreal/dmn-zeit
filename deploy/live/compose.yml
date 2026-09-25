@@ -1,0 +1,198 @@
+name: zeit-live
+
+services:
+  zeit-live-web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    image: zeit-web:${IMAGE_TAG:-local}
+    environment:
+      API_UPSTREAM: zeit-live-api:3001
+      # only the central caddy on this subnet may set x-forwarded-for
+      EDGE_SUBNET: ${EDGE_SUBNET}
+    networks:
+      - edge
+      - app
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /data
+      - /config
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 192m
+    pids_limit: 100
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      zeit-live-api:
+        condition: service_healthy
+
+  zeit-live-api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    image: zeit-api:${IMAGE_TAG:-local}
+    environment:
+      APP_MODE: live
+      APP_ORIGIN: ${APP_ORIGIN}
+      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable
+      TRUSTED_PROXY: ${LIVE_APP_SUBNET}
+      MAIL_FROM: ${MAIL_FROM:?}
+      RESEND_API_KEY: ${RESEND_API_KEY:?}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:?}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?}
+    networks:
+      - app
+      - db
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 150
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - "-e"
+        - "require('node:http').get({host:'127.0.0.1',port:process.env.PORT||3001,path:'/api/health'},res=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      zeit-live-migrate:
+        condition: service_completed_successfully
+
+  zeit-live-migrate:
+    image: zeit-api:${IMAGE_TAG:-local}
+    command:
+      [
+        "dbmate",
+        "--wait",
+        "--url",
+        "postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable",
+        "up"
+      ]
+    networks:
+      # only needs the db, not app: app is not internal here, no reason to give migrate internet access
+      - db
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 50
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: "no"
+    depends_on:
+      zeit-live-db:
+        condition: service_healthy
+
+  zeit-live-db:
+    image: postgres:17-alpine
+    # as root the entrypoint needs chown and su-exec, both fail under cap_drop: ALL
+    user: postgres
+    environment:
+      POSTGRES_DB: zeit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ZEIT_OWNER_PASSWORD: ${ZEIT_OWNER_PASSWORD}
+      ZEIT_APP_PASSWORD: ${ZEIT_APP_PASSWORD}
+      # read-only role for zeit-live-backup, see db/init/00-roles.sh
+      ZEIT_BACKUP_PASSWORD: ${ZEIT_BACKUP_PASSWORD}
+    volumes:
+      - zeit-live-db:/var/lib/postgresql/data
+      - ../../db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - db
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1024m
+    pids_limit: 150
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      # tcp on purpose: during init the socket-only temp server already passes pg_isready
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "zeit"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  # not part of the default `up`, backup.sh runs it via `--profile backup run --rm`
+  # zeit_backup, not zeit_owner: a hijacked backup container must not be able to touch triggers or RLS (B11)
+  zeit-live-backup:
+    image: postgres:17-alpine
+    profiles:
+      - backup
+    environment:
+      PGPASSWORD: ${ZEIT_BACKUP_PASSWORD}
+    networks:
+      - db
+    # writes to stdout instead of a mounted volume: read_only + no writable path for the dump file itself
+    command: ["pg_dump", "-h", "zeit-live-db", "-U", "zeit_backup", "-d", "zeit", "-Fc"]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 50
+
+networks:
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:?}
+  app:
+    ipam:
+      config:
+        - subnet: ${LIVE_APP_SUBNET}
+  db:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${LIVE_DB_SUBNET}
+
+volumes:
+  zeit-live-db:

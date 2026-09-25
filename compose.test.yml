@@ -1,0 +1,89 @@
+name: zeit-test
+
+services:
+  zeit-test-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: zeit
+      POSTGRES_PASSWORD: postgres
+      ZEIT_OWNER_PASSWORD: zeit_owner
+      ZEIT_APP_PASSWORD: zeit_app
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - test
+    healthcheck:
+      # tcp on purpose: during init the socket-only temp server already passes pg_isready
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "zeit"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  zeit-test-migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command:
+      [
+        "dbmate",
+        "--wait",
+        "--url",
+        "postgres://zeit_owner:zeit_owner@zeit-test-db:5432/zeit?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - test
+    depends_on:
+      zeit-test-db:
+        condition: service_healthy
+
+  zeit-test-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      APP_MODE: test
+      APP_ORIGIN: http://localhost:8080
+      DATABASE_URL: postgres://zeit_app:zeit_app@zeit-test-db:5432/zeit?sslmode=disable
+      TRUSTED_PROXY: 172.30.0.0/16
+    networks:
+      - test
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - "-e"
+        - "require('node:http').get({host:'127.0.0.1',port:process.env.PORT||3001,path:'/api/health'},res=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      zeit-test-migrate:
+        condition: service_completed_successfully
+
+  zeit-test-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      API_UPSTREAM: zeit-test-api:3001
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - test
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      zeit-test-api:
+        condition: service_healthy
+
+networks:
+  test:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

@@ -1,0 +1,68 @@
+{
+	# TLS is terminated by the central caddy in front of this container, nothing to serve here directly
+	auto_https off
+	admin off
+	servers {
+		# only the central caddy may set x-forwarded-for, otherwise every client shares its rate limit
+		trusted_proxies static {$EDGE_SUBNET}
+		timeouts {
+			read_header 5s
+			read_body 10s
+			write 30s
+			# longer than the central caddy's default upstream keepalive of 2m, so it always drops an idle link first
+			idle 130s
+		}
+	}
+}
+
+:8080 {
+	root * /srv
+
+	@api path /api/*
+	@assets path /assets/*
+	@noindex not vars {env.ROBOTS_NOINDEX} ""
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		# passkey sign-in (features/security/passkey.ts) needs publickey-credentials-get on our own origin
+		Permissions-Policy "accelerometer=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(self), screen-wake-lock=(), usb=(), xr-spatial-tracking=()"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Resource-Policy same-origin
+		# backstop in case the central caddy misses HSTS; there it has to be >Strict-Transport-Security, or clients get two
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		-Server
+	}
+	# ? only fills in a missing header, so the api keeps its stricter csp and assets their cache header
+	header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+	header ?Cache-Control "no-store"
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	# compose sets ROBOTS_NOINDEX=noindex for the demo instance, live sends no X-Robots-Tag at all
+	header @noindex X-Robots-Tag {env.ROBOTS_NOINDEX}
+
+	handle @api {
+		request_body {
+			max_size 110KB
+		}
+		reverse_proxy {$API_UPSTREAM} {
+			# trusted_proxies alone still forwards the central caddy's own address as a second hop
+			header_up X-Forwarded-For {client_ip}
+			transport http {
+				# stays under the api's 130s keep-alive (app.ts) so caddy always drops an idle upstream link first
+				keepalive 90s
+			}
+		}
+	}
+
+	handle @assets {
+		file_server
+	}
+
+	handle {
+		request_body {
+			max_size 16KB
+		}
+		try_files {path} /index.html
+		file_server
+	}
+}
