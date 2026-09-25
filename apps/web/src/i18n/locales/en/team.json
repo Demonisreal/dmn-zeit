@@ -26,6 +26,7 @@
 	"legend": {
 		"types": "L leave, S sick leave, T time off in lieu.",
 		"absent": "A absent, only team leads and HR see the reason.",
-		"marks": "Dashed: requested, not decided yet. Half filled: half day."
+		"marks": "Dashed: requested, not decided yet. Half filled: half day.",
+		"names": "Each name leads to that person's time entries for this month."
 	}
 }

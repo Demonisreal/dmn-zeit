@@ -87,6 +87,9 @@ export function EmployeePage({ id }: Props) {
 				)}
 
 				<p className={`${styles.actions} ${styles.small}`}>
+					<Link to="/time" search={{ employee: person.id, month: currentMonth() }}>
+						{t('people.toMonth')}
+					</Link>
 					<Link to="/hr/flex" search={{ employee: person.id }}>
 						{t('people.toFlex')}
 					</Link>

@@ -11,7 +11,7 @@
 		"approved": "genehmigt",
 		"rejected": "abgelehnt",
 		"withdrawn": "zurückgezogen",
-		"cancel_pending": "Storno beantragt",
+		"cancel_pending": "Stornierung beantragt",
 		"cancelled": "storniert",
 		"reported": "gemeldet"
 	},
@@ -82,7 +82,14 @@
 		"resetFilter": "Filter zurücksetzen",
 		"more": "Weitere laden",
 		"withdraw": "Zurückziehen",
-		"cancel": "Stornieren"
+		"withdrawLabel": "Antrag für {{period}} zurückziehen",
+		"cancel": "Stornieren",
+		"cancelLabel": "Antrag für {{period}} stornieren"
+	},
+	"withdraw": {
+		"title": "Antrag zurückziehen?",
+		"body": "{{type}} vom {{period}} ist noch nicht entschieden. Nach dem Zurückziehen entscheidet die Teamleitung nicht mehr darüber. Für den Zeitraum lässt sich später ein neuer Antrag stellen.",
+		"confirm": "Antrag zurückziehen"
 	},
 	"cancel": {
 		"title": "Antrag stornieren?",

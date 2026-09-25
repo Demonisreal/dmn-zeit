@@ -42,10 +42,10 @@ describe('leave account', () => {
 		const entries = within(ledger).getAllByRole('row').slice(1);
 		expect(entries.map((entry) => cells(entry).slice(1, 4))).toEqual([
 			['Anspruch', '+30,00', '30,00'],
-			['Urlaub genommen', '-4,00', '26,00'],
-			['Urlaub genommen', '-10,00', '16,00'],
+			['Urlaub genehmigt', '-4,00', '26,00'],
+			['Urlaub genehmigt', '-10,00', '16,00'],
 			['Rückbuchung Krankheit', '+1,00', '17,00'],
-			['Urlaub genommen', '-3,00', '14,00']
+			['Urlaub genehmigt', '-3,00', '14,00']
 		]);
 	});
 

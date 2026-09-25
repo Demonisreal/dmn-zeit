@@ -24,9 +24,18 @@
 	},
 	"total": "Week",
 	"untilToday": "through today",
+	"untilNow": "so far",
 	"flex": "Flextime balance",
 	"asOf": "as of {{date}}",
 	"flexRetry": "Reload balance",
+	"flexDetail": {
+		"opening": "Opening balance",
+		"carryover": "Carry-over",
+		"carryoverHint": "from last year's December close, not a posting of its own",
+		"months": "Differences",
+		"bookings": "Postings",
+		"balance": "Balance"
+	},
 	"loadFailed": "Not loaded.",
 	"clock": {
 		"label": "Clock",
@@ -43,7 +52,9 @@
 	},
 	"row": {
 		"toggle": "breakdown",
-		"running": "running"
+		"running": "running",
+		"remaining": "{{minutes}} left",
+		"flag": "open notice"
 	},
 	"detail": {
 		"entries": "Time entries",
@@ -60,9 +71,11 @@
 		"target": "Target",
 		"credited": "Credit",
 		"diff": "Difference",
+		"remaining": "Remaining",
 		"holiday": "Public holiday",
 		"halfDay": "half day",
 		"absence": "Absence",
+		"requestAbsence": "Request an absence",
 		"findings": "Notices",
 		"ruleVersion": "Rule version {{version}}",
 		"acked": "Acknowledged by {{name}} on {{date}}",

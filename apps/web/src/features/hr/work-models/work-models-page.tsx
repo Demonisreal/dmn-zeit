@@ -45,7 +45,7 @@ export function WorkModelsPage() {
 		list = <EmptyState title={t('workModels.empty')}>{t('workModels.emptyHint')}</EmptyState>;
 	} else {
 		list = (
-			<div className={styles.scroll}>
+			<div className={styles.scroll} role="region" aria-label={t('workModels.title')} tabIndex={0}>
 				<Table label={t('workModels.title')}>
 					<thead>
 						<tr>
@@ -74,12 +74,20 @@ export function WorkModelsPage() {
 									<td>
 										<div className={styles.rowActions}>
 											{model.archivedAt === null && (
-												<Button variant="quiet" onPress={() => setEditing(model)}>
+												<Button
+													variant="quiet"
+													aria-label={t('workModels.editTitle', { name: model.name })}
+													onPress={() => setEditing(model)}
+												>
 													{t('edit')}
 												</Button>
 											)}
 											<Button
 												variant="quiet"
+												aria-label={t(
+													model.archivedAt ? 'workModels.restoreTitle' : 'workModels.archiveTitle',
+													{ name: model.name }
+												)}
 												isPending={archive.isPending && archive.variables === model}
 												onPress={() => archive.mutate(model)}
 											>

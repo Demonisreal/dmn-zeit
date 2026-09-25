@@ -13,7 +13,6 @@ import {
 	type VacationLedgerEntry
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
-import { teamIds } from './hr';
 
 // sample company for working on the ui without the api: a tax office in NRW, names made up
 const person = (id: string, userId: string, name: string) => ({
@@ -65,7 +64,13 @@ const helin = person(
 );
 const sabine = { id: '5b004527-423c-4b82-89ae-323b702a9c62', displayName: 'Sabine Kortmann' };
 
-// the teams themselves come from mocks/hr.ts, which also answers GET /api/teams
+// names and leads are in mocks/hr.ts, it imports the ids from here to read the absences without a cycle
+export const teamIds = {
+	tax: 'e1f9ecbb-e6ff-4aa4-b29b-703459281a47',
+	payroll: 'c1b89b13-aeb6-4609-a49e-f1fe33512388',
+	books: '46fee763-03eb-4e93-904a-877f5494a37f'
+};
+
 const members: Record<string, (typeof mara)[]> = {
 	[teamIds.tax]: [katrin, mara, deniz, jonas, lea, tobias],
 	[teamIds.payroll]: [frank, helin],
@@ -231,8 +236,8 @@ const seedAbsences = (): Absence[] => [
 		'3674db36-4022-4f00-8d9c-203b18e48320',
 		mara,
 		'sick',
-		'2026-09-21',
-		'2026-09-23',
+		'2026-09-08',
+		'2026-09-09',
 		'approved'
 	),
 	absence(
@@ -254,6 +259,7 @@ const seedAbsences = (): Absence[] => [
 		'2026-11-06',
 		'withdrawn',
 		{
+			createdAt: '2026-09-05T11:20:00Z',
 			decidedBy: null,
 			decidedAt: null
 		}
@@ -264,7 +270,11 @@ const seedAbsences = (): Absence[] => [
 		'vacation',
 		'2026-12-21',
 		'2026-12-23',
-		'approved'
+		'approved',
+		{
+			createdAt: '2026-08-27T15:10:00Z',
+			decidedAt: '2026-09-02T07:48:00Z'
+		}
 	),
 	absence(
 		'10332fc2-5701-4508-b1fe-450c736b7b02',
@@ -274,6 +284,8 @@ const seedAbsences = (): Absence[] => [
 		'2026-12-30',
 		'rejected',
 		{
+			createdAt: '2026-09-07T10:31:00Z',
+			decidedAt: '2026-09-10T08:02:00Z',
 			decisionNote:
 				'Zum Jahreswechsel laufen die Abschlüsse für die Mandanten. Bitte in die zweite Januarwoche legen.'
 		}
@@ -294,7 +306,8 @@ const seedAbsences = (): Absence[] => [
 		'2026-10-30',
 		'pending',
 		{
-			note: 'Herbstferien mit den Kindern.'
+			note: 'Herbstferien mit den Kindern.',
+			createdAt: '2026-09-18T06:40:00Z'
 		}
 	),
 	absence(
@@ -309,8 +322,8 @@ const seedAbsences = (): Absence[] => [
 		'620e2788-03dd-436e-b30f-24d1871755f9',
 		jonas,
 		'time_off',
-		'2026-10-02',
-		'2026-10-02',
+		'2026-10-05',
+		'2026-10-05',
 		'pending'
 	),
 	absence(
@@ -321,7 +334,8 @@ const seedAbsences = (): Absence[] => [
 		'2026-11-24',
 		'pending',
 		{
-			halfDayEnd: true
+			halfDayEnd: true,
+			createdAt: '2026-09-22T12:15:00Z'
 		}
 	),
 	absence(
@@ -379,7 +393,10 @@ const seedAbsences = (): Absence[] => [
 		'vacation',
 		'2026-10-26',
 		'2026-10-30',
-		'pending'
+		'pending',
+		{
+			createdAt: '2026-09-21T09:05:00Z'
+		}
 	)
 ];
 
@@ -485,6 +502,7 @@ const ledgerEntry = (
 const notice2025 = 'e5a7c1d2-3b4f-4e8a-9c6d-2f1b8a7e4d30';
 const notice2026 = 'a3d9f2e1-7c4b-4a6e-8d5f-1e2c9b7a6f48';
 
+// the api books leave on the day it is approved, so these dates are decisions and not the leave itself
 const ledger2025: VacationLedgerEntry[] = [
 	ledgerEntry('0b7e4c1a-5d2f-4a8e-9b3c-6f1d2e8a7c40', 2025, 'entitlement', '30.00', '2025-01-01'),
 	ledgerEntry('1c8f5d2b-6e3a-4b9f-8c4d-7a2e3f9b8d51', 2025, 'taken', '-5.00', '2025-03-10', {
@@ -496,7 +514,7 @@ const ledger2025: VacationLedgerEntry[] = [
 	ledgerEntry('3e1b7f4d-8a5c-4d2b-8e6f-9c4a5b2d1f73', 2025, 'taken', '-4.00', '2025-12-22', {
 		absenceId: 'f6e4a1b3-9c7d-4e5f-8a8b-7d3c4e2f9a84'
 	}),
-	ledgerEntry('4f2c8a5e-9b6d-4e3c-9f7a-1d5b6c3e2a84', 2025, 'taken', '-2.00', '2026-01-05', {
+	ledgerEntry('4f2c8a5e-9b6d-4e3c-9f7a-1d5b6c3e2a84', 2025, 'taken', '-2.00', '2025-12-16', {
 		absenceId: 'ebec627f-3839-4ae4-9f7e-fd73b1be896e'
 	}),
 	ledgerEntry('5a3d9b6f-1c7e-4f4d-8a8b-2e6c7d4f3b95', 2025, 'expiry', '-4.00', '2026-03-31', {
@@ -506,16 +524,16 @@ const ledger2025: VacationLedgerEntry[] = [
 
 const ledger2026: VacationLedgerEntry[] = [
 	ledgerEntry('6b4e1c7a-2d8f-4a5e-9b9c-3f7d8e5a4c06', 2026, 'entitlement', '30.00', '2026-01-01'),
-	ledgerEntry('7c5f2d8b-3e9a-4b6f-8c1d-4a8e9f6b5d17', 2026, 'taken', '-4.00', '2026-04-07', {
+	ledgerEntry('7c5f2d8b-3e9a-4b6f-8c1d-4a8e9f6b5d17', 2026, 'taken', '-4.00', '2026-03-18', {
 		absenceId: '68662c67-228a-4057-b450-5a9033ddc871'
 	}),
-	ledgerEntry('8d6a3e9c-4f1b-4c7a-9d2e-5b9f1a7c6e28', 2026, 'taken', '-10.00', '2026-06-22', {
+	ledgerEntry('8d6a3e9c-4f1b-4c7a-9d2e-5b9f1a7c6e28', 2026, 'taken', '-10.00', '2026-06-02', {
 		absenceId: '33ea092a-8440-40fd-9ce9-188da70808e2'
 	}),
-	ledgerEntry('9e7b4f1d-5a2c-4d8b-8e3f-6c1a2b8d7f39', 2026, 'refund_sick', '1.00', '2026-06-24', {
+	ledgerEntry('9e7b4f1d-5a2c-4d8b-8e3f-6c1a2b8d7f39', 2026, 'refund_sick', '1.00', '2026-06-29', {
 		absenceId: 'bd2d51f0-740c-4e54-a84b-8f66724b1015'
 	}),
-	ledgerEntry('af8c5a2e-6b3d-4e9c-9f4a-7d2b3c9e8a40', 2026, 'taken', '-3.00', '2026-12-21', {
+	ledgerEntry('af8c5a2e-6b3d-4e9c-9f4a-7d2b3c9e8a40', 2026, 'taken', '-3.00', '2026-09-02', {
 		absenceId: '8dc8ceb2-5fd6-43e9-93f0-6b4de7d61805'
 	})
 ];
@@ -580,6 +598,63 @@ const invalid = (field: string, message: string, code = 'custom') =>
 
 const overlaps = (a: Range, b: Range) => a.startDate <= b.endDate && b.startDate <= a.endDate;
 const blocking: AbsenceStatus[] = ['pending', 'approved', 'cancel_pending'];
+
+// what the week and the timesheet mocks credit on a day, open requests count nothing yet
+export function absenceOn(employeeId: string, date: string) {
+	const found = absences
+		.filter(
+			(a) =>
+				a.employee.id === employeeId &&
+				(a.status === 'approved' || a.status === 'cancel_pending') &&
+				a.startDate <= date &&
+				a.endDate >= date
+		)
+		// a sick day inside leave is a sick day, § 9 BUrlG
+		.toSorted((a, b) => Number(b.type === 'sick') - Number(a.type === 'sick'))[0];
+	const portion = found && costOf(found).find((day) => day.date === date)?.portion;
+	return found && portion
+		? { id: found.id, type: found.type, status: found.status, portion }
+		: null;
+}
+
+// leave left before the open requests, helin's matches her notice in mocks/hr.ts
+const leaveLeft: Record<string, number> = {
+	[deniz.id]: 25,
+	[lea.id]: 7.5,
+	[tobias.id]: 9,
+	[helin.id]: 6
+};
+// flextime as mocks/hr.ts counts it for september
+const flexBalance: Record<string, number> = { [jonas.id]: 1325 };
+
+// the inbox extras, worked out like forDecision in the api
+function withContext(a: Absence): Absence {
+	const cancelling = a.status === 'cancel_pending';
+	const shown: Absence = {
+		...a,
+		concurrentAbsences: absences
+			.filter(
+				(o) => o.employee.id !== a.employee.id && blocking.includes(o.status) && overlaps(o, a)
+			)
+			.toSorted((x, y) => x.startDate.localeCompare(y.startDate))
+			.map((o) => ({ employee: o.employee, startDate: o.startDate, endDate: o.endDate }))
+	};
+	const left = leaveLeft[a.employee.id];
+	if (a.type === 'vacation' && left !== undefined) {
+		const pending = absences
+			.filter(
+				(o) => o.employee.id === a.employee.id && o.type === 'vacation' && o.status === 'pending'
+			)
+			.reduce((total, o) => total + Number(o.vacationDays), 0);
+		// an approved cancellation gives the days back
+		shown.remainingAfter = toDays(left - pending + (cancelling ? Number(a.vacationDays) : 0));
+	}
+	const balance = flexBalance[a.employee.id];
+	if (a.type === 'time_off' && balance !== undefined) {
+		shown.balanceAfterMinutes = balance - (cancelling ? 0 : a.targetMinutes);
+	}
+	return shown;
+}
 
 function account(year: number): VacationAccount {
 	const pending = absences
@@ -738,7 +813,8 @@ export const absenceHandlers = [
 				scope === 'mine'
 					? b.startDate.localeCompare(a.startDate)
 					: a.createdAt.localeCompare(b.createdAt)
-			);
+			)
+			.map((a) => (scope === 'inbox' ? withContext(a) : a));
 		return HttpResponse.json({ items, nextCursor: null });
 	}),
 

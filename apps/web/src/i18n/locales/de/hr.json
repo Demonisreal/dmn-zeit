@@ -80,6 +80,7 @@
 		"back": "Alle Personen",
 		"toFlex": "Gleitzeitkonto",
 		"toTimesheet": "Stundenzettel dieses Monats",
+		"toMonth": "Buchungen dieses Monats",
 		"toAudit": "Änderungsprotokoll",
 		"exitTitle": "Austritt",
 		"exitDate": "Letzter Arbeitstag",
@@ -131,7 +132,9 @@
 		"includeArchived": "Archivierte anzeigen",
 		"archived": "archiviert",
 		"archive": "Archivieren",
+		"archiveTitle": "{{name}} archivieren",
 		"restore": "Wiederherstellen",
+		"restoreTitle": "{{name}} wiederherstellen",
 		"empty": "Noch keine Arbeitszeitmodelle",
 		"emptyHint": "Ohne Modell lässt sich kein Vertrag anlegen.",
 		"noDays": "keine Sollzeit"
@@ -254,6 +257,15 @@
 			"ARBZG_5_REST_UNDER_11H": "{{restMinutes}} Ruhezeit vor Arbeitsbeginn, vorgeschrieben sind 11 Stunden",
 			"ARBZG_9_SUNDAY": "Arbeit an einem Sonntag",
 			"ARBZG_9_HOLIDAY": "Arbeit an einem gesetzlichen Feiertag"
+		},
+		"ruleName": {
+			"ARBZG_3_OVER_8": "§ 3 ArbZG, Höchstarbeitszeit",
+			"ARBZG_3_OVER_10": "§ 3 ArbZG, Höchstarbeitszeit",
+			"ARBZG_4_BREAK_SHORT": "§ 4 ArbZG, Pausen",
+			"ARBZG_4_CONTINUOUS_6H": "§ 4 ArbZG, Pausen",
+			"ARBZG_5_REST_UNDER_11H": "§ 5 ArbZG, Ruhezeit",
+			"ARBZG_9_SUNDAY": "§ 9 ArbZG, Sonn- und Feiertagsarbeit",
+			"ARBZG_9_HOLIDAY": "§ 9 ArbZG, Sonn- und Feiertagsarbeit"
 		}
 	},
 	"rules": {
@@ -261,6 +273,7 @@
 		"lead": "Grenzwerte, gegen die geprüft wird. Ein Befund behält die Version, mit der er entstanden ist.",
 		"limit": "Grenze",
 		"validFrom": "gültig ab {{date}}",
+		"versionLabel": "ArbZG, Fassung {{year}}",
 		"limits": {
 			"regularDailyMinutes": "Regelarbeitszeit je Tag (§ 3)",
 			"maxDailyMinutes": "Höchstarbeitszeit je Tag (§ 3)",
@@ -290,6 +303,9 @@
 		"blocking": "blockiert",
 		"notBlocking": "Hinweis",
 		"affected": "Betroffene Personen",
+		"toInbox": "Im Posteingang entscheiden",
+		"toMonth": "Monat ansehen",
+		"toFindings": "Befunde quittieren",
 		"checklist": {
 			"previous_month_open": "Der Vormonat ist noch nicht abgeschlossen",
 			"running_entry": "Buchung ohne Gehen",
@@ -304,14 +320,23 @@
 			"pending_absence": "Die Teamleitung oder die Personalverwaltung muss entscheiden.",
 			"open_finding": "Befunde lassen sich auch nach dem Abschluss quittieren."
 		},
+		"capTitle": "Gleitzeit außerhalb der Kappung",
+		"capHint": "Der Abschluss bucht diesen Teil des Saldos als Kappung: Überhang verfällt, Minus entfällt.",
+		"capEntry": "{{name}} {{detail}}",
+		"capForfeited": "{{minutes}} verfällt",
+		"capForgiven": "{{minutes}} entfällt",
+		"capPreview": "Als Kappung gebucht werden: {{list}}.",
+		"capNone": "Kein Gleitzeitsaldo liegt außerhalb der Kappung, gebucht wird nichts.",
 		"close": "Monat abschließen",
 		"closeLead": "Danach sind Buchungen, Anträge und Verträge bis {{date}} gesperrt.",
 		"closable": "Keine blockierenden Punkte offen.",
 		"blocked": "Erst abschließbar, wenn die blockierenden Punkte erledigt sind.",
 		"notClosable": "Dieser Monat lässt sich jetzt noch nicht abschließen.",
 		"closeTitle": "{{month}} abschließen?",
-		"closeText": "Buchungen, Anträge und Verträge bis einschließlich {{date}} werden gesperrt. Liegt ein Gleitzeitsaldo über der Kappung, wird der Überhang gebucht.",
+		"closeText": "Buchungen, Anträge und Verträge bis einschließlich {{date}} werden gesperrt.",
 		"closeReopenHint": "Wieder öffnen kann nur die Administration, mit Begründung.",
+		"cappedList": "Gekappt: {{list}}.",
+		"cappedNone": "Keine Kappung.",
 		"closeOrder": "Abgeschlossen wird der Reihe nach, zuerst der älteste offene Monat.",
 		"reopen": "Monat wieder öffnen",
 		"reopenLead": "Nur der zuletzt abgeschlossene Monat lässt sich wieder öffnen. Buchungen und Anträge sind danach wieder änderbar.",
@@ -354,7 +379,32 @@
 		"actions": {
 			"insert": "angelegt",
 			"update": "geändert",
-			"delete": "gelöscht"
+			"delete": "gelöscht",
+			"login": {
+				"succeeded": "angemeldet",
+				"failed": "Anmeldung fehlgeschlagen"
+			},
+			"reauth": {
+				"failed": "Bestätigung fehlgeschlagen"
+			},
+			"passkey": {
+				"added": "Passkey hinzugefügt",
+				"removed": "Passkey entfernt",
+				"counter_rejected": "Passkey abgewiesen, Verdacht auf Kopie"
+			},
+			"totp": {
+				"enabled": "Authenticator-App eingerichtet",
+				"removed": "Authenticator-App entfernt"
+			},
+			"recovery_codes": {
+				"renewed": "Wiederherstellungscodes erneuert"
+			},
+			"mfa": {
+				"reset": "zweiter Faktor zurückgesetzt"
+			},
+			"user": {
+				"invited": "eingeladen"
+			}
 		},
 		"changes": "Änderungen",
 		"showChanges_one": "{{count}} Feld",

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Fragment, useRef, useState } from 'react';
+import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
@@ -15,7 +17,7 @@ import { DateInputField } from '../ui/date-field';
 import styles from '../ui/page.module.css';
 import { AckForm } from './ack-form';
 import { factParams, findingKey, paragraphOf } from './finding-text';
-import { RuleVersions } from './rule-versions';
+import { RuleVersions, versionYear } from './rule-versions';
 
 export const stateFilters = ['open', 'acknowledged', 'all'] as const;
 
@@ -69,32 +71,53 @@ export function FindingsPage({ filter, onFilter }: Props) {
 		body = <EmptyState title={t('findings.empty')}>{t('findings.emptyHint')}</EmptyState>;
 	} else {
 		body = (
-			<div className={styles.scroll}>
+			<div className={styles.scroll} role="region" aria-label={t('findings.title')} tabIndex={0}>
 				<Table label={t('findings.title')}>
 					<thead>
 						<tr>
 							<th scope="col">{t('findings.date')}</th>
 							<th scope="col">{t('findings.employee')}</th>
 							<th scope="col">{t('findings.rule')}</th>
-							<th scope="col">{t('findings.ruleVersion')}</th>
+							<th scope="col" className={styles.colWide}>
+								{t('findings.ruleVersion')}
+							</th>
 							<th scope="col">{t('findings.status')}</th>
 						</tr>
 					</thead>
 					<tbody>
 						{findings.data.map((finding) => {
 							const key = findingKey(finding);
+							const open = finding.severity === 'warning' && !finding.ack;
 							return (
 								<Fragment key={key}>
 									<tr>
 										<td className={styles.mono}>{date(finding.date)}</td>
-										<td>{finding.employee.name}</td>
 										<td>
-											<Tag tone={finding.severity === 'warning' ? 'error' : 'neutral'}>
-												{paragraphOf(finding.code)}
-											</Tag>{' '}
-											{t(`findings.text.${finding.code}`, factParams(finding.facts))}
+											<Link
+												to="/time"
+												search={{
+													employee: finding.employee.id,
+													month: finding.date.slice(0, 7),
+													day: finding.date
+												}}
+											>
+												{finding.employee.name}
+											</Link>
 										</td>
-										<td className={styles.mono}>{finding.ruleVersion}</td>
+										<td>
+											<span title={t(`findings.ruleName.${finding.code}`)}>
+												<Tag tone={open ? 'error' : 'neutral'}>{paragraphOf(finding.code)}</Tag>
+											</span>
+											<VisuallyHidden>
+												, {t(`findings.states.${finding.ack ? 'acknowledged' : 'open'}`)}
+											</VisuallyHidden>{' '}
+											<span className={styles.colMid}>
+												{t(`findings.text.${finding.code}`, factParams(finding.facts))}
+											</span>
+										</td>
+										<td className={styles.colWide}>
+											{t('rules.versionLabel', { year: versionYear(finding.ruleVersion) })}
+										</td>
 										<td>
 											{finding.ack ? (
 												<span className={styles.small}>
@@ -107,7 +130,11 @@ export function FindingsPage({ filter, onFilter }: Props) {
 												</span>
 											) : (
 												acking !== key && (
-													<Button variant="secondary" onPress={() => setAcking(key)}>
+													<Button
+														variant="secondary"
+														aria-label={t('findings.ackTitle', { name: finding.employee.name })}
+														onPress={() => setAcking(key)}
+													>
 														{t('findings.ack')}
 													</Button>
 												)

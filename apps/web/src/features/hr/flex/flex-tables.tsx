@@ -10,7 +10,7 @@ export function FlexBookings({ bookings }: { bookings: FlexBooking[] }) {
 	const { t, i18n } = useTranslation('hr');
 	if (bookings.length === 0) return <EmptyState title={t('flex.noBookings')} />;
 	return (
-		<div className={styles.scroll}>
+		<div className={styles.scroll} role="region" aria-label={t('flex.bookings')} tabIndex={0}>
 			<Table label={t('flex.bookings')}>
 				<thead>
 					<tr>
@@ -50,7 +50,7 @@ export function FlexMonths({ months }: { months: FlexMonth[] }) {
 	const { t, i18n } = useTranslation('hr');
 	if (months.length === 0) return <EmptyState title={t('flex.noMonths')} />;
 	return (
-		<div className={styles.scroll}>
+		<div className={styles.scroll} role="region" aria-label={t('flex.months')} tabIndex={0}>
 			<Table label={t('flex.months')}>
 				<thead>
 					<tr>

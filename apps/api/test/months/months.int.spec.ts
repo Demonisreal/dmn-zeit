@@ -54,6 +54,12 @@ async function snapshotOf(closingId: string) {
 	return rows[0]!.snapshot;
 }
 
+type Capped = { employee: { id: string; name: string }; forfeitedMinutes: number };
+
+// plus hours first, the order of the people is not part of the answer
+const byMinutes = (caps: Capped[]) =>
+	caps.toSorted((a, b) => b.forfeitedMinutes - a.forfeitedMinutes);
+
 const checklist = (desk: Seat['desk'], month: string) => desk.get(`/months/${month}/checklist`);
 const close = (desk: Seat['desk'], month: string) => desk.post(`/months/${month}/close`);
 const reopen = (desk: Seat['desk'], month: string, reason = 'Krankmeldung kam erst später') =>
@@ -67,7 +73,36 @@ describe('GET /api/months/:month/checklist', () => {
 		const answer = await checklist(f.hr.desk, '2026-03');
 		expect(answer.status).toBe(200);
 		expectContract(monthChecklistSchema, answer.body);
-		expect(answer.body).toEqual({ month: '2026-03', closed: false, closable: true, items: [] });
+		expect(answer.body).toEqual({
+			month: '2026-03',
+			closed: false,
+			closable: true,
+			items: [],
+			capPreview: []
+		});
+	});
+
+	it('previews the cap a close would book, over the plus limit and under the minus limit', async () => {
+		const f = await firm();
+		await capped(f.tenantId);
+		// one working day each, -480 against the target; the bookings end them at +520, -480 and -80
+		const over = await hire(api, f.tenantId, 'Otto Ueber', { entryDate: '2026-03-31' });
+		const under = await hire(api, f.tenantId, 'Ute Unter', { entryDate: '2026-03-31' });
+		const inside = await hire(api, f.tenantId, 'Ina Innen', { entryDate: '2026-03-31' });
+		await book(api, over, 1000, '2026-03-31');
+		await book(api, inside, 400, '2026-03-31');
+
+		const preview = await checklist(f.hr.desk, '2026-03');
+		expectContract(monthChecklistSchema, preview.body);
+		expect(byMinutes(preview.body.capPreview)).toEqual([
+			{ employee: { id: over.employeeId, name: 'Otto Ueber' }, forfeitedMinutes: 220 },
+			{ employee: { id: under.employeeId, name: 'Ute Unter' }, forfeitedMinutes: -360 }
+		]);
+
+		const closing = await close(f.hr.desk, '2026-03');
+		expect(closing.status).toBe(201);
+		expect(byMinutes(closing.body.capped)).toEqual(byMinutes(preview.body.capPreview));
+		expect((await checklist(f.hr.desk, '2026-03')).body.capPreview).toEqual([]);
 	});
 
 	it('blocks on running entries, open corrections and open absences of the month', async () => {
@@ -170,6 +205,7 @@ describe('GET /api/months/:month/checklist', () => {
 			month: '2026-03',
 			closed: false,
 			closable: false,
+			capPreview: [],
 			items: [
 				{
 					kind: 'previous_month_open',
@@ -280,6 +316,11 @@ describe('POST /api/months/:month/close', () => {
 				effective_date: '2026-03-31',
 				month_closing_id: closingId
 			}
+		]);
+		// the bookings above with the sign of the balance, ownCap stays inside its own +600
+		expect(byMinutes(answer.body.capped)).toEqual([
+			{ employee: { id: over.employeeId, name: 'Otto Ueber' }, forfeitedMinutes: 220 },
+			{ employee: { id: under.employeeId, name: 'Ute Unter' }, forfeitedMinutes: -360 }
 		]);
 
 		const { rows } = await api.superuser.query(
@@ -394,6 +435,8 @@ describe('POST /api/months/:month/close', () => {
 				reason: 'Krankmeldung kam erst später',
 				actor: { id: admin.userId, displayName: 'Anton Admin' }
 			});
+			// the cap is booked back below, but a reopen caps nobody
+			expect(answer.body.capped).toEqual([]);
 			expect(await closedThrough(api, over.employeeId)).toBeNull();
 
 			const bookings = await capBookings(tenantId);

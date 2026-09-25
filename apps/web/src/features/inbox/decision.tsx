@@ -25,12 +25,21 @@ const rejectForm = z.object({
 type Props = {
 	// names the request for screen readers, the buttons alone say nothing about which one
 	label: string;
+	approveLabel?: string | undefined;
+	rejectLabel?: string | undefined;
 	onApprove: () => Promise<void>;
 	onReject: (note: string) => Promise<void>;
 	onDone: (outcome: 'approved' | 'rejected') => void;
 };
 
-export function Decision({ label, onApprove, onReject, onDone }: Props) {
+export function Decision({
+	label,
+	approveLabel,
+	rejectLabel,
+	onApprove,
+	onReject,
+	onDone
+}: Props) {
 	const { t } = useTranslation(['inbox', 'common']);
 	const [rejecting, setRejecting] = useState(false);
 	const rejectButton = useRef<HTMLButtonElement>(null);
@@ -58,7 +67,7 @@ export function Decision({ label, onApprove, onReject, onDone }: Props) {
 		<div className={styles.decision}>
 			<div role="group" aria-label={label} className={styles.buttons}>
 				<Button isPending={approve.isPending} isDisabled={busy} onPress={() => approve.mutate()}>
-					{t('decision.approve')}
+					{approveLabel ?? t('decision.approve')}
 				</Button>
 				<Button
 					ref={rejectButton}
@@ -66,7 +75,7 @@ export function Decision({ label, onApprove, onReject, onDone }: Props) {
 					aria-expanded={rejecting}
 					onPress={() => setRejecting(!rejecting)}
 				>
-					{t('decision.reject')}
+					{rejectLabel ?? t('decision.reject')}
 				</Button>
 			</div>
 			{rejecting && (

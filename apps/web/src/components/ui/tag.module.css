@@ -10,6 +10,10 @@
 	white-space: nowrap;
 }
 
+.pending {
+	border-style: dashed;
+}
+
 .error {
 	border-color: var(--red);
 	color: var(--error);

@@ -24,9 +24,18 @@
 	},
 	"total": "Woche",
 	"untilToday": "bis heute",
+	"untilNow": "bis jetzt",
 	"flex": "Gleitzeitsaldo",
 	"asOf": "Stand {{date}}",
 	"flexRetry": "Saldo neu laden",
+	"flexDetail": {
+		"opening": "Anfangssaldo",
+		"carryover": "Übertrag",
+		"carryoverHint": "aus dem Dezemberabschluss des Vorjahres, ohne eigene Buchung",
+		"months": "Differenzen",
+		"bookings": "Buchungen",
+		"balance": "Saldo"
+	},
 	"loadFailed": "Nicht geladen.",
 	"clock": {
 		"label": "Stempeln",
@@ -43,7 +52,9 @@
 	},
 	"row": {
 		"toggle": "Herleitung",
-		"running": "läuft"
+		"running": "läuft",
+		"remaining": "noch {{minutes}}",
+		"flag": "offener Hinweis"
 	},
 	"detail": {
 		"entries": "Buchungen",
@@ -60,9 +71,11 @@
 		"target": "Soll",
 		"credited": "Gutschrift",
 		"diff": "Differenz",
+		"remaining": "Noch offen",
 		"holiday": "Feiertag",
 		"halfDay": "halber Tag",
 		"absence": "Abwesenheit",
+		"requestAbsence": "Abwesenheit beantragen",
 		"findings": "Hinweise",
 		"ruleVersion": "Regelversion {{version}}",
 		"acked": "Quittiert von {{name}} am {{date}}",

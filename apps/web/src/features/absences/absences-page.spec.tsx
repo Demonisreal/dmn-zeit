@@ -152,9 +152,14 @@ describe('absences', () => {
 		await screen.findByRole('table', { name: 'Meine Anträge 2026' });
 
 		await userEvent.click(
-			within(row('12.–14.10.2026')).getByRole('button', { name: 'Zurückziehen' })
+			within(row('12.–14.10.2026')).getByRole('button', {
+				name: 'Antrag für 12.–14.10.2026 zurückziehen'
+			})
 		);
+		const dialog = await screen.findByRole('alertdialog', { name: 'Antrag zurückziehen?' });
+		await userEvent.click(within(dialog).getByRole('button', { name: 'Antrag zurückziehen' }));
 
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 		expect(await within(row('12.–14.10.2026')).findByText('zurückgezogen')).toBeInTheDocument();
 		expect(within(row('12.–14.10.2026')).queryByRole('button')).not.toBeInTheDocument();
 	});
@@ -166,7 +171,9 @@ describe('absences', () => {
 		expect(within(row('07.–10.04.2026')).queryByRole('button')).not.toBeInTheDocument();
 
 		await userEvent.click(
-			within(row('21.–23.12.2026')).getByRole('button', { name: 'Stornieren' })
+			within(row('21.–23.12.2026')).getByRole('button', {
+				name: 'Antrag für 21.–23.12.2026 stornieren'
+			})
 		);
 		const dialog = await screen.findByRole('alertdialog', { name: 'Antrag stornieren?' });
 		expect(dialog).toHaveTextContent('Urlaub vom 21.–23.12.2026 ist genehmigt.');
@@ -174,7 +181,9 @@ describe('absences', () => {
 		await userEvent.click(within(dialog).getByRole('button', { name: 'Stornierung beantragen' }));
 
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
-		expect(await within(row('21.–23.12.2026')).findByText('Storno beantragt')).toBeInTheDocument();
+		expect(
+			await within(row('21.–23.12.2026')).findByText('Stornierung beantragt')
+		).toBeInTheDocument();
 	});
 
 	it('filters by state and offers to clear an empty filter', async () => {

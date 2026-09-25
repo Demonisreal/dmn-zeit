@@ -19,11 +19,19 @@ const leave: VacationAccount = {
 };
 
 // only Date is faked, timers stay real so user-event and msw keep working
-export function signInForWeek(role: Role = 'employee', employeeId = mockSession.user.employeeId) {
+export function signInForWeek(
+	role: Role = 'employee',
+	employeeId = mockSession.user.employeeId,
+	mode: Session['mode'] = 'live'
+) {
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(testNow);
 	resetMockWeek();
-	const session: Session = { ...mockSession, user: { ...mockSession.user, role, employeeId } };
+	const session: Session = {
+		...mockSession,
+		user: { ...mockSession.user, role, employeeId },
+		mode
+	};
 	server.use(
 		http.get('/api/auth/session', () => HttpResponse.json(session)),
 		...weekHandlers,

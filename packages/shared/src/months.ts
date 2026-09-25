@@ -32,6 +32,13 @@ export const monthChecklistSchema = z.object({
 			employees: z.array(employeeRefSchema),
 			explanation: explanationSchema
 		})
+	),
+	// signed like applyCap's forfeited: positive forfeits plus hours, negative forgives minus debt
+	capPreview: z.array(
+		z.object({
+			employee: employeeRefSchema,
+			forfeitedMinutes: z.int().refine((m) => m !== 0, 'months.zeroForfeit')
+		})
 	)
 });
 
@@ -43,7 +50,14 @@ export const monthClosingSchema = z.object({
 	action: z.enum(monthClosingActions),
 	reason: z.string().nullable(),
 	actor: userRefSchema,
-	at: instantSchema
+	at: instantSchema,
+	// stays empty on reopen; signed like applyCap's forfeited, see capPreview above
+	capped: z.array(
+		z.object({
+			employee: employeeRefSchema,
+			forfeitedMinutes: z.int().refine((m) => m !== 0, 'months.zeroForfeit')
+		})
+	)
 });
 
 export type MonthChecklist = z.infer<typeof monthChecklistSchema>;

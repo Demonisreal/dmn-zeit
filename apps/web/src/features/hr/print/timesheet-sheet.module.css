@@ -6,11 +6,17 @@
 	padding: 1rem;
 }
 
+/* stays on screen over a long month, the print button is always in reach */
 .toolbar {
+	position: sticky;
+	top: 0;
 	display: flex;
 	justify-content: space-between;
 	gap: 0.75rem;
 	width: min(100%, 210mm);
+	margin-block: -0.5rem;
+	padding-block: 0.5rem;
+	background: var(--dark);
 }
 
 .sheet {
@@ -90,6 +96,10 @@
 	font-family: var(--mono);
 	text-align: end;
 	white-space: nowrap;
+}
+
+.times {
+	font-family: var(--mono);
 }
 
 .date {

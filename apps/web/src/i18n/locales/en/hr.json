@@ -80,6 +80,7 @@
 		"back": "All people",
 		"toFlex": "Flextime account",
 		"toTimesheet": "Timesheet for this month",
+		"toMonth": "This month's time entries",
 		"toAudit": "Audit log",
 		"exitTitle": "Leaving",
 		"exitDate": "Last working day",
@@ -131,7 +132,9 @@
 		"includeArchived": "Show archived",
 		"archived": "archived",
 		"archive": "Archive",
+		"archiveTitle": "Archive {{name}}",
 		"restore": "Restore",
+		"restoreTitle": "Restore {{name}}",
 		"empty": "No working time models yet",
 		"emptyHint": "A contract needs a model.",
 		"noDays": "no target time"
@@ -254,6 +257,15 @@
 			"ARBZG_5_REST_UNDER_11H": "{{restMinutes}} rest period before work, 11 hours required",
 			"ARBZG_9_SUNDAY": "Work on a Sunday",
 			"ARBZG_9_HOLIDAY": "Work on a public holiday"
+		},
+		"ruleName": {
+			"ARBZG_3_OVER_8": "§ 3 ArbZG, maximum working time",
+			"ARBZG_3_OVER_10": "§ 3 ArbZG, maximum working time",
+			"ARBZG_4_BREAK_SHORT": "§ 4 ArbZG, breaks",
+			"ARBZG_4_CONTINUOUS_6H": "§ 4 ArbZG, breaks",
+			"ARBZG_5_REST_UNDER_11H": "§ 5 ArbZG, rest period",
+			"ARBZG_9_SUNDAY": "§ 9 ArbZG, work on Sundays and public holidays",
+			"ARBZG_9_HOLIDAY": "§ 9 ArbZG, work on Sundays and public holidays"
 		}
 	},
 	"rules": {
@@ -261,6 +273,7 @@
 		"lead": "The limits findings are checked against. A finding keeps the version it was made with.",
 		"limit": "Limit",
 		"validFrom": "valid from {{date}}",
+		"versionLabel": "ArbZG, {{year}} version",
 		"limits": {
 			"regularDailyMinutes": "Regular working time per day (§ 3)",
 			"maxDailyMinutes": "Maximum working time per day (§ 3)",
@@ -290,6 +303,9 @@
 		"blocking": "blocking",
 		"notBlocking": "notice",
 		"affected": "People affected",
+		"toInbox": "Decide in the inbox",
+		"toMonth": "View month",
+		"toFindings": "Acknowledge findings",
 		"checklist": {
 			"previous_month_open": "The previous month is not closed yet",
 			"running_entry": "Time entry without clock out",
@@ -304,14 +320,23 @@
 			"pending_absence": "The team lead or HR has to decide.",
 			"open_finding": "Findings can still be acknowledged after the close."
 		},
+		"capTitle": "Flextime outside the cap",
+		"capHint": "The close posts this part of the balance as a cap: excess is forfeited, a deficit is dropped.",
+		"capEntry": "{{name}} {{detail}}",
+		"capForfeited": "{{minutes}} forfeited",
+		"capForgiven": "{{minutes}} dropped",
+		"capPreview": "Posted as a cap: {{list}}.",
+		"capNone": "No flextime balance is outside the cap, nothing gets posted.",
 		"close": "Close month",
 		"closeLead": "Afterwards time entries, requests and contracts up to {{date}} are locked.",
 		"closable": "No blocking points left.",
 		"blocked": "Can be closed once the blocking points are resolved.",
 		"notClosable": "This month cannot be closed yet.",
 		"closeTitle": "Close {{month}}?",
-		"closeText": "Time entries, requests and contracts up to and including {{date}} get locked. Where a flextime balance is above the cap, the excess is posted.",
+		"closeText": "Time entries, requests and contracts up to and including {{date}} get locked.",
 		"closeReopenHint": "Only administration can reopen it, with a reason.",
+		"cappedList": "Capped: {{list}}.",
+		"cappedNone": "No cap applied.",
 		"closeOrder": "Months are closed in order, the oldest open month first.",
 		"reopen": "Reopen month",
 		"reopenLead": "Only the most recently closed month can be reopened. Time entries and requests can then be changed again.",
@@ -354,7 +379,32 @@
 		"actions": {
 			"insert": "created",
 			"update": "changed",
-			"delete": "deleted"
+			"delete": "deleted",
+			"login": {
+				"succeeded": "signed in",
+				"failed": "sign-in failed"
+			},
+			"reauth": {
+				"failed": "confirmation failed"
+			},
+			"passkey": {
+				"added": "passkey added",
+				"removed": "passkey removed",
+				"counter_rejected": "passkey rejected, possibly cloned"
+			},
+			"totp": {
+				"enabled": "authenticator app set up",
+				"removed": "authenticator app removed"
+			},
+			"recovery_codes": {
+				"renewed": "recovery codes renewed"
+			},
+			"mfa": {
+				"reset": "second factor reset"
+			},
+			"user": {
+				"invited": "invited"
+			}
 		},
 		"changes": "Changes",
 		"showChanges_one": "{{count}} field",

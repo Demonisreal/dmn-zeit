@@ -13,19 +13,21 @@ import { lastOfMonth, shiftMonth, todayIso } from '../week/dates';
 import { DayTable } from '../week/day-table';
 import styles from '../week/page.module.css';
 import { PeriodNav } from '../week/period-nav';
+import { FlexDerivation } from '../week/week-page';
 import { AckForm } from './ack-form';
 
 type Props = {
 	session: Session;
 	month: string | undefined;
 	employee: string | undefined;
+	day: string | undefined;
 };
 
-export function TimePage({ session, month, employee }: Props) {
+export function TimePage({ session, month, employee, day }: Props) {
 	const { t, i18n } = useTranslation(['time', 'week', 'nav']);
 	const navigate = useNavigate();
 	const current = todayIso().slice(0, 7);
-	const shown = month ?? current;
+	const shown = month ?? day?.slice(0, 7) ?? current;
 	const employeeId = employee ?? session.user.employeeId;
 
 	return (
@@ -41,7 +43,7 @@ export function TimePage({ session, month, employee }: Props) {
 					onStep={(by) =>
 						void navigate({
 							to: '/time',
-							search: (prev) => ({ ...prev, month: shiftMonth(shown, by) })
+							search: (prev) => ({ ...prev, month: shiftMonth(shown, by), day: undefined })
 						})
 					}
 					onReset={() =>
@@ -53,8 +55,10 @@ export function TimePage({ session, month, employee }: Props) {
 				<Month
 					employeeId={employeeId}
 					month={shown}
+					day={day}
 					own={employeeId === session.user.employeeId}
 					canAck={employeeId !== session.user.employeeId && hasRole(session.user.role, 'team_lead')}
+					isDemo={session.mode === 'demo'}
 				/>
 			) : (
 				<EmptyState title={t('week:noEmployee.title')}>{t('week:noEmployee.text')}</EmptyState>
@@ -66,11 +70,13 @@ export function TimePage({ session, month, employee }: Props) {
 type MonthProps = {
 	employeeId: string;
 	month: string;
+	day: string | undefined;
 	own: boolean;
 	canAck: boolean;
+	isDemo: boolean;
 };
 
-function Month({ employeeId, month, own, canAck }: MonthProps) {
+function Month({ employeeId, month, day, own, canAck, isDemo }: MonthProps) {
 	const { t, i18n } = useTranslation(['time', 'week']);
 	const lng = i18n.language;
 	const days = useQuery({
@@ -115,7 +121,11 @@ function Month({ employeeId, month, own, canAck }: MonthProps) {
 				fetchedAt={days.dataUpdatedAt}
 				totalLabel={t('total')}
 				balance={balance}
-				canCorrect={own}
+				balanceDetail={
+					flex.isSuccess && flexMonth && <FlexDerivation flex={flex.data} through={month} />
+				}
+				own={own}
+				openDay={day}
 				findingAction={
 					canAck
 						? (day, finding) => (
@@ -124,6 +134,7 @@ function Month({ employeeId, month, own, canAck }: MonthProps) {
 						: undefined
 				}
 				isStale={days.isPlaceholderData}
+				isDemo={isDemo}
 			/>
 			{days.data.days.every((day) => day.entries.length === 0) && (
 				<p className={styles.hint}>{t('empty')}</p>

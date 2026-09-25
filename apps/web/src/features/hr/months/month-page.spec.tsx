@@ -14,6 +14,7 @@ const checklist = (changes: Partial<MonthChecklist>) =>
 			closed: false,
 			closable: true,
 			items: [],
+			capPreview: [],
 			...changes
 		})
 	);
@@ -36,7 +37,9 @@ describe('month-end close', () => {
 		expect(screen.getByText('blockiert')).toBeInTheDocument();
 		const openCorrections = screen.getByText('Offene Korrekturanträge').closest('li');
 		expect(openCorrections).not.toBeNull();
-		expect(within(openCorrections!).getByRole('link')).toBeInTheDocument();
+		expect(
+			within(openCorrections!).getByRole('link', { name: 'Im Posteingang entscheiden' })
+		).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Monat abschließen' })).toBeDisabled();
 		expect(
 			screen.getByText('Erst abschließbar, wenn die blockierenden Punkte erledigt sind.')
@@ -50,7 +53,15 @@ describe('month-end close', () => {
 			checklist({}),
 			http.post('/api/months/:month/close', () => {
 				closed = true;
-				return new HttpResponse(null, { status: 204 });
+				return HttpResponse.json({
+					id: 'a3f3f4a0-9b9e-4a5d-9f2a-0f7c8d5a1b3c',
+					month: '2026-08',
+					action: 'close',
+					reason: null,
+					actor: { id: '3f6c2a9e-8b1d-4c57-9e0a-5d2b7f4a1c38', displayName: 'Sabine Kortmann' },
+					at: '2026-09-24T10:00:00Z',
+					capped: []
+				});
 			})
 		);
 		renderApp('/hr/months/2026-08');

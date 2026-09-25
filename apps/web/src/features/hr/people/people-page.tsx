@@ -48,7 +48,7 @@ export function PeoplePage() {
 		list = <EmptyState title={t('people.noMatch', { search: search.trim() })} />;
 	} else {
 		list = (
-			<div className={styles.scroll}>
+			<div className={styles.scroll} role="region" aria-label={t('people.title')} tabIndex={0}>
 				<Table label={t('people.title')}>
 					<thead>
 						<tr>

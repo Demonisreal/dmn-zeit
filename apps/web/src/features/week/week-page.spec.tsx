@@ -33,7 +33,7 @@ describe('week', () => {
 		expect(within(sums).getByText('29:26 h')).toBeInTheDocument();
 		expect(within(sums).getByText('39:00 h')).toBeInTheDocument();
 		expect(within(sums).getByText(/−1:46 h/)).toBeInTheDocument();
-		expect(within(sums).getByText('bis heute')).toBeInTheDocument();
+		expect(within(sums).getByText('bis jetzt')).toBeInTheDocument();
 
 		const balance = within(table).getByRole('rowheader', { name: 'Gleitzeitsaldo' }).closest('tr')!;
 		expect(await within(balance).findByText(/\+12:35 h/)).toBeInTheDocument();
@@ -94,6 +94,88 @@ describe('week', () => {
 		const detail = document.getElementById('day-2026-09-18')!;
 		expect(within(detail).getByText('Gutschrift')).toBeInTheDocument();
 		expect(within(detail).getByText('Abwesenheit: Urlaub, genehmigt')).toBeInTheDocument();
+	});
+
+	it('offers to request an absence for a coming workday', async () => {
+		renderApp('/');
+		const table = await weekTable(39);
+
+		await userEvent.click(within(table).getByRole('button', { name: /25\.09\./ }));
+
+		const detail = document.getElementById('day-2026-09-25')!;
+		expect(within(detail).getByRole('link', { name: 'Abwesenheit beantragen' })).toHaveAttribute(
+			'href',
+			'/absences?start=2026-09-25'
+		);
+	});
+
+	it('offers no absence request on the weekend', async () => {
+		renderApp('/');
+		const table = await weekTable(39);
+
+		await userEvent.click(within(table).getByRole('button', { name: /26\.09\./ }));
+
+		const detail = document.getElementById('day-2026-09-26')!;
+		expect(within(detail).queryByRole('link', { name: 'Abwesenheit beantragen' })).toBeNull();
+	});
+
+	it('offers no absence request for a day that is over', async () => {
+		renderApp('/');
+		const table = await weekTable(39);
+
+		await userEvent.click(within(table).getByRole('button', { name: /23\.09\./ }));
+
+		const detail = document.getElementById('day-2026-09-23')!;
+		expect(within(detail).queryByRole('link', { name: 'Abwesenheit beantragen' })).toBeNull();
+	});
+
+	it('shows leave already booked instead of offering a request', async () => {
+		renderApp('/?week=2026-12-21');
+		const table = await weekTable(52);
+
+		await userEvent.click(within(table).getByRole('button', { name: /22\.12\./ }));
+
+		const detail = document.getElementById('day-2026-12-22')!;
+		expect(within(detail).getByText('Abwesenheit: Urlaub, genehmigt')).toBeInTheDocument();
+		expect(within(detail).queryByRole('link', { name: 'Abwesenheit beantragen' })).toBeNull();
+	});
+
+	it('ticks the rest period step of the demo tour once that day is opened', async () => {
+		sessionStorage.clear();
+		signInForWeek('employee', undefined, 'demo');
+		renderApp('/');
+		const table = await weekTable(39);
+		expect(sessionStorage.getItem('zeit.demo.restFinding')).toBeNull();
+
+		await userEvent.click(within(table).getByRole('button', { name: /24\.09\./ }));
+
+		const detail = document.getElementById('day-2026-09-24')!;
+		expect(within(detail).getByText('§ 5 ArbZG')).toBeInTheDocument();
+		expect(sessionStorage.getItem('zeit.demo.restFinding')).toBe('1');
+	});
+
+	it('spells out the flextime balance when it is opened', async () => {
+		renderApp('/');
+		const table = await weekTable(39);
+		const toggle = within(table).getByRole('button', { name: 'Gleitzeitsaldo' });
+		expect(toggle).toHaveAttribute('aria-expanded', 'false');
+		expect(document.getElementById('flex-detail')).toBeNull();
+
+		await userEvent.click(toggle);
+
+		expect(toggle).toHaveAttribute('aria-expanded', 'true');
+		const derivation = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+		const line = (term: string) =>
+			within(derivation).getByText(term, { selector: 'dt' }).nextElementSibling;
+		expect(line('Anfangssaldo')).toHaveTextContent('+8:00 h');
+		expect(line('Differenzen')).toHaveTextContent('+4:35 h');
+		expect(within(derivation).getByText('Januar bis September')).toBeInTheDocument();
+		expect(line('Saldo')).toHaveTextContent('+12:35 h');
+		const months = within(derivation).getByRole('table', { name: 'Monatswerte' });
+		// header plus january through september
+		expect(within(months).getAllByRole('row')).toHaveLength(10);
+		const january = within(months).getByRole('row', { name: /^Januar 2026/ });
+		expect(within(january).getAllByRole('cell').at(-1)).toHaveTextContent('+9:25 h');
 	});
 
 	it('pages through the weeks with the arrows and back to this week', async () => {

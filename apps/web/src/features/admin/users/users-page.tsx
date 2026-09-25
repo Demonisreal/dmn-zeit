@@ -12,16 +12,17 @@ import { Tag } from '../../../components/ui/tag';
 import { formatInstant } from '../../../i18n/format';
 import { employeesQuery } from '../../hr/api';
 import { fullName } from '../../hr/people/employee-options';
-import styles from '../../hr/ui/page.module.css';
+import page from '../../hr/ui/page.module.css';
 import { AdminNav } from '../admin-nav';
 import { usersQuery } from '../api';
 import { InviteForm } from './invite-form';
 import { UserEditor } from './user-editor';
+import styles from './users-page.module.css';
 
-const statusTone: Record<UserStatus, 'neutral' | 'warning' | 'error' | 'success'> = {
+const statusTone: Record<UserStatus, 'neutral' | 'pending'> = {
 	active: 'neutral',
-	invited: 'warning',
-	disabled: 'error',
+	invited: 'pending',
+	disabled: 'neutral',
 	demo: 'neutral'
 };
 
@@ -52,15 +53,24 @@ export function UsersPage({ selfId }: Props) {
 		const people = employees.data;
 		const names = new Map(people.map((employee) => [employee.id, fullName(employee)]));
 		list = (
-			<div className={styles.scroll}>
+			<div
+				className={`${page.scroll} ${styles.frame}`}
+				role="region"
+				aria-label={t('users.title')}
+				tabIndex={0}
+			>
 				<Table label={t('users.title')}>
 					<thead>
 						<tr>
 							<th scope="col">{t('users.name')}</th>
-							<th scope="col">{t('users.role')}</th>
+							<th scope="col" className={styles.mid}>
+								{t('users.role')}
+							</th>
 							<th scope="col">{t('users.status')}</th>
-							<th scope="col">{t('users.employee')}</th>
-							<th scope="col" data-numeric>
+							<th scope="col" className={styles.wide}>
+								{t('users.employee')}
+							</th>
+							<th scope="col" data-numeric className={styles.wide}>
 								{t('users.lastLogin')}
 							</th>
 							<th scope="col">
@@ -77,32 +87,36 @@ export function UsersPage({ selfId }: Props) {
 										<td>
 											{user.displayName}
 											<br />
-											<span className={`${styles.small} ${styles.muted}`}>{user.email}</span>
+											<span className={`${page.small} ${page.muted} ${styles.email}`}>
+												{user.email}
+											</span>
+											<span className={`${page.small} ${page.muted} ${styles.role}`}>
+												{t(`common:roles.${user.role}`)}
+											</span>
 										</td>
-										<td>{t(`common:roles.${user.role}`)}</td>
+										<td className={styles.mid}>{t(`common:roles.${user.role}`)}</td>
 										<td>
 											<Tag tone={statusTone[user.status]}>{t(`users.statuses.${user.status}`)}</Tag>
 										</td>
-										<td>
+										<td className={styles.wide}>
 											{user.employeeId ? (
 												(names.get(user.employeeId) ?? '–')
 											) : (
-												<span className={styles.muted}>{t('users.noEmployee')}</span>
+												<span className={page.muted}>{t('users.noEmployee')}</span>
 											)}
 										</td>
-										<td data-numeric>
+										<td data-numeric className={styles.wide}>
 											{user.lastLoginAt ? formatInstant(user.lastLoginAt, i18n.language) : '–'}
 										</td>
 										<td>
-											<div className={styles.rowActions}>
+											<div className={page.rowActions}>
 												{user.id === selfId ? (
-													<span className={`${styles.small} ${styles.muted}`}>
-														{t('users.self')}
-													</span>
+													<span className={`${page.small} ${page.muted}`}>{t('users.self')}</span>
 												) : (
 													editing !== user.id && (
 														<Button
 															variant="quiet"
+															aria-label={t('users.editTitle', { name: user.displayName })}
 															autoFocus={edited === user.id}
 															onPress={() => setEditing(user.id)}
 														>
@@ -138,11 +152,11 @@ export function UsersPage({ selfId }: Props) {
 	return (
 		<>
 			<AdminNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<div className={page.page}>
+				<header className={page.head}>
 					<div>
 						<h1>{t('users.title')}</h1>
-						<p className={styles.lead}>{t('users.lead')}</p>
+						<p className={page.lead}>{t('users.lead')}</p>
 					</div>
 					{!inviting && (
 						<Button
@@ -168,7 +182,7 @@ export function UsersPage({ selfId }: Props) {
 					/>
 				)}
 				{invited && <Notice tone="success">{t('users.invited', { email: invited })}</Notice>}
-				<section className={styles.section} aria-label={t('users.title')}>
+				<section className={page.section} aria-label={t('users.title')}>
 					{list}
 				</section>
 			</div>

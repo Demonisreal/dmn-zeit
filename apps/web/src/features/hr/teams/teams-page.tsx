@@ -64,10 +64,18 @@ export function TeamsPage() {
 									</td>
 									<td>
 										<div className={styles.rowActions}>
-											<Button variant="quiet" onPress={() => setEditing({ team, part: 'name' })}>
+											<Button
+												variant="quiet"
+												aria-label={t('teams.renameTitle', { name: team.name })}
+												onPress={() => setEditing({ team, part: 'name' })}
+											>
 												{t('teams.rename')}
 											</Button>
-											<Button variant="quiet" onPress={() => setEditing({ team, part: 'leads' })}>
+											<Button
+												variant="quiet"
+												aria-label={t('teams.leadsFor', { name: team.name })}
+												onPress={() => setEditing({ team, part: 'leads' })}
+											>
 												{t('teams.editLeads')}
 											</Button>
 										</div>

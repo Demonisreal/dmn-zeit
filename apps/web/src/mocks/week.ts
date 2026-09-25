@@ -24,6 +24,7 @@ import {
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 import type { z } from 'zod';
+import { absenceOn } from './absences';
 
 // sample company for working on the ui without the api: a tax office in NRW, names made up.
 // same person as mockSession in handlers.ts
@@ -203,10 +204,14 @@ const minutesOf = (entry: Entry, now: number) =>
 		((entry.endedAt ? Date.parse(entry.endedAt) : now) - Date.parse(entry.startedAt)) / 60_000
 	);
 
-function entriesOf(date: string): Entry[] {
+function entriesOf(date: string, employeeId = employee.id): Entry[] {
+	const away = absenceOn(employeeId, date);
+	if (away?.portion === 1) return [];
 	if (date === todayIso()) return store.today;
 	if (date > todayIso() || holidays[date]?.[1] === 1) return [];
-	const plan = special(date)?.plan ?? (['sat', 'sun'].includes(weekdayOf(date)) ? [] : usual(date));
+	const day = special(date)?.plan ?? (['sat', 'sun'].includes(weekdayOf(date)) ? [] : usual(date));
+	// half a day off keeps the morning
+	const plan = away ? day.slice(0, 1) : day;
 	return plan.map(([from, to, source = 'clock'], i) => ({
 		id: entryId(date, i + 1),
 		startedAt: at(date, from),
@@ -220,9 +225,9 @@ function entriesOf(date: string): Entry[] {
 const closedThrough = () =>
 	parseDate(todayIso()).set({ day: 1 }).subtract({ months: 1, days: 1 }).toString();
 
-function dayOf(date: string): Day {
+function dayOf(date: string, employeeId = employee.id): Day {
 	const now = Date.now();
-	const entries = entriesOf(date);
+	const entries = entriesOf(date, employeeId);
 	const worked = entries.reduce((sum, entry) => sum + minutesOf(entry, now), 0);
 	const breakMinutes = entries.slice(1).reduce((sum, entry, i) => {
 		const before = entries[i]!;
@@ -245,18 +250,21 @@ function dayOf(date: string): Day {
 					}
 				};
 	const plan = special(date);
-	const absence =
-		plan && 'absence' in plan
-			? {
-					requestId: '9d2e7c4b-1a3f-4e8d-b6c5-3f7a2e1d9c80',
-					type: plan.absence,
-					status: 'approved' as const,
-					portion: 1 as const
-				}
-			: null;
-	const credited = absence ? target.minutes : 0;
+	const away = absenceOn(employeeId, date);
+	let absence: Day['absence'] = null;
+	if (away) {
+		absence = { requestId: away.id, type: away.type, status: away.status, portion: away.portion };
+	} else if (plan && 'absence' in plan) {
+		absence = {
+			requestId: '9d2e7c4b-1a3f-4e8d-b6c5-3f7a2e1d9c80',
+			type: plan.absence,
+			status: 'approved',
+			portion: 1
+		};
+	}
+	const credited = absence ? target.minutes * absence.portion : 0;
 	const findings =
-		entries.length > 0 && plan && 'findings' in plan
+		!away && entries.length > 0 && plan && 'findings' in plan
 			? plan.findings.map((found) => ({
 					...found,
 					ack: store.acks.get(`${date}|${found.code}`) ?? null
@@ -397,13 +405,14 @@ export const weekHandlers = [
 	http.post('/api/clock/resume', stampTo(['on_break'], open)),
 	http.post('/api/clock/out', stampTo(['working', 'on_break'], close('leave'))),
 
+	// everybody gets the demo week, only their own absences from mocks/absences.ts differ
 	http.get('/api/employees/:id/days', ({ params, request }) => {
 		const search = new URL(request.url).searchParams;
 		const query = daysQuerySchema.safeParse({ from: search.get('from'), to: search.get('to') });
 		if (!query.success) return invalid(query.error);
 		const days: Day[] = [];
 		for (let date = query.data.from; date <= query.data.to; date = addDays(date, 1))
-			days.push(dayOf(date));
+			days.push(dayOf(date, String(params.id)));
 		const sum = (pick: (day: Day) => number) => days.reduce((total, day) => total + pick(day), 0);
 		return HttpResponse.json({
 			employeeId: String(params.id),
@@ -477,7 +486,7 @@ export const weekHandlers = [
 		if (employeeId === employee.id) {
 			return fail(403, 'FORBIDDEN', 'Nobody acknowledges findings on their own times');
 		}
-		if (!dayOf(date).findings.some((found) => found.code === code)) {
+		if (!dayOf(date, employeeId).findings.some((found) => found.code === code)) {
 			return fail(404, 'NOT_FOUND', 'Finding not found');
 		}
 		const key = `${date}|${code}`;

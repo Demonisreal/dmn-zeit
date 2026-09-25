@@ -6,6 +6,7 @@ import {
 	findingSchema,
 	flexAccountSchema,
 	monthChecklistSchema,
+	monthClosingSchema,
 	monthOverviewSchema,
 	ruleSetSchema,
 	teamSchema,
@@ -151,7 +152,8 @@ export const checklistQuery = (month: string) =>
 		queryFn: () => request(`/months/${month}/checklist`, { schema: monthChecklistSchema })
 	});
 
-export const closeMonth = (month: string) => request(`/months/${month}/close`, { method: 'POST' });
+export const closeMonth = (month: string) =>
+	request(`/months/${month}/close`, { method: 'POST', schema: monthClosingSchema });
 
 export const reopenMonth = (month: string, reason: string) =>
 	request(`/months/${month}/reopen`, { method: 'POST', body: { reason } });

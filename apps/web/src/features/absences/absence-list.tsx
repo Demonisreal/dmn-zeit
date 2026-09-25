@@ -6,12 +6,14 @@ import {
 	type AbsenceStatus,
 	type AbsenceType
 } from '@zeit/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { EmptyState } from '../../components/ui/empty-state';
+import { Notice } from '../../components/ui/notice';
 import { SelectField } from '../../components/ui/select-field';
 import { LoadError, Loading } from '../../components/ui/states';
 import { Table } from '../../components/ui/table';
@@ -38,8 +40,24 @@ type Props = AbsenceListFilter & {
 };
 
 export function AbsenceList({ year, type, status, onFilter }: Props) {
-	const { t } = useTranslation('absences');
+	const { t, i18n } = useTranslation(['absences', 'common']);
+	const queryClient = useQueryClient();
 	const [cancelling, setCancelling] = useState<Absence | null>(null);
+	const [withdrawing, setWithdrawing] = useState<Absence | null>(null);
+	const heading = useRef<HTMLHeadingElement>(null);
+	const withdraw = useMutation({
+		mutationFn: withdrawAbsence,
+		onSuccess: async () => {
+			setWithdrawing(null);
+			await refreshAbsences(queryClient);
+			// the row keeps its place but loses the button that had the focus
+			heading.current?.focus();
+		}
+	});
+	const closeWithdraw = () => {
+		setWithdrawing(null);
+		withdraw.reset();
+	};
 	const list = useInfiniteQuery(
 		absencesQuery({
 			scope: 'mine',
@@ -73,7 +91,12 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 		}
 		return (
 			<>
-				<div className={page.scroll}>
+				<div
+					className={page.scroll}
+					role="region"
+					aria-label={t('list.label', { year })}
+					tabIndex={0}
+				>
 					<Table label={t('list.label', { year })}>
 						<thead>
 							<tr>
@@ -96,6 +119,7 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 								<AbsenceRow
 									key={absence.id}
 									absence={absence}
+									onWithdraw={() => setWithdrawing(absence)}
 									onCancel={() => setCancelling(absence)}
 								/>
 							))}
@@ -119,7 +143,9 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 
 	return (
 		<section aria-labelledby="own-absences" className={page.section}>
-			<h2 id="own-absences">{t('list.title')}</h2>
+			<h2 id="own-absences" ref={heading} tabIndex={-1} className={page.anchor}>
+				{t('list.title')}
+			</h2>
 			<div className={page.filters}>
 				<PeriodStepper
 					label={t('list.year')}
@@ -151,23 +177,46 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 			</div>
 			{rows()}
 			<CancelDialog absence={cancelling} onClose={() => setCancelling(null)} />
+			<ConfirmDialog
+				isOpen={withdrawing !== null}
+				onClose={closeWithdraw}
+				title={t('withdraw.title')}
+				confirmLabel={t('withdraw.confirm')}
+				onConfirm={() => withdrawing && withdraw.mutate(withdrawing.id)}
+				isPending={withdraw.isPending}
+				error={
+					withdraw.error && (
+						<Notice tone="error">
+							{hasCode(withdraw.error, 'INVALID_STATE')
+								? t('errors.invalidState')
+								: t(errorKey(withdraw.error))}
+						</Notice>
+					)
+				}
+			>
+				{withdrawing && (
+					<p>
+						{t('withdraw.body', {
+							type: t(`type.${withdrawing.type}`),
+							period: formatPeriod(withdrawing.startDate, withdrawing.endDate, i18n.language)
+						})}
+					</p>
+				)}
+			</ConfirmDialog>
 		</section>
 	);
 }
 
 type RowProps = {
 	absence: Absence;
+	onWithdraw: () => void;
 	onCancel: () => void;
 };
 
-function AbsenceRow({ absence, onCancel }: RowProps) {
-	const { t, i18n } = useTranslation(['absences', 'common']);
+function AbsenceRow({ absence, onWithdraw, onCancel }: RowProps) {
+	const { t, i18n } = useTranslation('absences');
 	const lng = i18n.language;
-	const queryClient = useQueryClient();
-	const withdraw = useMutation({
-		mutationFn: () => withdrawAbsence(absence.id),
-		onSuccess: () => refreshAbsences(queryClient)
-	});
+	const period = formatPeriod(absence.startDate, absence.endDate, lng);
 
 	const sick = absence.type === 'sick';
 	// sick leave is not taken back by the employee, and past leave cannot be undone anymore
@@ -179,9 +228,7 @@ function AbsenceRow({ absence, onCancel }: RowProps) {
 				<TypeTag type={absence.type} />
 			</td>
 			<td className={styles.period}>
-				<span className={styles.dates}>
-					{formatPeriod(absence.startDate, absence.endDate, lng)}
-				</span>{' '}
+				<span className={styles.dates}>{period}</span>{' '}
 				<HalfDays absence={absence} className={styles.half} />
 				{absence.note && <p className={styles.note}>{absence.note}</p>}
 				{absence.decisionNote && (
@@ -211,21 +258,22 @@ function AbsenceRow({ absence, onCancel }: RowProps) {
 			</td>
 			<td className={styles.actions}>
 				{absence.status === 'pending' && (
-					<Button variant="quiet" isPending={withdraw.isPending} onPress={() => withdraw.mutate()}>
+					<Button
+						variant="secondary"
+						aria-label={t('list.withdrawLabel', { period })}
+						onPress={onWithdraw}
+					>
 						{t('list.withdraw')}
 					</Button>
 				)}
 				{cancellable && (
-					<Button variant="quiet" onPress={onCancel}>
+					<Button
+						variant="secondary"
+						aria-label={t('list.cancelLabel', { period })}
+						onPress={onCancel}
+					>
 						{t('list.cancel')}
 					</Button>
-				)}
-				{withdraw.error && (
-					<p role="alert" className={styles.rowError}>
-						{hasCode(withdraw.error, 'INVALID_STATE')
-							? t('errors.invalidState')
-							: t(errorKey(withdraw.error))}
-					</p>
 				)}
 			</td>
 		</tr>

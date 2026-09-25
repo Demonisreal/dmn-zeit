@@ -33,7 +33,9 @@ describe('teams', () => {
 		expect(within(row.closest('tr')!).getByText('keine')).toBeInTheDocument();
 
 		await userEvent.click(
-			within(rowOf('Digitale Buchhaltung')).getByRole('button', { name: 'Leitung festlegen' })
+			within(rowOf('Digitale Buchhaltung')).getByRole('button', {
+				name: 'Teamleitung für Digitale Buchhaltung'
+			})
 		);
 		const group = screen.getByRole('group', { name: 'Teamleitung für Digitale Buchhaltung' });
 		await userEvent.click(within(group).getByRole('checkbox', { name: 'Helin Demir' }));
@@ -50,7 +52,9 @@ describe('teams', () => {
 		await screen.findByRole('cell', { name: 'Lohnbuchhaltung' });
 
 		await userEvent.click(
-			within(rowOf('Lohnbuchhaltung')).getByRole('button', { name: 'Leitung festlegen' })
+			within(rowOf('Lohnbuchhaltung')).getByRole('button', {
+				name: 'Teamleitung für Lohnbuchhaltung'
+			})
 		);
 		const group = screen.getByRole('group', { name: 'Teamleitung für Lohnbuchhaltung' });
 		expect(within(group).getByRole('checkbox', { name: 'Frank Oberdiek' })).toBeChecked();

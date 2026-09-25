@@ -1,4 +1,5 @@
 import { Link, useRouterState, type LinkProps } from '@tanstack/react-router';
+import { useEffect, useRef } from 'react';
 import styles from './section-nav.module.css';
 
 type Entry = {
@@ -16,9 +17,20 @@ type Props = {
 
 export function SectionNav({ label, entries }: Props) {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
+	const list = useRef<HTMLUListElement>(null);
+
+	// centres the active entry in the scrolling row, scrollIntoView would move the whole page too
+	useEffect(() => {
+		const row = list.current;
+		const active = row?.querySelector<HTMLElement>('[aria-current="page"]');
+		if (!row || !active) return;
+		const offset = active.getBoundingClientRect().left - row.getBoundingClientRect().left;
+		row.scrollLeft += offset - (row.clientWidth - active.offsetWidth) / 2;
+	}, [pathname]);
+
 	return (
 		<nav className={styles.nav} aria-label={label}>
-			<ul className={styles.list}>
+			<ul ref={list} className={styles.list}>
 				{entries.map((entry) => (
 					<li key={entry.to}>
 						<Link

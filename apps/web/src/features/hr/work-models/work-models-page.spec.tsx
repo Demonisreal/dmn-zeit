@@ -57,7 +57,9 @@ describe('working time models', () => {
 		const table = await screen.findByRole('table', { name: 'Arbeitszeitmodelle' });
 		const row = within(table).getByText('Teilzeit 20 h (vormittags)').closest('tr')!;
 
-		await userEvent.click(within(row).getByRole('button', { name: 'Archivieren' }));
+		await userEvent.click(
+			within(row).getByRole('button', { name: 'Teilzeit 20 h (vormittags) archivieren' })
+		);
 
 		await waitFor(() => expect(screen.queryByText('Teilzeit 20 h (vormittags)')).toBeNull());
 		await userEvent.click(screen.getByRole('checkbox', { name: 'Archivierte anzeigen' }));

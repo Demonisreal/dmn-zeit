@@ -21,6 +21,7 @@ import {
 	type FlexBooking,
 	type Holiday,
 	type MonthChecklist,
+	type MonthClosing,
 	type MonthOverview,
 	type Role,
 	type RuleSetInfo,
@@ -32,7 +33,10 @@ import {
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 import type { ZodError } from 'zod';
+import { absenceOn, teamIds } from './absences';
 import { mockSession } from './session';
+
+export { teamIds };
 
 // made-up tax office in NRW for working without the api, same people and ids as mocks/absences.ts
 
@@ -63,12 +67,6 @@ const invalid = (error: ZodError) =>
 	);
 
 const done = () => new HttpResponse(null, { status: 204 });
-
-export const teamIds = {
-	tax: 'e1f9ecbb-e6ff-4aa4-b29b-703459281a47',
-	payroll: 'c1b89b13-aeb6-4609-a49e-f1fe33512388',
-	books: '46fee763-03eb-4e93-904a-877f5494a37f'
-};
 
 const person = (
 	id: string,
@@ -256,8 +254,9 @@ const seedWorkModels = (): WorkModel[] => [
 	},
 	{
 		id: workModelIds.threeDays,
-		name: 'Teilzeit 3 Tage (Mo–Mi)',
-		minutes: week(468, 468, 468, 0, 0),
+		// Tue-Thu, so Lea's sick note for 08.-10.09. falls entirely on working days
+		name: 'Teilzeit 3 Tage (Di–Do)',
+		minutes: week(0, 468, 468, 468, 0),
 		archivedAt: null
 	},
 	{
@@ -395,7 +394,8 @@ const seedFindings = (): Finding[] => [
 	),
 	finding('Oberdiek', '2026-09-06', 'ARBZG_9_SUNDAY'),
 	finding('Brandt', '2026-09-08', 'ARBZG_3_OVER_10', { minutes: 640 }),
-	finding('Aydın', '2026-09-10', 'ARBZG_4_BREAK_SHORT', { requiredMinutes: 45, actualMinutes: 30 }),
+	// the tuesday of the week mock, 9:30 h with half an hour of break for everybody
+	finding('Aydın', '2026-09-22', 'ARBZG_4_BREAK_SHORT', { requiredMinutes: 45, actualMinutes: 30 }),
 	finding('Demir', '2026-09-11', 'ARBZG_5_REST_UNDER_11H', { restMinutes: 555 }),
 	finding('Lenz', '2026-09-15', 'ARBZG_3_OVER_8', { minutes: 530 })
 ];
@@ -548,35 +548,44 @@ const clock = (minute: number) =>
 function timesheetOf(employee: Employee, month: string): Timesheet {
 	const days: Timesheet['days'] = [];
 	const last = lastDayOf(month);
+	const index = mockEmployees.findIndex((candidate) => candidate.id === employee.id);
+	// everyone keeps their own hours, the earliest start at quarter past seven
+	const start = 7 * 60 + 15 + ((index * 17) % 75);
 	for (let day = `${month}-01`; day <= last; day = addDays(day, 1)) {
 		const weekday = weekdays[(new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7]!;
 		const employed = day >= employee.entryDate && (!employee.exitDate || day <= employee.exitDate);
 		const holiday = holidaysNw.find((candidate) => candidate.date === day) ?? null;
 		const planned = employed ? (contractOn(employee.id, day)?.minutes[weekday] ?? 0) : 0;
 		const target = holiday ? planned * (1 - holiday.portion) : planned;
-		const vacation = target > 0 && day.endsWith('-14');
-		const worked = target > 0 && !vacation && day <= today();
+		const away = target > 0 ? absenceOn(employee.id, day) : null;
+		const due = away ? target * (1 - away.portion) : target;
+		const past = day <= today();
+		const worked = due > 0 && past;
+		// some stay longer and some leave early, so the accounts drift apart
+		const extra = worked ? ((((Number(day.slice(8)) + index * 3) * 7) % 5) - 1 - (index % 3)) * 12 : 0;
+		const minutes = due + extra;
 		const offset = offsetOf(day);
-		// a little more on some days, the account should move
-		const extra = worked ? ((Number(day.slice(8)) * 7) % 5) * 12 - 12 : 0;
-		const end = 8 * 60 + 30 + target + extra;
-		const entries = worked
-			? [
-					{ startedAt: `${day}T08:00:00${offset}`, endedAt: `${day}T12:00:00${offset}` },
-					{ startedAt: `${day}T12:30:00${offset}`, endedAt: `${day}T${clock(end)}:00${offset}` }
-				]
-			: [];
-		const workedMinutes = worked ? target + extra : 0;
-		const creditedMinutes = vacation ? target : 0;
+		const at = (minute: number) => `${day}T${clock(minute)}:00${offset}`;
+		let entries: Timesheet['days'][number]['entries'] = [];
+		// up to six hours go without a break
+		if (worked && minutes <= 360) entries = [{ startedAt: at(start), endedAt: at(start + minutes) }];
+		else if (worked) {
+			entries = [
+				{ startedAt: at(start), endedAt: at(start + 240) },
+				{ startedAt: at(start + 270), endedAt: at(start + 30 + minutes) }
+			];
+		}
+		const workedMinutes = worked ? minutes : 0;
+		const creditedMinutes = away && past ? target - due : 0;
 		days.push({
 			date: day,
 			entries,
-			breakMinutes: worked ? 30 : 0,
+			breakMinutes: entries.length > 1 ? 30 : 0,
 			targetMinutes: target,
 			workedMinutes,
 			creditedMinutes,
-			diffMinutes: workedMinutes + creditedMinutes - (day <= today() ? target : 0),
-			absence: vacation ? { type: 'vacation', portion: 1 } : null,
+			diffMinutes: workedMinutes + creditedMinutes - (past ? target : 0),
+			absence: away && { type: away.type, portion: away.portion },
 			holiday: holiday?.code ?? null
 		});
 	}
@@ -647,14 +656,33 @@ function accountOf(employee: Employee, year: number): FlexAccount {
 	};
 }
 
+// what closing would cut off, the same two limits as applyCap in forfeit_at_close
+function capPreviewOf(month: string): MonthChecklist['capPreview'] {
+	return employees
+		.filter((e) => e.entryDate <= lastDayOf(month) && (!e.exitDate || e.exitDate >= `${month}-01`))
+		.flatMap((employee) => {
+			const account = accountOf(employee, Number(month.slice(0, 4)));
+			const balance = account.months.find((row) => row.month === month)?.balanceMinutes ?? 0;
+			const plusMinutes = account.cap.plusMinutes ?? 2400;
+			const minusMinutes = account.cap.minusMinutes ?? 600;
+			let forfeitedMinutes = 0;
+			if (balance > plusMinutes) forfeitedMinutes = balance - plusMinutes;
+			else if (balance < -minusMinutes) forfeitedMinutes = balance + minusMinutes;
+			return forfeitedMinutes === 0 ? [] : [{ employee: ref(employee), forfeitedMinutes }];
+		});
+}
+
 function checklistOf(month: string): MonthChecklist {
-	if (month <= closedMonth) return { month, closed: true, closable: false, items: [] };
+	if (month <= closedMonth) {
+		return { month, closed: true, closable: false, items: [], capPreview: [] };
+	}
 	const next = shiftMonth(closedMonth, 1);
 	if (month > next) {
 		return {
 			month,
 			closed: false,
 			closable: false,
+			capPreview: [],
 			items: [
 				{
 					kind: 'previous_month_open',
@@ -667,7 +695,13 @@ function checklistOf(month: string): MonthChecklist {
 	}
 	const items = openPoints[month] ?? [];
 	const over = lastDayOf(month) < today();
-	return { month, closed: false, closable: over && !items.some((item) => item.blocking), items };
+	return {
+		month,
+		closed: false,
+		closable: over && !items.some((item) => item.blocking),
+		items,
+		capPreview: capPreviewOf(month)
+	};
 }
 
 const auditTables = [
@@ -689,6 +723,14 @@ function seedAudit(): AuditEntry[] {
 	];
 	const staff = mockEmployees.filter((employee) => employee.exitDate === null);
 	const start = Date.parse('2026-09-23T16:40:00+02:00');
+	// roles are admin work and closings hr work, a team lead decides and approves in the own team only
+	const actorFor = (table: (typeof auditTables)[number], subject: Employee, actor: (typeof actors)[number]) => {
+		if (table === 'users') return actors[0]!;
+		if (table === 'month_closings') return actors[1]!;
+		if (actor.role !== 'team_lead') return actor;
+		const own = subject.teamId === katrin.teamId;
+		return own && (table === 'time_entries' || table === 'absence_requests') ? actor : actors[1]!;
+	};
 	return Array.from({ length: 130 }, (_, i): AuditEntry => {
 		const occurredAt = new Date(start - i * 7 * 3_600_000 - (i % 5) * 600_000).toISOString();
 		const subject = staff[i % staff.length]!;
@@ -701,7 +743,7 @@ function seedAudit(): AuditEntry[] {
 				actorName: actor.name,
 				actorRole: actor.role,
 				source: 'app',
-				action: 'login_success',
+				action: 'login.succeeded',
 				table: null,
 				rowId: null,
 				subjectEmployeeId: null,
@@ -712,6 +754,7 @@ function seedAudit(): AuditEntry[] {
 			};
 		}
 		const table = auditTables[i % auditTables.length]!;
+		const by = actorFor(table, subject, actor);
 		const day = occurredAt.slice(0, 10);
 		const diffs: Record<(typeof auditTables)[number], NonNullable<AuditEntry['changes']>> = {
 			time_entries: {
@@ -720,7 +763,7 @@ function seedAudit(): AuditEntry[] {
 			},
 			absence_requests: {
 				status: ['pending', 'approved'],
-				decided_by: [null, katrin.userId]
+				decided_by: [null, by.id]
 			},
 			contracts: {
 				valid_from: [null, '2026-07-01'],
@@ -743,9 +786,9 @@ function seedAudit(): AuditEntry[] {
 		return {
 			id: String(10_000 - i),
 			occurredAt,
-			actorUserId: table === 'month_closings' ? sabineRef.id : actor.id,
-			actorName: table === 'month_closings' ? sabineRef.displayName : actor.name,
-			actorRole: table === 'month_closings' ? 'hr' : actor.role,
+			actorUserId: by.id,
+			actorName: by.name,
+			actorRole: by.role,
 			source: 'trigger',
 			action: table === 'time_entries' || table === 'absence_requests' ? 'update' : 'insert',
 			table,
@@ -1037,9 +1080,33 @@ export const hrHandlers = [
 		const month = String(params.month);
 		const checklist = checklistOf(month);
 		if (!checklist.closable) return fail(409, 'INVALID_STATE', 'Month cannot be closed');
+		const id = newId();
+		const at = new Date().toISOString();
+		// booked on the last day while the month is still open, the booking pulls back to the limit
+		for (const { employee, forfeitedMinutes } of checklist.capPreview) {
+			bookings.push({
+				id: newId(),
+				employeeId: employee.id,
+				type: 'cap_forfeit',
+				minutes: -forfeitedMinutes,
+				effectiveDate: lastDayOf(month),
+				reason: `Kappung beim Abschluss ${month}`,
+				monthClosingId: id,
+				createdBy: null,
+				createdAt: at
+			});
+		}
 		closedMonth = month;
 		for (const employee of employees) employee.closedThrough = lastDayOf(month);
-		return done();
+		return HttpResponse.json({
+			id,
+			month,
+			action: 'close',
+			reason: null,
+			actor: { id: mockSession.user.id, displayName: mockSession.user.displayName },
+			at,
+			capped: checklist.capPreview
+		} satisfies MonthClosing);
 	}),
 
 	http.post('/api/months/:month/reopen', async ({ params, request }) => {
@@ -1047,6 +1114,20 @@ export const hrHandlers = [
 		if (!parsed.success) return invalid(parsed.error);
 		if (params.month !== closedMonth) {
 			return fail(409, 'INVALID_STATE', 'Only the last closed month can be reopened');
+		}
+		const id = newId();
+		const capped = bookings.filter(
+			(booking) => booking.type === 'cap_forfeit' && booking.effectiveDate === lastDayOf(closedMonth)
+		);
+		for (const booking of capped) {
+			bookings.push({
+				...booking,
+				id: newId(),
+				minutes: -booking.minutes,
+				reason: `Kappung zurückgebucht, ${closedMonth} wieder geöffnet`,
+				monthClosingId: id,
+				createdAt: new Date().toISOString()
+			});
 		}
 		closedMonth = shiftMonth(closedMonth, -1);
 		for (const employee of employees) employee.closedThrough = lastDayOf(closedMonth);
@@ -1082,12 +1163,16 @@ export const hrHandlers = [
 			closed: month <= closedMonth,
 			rows: staff.map((employee) => {
 				const sheet = timesheetOf(employee, month);
+				const away = (type: 'vacation' | 'sick') =>
+					sheet.days
+						.reduce((total, day) => total + (day.absence?.type === type ? day.absence.portion : 0), 0)
+						.toFixed(2);
 				return {
 					employee: sheet.employee,
 					...sheet.totals,
 					flexBalanceMinutes: sheet.flexBalanceMinutes,
-					vacationDays: sheet.days.filter((day) => day.absence).length.toFixed(2),
-					sickDays: '0.00',
+					vacationDays: away('vacation'),
+					sickDays: away('sick'),
 					openFindings: findings.filter(
 						(f) => f.employee.id === employee.id && f.date.startsWith(month) && !f.ack
 					).length

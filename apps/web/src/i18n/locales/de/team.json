@@ -9,7 +9,7 @@
 	"today": "heute",
 	"absentCount": "Abwesend",
 	"pending": "beantragt",
-	"cancelPending": "Storno beantragt",
+	"cancelPending": "Stornierung beantragt",
 	"halfDay": "halber Tag",
 	"kind": {
 		"vacation": "Urlaub",
@@ -26,6 +26,7 @@
 	"legend": {
 		"types": "U Urlaub, K Krankheit, Z Zeitausgleich.",
 		"absent": "A abwesend, den Grund sehen nur Teamleitung und Personalverwaltung.",
-		"marks": "Gestrichelt: beantragt, noch nicht entschieden. Halb gefüllt: halber Tag."
+		"marks": "Gestrichelt: beantragt, noch nicht entschieden. Halb gefüllt: halber Tag.",
+		"names": "Der Name führt zu den Zeiten der Person in diesem Monat."
 	}
 }

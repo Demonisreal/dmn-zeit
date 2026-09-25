@@ -9,7 +9,7 @@
 		"label": "Leave account {{year}}",
 		"bucket": "Entitlement year",
 		"entitlement": "Entitlement",
-		"taken": "Taken",
+		"taken": "Approved",
 		"refunded": "Booked back",
 		"adjusted": "Adjustment",
 		"expired": "Forfeited",
@@ -39,7 +39,7 @@
 		"type": {
 			"entitlement": "Entitlement",
 			"adjustment": "Adjustment",
-			"taken": "Leave taken",
+			"taken": "Leave approved",
 			"refund_sick": "Booked back, sick leave",
 			"refund_cancel": "Booked back, cancellation",
 			"expiry": "Forfeiture",

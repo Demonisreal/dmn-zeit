@@ -1,8 +1,11 @@
+import { Link } from '@tanstack/react-router';
 import type { Day } from '@zeit/shared';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Tag } from '../../components/ui/tag';
 import { formatDate, formatMinutes } from '../../i18n/format';
+import { markTourStep } from '../demo/tour';
 import { CorrectionSection } from './correction-section';
 import styles from './day-detail.module.css';
 import { DayEntries } from './day-entries';
@@ -17,9 +20,11 @@ type Props = {
 	employeeId: string;
 	extra: number;
 	now: number;
+	isToday: boolean;
 	isFuture: boolean;
-	canCorrect: boolean;
+	own: boolean;
 	findingAction?: FindingAction | undefined;
+	isDemo?: boolean;
 };
 
 export function DayDetail({
@@ -27,12 +32,22 @@ export function DayDetail({
 	employeeId,
 	extra,
 	now,
+	isToday,
 	isFuture,
-	canCorrect,
-	findingAction
+	own,
+	findingAction,
+	isDemo = false
 }: Props) {
-	const { t, i18n } = useTranslation('week');
+	const { t, i18n } = useTranslation(['week', 'hr']);
 	const explain = useExplain();
+	const remaining = isToday ? Math.max(0, -(day.diffMinutes + extra)) : 0;
+	const canRequest = own && (isToday || isFuture) && !day.absence && day.target.minutes > 0;
+	const shortRest = day.findings.some((finding) => finding.code === 'ARBZG_5_REST_UNDER_11H');
+
+	// the detail only mounts while its row is open, so the finding has been seen
+	useEffect(() => {
+		if (isDemo && shortRest) markTourStep('restFinding');
+	}, [isDemo, shortRest]);
 
 	return (
 		<div className={styles.detail}>
@@ -84,11 +99,13 @@ export function DayDetail({
 						<div className={styles.result}>
 							<dt>
 								<span aria-hidden="true">=</span>
-								{t('detail.diff')}
+								{remaining > 0 ? t('detail.remaining') : t('detail.diff')}
 							</dt>
 							<dd>
 								<span className={styles.amount}>
-									{formatMinutes(day.diffMinutes + extra, { signed: true })}
+									{remaining > 0
+										? formatMinutes(remaining)
+										: formatMinutes(day.diffMinutes + extra, { signed: true })}
 								</span>
 							</dd>
 						</div>
@@ -100,12 +117,20 @@ export function DayDetail({
 						{day.holiday.portion === 0.5 && `, ${t('detail.halfDay')}`}
 					</p>
 				)}
-				{day.absence && (
+				{day.absence ? (
 					<p className={styles.line}>
 						{t('detail.absence')}: {t(`absence.${day.absence.type}`)},{' '}
 						{t(`absenceStatus.${day.absence.status}`)}
 						{day.absence.portion === 0.5 && `, ${t('detail.halfDay')}`}
 					</p>
+				) : (
+					canRequest && (
+						<p className={styles.line}>
+							<Link to="/absences" search={{ start: day.date }}>
+								{t('detail.requestAbsence')}
+							</Link>
+						</p>
+					)
 				)}
 			</section>
 
@@ -115,9 +140,21 @@ export function DayDetail({
 					<ul className={styles.findings}>
 						{day.findings.map((finding) => (
 							<li key={finding.code}>
-								<Tag tone={finding.severity === 'warning' && !finding.ack ? 'error' : 'neutral'}>
-									{paragraph(finding.code)} ArbZG
-								</Tag>
+								<span
+									title={t(
+										`hr:findings.states.${finding.severity === 'warning' && !finding.ack ? 'open' : 'acknowledged'}`
+									)}
+								>
+									<Tag tone={finding.severity === 'warning' && !finding.ack ? 'error' : 'neutral'}>
+										{paragraph(finding.code)} ArbZG
+									</Tag>
+									<VisuallyHidden>
+										,{' '}
+										{t(
+											`hr:findings.states.${finding.severity === 'warning' && !finding.ack ? 'open' : 'acknowledged'}`
+										)}
+									</VisuallyHidden>
+								</span>
 								<div className={styles.finding}>
 									<p>{explain.finding(finding.code, finding.facts)}</p>
 									<p className={styles.hint}>
@@ -142,7 +179,7 @@ export function DayDetail({
 				</section>
 			)}
 
-			{canCorrect &&
+			{own &&
 				!isFuture &&
 				(day.locked ? (
 					<p className={`${styles.hint} ${styles.wide}`}>{t('detail.locked')}</p>

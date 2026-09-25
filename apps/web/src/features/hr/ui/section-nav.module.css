@@ -12,6 +12,53 @@
 	overflow-x: auto;
 	list-style: none;
 	scrollbar-width: none;
+	/* a focused entry stops short of the faded edge */
+	scroll-padding-inline: 2rem;
+}
+
+@property --fade-start {
+	syntax: '<length>';
+	inherits: false;
+	initial-value: 0px;
+}
+
+@property --fade-end {
+	syntax: '<length>';
+	inherits: false;
+	initial-value: 0px;
+}
+
+/* an edge fades only while entries hide behind it, a row that fits stays untouched */
+@supports (animation-timeline: scroll()) {
+	.list {
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 var(--fade-start),
+			#000 calc(100% - var(--fade-end)),
+			transparent
+		);
+		animation: edges linear both;
+		animation-timeline: scroll(self inline);
+	}
+}
+
+@keyframes edges {
+	0% {
+		--fade-start: 0px;
+		--fade-end: 2rem;
+	}
+
+	10%,
+	90% {
+		--fade-start: 2rem;
+		--fade-end: 2rem;
+	}
+
+	100% {
+		--fade-start: 2rem;
+		--fade-end: 0px;
+	}
 }
 
 .link {

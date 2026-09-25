@@ -39,7 +39,8 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 		...teamCalendarQuery(month, selected),
 		enabled: !hr || !teams.isPending
 	});
-	const types = hasRole(session.user.role, 'team_lead');
+	// mirrors team_absence_days, a lead of another team only sees "absent" here
+	const full = hr || session.leadsTeams.some((led) => led.id === selected);
 
 	const body = () => {
 		if (calendar.isPending) return <Loading rows={5} />;
@@ -49,9 +50,14 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 		if (calendar.data.people.length === 0) return <EmptyState title={t('empty')} />;
 		return (
 			<>
-				<TeamGrid calendar={calendar.data} labelledBy="team-calendar-title team-calendar-month" />
+				<TeamGrid
+					calendar={calendar.data}
+					labelledBy="team-calendar-title team-calendar-month"
+					linkPeople={full}
+				/>
 				<p className={styles.legend}>
-					{types ? t('legend.types') : t('legend.absent')} {t('legend.marks')}
+					{full ? t('legend.types') : t('legend.absent')} {t('legend.marks')}
+					{full && ` ${t('legend.names')}`}
 				</p>
 			</>
 		);

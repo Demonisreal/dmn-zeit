@@ -24,9 +24,9 @@ describe('team calendar', () => {
 		expect(within(person('Deniz Aydın')).getAllByText('Urlaub')).toHaveLength(5);
 		expect(within(person('Tobias Kämmerer')).getAllByText('Krankheit')).toHaveLength(5);
 		expect(screen.queryByText('abwesend')).not.toBeInTheDocument();
-		// Tobias and Mara are both sick on the 21st
+		// Tobias is sick from the 21st on, alone that day
 		const absent = within(person('Abwesend')).getAllByRole('cell');
-		expect(absent[20]).toHaveTextContent('2');
+		expect(absent[20]).toHaveTextContent('1');
 		expect(screen.getByText(/U Urlaub, K Krankheit, Z Zeitausgleich/)).toBeInTheDocument();
 	});
 
@@ -104,6 +104,44 @@ describe('team calendar', () => {
 		expect(await screen.findByText('In diesem Team ist niemand eingetragen.')).toBeInTheDocument();
 	});
 
+	it('links each name to the month of that person for hr', async () => {
+		signInAs('hr');
+		renderApp('/team/calendar');
+		await screen.findByRole('region', { name: 'Teamkalender September 2026' });
+
+		expect(
+			within(person('Deniz Aydın')).getByRole('link', { name: 'Deniz Aydın' })
+		).toHaveAttribute('href', '/time?employee=bc1e61b4-d3d8-4290-9124-bc7adf87efde&month=2026-09');
+	});
+
+	it('links the names of their own team to the month shown for a team lead', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		renderApp('/team/calendar?month=2026-10');
+		await screen.findByRole('region', { name: 'Teamkalender Oktober 2026' });
+
+		expect(
+			within(person('Tobias Kämmerer')).getByRole('link', { name: 'Tobias Kämmerer' })
+		).toHaveAttribute('href', '/time?employee=09cbac3e-5b5a-474e-9654-f777b63fddad&month=2026-10');
+	});
+
+	it('keeps the names plain text for employees', async () => {
+		signInAs('employee');
+		renderApp('/team/calendar');
+		const grid = await screen.findByRole('region', { name: 'Teamkalender September 2026' });
+
+		expect(within(grid).getByRole('rowheader', { name: 'Deniz Aydın' })).toBeInTheDocument();
+		expect(within(grid).queryByRole('link')).not.toBeInTheDocument();
+	});
+
+	it('links no names when a lead opens a team they do not lead', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		renderApp(`/team/calendar?team=${lohnbuchhaltung.id}`);
+		const grid = await screen.findByRole('region', { name: 'Teamkalender September 2026' });
+
+		expect(within(grid).getByRole('rowheader', { name: 'Frank Oberdiek' })).toBeInTheDocument();
+		expect(within(grid).queryByRole('link')).not.toBeInTheDocument();
+	});
+
 	it('marks requested days and public holidays in the next month', async () => {
 		signInAs('team_lead', [steuerberatung]);
 		renderApp('/team/calendar');
@@ -116,8 +154,8 @@ describe('team calendar', () => {
 			screen.getByRole('columnheader', { name: 'Sa., 03.10., Tag der Deutschen Einheit' })
 		).toBeInTheDocument();
 		expect(within(person('Deniz Aydın')).getAllByText('Urlaub, beantragt')).toHaveLength(10);
-		expect(within(person('Tobias Kämmerer')).getAllByText('Urlaub, Storno beantragt')).toHaveLength(
-			5
-		);
+		expect(
+			within(person('Tobias Kämmerer')).getAllByText('Urlaub, Stornierung beantragt')
+		).toHaveLength(5);
 	});
 });

@@ -471,6 +471,146 @@ describe('GET /api/absences', () => {
 	});
 });
 
+describe('GET /api/absences?scope=inbox, what the approver weighs', () => {
+	type Away = { employee: { id: string; name: string }; startDate: string; endDate: string };
+	type Entry = {
+		id: string;
+		remainingAfter?: string;
+		balanceAfterMinutes?: number;
+		concurrentAbsences?: Away[];
+	};
+
+	let w: Office;
+	let june: string;
+	let summer: string;
+	let july: string;
+	let march: string;
+	let outside: string;
+
+	const filed = async (person: Member, body: object) => {
+		const answer = await request(person, body);
+		expect(answer.status).toBe(201);
+		return answer.body.id as string;
+	};
+	const inbox = async (person: Member) => {
+		const answer = await person.desk.get('/absences?scope=inbox');
+		expect(answer.status).toBe(200);
+		expectContract(absencePageSchema, answer.body);
+		return new Map((answer.body.items as Entry[]).map((entry) => [entry.id, entry]));
+	};
+
+	// "today" is 10 march 2026 for the whole file
+	beforeAll(async () => {
+		w = await office(api);
+		await grant(api, w.worker, 2026, '30.00');
+
+		summer = await filed(w.worker, {
+			type: 'vacation',
+			startDate: '2026-08-03',
+			endDate: '2026-08-04'
+		});
+		expect((await w.lead.desk.post(`/absences/${summer}/approve`, {})).status).toBe(200);
+		expect((await w.worker.desk.post(`/absences/${summer}/cancel`, {})).status).toBe(200);
+
+		june = await filed(w.worker, {
+			type: 'vacation',
+			startDate: '2026-06-08',
+			endDate: '2026-06-10'
+		});
+		july = await filed(w.worker, {
+			type: 'time_off',
+			startDate: '2026-07-06',
+			endDate: '2026-07-07'
+		});
+		march = await filed(w.worker, {
+			type: 'time_off',
+			startDate: '2026-03-09',
+			endDate: '2026-03-11'
+		});
+		await filed(w.colleague, { type: 'sick', startDate: '2026-06-09', endDate: '2026-06-09' });
+		outside = await filed(w.outsider, {
+			type: 'vacation',
+			startDate: '2026-06-10',
+			endDate: '2026-06-10'
+		});
+	});
+
+	it('names the leave left after a vacation request, and after a cancellation', async () => {
+		const items = await inbox(w.lead);
+		// 30 days less the approved 2 of august and the pending 3 of june
+		expect(items.get(june)).toMatchObject({ remainingAfter: '25.00' });
+		expect(items.get(summer)).toMatchObject({ remainingAfter: '27.00' });
+		expect(items.get(june)).not.toHaveProperty('balanceAfterMinutes');
+	});
+
+	it('takes time off from the flex balance, only for the days it has not counted yet', async () => {
+		const flex = await w.lead.desk.get(`/employees/${w.worker.employeeId}/flex?year=2026`);
+		expect(flex.status).toBe(200);
+		const balance = flex.body.balanceMinutes as number;
+
+		const items = await inbox(w.lead);
+		expect(items.get(july)).toMatchObject({ balanceAfterMinutes: balance - 960 });
+		// 9 and 10 march are in the balance already, only the 11th is still to come
+		expect(items.get(march)).toMatchObject({ balanceAfterMinutes: balance - 480 });
+		expect(items.get(july)).not.toHaveProperty('remainingAfter');
+	});
+
+	it('shows the lead who else of the team is away, never somebody of another team', async () => {
+		const items = await inbox(w.lead);
+		expect(items.has(outside)).toBe(false);
+		expect(items.get(june)!.concurrentAbsences).toEqual([
+			{
+				employee: { id: w.colleague.employeeId, name: 'Clara Kolleg' },
+				startDate: '2026-06-09',
+				endDate: '2026-06-09'
+			}
+		]);
+		expect(items.get(july)!.concurrentAbsences).toEqual([]);
+	});
+
+	it('shows hr the whole tenant, but never the person asking', async () => {
+		const items = await inbox(w.hr);
+		expect(items.get(june)!.concurrentAbsences).toEqual([
+			{
+				employee: { id: w.colleague.employeeId, name: 'Clara Kolleg' },
+				startDate: '2026-06-09',
+				endDate: '2026-06-09'
+			},
+			{
+				employee: { id: w.outsider.employeeId, name: 'Otto Aussen' },
+				startDate: '2026-06-10',
+				endDate: '2026-06-10'
+			}
+		]);
+		expect(items.get(outside)!.concurrentAbsences).toEqual([
+			{
+				employee: { id: w.worker.employeeId, name: 'Wim Werner' },
+				startDate: '2026-06-08',
+				endDate: '2026-06-10'
+			}
+		]);
+	});
+
+	it('never says why a colleague is away, not even for sick leave', async () => {
+		const answer = await w.lead.desk.get('/absences?scope=inbox');
+		const vacation = (answer.body.items as Entry[]).find((entry) => entry.id === june)!;
+		const [sick] = vacation.concurrentAbsences!;
+		expect(Object.keys(sick!).sort()).toEqual(['employee', 'endDate', 'startDate']);
+		expect(sick).not.toHaveProperty('type');
+		expect(answer.text).not.toContain('"sick"');
+	});
+
+	it('keeps the other lists as they are', async () => {
+		const all = await w.lead.desk.get('/absences?from=2026-01-01&to=2026-12-31&scope=all');
+		expect(all.body.items.length).toBeGreaterThan(0);
+		for (const entry of all.body.items) {
+			expect(entry).not.toHaveProperty('concurrentAbsences');
+			expect(entry).not.toHaveProperty('remainingAfter');
+			expect(entry).not.toHaveProperty('balanceAfterMinutes');
+		}
+	});
+});
+
 describe('closed months', () => {
 	it('allows no new absence and no decision inside a closed month', async () => {
 		const locked = await office(api);

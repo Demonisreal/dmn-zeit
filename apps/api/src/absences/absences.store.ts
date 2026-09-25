@@ -37,6 +37,8 @@ export type Decision = {
 	note: string | null;
 };
 
+export type Concurrent = NonNullable<Absence['concurrentAbsences']>[number];
+
 export type Filter = (
 	eb: ExpressionBuilder<DB & { r: AppAbsenceRequests; e: AppEmployees }, 'r' | 'e'>
 ) => Expression<SqlBool>;
@@ -134,6 +136,70 @@ export class AbsencesStore {
 			.orderBy('start_date')
 			.execute();
 		return rows.map((row) => row.id);
+	}
+
+	// who else is away over the same days; the type is never read here, sick leave stays private
+	async concurrent(
+		trx: Trx,
+		absenceIds: readonly string[],
+		leadOnly: boolean
+	): Promise<Map<string, Concurrent[]>> {
+		if (absenceIds.length === 0) return new Map();
+		let query = trx
+			.selectFrom('app.absence_requests as a')
+			.innerJoin('app.absence_requests as o', (join) =>
+				join
+					.onRef('o.employee_id', '!=', 'a.employee_id')
+					.onRef('o.start_date', '<=', 'a.end_date')
+					.onRef('o.end_date', '>=', 'a.start_date')
+			)
+			.innerJoin('app.employees as e', 'e.id', 'o.employee_id')
+			.select([
+				'a.id',
+				'o.employee_id',
+				sql<string>`e.first_name || ' ' || e.last_name`.as('employee_name'),
+				'o.start_date',
+				'o.end_date'
+			])
+			.where('a.id', 'in', absenceIds)
+			.where('o.status', 'in', ['pending', 'approved', 'cancel_pending']);
+		// rls would still show a lead their own requests, even without being in the team they lead
+		if (leadOnly) query = query.where((eb) => sql<boolean>`app.leads(${eb.ref('o.employee_id')})`);
+		const rows = await query
+			.orderBy('o.start_date')
+			.orderBy('e.last_name')
+			.orderBy('e.first_name')
+			.execute();
+
+		const byAbsence = new Map<string, Concurrent[]>();
+		for (const row of rows) {
+			const away = byAbsence.get(row.id) ?? [];
+			away.push({
+				employee: { id: row.employee_id, name: row.employee_name },
+				startDate: row.start_date,
+				endDate: row.end_date
+			});
+			byAbsence.set(row.id, away);
+		}
+		return byAbsence;
+	}
+
+	// time off credits nothing, the balance already carries its days up to the given date
+	async minutesAfter(
+		trx: Trx,
+		absenceIds: readonly string[],
+		date: string
+	): Promise<Map<string, number>> {
+		if (absenceIds.length === 0) return new Map();
+		const rows = await trx
+			.selectFrom('app.absence_days')
+			.select(['absence_id', sql<number>`sum(target_minutes)::int`.as('minutes')])
+			.where('absence_id', 'in', absenceIds)
+			.where('superseded_by', 'is', null)
+			.where('date', '>', date)
+			.groupBy('absence_id')
+			.execute();
+		return new Map(rows.map((row) => [row.absence_id, row.minutes]));
 	}
 
 	activeDays(trx: Trx, absenceId: string): Promise<ActiveDay[]> {

@@ -27,7 +27,7 @@ describe('month', () => {
 
 		expect(within(table).getAllByRole('button', { name: /\.09\./ })).toHaveLength(30);
 		const sums = within(table).getByRole('rowheader', { name: 'Monat' }).closest('tr')!;
-		expect(within(sums).getByText('bis heute')).toBeInTheDocument();
+		expect(within(sums).getByText('bis jetzt')).toBeInTheDocument();
 		const balance = within(table).getByRole('rowheader', { name: 'Gleitzeitsaldo' }).closest('tr')!;
 		expect(await within(balance).findByText(/\+12:35 h/)).toBeInTheDocument();
 
@@ -78,6 +78,32 @@ describe('month', () => {
 		const detail = await openDay(/22\.09\./, 'day-2026-09-22');
 
 		expect(within(detail).queryByRole('button', { name: 'Quittieren' })).not.toBeInTheDocument();
+	});
+
+	it('offers a team lead no absence request on someone else’s day', async () => {
+		signInForWeek('team_lead');
+		renderApp(`/time?employee=${katrinId}`);
+		const detail = await openDay(/25\.09\./, 'day-2026-09-25');
+
+		expect(within(detail).getByRole('heading', { name: 'Rechnung' })).toBeInTheDocument();
+		expect(within(detail).queryByRole('link', { name: 'Abwesenheit beantragen' })).toBeNull();
+	});
+
+	it('stops the flextime derivation at the month shown', async () => {
+		signInForWeek();
+		renderApp('/time?month=2026-08');
+		const table = await monthTable('August 2026');
+		const toggle = within(table).getByRole('button', { name: 'Gleitzeitsaldo' });
+
+		await userEvent.click(toggle);
+
+		const derivation = document.getElementById('flex-detail')!;
+		expect(within(derivation).getByText('Januar bis August')).toBeInTheDocument();
+		expect(
+			within(derivation).getByText('Saldo', { selector: 'dt' }).nextElementSibling
+		).toHaveTextContent('+11:45 h');
+		const months = within(derivation).getByRole('table', { name: 'Monatswerte' });
+		expect(within(months).queryByRole('row', { name: /^September 2026/ })).toBeNull();
 	});
 
 	it('asks for a note before acknowledging', async () => {

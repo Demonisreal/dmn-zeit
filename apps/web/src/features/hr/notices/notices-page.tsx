@@ -62,7 +62,12 @@ export function NoticesPage() {
 		const all = chosen.length === people.length;
 		body = (
 			<>
-				<div className={styles.scroll}>
+				<div
+					className={styles.scroll}
+					role="region"
+					aria-label={t('notices.tableLabel', { year })}
+					tabIndex={0}
+				>
 					<Table label={t('notices.tableLabel', { year })}>
 						<thead>
 							<tr>

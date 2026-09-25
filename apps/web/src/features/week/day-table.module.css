@@ -62,8 +62,7 @@
 }
 
 /* on phones the notice column is gone, a small mark next to the day keeps an open finding visible */
-.toggle[data-flag]::after {
-	content: '§';
+.flag {
 	display: none;
 	color: var(--red-hi);
 	font-family: var(--mono);
@@ -143,6 +142,10 @@
 	font-size: 0.8125rem;
 }
 
+.remaining {
+	color: var(--muted);
+}
+
 .tags {
 	display: flex;
 	flex-wrap: wrap;
@@ -152,6 +155,10 @@
 .sumLabel {
 	color: var(--white);
 	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+.sumLabel .toggle {
 	font-weight: 600;
 }
 
@@ -176,6 +183,17 @@
 .frame .detailRow > td {
 	padding: 0;
 	background: var(--ink);
+}
+
+/* the balance row is the last one, so its breakdown hangs right under the table */
+.flexDetail {
+	border-bottom: 1px solid var(--edge);
+	background: var(--ink);
+}
+
+/* the breakdown breaks words anywhere, the month and posting tables scroll sideways instead */
+.flexDetail table {
+	overflow-wrap: normal;
 }
 
 /* all nine columns need about 58rem, below that the clock times move into the breakdown */
@@ -205,9 +223,17 @@
 		grid-row: span 2;
 	}
 
-	.toggle[data-flag]::after {
+	.flag {
 		display: block;
 		grid-column: 2;
+	}
+
+	/* the long balance label may break, otherwise it widens the day column of every row */
+	.frame .sumLabel,
+	.sumLabel .toggle {
+		text-align: start;
+		white-space: normal;
+		hyphens: auto;
 	}
 
 	.barCol {

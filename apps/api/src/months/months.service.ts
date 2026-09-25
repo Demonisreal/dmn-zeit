@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, Injectable } from '@nestjs/common';
-import { applyCap, ruleSetFor } from '@zeit/rules';
+import { applyCap, ruleSetFor, type CapDecision } from '@zeit/rules';
 import type {
 	ApiError,
 	ChecklistKind,
@@ -40,6 +40,13 @@ export const isClosed = (month: string, lastClosed: string | null) =>
 
 function notInState(message: string, details: Record<string, unknown> | null = null) {
 	return new ConflictException({ code: 'INVALID_STATE', message, details } satisfies ApiError);
+}
+
+// checklist and close both ask here, so the preview names the minutes the close books
+function capOf(tenant: TenantSettings, { sheet, row }: Figures, until: string): CapDecision {
+	const limit =
+		sheet.contracts.findLast((contract) => contract.validFrom <= until)?.flexCap ?? tenant.flexCap;
+	return applyCap(row.flexBalanceMinutes, limit, tenant.flexCapMode);
 }
 
 // hits come one per entry or request, the item names every person once
@@ -82,13 +89,14 @@ export class MonthsService {
 			items.push(...(await this.blockers(trx, range)));
 
 			const people = await this.store.employed(trx, range);
-			const { tenant, sheets } = await this.time.sheets(
+			const { tenant, figures } = await this.figures(
 				trx,
 				people.map((person) => person.id),
-				range
+				month,
+				now
 			);
-			const unacked = [...sheets.values()].flatMap((sheet) =>
-				buildDays(sheet, tenant, range, now).flatMap((day) =>
+			const unacked = [...figures.values()].flatMap(({ sheet, days }) =>
+				days.flatMap((day) =>
 					day.findings
 						.filter((finding) => !finding.ack)
 						.map(() => ({ id: sheet.employee.id, name: sheet.employee.name }))
@@ -97,6 +105,15 @@ export class MonthsService {
 			// findings can still be acknowledged after the close, they only point out what is left
 			if (unacked.length > 0) items.push(item('open_finding', false, unacked));
 
+			// a closed month has booked its cap already, there is nothing left to preview
+			const capPreview = closed
+				? []
+				: [...figures.values()].flatMap((figure) => {
+						const { forfeited } = capOf(tenant, figure, range.to);
+						const { id, name } = figure.sheet.employee;
+						return forfeited === 0 ? [] : [{ employee: { id, name }, forfeitedMinutes: forfeited }];
+					});
+
 			return {
 				month,
 				closed,
@@ -104,7 +121,8 @@ export class MonthsService {
 					!closed &&
 					month < localDate(now).slice(0, 7) &&
 					!items.some((candidate) => candidate.blocking),
-				items
+				items,
+				capPreview
 			};
 		});
 	}
@@ -139,14 +157,11 @@ export class MonthsService {
 			);
 			const snapshot: MonthSnapshot = { ruleVersions: [...new Set(versions)], employees: {} };
 			const caps: Cap[] = [];
-			for (const [employeeId, { sheet, row }] of figures) {
-				const limit =
-					sheet.contracts.findLast((contract) => contract.validFrom <= range.to)?.flexCap ??
-					tenant.flexCap;
-				const cap = applyCap(row.flexBalanceMinutes, limit, tenant.flexCapMode);
+			for (const [employeeId, figure] of figures) {
+				const cap = capOf(tenant, figure, range.to);
 				// forfeited carries the sign of the balance, the booking pulls it back to the limit
 				if (cap.forfeited !== 0) caps.push({ employeeId, minutes: -cap.forfeited });
-				snapshot.employees[employeeId] = { ...row, flexBalanceMinutes: cap.kept };
+				snapshot.employees[employeeId] = { ...figure.row, flexBalanceMinutes: cap.kept };
 			}
 
 			// dated into the month while it is still open, the closing row after it moves the lock past
@@ -170,7 +185,11 @@ export class MonthsService {
 				month,
 				action: 'close',
 				reason: null,
-				at: createdAt
+				at: createdAt,
+				capped: caps.map(({ employeeId, minutes }) => ({
+					employee: { id: employeeId, name: figures.get(employeeId)!.sheet.employee.name },
+					forfeitedMinutes: -minutes
+				}))
 			});
 		});
 	}
@@ -202,7 +221,8 @@ export class MonthsService {
 				month,
 				action: 'reopen',
 				reason: input.reason,
-				at: createdAt
+				at: createdAt,
+				capped: []
 			});
 		});
 	}

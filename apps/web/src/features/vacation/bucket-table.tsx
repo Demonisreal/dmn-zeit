@@ -25,7 +25,12 @@ export function BucketTable({ account }: Props) {
 		});
 
 	return (
-		<div className={styles.scroll}>
+		<div
+			className={styles.scroll}
+			role="region"
+			aria-label={t('account.label', { year: account.year })}
+			tabIndex={0}
+		>
 			<Table label={t('account.label', { year: account.year })}>
 				<thead>
 					<tr>

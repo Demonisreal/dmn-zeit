@@ -1,9 +1,10 @@
 import type { DayRange } from '@zeit/shared';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Table } from '../../components/ui/table';
 import { formatMinutes } from '../../i18n/format';
+import { Chevron } from './chevron';
 import { todayIso } from './dates';
 import { DayDetail, type FindingAction } from './day-detail';
 import { DayRow } from './day-row';
@@ -16,9 +17,12 @@ type Props = {
 	fetchedAt: number;
 	totalLabel: string;
 	balance?: ReactNode;
-	canCorrect: boolean;
+	balanceDetail?: ReactNode;
+	own: boolean;
+	openDay?: string | undefined;
 	findingAction?: FindingAction | undefined;
 	isStale?: boolean;
+	isDemo?: boolean;
 };
 
 export function DayTable({
@@ -27,21 +31,43 @@ export function DayTable({
 	fetchedAt,
 	totalLabel,
 	balance,
-	canCorrect,
+	balanceDetail,
+	own,
+	openDay,
 	findingAction,
-	isStale = false
+	isStale = false,
+	isDemo = false
 }: Props) {
 	const { t } = useTranslation('week');
 	const now = useNow();
-	const [open, setOpen] = useState<string | null>(null);
+	const frame = useRef<HTMLDivElement>(null);
+	const [open, setOpen] = useState(() => new Set(openDay ? [openDay] : []));
+	const [flexOpen, setFlexOpen] = useState(false);
 	const today = todayIso();
 	// placeholder data from the previous period has no fetchedAt yet, extra would run into millions of minutes
-	const extra =
-		!isStale && range.days.some((day) => day.running) ? minutesSince(fetchedAt, now) : 0;
+	const running = !isStale && range.days.some((day) => day.running);
+	const extra = running ? minutesSince(fetchedAt, now) : 0;
+	const explained = Boolean(balanceDetail);
 	const { totals } = range;
+
+	// a link from the findings opens its day, which may sit far down the month
+	useEffect(() => {
+		if (!openDay) return;
+		frame.current?.querySelector<HTMLElement>(`[aria-controls="day-${openDay}"]`)?.focus();
+	}, [openDay]);
+
+	const toggle = (date: string) =>
+		setOpen((prev) => {
+			const next = new Set(prev);
+			if (next.has(date)) next.delete(date);
+			else next.add(date);
+			return next;
+		});
+	const toggleFlex = () => setFlexOpen(!flexOpen);
 
 	return (
 		<div
+			ref={frame}
 			className={styles.frame}
 			aria-busy={isStale || undefined}
 			data-stale={isStale || undefined}
@@ -84,7 +110,6 @@ export function DayTable({
 				</thead>
 				<tbody>
 					{range.days.map((day) => {
-						const isOpen = open === day.date;
 						const dayExtra = day.running ? extra : 0;
 						return (
 							<DayRow
@@ -94,17 +119,19 @@ export function DayTable({
 								now={now}
 								isToday={day.date === today}
 								isFuture={day.date > today}
-								isOpen={isOpen}
-								onToggle={() => setOpen(isOpen ? null : day.date)}
+								isOpen={open.has(day.date)}
+								onToggle={() => toggle(day.date)}
 							>
 								<DayDetail
 									day={day}
 									employeeId={range.employeeId}
 									extra={dayExtra}
 									now={now}
+									isToday={day.date === today}
 									isFuture={day.date > today}
-									canCorrect={canCorrect}
+									own={own}
 									findingAction={findingAction}
+									isDemo={isDemo}
 								/>
 							</DayRow>
 						);
@@ -126,15 +153,28 @@ export function DayTable({
 						<td data-numeric>
 							{formatMinutes(totals.diffMinutes + extra, { signed: true })}
 							{range.from <= today && today < range.to && (
-								<span className={styles.note}>{t('untilToday')}</span>
+								<span className={styles.note}>{t(running ? 'untilNow' : 'untilToday')}</span>
 							)}
 						</td>
 						<td className={styles.mid} />
 					</tr>
 					{balance && (
-						<tr>
+						<tr className={styles.row}>
 							<th scope="row" className={styles.sumLabel}>
-								{t('flex')}
+								{explained ? (
+									<button
+										type="button"
+										className={styles.toggle}
+										aria-expanded={flexOpen}
+										aria-controls={flexOpen ? 'flex-detail' : undefined}
+										onClick={toggleFlex}
+									>
+										<Chevron direction={flexOpen ? 'down' : 'right'} />
+										{t('flex')}
+									</button>
+								) : (
+									t('flex')
+								)}
 							</th>
 							<td className={styles.barCol} />
 							<td className={styles.wide} />
@@ -142,12 +182,23 @@ export function DayTable({
 							<td className={styles.wide} />
 							<td />
 							<td className={styles.mid} />
-							<td data-numeric>{balance}</td>
+							<td
+								data-numeric
+								data-toggle={explained || undefined}
+								onClick={explained ? toggleFlex : undefined}
+							>
+								{balance}
+							</td>
 							<td className={styles.mid} />
 						</tr>
 					)}
 				</tfoot>
 			</Table>
+			{flexOpen && explained && (
+				<div id="flex-detail" className={styles.flexDetail}>
+					{balanceDetail}
+				</div>
+			)}
 		</div>
 	);
 }

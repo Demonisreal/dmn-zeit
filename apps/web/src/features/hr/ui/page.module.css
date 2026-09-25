@@ -78,6 +78,25 @@
 
 .scroll {
 	overflow-x: auto;
+	container-type: inline-size;
+}
+
+/* same steps as the week: minor columns leave first, the row keeps who, what and the action */
+@container (max-width: 58rem) {
+	.colWide {
+		display: none;
+	}
+}
+
+@container (max-width: 38rem) {
+	.colMid {
+		display: none;
+	}
+
+	.scroll table th,
+	.scroll table td {
+		padding-inline: 0.375rem;
+	}
 }
 
 .muted {

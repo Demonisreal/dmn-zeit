@@ -82,7 +82,14 @@
 		"resetFilter": "Reset filter",
 		"more": "Load more",
 		"withdraw": "Withdraw",
-		"cancel": "Cancel"
+		"withdrawLabel": "Withdraw request for {{period}}",
+		"cancel": "Cancel",
+		"cancelLabel": "Cancel request for {{period}}"
+	},
+	"withdraw": {
+		"title": "Withdraw request?",
+		"body": "{{type}} from {{period}} has not been decided yet. Once withdrawn, the team lead no longer decides on it. A new request for the period can be made later.",
+		"confirm": "Withdraw request"
 	},
 	"cancel": {
 		"title": "Cancel request?",

@@ -31,6 +31,8 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 	const counted = !isFuture && !free;
 	const detailId = `day-${day.date}`;
 	const flagged = day.findings.some((finding) => finding.severity === 'warning' && !finding.ack);
+	// until the day is over a shortfall is time still to come, not yet a minus
+	const remaining = isToday ? Math.max(0, -(day.diffMinutes + extra)) : 0;
 
 	return (
 		<>
@@ -42,12 +44,17 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 						aria-expanded={isOpen}
 						aria-controls={isOpen ? detailId : undefined}
 						aria-current={isToday ? 'date' : undefined}
-						data-flag={flagged || undefined}
 						onClick={onToggle}
 					>
 						<Chevron direction={isOpen ? 'down' : 'right'} />
 						<span className={styles.dayName}>{weekdayShort(day.date, lng)}</span>
 						<span className={styles.dayDate}>{shortDate(day.date, lng)}</span>
+						{flagged && (
+							<span className={styles.flag}>
+								<span aria-hidden="true">§</span>
+								<VisuallyHidden>, {t('row.flag')}</VisuallyHidden>
+							</span>
+						)}
 						<VisuallyHidden>, {t('row.toggle')}</VisuallyHidden>
 					</button>
 				</th>
@@ -83,7 +90,14 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 					{day.target.minutes > 0 && formatMinutes(day.target.minutes)}
 				</td>
 				<td data-numeric data-toggle onClick={onToggle}>
-					{counted && formatMinutes(day.diffMinutes + extra, { signed: true })}
+					{counted &&
+						(remaining > 0 ? (
+							<span className={styles.remaining}>
+								{t('row.remaining', { minutes: formatMinutes(remaining) })}
+							</span>
+						) : (
+							formatMinutes(day.diffMinutes + extra, { signed: true })
+						))}
 				</td>
 				<td className={styles.mid} data-toggle onClick={onToggle}>
 					<Notices day={day} />
@@ -101,7 +115,7 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 }
 
 function Notices({ day }: { day: Day }) {
-	const { t } = useTranslation('week');
+	const { t } = useTranslation(['week', 'hr']);
 	// two findings under the same paragraph share one tag, red only while one is still open
 	const paragraphs = new Map<string, boolean>();
 	for (const finding of day.findings) {
@@ -113,9 +127,12 @@ function Notices({ day }: { day: Day }) {
 	return (
 		<span className={styles.tags}>
 			{[...paragraphs].map(([label, open]) => (
-				<Tag key={label} tone={open ? 'error' : 'neutral'}>
-					{label}
-				</Tag>
+				<span key={label} title={t(`hr:findings.states.${open ? 'open' : 'acknowledged'}`)}>
+					<Tag tone={open ? 'error' : 'neutral'}>{label}</Tag>
+					<VisuallyHidden>
+						, {t(`hr:findings.states.${open ? 'open' : 'acknowledged'}`)}
+					</VisuallyHidden>
+				</span>
 			))}
 			{day.absence && <Tag>{t(`absence.${day.absence.type}`)}</Tag>}
 			{day.holiday && <Tag>{t('detail.holiday')}</Tag>}

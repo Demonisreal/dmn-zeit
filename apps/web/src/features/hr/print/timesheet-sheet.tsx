@@ -106,7 +106,7 @@ export function TimesheetSheet({ employeeId, month }: Props) {
 									<span className={styles.weekday}>{t(`weekday.${weekdayOf(day.date)}`)}</span>{' '}
 									{formatDate(day.date, lng, { year: undefined })}
 								</td>
-								<td>{spans(day)}</td>
+								<td className={styles.times}>{spans(day)}</td>
 								<td className={styles.num}>
 									{day.breakMinutes > 0 ? formatMinutes(day.breakMinutes) : ''}
 								</td>
@@ -137,9 +137,9 @@ export function TimesheetSheet({ employeeId, month }: Props) {
 				</table>
 				<dl className={styles.meta}>
 					<dt>{t('print.credited')}</dt>
-					<dd>{formatMinutes(totals.creditedMinutes)}</dd>
+					<dd className={styles.times}>{formatMinutes(totals.creditedMinutes)}</dd>
 					<dt>{t('print.balance')}</dt>
-					<dd>{formatMinutes(flexBalanceMinutes, { signed: true })}</dd>
+					<dd className={styles.times}>{formatMinutes(flexBalanceMinutes, { signed: true })}</dd>
 				</dl>
 				<div className={styles.signatures}>
 					<p>{t('print.signEmployee')}</p>

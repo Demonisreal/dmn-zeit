@@ -6,7 +6,10 @@
 		"title": "Abwesenheiten",
 		"empty": "Keine offenen Abwesenheitsanträge.",
 		"cancelRequested": "Stornierung beantragt",
-		"days": "{{days}} Urlaubstage"
+		"days": "{{days}} Urlaubstage",
+		"remainingAfter": "Resturlaub danach: {{days}} Tage",
+		"balanceAfter": "Gleitzeitsaldo danach: {{balance}}",
+		"concurrentWith": "Gleichzeitig abwesend: {{people}}"
 	},
 	"corrections": {
 		"title": "Korrekturen",
@@ -35,6 +38,8 @@
 	"decision": {
 		"approve": "Genehmigen",
 		"reject": "Ablehnen",
+		"approveCancel": "Stornierung genehmigen",
+		"rejectCancel": "Stornierung ablehnen",
 		"reason": "Begründung für die Ablehnung",
 		"reasonRequired": "Beim Ablehnen ist eine Begründung Pflicht.",
 		"send": "Ablehnung senden",

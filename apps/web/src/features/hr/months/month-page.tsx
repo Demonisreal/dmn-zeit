@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { hasRole, type Role } from '@zeit/shared';
+import { hasRole, type MonthChecklist, type Role } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { Notice } from '../../../components/ui/notice';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Tag } from '../../../components/ui/tag';
-import { formatDate, formatMonth } from '../../../i18n/format';
+import { formatDate, formatMinutes, formatMonth } from '../../../i18n/format';
 import { hasCode } from '../../../lib/api/errors';
 import { checklistQuery, closeMonth } from '../api';
 import { lastDayOf } from '../dates';
@@ -31,6 +31,19 @@ export function MonthPage({ month, role }: Props) {
 	const [reopening, setReopening] = useState(false);
 	const checklist = useQuery(checklistQuery(month));
 	const name = formatMonth(month, i18n.language);
+	const lastDay = formatDate(lastDayOf(month), i18n.language);
+
+	const capList = (caps: MonthChecklist['capPreview']) =>
+		new Intl.ListFormat(i18n.language).format(
+			caps.map(({ employee, forfeitedMinutes }) =>
+				t('months.capEntry', {
+					name: employee.name,
+					detail: t(forfeitedMinutes > 0 ? 'months.capForfeited' : 'months.capForgiven', {
+						minutes: formatMinutes(Math.abs(forfeitedMinutes))
+					})
+				})
+			)
+		);
 
 	const close = useMutation({
 		mutationFn: () => closeMonth(month),
@@ -57,7 +70,15 @@ export function MonthPage({ month, role }: Props) {
 		else if (!closable) closeHint = t('months.notClosable');
 		body = (
 			<>
-				<Checklist items={items} closed={closed} />
+				{closed && close.data && (
+					<Notice tone="success">
+						{t('months.closedThrough', { date: lastDay })}{' '}
+						{close.data.capped.length > 0
+							? t('months.cappedList', { list: capList(close.data.capped) })
+							: t('months.cappedNone')}
+					</Notice>
+				)}
+				<Checklist checklist={checklist.data} />
 				<section className={styles.section} aria-labelledby="month-action">
 					<h2 id="month-action">{closed ? t('months.reopen') : t('months.close')}</h2>
 					{closed ? (
@@ -79,9 +100,7 @@ export function MonthPage({ month, role }: Props) {
 						</>
 					) : (
 						<>
-							<p className={styles.lead}>
-								{t('months.closeLead', { date: formatDate(lastDayOf(month), i18n.language) })}
-							</p>
+							<p className={styles.lead}>{t('months.closeLead', { date: lastDay })}</p>
 							<div className={styles.actions}>
 								<Button
 									variant="primary"
@@ -137,7 +156,14 @@ export function MonthPage({ month, role }: Props) {
 				isPending={close.isPending}
 				error={closeProblem && <Notice tone="error">{closeProblem}</Notice>}
 			>
-				<p>{t('months.closeText', { date: formatDate(lastDayOf(month), i18n.language) })}</p>
+				<p>{t('months.closeText', { date: lastDay })}</p>
+				{checklist.data && (
+					<p>
+						{checklist.data.capPreview.length > 0
+							? t('months.capPreview', { list: capList(checklist.data.capPreview) })
+							: t('months.capNone')}
+					</p>
+				)}
 				<p>{t('months.closeReopenHint')}</p>
 			</ConfirmDialog>
 			<ReopenDialog month={month} isOpen={reopening} onClose={() => setReopening(false)} />

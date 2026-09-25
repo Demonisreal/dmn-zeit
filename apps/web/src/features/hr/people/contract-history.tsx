@@ -61,23 +61,29 @@ export function ContractHistory({ employee, contracts, workModels }: Props) {
 
 	return (
 		<>
-			<div className={styles.scroll}>
+			<div className={styles.scroll} role="region" aria-label={t('contracts.title')} tabIndex={0}>
 				<Table label={t('contracts.title')}>
 					<thead>
 						<tr>
 							<th scope="col">{t('contracts.validFrom')}</th>
-							<th scope="col">{t('contracts.workModel')}</th>
+							<th scope="col" className={styles.colMid}>
+								{t('contracts.workModel')}
+							</th>
 							<th scope="col" data-numeric>
 								{t('contracts.weekTarget')}
 							</th>
-							<th scope="col">{t('contracts.days')}</th>
-							<th scope="col" data-numeric>
+							<th scope="col" className={styles.colWide}>
+								{t('contracts.days')}
+							</th>
+							<th scope="col" data-numeric className={styles.colMid}>
 								{t('contracts.vacationDaysYear')}
 							</th>
-							<th scope="col" data-numeric>
+							<th scope="col" data-numeric className={styles.colWide}>
 								{t('contracts.basisDays')}
 							</th>
-							<th scope="col">{t('contracts.cap')}</th>
+							<th scope="col" className={styles.colWide}>
+								{t('contracts.cap')}
+							</th>
 							<th scope="col">
 								<VisuallyHidden>{t('actions')}</VisuallyHidden>
 							</th>
@@ -93,18 +99,26 @@ export function ContractHistory({ employee, contracts, workModels }: Props) {
 										{contract === current && <Tag>{t('contracts.current')}</Tag>}
 										{contract.validFrom > today && <Tag>{t('contracts.future')}</Tag>}
 									</td>
-									<td>{modelName.get(contract.workModelId) ?? '–'}</td>
+									<td className={styles.colMid}>{modelName.get(contract.workModelId) ?? '–'}</td>
 									<td data-numeric>{formatMinutes(weekMinutes(contract.minutes))}</td>
-									<td>
+									<td className={styles.colWide}>
 										<WeekdayMinutes minutes={contract.minutes} />
 									</td>
-									<td data-numeric>{formatDays(contract.vacationDaysYear, i18n.language)}</td>
-									<td data-numeric>{contract.vacationBasisDays}</td>
-									<td className={styles.small}>{cap(contract)}</td>
+									<td data-numeric className={styles.colMid}>
+										{formatDays(contract.vacationDaysYear, i18n.language)}
+									</td>
+									<td data-numeric className={styles.colWide}>
+										{contract.vacationBasisDays}
+									</td>
+									<td className={`${styles.small} ${styles.colWide}`}>{cap(contract)}</td>
 									<td>
 										{removable(contract) && (
 											<div className={styles.rowActions}>
-												<Button variant="quiet" onPress={() => setRemoving(contract)}>
+												<Button
+													variant="quiet"
+													aria-label={t('contracts.deleteTitle', { date: date(contract.validFrom) })}
+													onPress={() => setRemoving(contract)}
+												>
 													{t('contracts.delete')}
 												</Button>
 											</div>

@@ -9,7 +9,7 @@
 		"label": "Urlaubskonto {{year}}",
 		"bucket": "Anspruchsjahr",
 		"entitlement": "Anspruch",
-		"taken": "Genommen",
+		"taken": "Genehmigt",
 		"refunded": "Zurückgebucht",
 		"adjusted": "Korrektur",
 		"expired": "Verfallen",
@@ -39,9 +39,9 @@
 		"type": {
 			"entitlement": "Anspruch",
 			"adjustment": "Korrektur",
-			"taken": "Urlaub genommen",
+			"taken": "Urlaub genehmigt",
 			"refund_sick": "Rückbuchung Krankheit",
-			"refund_cancel": "Rückbuchung Storno",
+			"refund_cancel": "Rückbuchung Stornierung",
 			"expiry": "Verfall",
 			"manual": "Manuelle Buchung"
 		}

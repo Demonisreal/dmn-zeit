@@ -17,6 +17,9 @@ const limits: (keyof RuleSetInfo['limits'])[] = [
 	'minRestMinutes'
 ];
 
+// arbzg-1994 -> 1994, @zeit/rules names each set after the year its limits took effect
+export const versionYear = (version: string) => version.split('-')[1];
+
 export function RuleVersions() {
 	const { t, i18n } = useTranslation('hr');
 	const versions = useQuery(ruleVersionsQuery);
@@ -28,14 +31,14 @@ export function RuleVersions() {
 		body = <Loading rows={3} />;
 	} else {
 		body = (
-			<div className={styles.scroll}>
+			<div className={styles.scroll} role="region" aria-label={t('rules.title')} tabIndex={0}>
 				<Table label={t('rules.title')}>
 					<thead>
 						<tr>
 							<th scope="col">{t('rules.limit')}</th>
 							{versions.data.map((version) => (
 								<th key={version.version} scope="col" data-numeric>
-									<span className={styles.mono}>{version.version}</span>
+									{t('rules.versionLabel', { year: versionYear(version.version) })}
 									<br />
 									{t('rules.validFrom', { date: formatDate(version.validFrom, i18n.language) })}
 								</th>

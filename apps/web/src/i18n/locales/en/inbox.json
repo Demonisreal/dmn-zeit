@@ -6,7 +6,10 @@
 		"title": "Absences",
 		"empty": "No open absence requests.",
 		"cancelRequested": "Cancellation requested",
-		"days": "{{days}} leave days"
+		"days": "{{days}} leave days",
+		"remainingAfter": "Remaining leave afterwards: {{days}} days",
+		"balanceAfter": "Flextime balance afterwards: {{balance}}",
+		"concurrentWith": "Absent at the same time: {{people}}"
 	},
 	"corrections": {
 		"title": "Corrections",
@@ -35,6 +38,8 @@
 	"decision": {
 		"approve": "Approve",
 		"reject": "Reject",
+		"approveCancel": "Approve cancellation",
+		"rejectCancel": "Reject cancellation",
 		"reason": "Reason for rejecting",
 		"reasonRequired": "Rejecting needs a reason.",
 		"send": "Send rejection",

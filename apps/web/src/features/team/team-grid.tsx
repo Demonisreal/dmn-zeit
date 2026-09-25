@@ -1,5 +1,7 @@
 import { isWeekend, parseDate } from '@internationalized/date';
+import { Link } from '@tanstack/react-router';
 import type { TeamCalendar } from '@zeit/shared';
+import { useLayoutEffect, useRef } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { tagFor } from '../../i18n/format';
@@ -10,13 +12,15 @@ import styles from './team-grid.module.css';
 type Props = {
 	calendar: TeamCalendar;
 	labelledBy: string;
+	linkPeople: boolean;
 };
 
 type Day = TeamCalendar['people'][number]['days'][number];
 
-export function TeamGrid({ calendar, labelledBy }: Props) {
+export function TeamGrid({ calendar, labelledBy, linkPeople }: Props) {
 	const { t, i18n } = useTranslation('team');
 	const holidayName = useHolidayName();
+	const scroller = useRef<HTMLDivElement>(null);
 	const locale = tagFor(i18n.language);
 	const first = parseDate(`${calendar.month}-01`);
 	const dates = Array.from({ length: first.calendar.getDaysInMonth(first) }, (_, i) =>
@@ -61,8 +65,22 @@ export function TeamGrid({ calendar, labelledBy }: Props) {
 		'data-monday': column.monday || undefined
 	});
 
+	// open on today plus three days ahead, scrollIntoView would scroll the page along with the grid
+	useLayoutEffect(() => {
+		const box = scroller.current;
+		if (!box) return;
+		const cell = box.querySelector<HTMLElement>('thead [data-today]');
+		box.scrollLeft = cell ? cell.offsetLeft + 4 * cell.offsetWidth - box.clientWidth : 0;
+	}, [calendar.month]);
+
 	return (
-		<div className={styles.scroll} role="region" aria-labelledby={labelledBy} tabIndex={0}>
+		<div
+			ref={scroller}
+			className={styles.scroll}
+			role="region"
+			aria-labelledby={labelledBy}
+			tabIndex={0}
+		>
 			<table className={styles.grid}>
 				<thead>
 					<tr>
@@ -92,7 +110,13 @@ export function TeamGrid({ calendar, labelledBy }: Props) {
 					{calendar.people.map((person) => (
 						<tr key={person.employee.id}>
 							<th scope="row" className={styles.person}>
-								{person.employee.name}
+								{linkPeople ? (
+									<Link to="/time" search={{ employee: person.employee.id, month: calendar.month }}>
+										{person.employee.name}
+									</Link>
+								) : (
+									person.employee.name
+								)}
 							</th>
 							{columns.map((column) => {
 								const day = person.days.find((entry) => entry.date === column.iso);

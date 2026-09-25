@@ -8,11 +8,11 @@ export function TypeTag({ type }: { type: AbsenceType }) {
 }
 
 const tones = {
-	pending: 'warning',
+	pending: 'pending',
 	approved: 'success',
 	rejected: 'neutral',
 	withdrawn: 'neutral',
-	cancel_pending: 'warning',
+	cancel_pending: 'pending',
 	cancelled: 'neutral'
 } as const;
 

@@ -40,9 +40,25 @@ type AuditTable = (typeof auditTables)[number];
 const isKnownTable = (table: string | null): table is AuditTable =>
 	(auditTables as readonly (string | null)[]).includes(table);
 
-const triggerActions = ['insert', 'update', 'delete'] as const;
-const isTriggerAction = (action: string): action is (typeof triggerActions)[number] =>
-	(triggerActions as readonly string[]).includes(action);
+// the first three come from the table triggers, the rest from sign-in and account code in the api
+const knownActions = [
+	'insert',
+	'update',
+	'delete',
+	'login.succeeded',
+	'login.failed',
+	'reauth.failed',
+	'passkey.added',
+	'passkey.removed',
+	'passkey.counter_rejected',
+	'totp.enabled',
+	'totp.removed',
+	'recovery_codes.renewed',
+	'mfa.reset',
+	'user.invited'
+] as const;
+const isKnownAction = (action: string): action is (typeof knownActions)[number] =>
+	(knownActions as readonly string[]).includes(action);
 
 const all = 'all';
 const DAY_MS = 86_400_000;
@@ -71,7 +87,7 @@ export function AuditPage({ filter, onFilter }: Props) {
 		setOpen(open.includes(id) ? open.filter((other) => other !== id) : [...open, id]);
 
 	const actionText = (entry: AuditEntry) =>
-		isTriggerAction(entry.action) ? t(`audit.actions.${entry.action}`) : entry.action;
+		isKnownAction(entry.action) ? t(`audit.actions.${entry.action}`) : entry.action;
 
 	let body;
 	if (rangeProblem) {
@@ -85,7 +101,7 @@ export function AuditPage({ filter, onFilter }: Props) {
 	} else {
 		body = (
 			<>
-				<div className={styles.scroll}>
+				<div className={styles.scroll} role="region" aria-label={t('audit.title')} tabIndex={0}>
 					<Table label={t('audit.title')}>
 						<thead>
 							<tr>

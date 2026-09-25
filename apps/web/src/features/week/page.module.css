@@ -59,3 +59,20 @@
 	font-size: 0.75rem;
 	font-weight: 400;
 }
+
+@media (max-width: 37.5rem) {
+	/* the header gives up its box, otherwise the clock could only stick inside the header */
+	.head:has(> .clock) {
+		display: contents;
+	}
+
+	/* on phones the week scrolls under the clock, clocking in and out stays in reach */
+	.clock {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		padding-block: 0.5rem 0.75rem;
+		border-bottom: 1px solid var(--edge);
+		background: var(--dark);
+	}
+}

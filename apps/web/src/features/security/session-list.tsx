@@ -53,7 +53,7 @@ export function SessionList() {
 				<LoadError error={sessions.error} onRetry={() => void sessions.refetch()} />
 			) : (
 				<>
-					<div className={styles.scroll}>
+					<div className={styles.scroll} role="region" aria-label={t('sessions.list')} tabIndex={0}>
 						<Table label={t('sessions.list')}>
 							<thead>
 								<tr>

@@ -17,6 +17,7 @@ import {
 	subtract,
 	toDecimal,
 	type DayCost,
+	type Fraction,
 	type TakenDay
 } from '@zeit/rules';
 import { hasRole, isoDateSchema, uuidSchema } from '@zeit/shared';
@@ -43,6 +44,8 @@ import type { AuthSession } from '../common/session.guard';
 import { Database, type Trx } from '../db/database';
 import { MailQueue } from '../mail/mail.queue';
 import { MailTransport } from '../mail/mail.transport';
+import { buildDays, localDate, summarizeFlex } from '../time/day-engine';
+import { TimeStore } from '../time/time.store';
 import {
 	berlinToday,
 	bucketsOf,
@@ -116,6 +119,7 @@ export class AbsencesService {
 		private readonly db: Database,
 		private readonly store: AbsencesStore,
 		private readonly vacation: VacationStore,
+		private readonly time: TimeStore,
 		private readonly mail: MailTransport,
 		private readonly queue: MailQueue,
 		private readonly clock: Clock
@@ -222,12 +226,15 @@ export class AbsencesService {
 			return eb.and(where);
 		};
 
-		const items = await this.db.withTenant(session, (trx) =>
-			this.store.list(trx, filter, query.limit + 1)
-		);
-		const more = items.length > query.limit;
-		const page = more ? items.slice(0, query.limit) : items;
-		return { items: page, nextCursor: more ? encodeCursor(page.at(-1)!) : null };
+		return this.db.withTenant(session, async (trx) => {
+			const items = await this.store.list(trx, filter, query.limit + 1);
+			const more = items.length > query.limit;
+			const page = more ? items.slice(0, query.limit) : items;
+			return {
+				items: query.scope === 'inbox' ? await this.forDecision(trx, page, leadOnly) : page,
+				nextCursor: more ? encodeCursor(page.at(-1)!) : null
+			};
+		});
 	}
 
 	approve(session: AuthSession, id: string, input: ApproveInput): Promise<Absence> {
@@ -286,11 +293,14 @@ export class AbsencesService {
 	}
 
 	cancel(session: AuthSession, id: string, input: CancelAbsenceInput): Promise<Absence> {
+		const today = berlinToday(this.clock.now());
 		return this.db.withTenant(session, async (trx) => {
 			const absence = await this.visible(trx, session, id);
 			if (absence.employee.id !== session.employeeId) {
 				throw new ForbiddenException('Only the person on leave can cancel');
 			}
+			// past leave is history, only hr corrects it by hand
+			if (absence.endDate < today.toString()) throw notInState();
 			// vacation already given back for it would have to come off again, hr sorts that out by hand
 			if (absence.sickNote) throw notInState();
 			if (!(await this.store.move(trx, id, 'approved', 'cancel_pending', input.note ?? null))) {
@@ -396,6 +406,70 @@ export class AbsencesService {
 				people: [...people.values()]
 			};
 		});
+	}
+
+	// what the approver weighs a request against, only the inbox asks for it
+	private async forDecision(trx: Trx, page: Absence[], leadOnly: boolean): Promise<Absence[]> {
+		const now = this.clock.now();
+		const today = berlinToday(now);
+		const ofType = (type: AbsenceType) => page.filter((absence) => absence.type === type);
+
+		const concurrent = await this.store.concurrent(
+			trx,
+			page.map((absence) => absence.id),
+			leadOnly
+		);
+		const left = new Map<string, Fraction>();
+		for (const employeeId of new Set(ofType('vacation').map((absence) => absence.employee.id))) {
+			const buckets = await this.buckets(trx, employeeId, today);
+			// the open request is part of pending already, the preview takes a new one off on top
+			const pending = parseDecimal(await this.vacation.pendingDays(trx, employeeId));
+			left.set(employeeId, subtract(usableDays(buckets), pending));
+		}
+		const balances = new Map<string, number>();
+		for (const employeeId of new Set(ofType('time_off').map((absence) => absence.employee.id))) {
+			balances.set(employeeId, await this.flexBalance(trx, employeeId, now));
+		}
+		const ahead = await this.store.minutesAfter(
+			trx,
+			ofType('time_off').map((absence) => absence.id),
+			today.toString()
+		);
+
+		return page.map((absence) => {
+			const detailed: Absence = {
+				...absence,
+				concurrentAbsences: concurrent.get(absence.id) ?? []
+			};
+			// approving a cancellation gives the days back and keeps the time off from happening
+			const cancelling = absence.status === 'cancel_pending';
+			if (absence.type === 'vacation') {
+				const back = cancelling ? parseDecimal(absence.vacationDays) : zero;
+				detailed.remainingAfter = toDecimal(add(left.get(absence.employee.id)!, back), 2);
+			}
+			if (absence.type === 'time_off') {
+				const taken = cancelling ? 0 : (ahead.get(absence.id) ?? 0);
+				detailed.balanceAfterMinutes = balances.get(absence.employee.id)! - taken;
+			}
+			return detailed;
+		});
+	}
+
+	// counted like GET /employees/:id/flex for the running year
+	private async flexBalance(trx: Trx, employeeId: string, now: Date): Promise<number> {
+		const today = localDate(now);
+		const year = Number(today.slice(0, 4));
+		const counted = { from: `${year}-01-01`, to: today };
+		const { tenant, sheets } = await this.time.sheets(trx, [employeeId], counted);
+		const sheet = sheets.get(employeeId)!;
+		const bookings = await this.time.flexBookings(trx, [employeeId], counted);
+		const checkpoint = await this.time.checkpoint(trx, employeeId, year);
+		const flex = summarizeFlex(
+			buildDays(sheet, tenant, counted, now),
+			bookings,
+			sheet.employee.closedThrough
+		);
+		return flex.balanceMinutes + (checkpoint ?? 0);
 	}
 
 	private async costs(trx: Trx, range: Range): Promise<DayCost[]> {

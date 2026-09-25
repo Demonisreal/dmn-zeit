@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { Absence } from '@zeit/shared';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tag } from '../../components/ui/tag';
 import { formatDays, formatInstant, formatMinutes } from '../../i18n/format';
@@ -46,6 +47,26 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 	const name = absence.employee.name;
 	const cancelling = absence.status === 'cancel_pending';
 	const subject = `${name}, ${t(`absences:type.${absence.type}`)} ${period}`;
+	const others = absence.concurrentAbsences ?? [];
+	const facts = [
+		absence.type === 'vacation' &&
+			absence.remainingAfter &&
+			t('absences.remainingAfter', { days: formatDays(absence.remainingAfter, lng) }),
+		absence.type === 'time_off' &&
+			absence.balanceAfterMinutes !== undefined &&
+			t('absences.balanceAfter', {
+				balance: formatMinutes(absence.balanceAfterMinutes, { signed: true })
+			}),
+		others.length > 0 &&
+			t('absences.concurrentWith', {
+				people: new Intl.ListFormat(lng).format(
+					others.map(
+						(other) =>
+							`${other.employee.name} (${formatPeriod(other.startDate, other.endDate, lng)})`
+					)
+				)
+			})
+	].filter((fact) => typeof fact === 'string');
 
 	return (
 		<li className={styles.item}>
@@ -53,7 +74,7 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 				<p className={styles.who}>{name}</p>
 				<p className={styles.what}>
 					<TypeTag type={absence.type} />{' '}
-					{cancelling && <Tag tone="warning">{t('absences.cancelRequested')}</Tag>}{' '}
+					{cancelling && <Tag tone="pending">{t('absences.cancelRequested')}</Tag>}{' '}
 					<span className={styles.mono}>{period}</span>{' '}
 					<HalfDays absence={absence} className={styles.quiet} />{' '}
 					<span className={styles.amount}>
@@ -62,6 +83,16 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 							: formatMinutes(absence.targetMinutes)}
 					</span>
 				</p>
+				{facts.length > 0 && (
+					<p className={styles.quiet}>
+						{facts.map((fact, i) => (
+							<Fragment key={fact}>
+								{i > 0 && <span aria-hidden="true"> · </span>}
+								{fact}
+							</Fragment>
+						))}
+					</p>
+				)}
 				{absence.note && <p className={styles.note}>{absence.note}</p>}
 				<p className={styles.quiet}>
 					{t('requestedAt', {
@@ -71,6 +102,8 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 			</div>
 			<Decision
 				label={cancelling ? `${subject}, ${t('absences.cancelRequested')}` : subject}
+				approveLabel={cancelling ? t('decision.approveCancel') : undefined}
+				rejectLabel={cancelling ? t('decision.rejectCancel') : undefined}
 				onApprove={() => approveAbsence(absence.id)}
 				onReject={(note) => rejectAbsence(absence.id, note)}
 				onDone={async (outcome) => {

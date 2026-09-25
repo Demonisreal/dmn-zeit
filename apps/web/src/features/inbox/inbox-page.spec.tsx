@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { Absence } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../mocks/server';
@@ -18,6 +19,46 @@ const section = (name: string) => screen.getByRole('region', { name: new RegExp(
 
 // the decision buttons are grouped under the name of the request, the list item holds the details
 const request = (name: RegExp) => screen.getByRole('group', { name }).closest('li')!;
+
+const jonas = { id: 'f4fa8137-2571-4add-ba96-add65c1f7104', name: 'Jonas Brandt' };
+const lea = { id: '60f75051-d386-4bd1-912a-74a882f967e8', name: 'Lea Schwerdtfeger' };
+
+const leaveOfDeniz = (fields: Partial<Absence> = {}): Absence => ({
+	id: '3b8d5f2e-7a41-4c69-9e0d-6f2a8c1b4e75',
+	employee: { id: 'bc1e61b4-d3d8-4290-9124-bc7adf87efde', name: 'Deniz Aydın' },
+	type: 'vacation',
+	startDate: '2026-10-19',
+	endDate: '2026-10-23',
+	halfDayStart: false,
+	halfDayEnd: false,
+	status: 'pending',
+	note: null,
+	vacationDays: '5.00',
+	targetMinutes: 2340,
+	requestedBy: { id: '9e54ff3b-ee67-48c7-8424-9364dabd4b90', displayName: 'Deniz Aydın' },
+	decidedBy: null,
+	decidedAt: null,
+	decisionNote: null,
+	sickNote: null,
+	createdAt: '2026-09-20T10:00:00+02:00',
+	...fields
+});
+
+const timeOffOfJonas = (fields: Partial<Absence> = {}): Absence => ({
+	...leaveOfDeniz(),
+	id: '8e1c4a7d-2f96-4b3e-a5d8-0c7f9b2e6a13',
+	employee: jonas,
+	type: 'time_off',
+	startDate: '2026-10-05',
+	endDate: '2026-10-05',
+	vacationDays: '0.00',
+	targetMinutes: 468,
+	requestedBy: { id: '30593c7c-95be-42e3-a23b-060f9bab7fa0', displayName: jonas.name },
+	...fields
+});
+
+const inboxWith = (...items: Absence[]) =>
+	server.use(http.get('/api/absences', () => HttpResponse.json({ items, nextCursor: null })));
 
 describe('inbox', () => {
 	afterEach(() => {
@@ -50,7 +91,7 @@ describe('inbox', () => {
 			name: /^Tobias Kämmerer, Urlaub .+, Stornierung beantragt$/
 		});
 
-		await userEvent.click(within(tobias).getByRole('button', { name: 'Genehmigen' }));
+		await userEvent.click(within(tobias).getByRole('button', { name: 'Stornierung genehmigen' }));
 
 		expect(
 			await screen.findByText('Stornierung von Tobias Kämmerer genehmigt.')
@@ -91,6 +132,53 @@ describe('inbox', () => {
 		const absences = await openInbox('Abwesenheiten 1');
 
 		expect(within(absences).getByRole('group', { name: /^Deniz Aydın, Urlaub/ })).toBeVisible();
+	});
+
+	it('adds the leave left and who else is away to a leave request', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		inboxWith(
+			leaveOfDeniz({
+				remainingAfter: '20.00',
+				concurrentAbsences: [
+					{ employee: jonas, startDate: '2026-10-19', endDate: '2026-10-20' },
+					{ employee: lea, startDate: '2026-10-22', endDate: '2026-10-22' }
+				]
+			})
+		);
+		await openInbox('Abwesenheiten 1');
+
+		expect(request(/^Deniz Aydın, Urlaub/)).toHaveTextContent(
+			'Resturlaub danach: 20,00 Tage · Gleichzeitig abwesend: Jonas Brandt (19.–20.10.2026) und Lea Schwerdtfeger (22.10.2026)'
+		);
+	});
+
+	it('shows the flextime balance a time-off request leaves', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		inboxWith(timeOffOfJonas({ balanceAfterMinutes: -90, concurrentAbsences: [] }));
+		await openInbox('Abwesenheiten 1');
+
+		expect(
+			within(request(/^Jonas Brandt, Zeitausgleich/)).getByText('Gleitzeitsaldo danach: −1:30 h')
+		).toBeInTheDocument();
+	});
+
+	it('adds no extra line when the api sends no context', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		inboxWith(leaveOfDeniz({ remainingAfter: null, concurrentAbsences: [] }), timeOffOfJonas());
+		await openInbox('Abwesenheiten 2');
+		const lines = (item: HTMLElement) =>
+			Array.from(item.querySelectorAll('p'), (line) => line.textContent);
+
+		expect(lines(request(/^Deniz Aydın, Urlaub/))).toEqual([
+			'Deniz Aydın',
+			expect.stringContaining('5,00 Urlaubstage'),
+			'gestellt am 20.09.2026'
+		]);
+		expect(lines(request(/^Jonas Brandt, Zeitausgleich/))).toEqual([
+			'Jonas Brandt',
+			expect.stringContaining('7:48 h'),
+			'gestellt am 20.09.2026'
+		]);
 	});
 
 	it('does not reject without a reason', async () => {

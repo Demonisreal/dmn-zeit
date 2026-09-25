@@ -88,7 +88,16 @@ export const absenceSchema = z.object({
 	decisionNote: z.string().nullable(),
 	// only for sick leave: hr confirms the certificate, that books vacation back under § 9 BUrlG
 	sickNote: z.object({ confirmedAt: instantSchema, confirmedBy: userRefSchema }).nullable(),
-	createdAt: instantSchema
+	createdAt: instantSchema,
+	// the rest only comes with the inbox scope
+	remainingAfter: dayCountSchema.nullable().optional(),
+	// no type, the approver learns who else is away but not why
+	concurrentAbsences: z
+		.array(
+			z.object({ employee: employeeRefSchema, startDate: isoDateSchema, endDate: isoDateSchema })
+		)
+		.optional(),
+	balanceAfterMinutes: z.int().optional()
 });
 
 export const absencesQuerySchema = z

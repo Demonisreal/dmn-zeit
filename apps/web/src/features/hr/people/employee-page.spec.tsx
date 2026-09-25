@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hrHandlers, mockEmployees, resetMockHr, signedInAs } from '../../../mocks/hr';
 import { server } from '../../../mocks/server';
 import { renderApp } from '../../../test/render-app';
@@ -25,6 +25,8 @@ beforeEach(() => {
 	server.use(signedInAs('hr'), ...hrHandlers);
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe('employee page', () => {
 	it('lists the contract history with the newest contract first', async () => {
 		renderApp(`/hr/people/${lea.id}`);
@@ -35,7 +37,7 @@ describe('employee page', () => {
 		expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Lea Schwerdtfeger');
 		expect(rows).toHaveLength(3);
 		expect(rows[0]).toHaveTextContent('01.07.2026');
-		expect(rows[0]).toHaveTextContent('Teilzeit 3 Tage (Mo–Mi)');
+		expect(rows[0]).toHaveTextContent('Teilzeit 3 Tage (Di–Do)');
 		expect(rows[0]).toHaveTextContent('23:24 h');
 		expect(rows[2]).toHaveTextContent('Vollzeit 38,5 h (bis 2023)');
 	});
@@ -88,5 +90,16 @@ describe('employee page', () => {
 		await userEvent.click(screen.getByRole('button', { name: 'Vertrag speichern' }));
 
 		expect(await screen.findAllByText('Pflichtfeld')).toHaveLength(2);
+	});
+
+	it('links to the time entries of the current month', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-09-24T08:00:00Z'));
+		renderApp(`/hr/people/${lea.id}`);
+
+		expect(await screen.findByRole('link', { name: 'Buchungen dieses Monats' })).toHaveAttribute(
+			'href',
+			`/time?employee=${lea.id}&month=2026-09`
+		);
 	});
 });
