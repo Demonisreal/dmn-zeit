@@ -30,18 +30,42 @@ const refuse = (
 
 const done = () => new HttpResponse(null, { status: 204 });
 
+// the team names from mocks/hr.ts
+const teams = [
+	{ id: teamIds.tax, name: 'Steuerberatung' },
+	{ id: teamIds.payroll, name: 'Lohnbuchhaltung' },
+	{ id: teamIds.books, name: 'Finanzbuchhaltung' }
+];
+
 const castAs = (lastName: string, role: Role) => {
 	const employee = mockEmployees.find((e) => e.lastName === lastName)!;
 	const name = `${employee.firstName} ${employee.lastName}`;
-	return { userId: employee.userId!, displayName: name, role, employee: { id: employee.id, name } };
+	return {
+		userId: employee.userId!,
+		displayName: name,
+		role,
+		employee: { id: employee.id, name },
+		team: teams.find((team) => team.id === employee.teamId) ?? null
+	};
 };
 
-// one person per role from the tax office in mocks/hr.ts
-const cast = [
+// the tax office from mocks/hr.ts, the extra names sort behind jonas so he stays the employee up top
+const cast: Omit<Persona, 'current'>[] = [
 	castAs('Brandt', 'employee'),
 	castAs('Hölscher', 'team_lead'),
 	castAs('Kortmann', 'hr'),
-	castAs('Lenz', 'admin')
+	castAs('Lenz', 'admin'),
+	castAs('Schwerdtfeger', 'employee'),
+	castAs('Kämmerer', 'employee'),
+	castAs('Hagedorn', 'employee'),
+	// the it contractor, like the sandbox admin an account without a personnel record
+	{
+		userId: '4e7b2d91-6c3f-4a58-b0e2-9d1f7a3c5b86',
+		displayName: 'Uwe Tiemann',
+		role: 'admin',
+		employee: null,
+		team: null
+	}
 ];
 
 type CastMember = (typeof cast)[number];
@@ -54,7 +78,7 @@ const sessionAs = (member: CastMember, locale: Locale, expiresAt: string): Sessi
 		role: member.role,
 		locale,
 		status: 'demo',
-		employeeId: member.employee.id,
+		employeeId: member.employee?.id ?? null,
 		lastLoginAt: null
 	},
 	tenant: { ...mockSession.tenant, kind: 'sandbox', expiresAt },
@@ -64,7 +88,21 @@ const sessionAs = (member: CastMember, locale: Locale, expiresAt: string): Sessi
 	csrfToken: `mock-csrf-demo-${member.userId.slice(0, 8)}`
 });
 
+// newest first, the api sorts and the page shows them as they come
 const seedOutbox = (): OutboxMail[] => [
+	{
+		id: '7c3d9a15-6e2b-4f07-b8c4-1a5e9d3f7b20',
+		to: 'jonas.brandt@example.com',
+		subject: 'Neuer Passkey für DMN Zeit',
+		text: [
+			'Hallo Jonas Brandt,',
+			'',
+			'Ihrem Zugang zu DMN Zeit wurde der Passkey „iPhone“ hinzugefügt.',
+			'',
+			'Waren Sie das nicht, wenden Sie sich bitte umgehend an Ihre Administration.'
+		].join('\n'),
+		createdAt: '2026-09-24T10:03:47+02:00'
+	},
 	{
 		id: '4b1e7c90-2d5f-4a38-9e61-8c0f3a7d2b54',
 		to: 'jonas.brandt@example.com',
@@ -88,19 +126,6 @@ const seedOutbox = (): OutboxMail[] => [
 			'die Personalverwaltung hat Ihr Attest für die Zeit vom 08.09.2026 bis 10.09.2026 bestätigt. Nach § 9 BUrlG wurden 3 Urlaubstage Ihrem Urlaubskonto wieder gutgeschrieben: 08.09.2026, 09.09.2026, 10.09.2026.'
 		].join('\n'),
 		createdAt: '2026-09-23T16:40:12+02:00'
-	},
-	{
-		id: '7c3d9a15-6e2b-4f07-b8c4-1a5e9d3f7b20',
-		to: 'jonas.brandt@example.com',
-		subject: 'Neuer Passkey für DMN Zeit',
-		text: [
-			'Hallo Jonas Brandt,',
-			'',
-			'Ihrem Zugang zu DMN Zeit wurde der Passkey „iPhone“ hinzugefügt.',
-			'',
-			'Waren Sie das nicht, wenden Sie sich bitte umgehend an Ihre Administration.'
-		].join('\n'),
-		createdAt: '2026-09-24T10:03:47+02:00'
 	}
 ];
 

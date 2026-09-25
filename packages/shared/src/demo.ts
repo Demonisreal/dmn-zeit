@@ -12,6 +12,7 @@ export const personaSchema = z.object({
 	displayName: z.string(),
 	role: roleSchema,
 	employee: employeeRefSchema.nullable(),
+	team: z.object({ id: uuidSchema, name: z.string() }).nullable(),
 	current: z.boolean()
 });
 

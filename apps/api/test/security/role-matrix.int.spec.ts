@@ -7,6 +7,7 @@ import type request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ROLE } from '../../src/common/roles.guard';
 import { IS_PUBLIC } from '../../src/common/session.guard';
+import { DemoController } from '../../src/demo/demo.controller';
 import { startApi, type Api, type Browser } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
 import { createTenant, createUser } from '../helpers/pg';
@@ -141,33 +142,32 @@ const routePath = (...parts: string[]) =>
 		.join('/');
 
 // the walk nest's router explorer makes: every controller of every module, every routed method
-function registeredRoutes(app: INestApplication) {
+function registeredRoutes(app: INestApplication, ...unmounted: Type[]) {
 	const reflector = app.get(Reflector);
 	const scanner = new MetadataScanner();
 	const routes: [route: string, access: Access][] = [];
+	const mounted = [...app.get(ModulesContainer).values()]
+		.flatMap((module) => [...module.controllers.values()])
+		.map(({ metatype }) => metatype as Type);
 
-	for (const module of app.get(ModulesContainer).values()) {
-		for (const { metatype } of module.controllers.values()) {
-			const controller = metatype as Type;
-			for (const name of scanner.getAllMethodNames(controller.prototype)) {
-				const handler = controller.prototype[name];
-				const paths = Reflect.getMetadata(PATH_METADATA, handler);
-				if (paths === undefined) continue;
+	for (const controller of [...mounted, ...unmounted]) {
+		for (const name of scanner.getAllMethodNames(controller.prototype)) {
+			const handler = controller.prototype[name];
+			const paths = Reflect.getMetadata(PATH_METADATA, handler);
+			if (paths === undefined) continue;
 
-				const method =
-					RequestMethod[Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod];
-				const targets = [handler, controller];
-				// the roles guard asks for a session even under @Public, so a role wins
-				const access =
-					reflector.getAllAndOverride<Role | undefined>(ROLE, targets) ??
-					(reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC, targets)
-						? 'public'
-						: 'signed-in');
+			const method = RequestMethod[Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod];
+			const targets = [handler, controller];
+			// the roles guard asks for a session even under @Public, so a role wins
+			const access =
+				reflector.getAllAndOverride<Role | undefined>(ROLE, targets) ??
+				(reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC, targets)
+					? 'public'
+					: 'signed-in');
 
-				for (const prefix of [Reflect.getMetadata(PATH_METADATA, controller)].flat()) {
-					for (const path of [paths].flat()) {
-						routes.push([`${method} ${routePath(prefix, path)}`, access]);
-					}
+			for (const prefix of [Reflect.getMetadata(PATH_METADATA, controller)].flat()) {
+				for (const path of [paths].flat()) {
+					routes.push([`${method} ${routePath(prefix, path)}`, access]);
 				}
 			}
 		}
@@ -180,7 +180,8 @@ let routes: [route: string, access: Access][];
 
 beforeAll(async () => {
 	api = await startApi();
-	routes = registeredRoutes(api.app);
+	// the demo module is only mounted on the demo instance, its access is read from the controller
+	routes = registeredRoutes(api.app, DemoController);
 });
 
 afterAll(() => api.app.close());
@@ -284,9 +285,8 @@ describe('demo routes outside the demo', () => {
 		expect((await send(persona)).status).toBe(404);
 	});
 
-	// the session guard comes first, so the signed-in routes say 401 where the public one says 404
-	it.each(demoRoutes)('serves nothing on $route without a session', async ({ route, send }) => {
-		const answer = await send(api.browser());
-		expect(answer.status).toBe(expected[route] === 'public' ? 404 : 401);
+	// without the module nest does not know the routes, no guard gets to answer 401 first
+	it.each(demoRoutes)('serves nothing on $route without a session', async ({ send }) => {
+		expect((await send(api.browser())).status).toBe(404);
 	});
 });

@@ -1,14 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import type { OutboxMail } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Loading, LoadError } from '../../components/ui/states';
 import { formatInstant } from '../../i18n/format';
 import { outboxQuery } from '../../lib/api/demo';
 import styles from './demo.module.css';
-
-const byNewest = (a: OutboxMail, b: OutboxMail) =>
-	Date.parse(b.createdAt) - Date.parse(a.createdAt);
 
 export function OutboxPage() {
 	const { t, i18n } = useTranslation('demo');
@@ -24,7 +20,7 @@ export function OutboxPage() {
 	} else {
 		body = (
 			<ol className={styles.mails} aria-label={t('outbox.list')}>
-				{mails.data.toSorted(byNewest).map((mail) => (
+				{mails.data.map((mail) => (
 					<li key={mail.id} className={styles.mail}>
 						<h2 className={styles.subject}>{mail.subject}</h2>
 						<time className={styles.stamp} dateTime={mail.createdAt}>

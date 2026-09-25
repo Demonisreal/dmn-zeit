@@ -660,6 +660,34 @@ $$;
 
 
 --
+-- Name: sandbox_quota(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.sandbox_quota() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+declare
+  cap constant integer := tg_argv[0];
+  sandbox uuid;
+  total integer;
+begin
+  for sandbox in
+    select t.id from app.tenants t where t.kind = 'sandbox' and t.id in (select a.tenant_id from added a)
+  loop
+    execute format('select count(*) from %I.%I where tenant_id = $1', tg_table_schema, tg_table_name)
+      into total using sandbox;
+    if total > cap then
+      raise exception 'sandbox % has more than % rows in %', sandbox, cap, tg_table_name
+        using errcode = 'ZT005';
+    end if;
+  end loop;
+  return null;
+end;
+$_$;
+
+
+--
 -- Name: set_updated_at(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -767,6 +795,16 @@ begin
   end if;
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
+
+  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
+  if exists (
+    select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
+  )
+    -- a row moved in from another tenant is no seed, whatever sandbox it lands in
+    and (tg_op <> 'UPDATE' or old_row ->> 'tenant_id' is not distinct from new_row ->> 'tenant_id')
+  then
+    return null;
+  end if;
 
   -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
@@ -1686,6 +1724,196 @@ CREATE FUNCTION ops.sandbox_create(p_id uuid, p_name text, p_slug text, p_state 
     'sandbox', now() + interval '24 hours'
   )
   returning id;
+$$;
+
+
+--
+-- Name: sandbox_seed(jsonb, text); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.sandbox_seed(p_plan jsonb, p_locale text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  tenant constant uuid := (p_plan -> 'tenant' ->> 'id')::uuid;
+  settled boolean;
+begin
+  perform ops.sandbox_create(
+    tenant,
+    p_plan -> 'tenant' ->> 'name',
+    p_plan -> 'tenant' ->> 'slug',
+    (p_plan -> 'tenant' ->> 'state')::app.federal_state,
+    (p_plan -> 'tenant' ->> 'flexCapPlusMinutes')::integer,
+    (p_plan -> 'tenant' ->> 'flexCapMinusMinutes')::integer,
+    (p_plan -> 'tenant' ->> 'flexCapMode')::app.flex_cap_mode
+  );
+
+  insert into app.teams (id, tenant_id, name)
+  select x.id, tenant, x.name
+    from jsonb_to_recordset(p_plan -> 'teams') as x (id uuid, name text);
+
+  insert into app.work_models (
+    id, tenant_id, name, min_mon, min_tue, min_wed, min_thu, min_fri, min_sat, min_sun
+  )
+  select x.id, tenant, x.name, m.mon, m.tue, m.wed, m.thu, m.fri, m.sat, m.sun
+    from jsonb_to_recordset(p_plan -> 'workModels') as x (id uuid, name text, minutes jsonb),
+         jsonb_to_record(x.minutes) as m (
+           mon smallint, tue smallint, wed smallint, thu smallint, fri smallint, sat smallint, sun smallint
+         );
+
+  insert into app.employees (id, tenant_id, personnel_no, first_name, last_name, team_id, entry_date, exit_date)
+  select x.id, tenant, x."personnelNo", x."firstName", x."lastName", x."teamId", x."entryDate", x."exitDate"
+    from jsonb_to_recordset(p_plan -> 'employees')
+      as x (id uuid, "personnelNo" text, "firstName" text, "lastName" text, "teamId" uuid,
+            "entryDate" date, "exitDate" date);
+
+  -- every persona speaks the language the visitor started the demo in
+  insert into app.users (id, tenant_id, email, display_name, role, locale, status, employee_id)
+  select x.id, tenant, x.email, x."displayName", x.role, p_locale, 'demo', x."employeeId"
+    from jsonb_to_recordset(p_plan -> 'users')
+      as x (id uuid, email text, "displayName" text, role app.user_role, "employeeId" uuid);
+
+  insert into app.team_leads (tenant_id, team_id, user_id)
+  select tenant, x.id, l.user_id::uuid
+    from jsonb_to_recordset(p_plan -> 'teams') as x (id uuid, "leadUserIds" jsonb),
+         jsonb_array_elements_text(x."leadUserIds") as l (user_id);
+
+  insert into app.contracts (
+    id, tenant_id, employee_id, valid_from, work_model_id,
+    min_mon, min_tue, min_wed, min_thu, min_fri, min_sat, min_sun,
+    vacation_days_year, vacation_basis_days
+  )
+  select x.id, tenant, x."employeeId", x."validFrom", x."workModelId",
+         m.mon, m.tue, m.wed, m.thu, m.fri, m.sat, m.sun,
+         x."vacationDaysYear", x."vacationBasisDays"
+    from jsonb_to_recordset(p_plan -> 'contracts')
+      as x (id uuid, "employeeId" uuid, "validFrom" date, "workModelId" uuid, minutes jsonb,
+            "vacationDaysYear" numeric, "vacationBasisDays" smallint),
+         jsonb_to_record(x.minutes) as m (
+           mon smallint, tue smallint, wed smallint, thu smallint, fri smallint, sat smallint, sun smallint
+         );
+
+  insert into app.time_entries (id, tenant_id, employee_id, started_at, ended_at, end_reason, source)
+  select x.id, tenant, x."employeeId", x."startedAt", x."endedAt", x."endReason", x.source
+    from jsonb_to_recordset(p_plan -> 'entries')
+      as x (id uuid, "employeeId" uuid, "startedAt" timestamptz, "endedAt" timestamptz,
+            "endReason" app.end_reason, source app.entry_source);
+
+  insert into app.correction_requests (
+    id, tenant_id, employee_id, action, target_entry_id, new_started_at, new_ended_at,
+    reason, requested_by, created_at
+  )
+  select x.id, tenant, x."employeeId", x.action, x."targetEntryId", x."newStartedAt", x."newEndedAt",
+         x.reason, x."requestedBy", x."createdAt"
+    from jsonb_to_recordset(p_plan -> 'corrections')
+      as x (id uuid, "employeeId" uuid, action app.correction_action, "targetEntryId" uuid,
+            "newStartedAt" timestamptz, "newEndedAt" timestamptz, reason text, "requestedBy" uuid,
+            "createdAt" timestamptz);
+
+  -- guard_request_status only lets a request in as pending and then walks it along its transitions
+  update app.correction_requests c
+     set status = x.status, decided_by = x."decidedBy", decided_at = x."decidedAt"
+    from jsonb_to_recordset(p_plan -> 'corrections')
+      as x (id uuid, status app.correction_status, "decidedBy" uuid, "decidedAt" timestamptz)
+   where c.tenant_id = tenant and c.id = x.id and x.status <> 'pending';
+
+  -- settled ones first, the overlap constraints only see open and approved requests
+  foreach settled in array array[true, false] loop
+    insert into app.absence_requests (
+      id, tenant_id, employee_id, type, start_date, end_date, half_day_start, half_day_end,
+      requested_by, certificate_confirmed_at, certificate_confirmed_by, created_at
+    )
+    select x.id, tenant, x."employeeId", x.type, x."startDate", x."endDate", x."halfDayStart",
+           x."halfDayEnd", x."requestedBy", x."certificateConfirmedAt", x."certificateConfirmedBy",
+           x."createdAt"
+      from jsonb_to_recordset(p_plan -> 'absences')
+        as x (id uuid, "employeeId" uuid, type app.absence_type, status app.absence_status,
+              "startDate" date, "endDate" date, "halfDayStart" boolean, "halfDayEnd" boolean,
+              "requestedBy" uuid, "certificateConfirmedAt" timestamptz, "certificateConfirmedBy" uuid,
+              "createdAt" timestamptz)
+     where (x.status in ('rejected', 'withdrawn', 'cancelled')) = settled;
+
+    -- cancel_pending and cancelled go through approved first
+    update app.absence_requests r
+       set status = case when x.status in ('cancel_pending', 'cancelled') then 'approved' else x.status end,
+           decided_by = x."decidedBy", decided_at = x."decidedAt", decision_note = x."decisionNote"
+      from jsonb_to_recordset(p_plan -> 'absences')
+        as x (id uuid, status app.absence_status, "decidedBy" uuid, "decidedAt" timestamptz,
+              "decisionNote" text)
+     where r.tenant_id = tenant and r.id = x.id and x.status <> 'pending'
+       and (x.status in ('rejected', 'withdrawn', 'cancelled')) = settled;
+
+    update app.absence_requests r
+       set status = x.status
+      from jsonb_to_recordset(p_plan -> 'absences') as x (id uuid, status app.absence_status)
+     where r.tenant_id = tenant and r.id = x.id and x.status in ('cancel_pending', 'cancelled')
+       and (x.status in ('rejected', 'withdrawn', 'cancelled')) = settled;
+  end loop;
+
+  insert into app.absence_days (
+    id, tenant_id, employee_id, absence_id, date, portion, target_minutes, vacation_days,
+    superseded_at, superseded_by
+  )
+  select x.id, tenant, x."employeeId", x."absenceId", x.date, x.portion, x."targetMinutes",
+         x."vacationDays", x."supersededAt", x."supersededBy"
+    from jsonb_to_recordset(p_plan -> 'absenceDays')
+      as x (id uuid, "employeeId" uuid, "absenceId" uuid, date date, portion numeric,
+            "targetMinutes" smallint, "vacationDays" numeric, "supersededAt" timestamptz,
+            "supersededBy" uuid);
+
+  insert into app.vacation_notices (
+    id, tenant_id, employee_id, bucket_year, remaining_days, deadline, sent_at, sent_by,
+    channel, text_version
+  )
+  select x.id, tenant, x."employeeId", x."bucketYear", x."remainingDays", x.deadline, x."sentAt",
+         x."sentBy", x.channel, x."textVersion"
+    from jsonb_to_recordset(p_plan -> 'vacationNotices')
+      as x (id uuid, "employeeId" uuid, "bucketYear" smallint, "remainingDays" numeric,
+            deadline date, "sentAt" timestamptz, "sentBy" uuid, channel app.notice_channel,
+            "textVersion" text);
+
+  insert into app.vacation_ledger (
+    id, tenant_id, employee_id, bucket_year, entry_type, days, effective_date, absence_id,
+    notice_id, reason, dedupe_key, created_by, created_at
+  )
+  select x.id, tenant, x."employeeId", x."bucketYear", x."entryType", x.days, x."effectiveDate",
+         x."absenceId", x."noticeId", x.reason, x."dedupeKey", x."createdBy", x."createdAt"
+    from jsonb_to_recordset(p_plan -> 'vacationLedger')
+      as x (id uuid, "employeeId" uuid, "bucketYear" smallint, "entryType" app.vacation_entry_type,
+            days numeric, "effectiveDate" date, "absenceId" uuid, "noticeId" uuid, reason text,
+            "dedupeKey" text, "createdBy" uuid, "createdAt" timestamptz);
+
+  insert into app.finding_acks (
+    id, tenant_id, employee_id, work_date, rule_code, rule_version, note, created_by, created_at
+  )
+  select x.id, tenant, x."employeeId", x."workDate", x."ruleCode", x."ruleVersion", x.note,
+         x."createdBy", x."createdAt"
+    from jsonb_to_recordset(p_plan -> 'findingAcks')
+      as x (id uuid, "employeeId" uuid, "workDate" date, "ruleCode" text, "ruleVersion" text,
+            note text, "createdBy" uuid, "createdAt" timestamptz);
+
+  -- the cap_forfeit booking points at a closing that follows below, the foreign key is deferred
+  insert into app.flex_bookings (
+    id, tenant_id, employee_id, type, minutes, effective_date, reason, month_closing_id,
+    created_by, created_at
+  )
+  select x.id, tenant, x."employeeId", x.type, x.minutes, x."effectiveDate", x.reason,
+         x."monthClosingId", x."createdBy", x."createdAt"
+    from jsonb_to_recordset(p_plan -> 'flexBookings')
+      as x (id uuid, "employeeId" uuid, type app.flex_booking_type, minutes integer,
+            "effectiveDate" date, reason text, "monthClosingId" uuid, "createdBy" uuid,
+            "createdAt" timestamptz);
+
+  -- one statement per month, apply_month_closing counts the rows of its own statement as closed
+  for i in 0 .. jsonb_array_length(p_plan -> 'monthClosings') - 1 loop
+    insert into app.month_closings (id, tenant_id, month, action, reason, snapshot, created_by, created_at)
+    select x.id, tenant, x.month, x.action, x.reason, x.snapshot, x."createdBy", x."createdAt"
+      from jsonb_to_record(p_plan -> 'monthClosings' -> i)
+        as x (id uuid, month date, action app.month_closing_action, reason text, snapshot jsonb,
+              "createdBy" uuid, "createdAt" timestamptz);
+  end loop;
+end;
 $$;
 
 
@@ -3049,6 +3277,13 @@ CREATE TRIGGER absence_days_period_lock AFTER INSERT OR UPDATE ON app.absence_da
 
 
 --
+-- Name: absence_days absence_days_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER absence_days_sandbox_quota AFTER INSERT ON app.absence_days REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('1500');
+
+
+--
 -- Name: absence_requests absence_requests_guard_status; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -3060,6 +3295,13 @@ CREATE TRIGGER absence_requests_guard_status BEFORE INSERT OR UPDATE ON app.abse
 --
 
 CREATE TRIGGER absence_requests_period_lock AFTER INSERT OR UPDATE OF status ON app.absence_requests FOR EACH ROW EXECUTE FUNCTION app.enforce_period_lock('start_date');
+
+
+--
+-- Name: absence_requests absence_requests_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER absence_requests_sandbox_quota AFTER INSERT ON app.absence_requests REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('250');
 
 
 --
@@ -3196,10 +3438,24 @@ CREATE TRIGGER contracts_period_lock AFTER INSERT ON app.contracts FOR EACH ROW 
 
 
 --
+-- Name: contracts contracts_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER contracts_sandbox_quota AFTER INSERT ON app.contracts REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('80');
+
+
+--
 -- Name: correction_requests correction_requests_guard_status; Type: TRIGGER; Schema: app; Owner: -
 --
 
 CREATE TRIGGER correction_requests_guard_status BEFORE INSERT OR UPDATE ON app.correction_requests FOR EACH ROW EXECUTE FUNCTION app.guard_request_status();
+
+
+--
+-- Name: correction_requests correction_requests_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER correction_requests_sandbox_quota AFTER INSERT ON app.correction_requests REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('200');
 
 
 --
@@ -3214,6 +3470,13 @@ CREATE TRIGGER correction_requests_set_updated_at BEFORE UPDATE ON app.correctio
 --
 
 CREATE TRIGGER employees_inherit_closed_through BEFORE INSERT ON app.employees FOR EACH ROW EXECUTE FUNCTION app.inherit_closed_through();
+
+
+--
+-- Name: employees employees_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER employees_sandbox_quota AFTER INSERT ON app.employees REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('50');
 
 
 --
@@ -3245,6 +3508,13 @@ CREATE TRIGGER flex_bookings_period_lock AFTER INSERT ON app.flex_bookings FOR E
 
 
 --
+-- Name: flex_bookings flex_bookings_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER flex_bookings_sandbox_quota AFTER INSERT ON app.flex_bookings REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('200');
+
+
+--
 -- Name: month_closings month_closings_append_only; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -3263,6 +3533,20 @@ CREATE TRIGGER month_closings_apply AFTER INSERT ON app.month_closings FOR EACH 
 --
 
 CREATE TRIGGER month_closings_no_truncate BEFORE TRUNCATE ON app.month_closings FOR EACH STATEMENT EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: month_closings month_closings_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER month_closings_sandbox_quota AFTER INSERT ON app.month_closings REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('60');
+
+
+--
+-- Name: teams teams_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER teams_sandbox_quota AFTER INSERT ON app.teams REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('20');
 
 
 --
@@ -3308,10 +3592,24 @@ CREATE TRIGGER time_entries_period_lock AFTER INSERT OR UPDATE ON app.time_entri
 
 
 --
+-- Name: time_entries time_entries_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER time_entries_sandbox_quota AFTER INSERT ON app.time_entries REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('20000');
+
+
+--
 -- Name: users users_guard_own; Type: TRIGGER; Schema: app; Owner: -
 --
 
 CREATE TRIGGER users_guard_own BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION app.guard_own_user();
+
+
+--
+-- Name: users users_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER users_sandbox_quota AFTER INSERT ON app.users REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('60');
 
 
 --
@@ -3336,6 +3634,13 @@ CREATE TRIGGER vacation_ledger_no_truncate BEFORE TRUNCATE ON app.vacation_ledge
 
 
 --
+-- Name: vacation_ledger vacation_ledger_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER vacation_ledger_sandbox_quota AFTER INSERT ON app.vacation_ledger REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('400');
+
+
+--
 -- Name: vacation_notices vacation_notices_append_only; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -3347,6 +3652,13 @@ CREATE TRIGGER vacation_notices_append_only BEFORE DELETE ON app.vacation_notice
 --
 
 CREATE TRIGGER vacation_notices_no_truncate BEFORE TRUNCATE ON app.vacation_notices FOR EACH STATEMENT EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: work_models work_models_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER work_models_sandbox_quota AFTER INSERT ON app.work_models REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('20');
 
 
 --
@@ -4517,4 +4829,7 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260924000800'),
     ('20260925000000'),
     ('20260925000100'),
-    ('20260925000200');
+    ('20260925000200'),
+    ('20260925000300'),
+    ('20260925000400'),
+    ('20260925000500');

@@ -4,13 +4,14 @@ import { z } from 'zod';
 const cidr = z.union([z.cidrv4(), z.cidrv6()]);
 
 // every range may set x-forwarded-for, /0 would let any client choose its address for the rate limits
-const proxyRanges = z
-	.string()
-	.refine(
-		(list) =>
-			list.split(',').every((range) => cidr.safeParse(range.trim()).success && !/\/0$/.test(range)),
-		'Expected comma-separated CIDR ranges like 172.28.2.0/24, /0 is refused'
-	);
+const proxyRanges = z.string().refine(
+	(list) =>
+		list
+			.split(',')
+			.map((range) => range.trim())
+			.every((range) => cidr.safeParse(range).success && !/\/0$/.test(range)),
+	'Expected comma-separated CIDR ranges like 172.28.2.0/24, /0 is refused'
+);
 
 const secret = z
 	.base64()

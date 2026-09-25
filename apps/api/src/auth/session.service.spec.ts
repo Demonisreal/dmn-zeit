@@ -70,6 +70,18 @@ describe('SessionService', () => {
 		});
 	});
 
+	it('puts a token from elsewhere, like the persona switch, into the same cookie', () => {
+		const { sessions, response, asResponse } = setup();
+		sessions.setCookie(asResponse, 'switched');
+
+		expect(response.cookie).toHaveBeenCalledWith('__Host-zeit_sid', 'switched', {
+			httpOnly: true,
+			secure: true,
+			sameSite: 'strict',
+			path: '/'
+		});
+	});
+
 	it('drops prefix and Secure on plain http, a local browser would refuse both', async () => {
 		const { sessions, response, asResponse } = setup('http://localhost:5173');
 		await sessions.open(asResponse, 'u1', client);

@@ -57,7 +57,14 @@ describe('loadConfig', () => {
 		expect(loadConfig({ ...env, TRUSTED_PROXY: '172.28.2.0/24, fd00::/8' }).TRUSTED_PROXY).toBe(
 			'172.28.2.0/24, fd00::/8'
 		);
-		for (const wrong of ['0.0.0.0/0', '10.0.0.0/8,::/0', 'loopback', '172.28.2.5', '']) {
+		for (const wrong of [
+			'0.0.0.0/0',
+			'10.0.0.0/8,::/0',
+			'10.0.0.0/8, 0.0.0.0/0 ',
+			'loopback',
+			'172.28.2.5',
+			''
+		]) {
 			expect(() => loadConfig({ ...env, TRUSTED_PROXY: wrong }), wrong).toThrow(/TRUSTED_PROXY/);
 		}
 	});

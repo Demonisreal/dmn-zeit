@@ -35,6 +35,72 @@ describe('persona switch', () => {
 		]);
 		expect(entries[0]).toHaveAttribute('aria-checked', 'true');
 		expect(entries[1]).toHaveAccessibleDescription('Katrin Hölscher');
+		expect(within(menu).getByRole('menuitem', { name: 'Weitere Personen' })).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+	});
+
+	it('unfolds everyone else grouped by team', async () => {
+		renderApp('/');
+		const menu = await openSwitch();
+		const others = await within(menu).findByRole('menuitem', { name: 'Weitere Personen' });
+
+		await userEvent.click(others);
+
+		expect(others).toHaveAttribute('aria-expanded', 'true');
+		expect(
+			within(menu)
+				.getAllByRole('group', { name: /./ })
+				.map((group) => group.textContent)
+		).toEqual([
+			'FinanzbuchhaltungNils HagedornBeschäftigte',
+			'SteuerberatungLea SchwerdtfegerBeschäftigteTobias KämmererBeschäftigte',
+			'Ohne TeamUwe TiemannAdministration'
+		]);
+		const [lea] = within(within(menu).getByRole('group', { name: 'Steuerberatung' })).getAllByRole(
+			'menuitemradio'
+		);
+		expect(lea).toHaveAccessibleName('Lea Schwerdtfeger');
+		expect(lea).toHaveAccessibleDescription('Beschäftigte');
+		expect(lea).toHaveAttribute('aria-checked', 'false');
+
+		await userEvent.click(others);
+
+		expect(others).toHaveAttribute('aria-expanded', 'false');
+		expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(4);
+	});
+
+	it('unfolds and switches with the keyboard alone', async () => {
+		const router = renderApp('/demo/outbox');
+		const [trigger] = await screen.findAllByRole('button', { name: 'Rolle wechseln' });
+		trigger!.focus();
+		await userEvent.keyboard('{Enter}');
+		const menu = await screen.findByRole('menu', { name: 'Rolle wechseln' });
+		await waitFor(() =>
+			expect(within(menu).getByRole('menuitemradio', { name: 'Beschäftigte' })).toHaveFocus()
+		);
+
+		await userEvent.keyboard('{ArrowDown>4/}');
+		const others = within(menu).getByRole('menuitem', { name: 'Weitere Personen' });
+		expect(others).toHaveFocus();
+		await userEvent.keyboard('{Enter}');
+		expect(others).toHaveAttribute('aria-expanded', 'true');
+		await userEvent.keyboard('{ArrowDown}');
+		expect(within(menu).getByRole('menuitemradio', { name: 'Nils Hagedorn' })).toHaveFocus();
+		await userEvent.keyboard('{Enter}');
+
+		expect(await screen.findByRole('button', { name: 'Nils Hagedorn' })).toBeInTheDocument();
+		await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+
+		// now nils stands for the employees and jonas moves down into his team
+		const again = await openSwitch();
+		expect((await within(again).findAllByRole('menuitemradio'))[0]).toHaveTextContent(
+			'BeschäftigteNils Hagedorn'
+		);
+		expect(within(again).getByRole('group', { name: 'Steuerberatung' })).toHaveTextContent(
+			/^SteuerberatungJonas Brandt/
+		);
 	});
 
 	it('switches to the team lead and opens her inbox', async () => {

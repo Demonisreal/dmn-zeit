@@ -14,6 +14,7 @@ describe('fromDatabase', () => {
 		['ZT001', 409, 'PERIOD_LOCKED'],
 		['ZT002', 409, 'APPEND_ONLY'],
 		['ZT003', 409, 'INVALID_STATE'],
+		['ZT005', 409, 'SANDBOX_QUOTA'],
 		['23505', 409, 'ALREADY_EXISTS'],
 		['23503', 409, 'INVALID_STATE'],
 		['42501', 403, 'FORBIDDEN'],

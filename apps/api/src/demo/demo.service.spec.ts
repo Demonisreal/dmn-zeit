@@ -1,5 +1,4 @@
 import { HttpException, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { generateDemo, type DemoPlan } from '@zeit/demo-data';
 import { apiErrorSchema } from '@zeit/shared';
 import type { Request, Response } from 'express';
@@ -55,7 +54,7 @@ function setup() {
 	const store = {
 		activeSandboxes: vi.fn(async () => 12),
 		countAttempt: vi.fn(async (_address: string) => calm),
-		write: vi.fn(async (_trx: unknown, _plan: DemoPlan, _locale: string) => {}),
+		write: vi.fn(async (_plan: DemoPlan, _locale: string) => {}),
 		personas: vi.fn(async () => []),
 		switchPersona: vi.fn(async () => true),
 		outbox: vi.fn(async () => [])
@@ -64,6 +63,7 @@ function setup() {
 	const sessions = {
 		cookieName: '__Host-zeit_sid',
 		open: vi.fn(async () => ({ csrfToken: 'opened' })),
+		setCookie: vi.fn((_response: Response, _token: string) => {}),
 		resolve: vi.fn(async () => ({ id: 's2' })),
 		current: vi.fn(async () => ({ csrfToken: 'switched' }))
 	};
@@ -72,10 +72,9 @@ function setup() {
 		db as unknown as Database,
 		store as unknown as DemoStore,
 		sessions as unknown as SessionService,
-		clock as unknown as Clock,
-		new ConfigService({ APP_ORIGIN: 'https://zeit-demo.example.com', APP_MODE: 'demo' })
+		clock as unknown as Clock
 	);
-	const response = { setHeader: vi.fn(), cookie: vi.fn() };
+	const response = { setHeader: vi.fn() };
 	const asResponse = response as unknown as Response;
 	return { demo, store, db, sessions, clock, response, asResponse };
 }
@@ -181,16 +180,11 @@ describe('DemoService.create', () => {
 		expect(today).not.toBe(tomorrow);
 	});
 
-	it('writes the plan as admin of the new tenant and signs in the employee on shift', async () => {
-		const { demo, store, db, sessions, asResponse } = setup();
+	it('writes the plan in the language of the visitor and signs in the employee on shift', async () => {
+		const { demo, store, sessions, asResponse } = setup();
 		const session = await demo.create({ locale: 'en' }, client, asResponse);
 
-		expect(db.withTenant).toHaveBeenCalledWith(
-			{ tenantId: 'tenant-1', userId: null, role: 'admin', employeeId: null, requestId: 'r1' },
-			expect.any(Function)
-		);
 		expect(store.write).toHaveBeenCalledWith(
-			'trx',
 			expect.objectContaining({ tenant: { id: 'tenant-1' } }),
 			'en'
 		);
@@ -202,7 +196,7 @@ describe('DemoService.create', () => {
 		const { demo, store, asResponse } = setup();
 		await demo.create({ locale: 'de' }, client, asResponse);
 
-		expect(startOf(store.write.mock.calls[0]![1], 'e-worker')).toBe('2026-09-25T08:14:31+02:00');
+		expect(startOf(store.write.mock.calls[0]![0], 'e-worker')).toBe('2026-09-25T08:14:31+02:00');
 	});
 
 	it('shows an early visitor the persona clocked in a few minutes ago', async () => {
@@ -211,7 +205,7 @@ describe('DemoService.create', () => {
 		clock.now.mockReturnValue(new Date('2026-09-25T05:00:00Z'));
 		await demo.create({ locale: 'de' }, client, asResponse);
 
-		const plan = store.write.mock.calls[0]![1];
+		const plan = store.write.mock.calls[0]![0];
 		const start = startOf(plan, 'e-worker');
 		expect(start).toMatch(/^2026-09-25T06:[45]\d:\d\d\+02:00$/);
 		const ahead = Date.parse('2026-09-25T05:00:00Z') - Date.parse(start);
@@ -225,7 +219,7 @@ describe('DemoService.create', () => {
 		clock.now.mockReturnValue(new Date('2026-09-24T22:03:00Z'));
 		await demo.create({ locale: 'de' }, client, asResponse);
 
-		expect(startOf(store.write.mock.calls[0]![1], 'e-worker')).toBe('2026-09-25T00:00:00+02:00');
+		expect(startOf(store.write.mock.calls[0]![0], 'e-worker')).toBe('2026-09-25T00:00:00+02:00');
 		expect(sessions.open).toHaveBeenCalledWith(asResponse, 'u-worker', client);
 	});
 
@@ -274,18 +268,13 @@ describe('DemoService.switchTo', () => {
 		({ id: 'r2', cookies: { '__Host-zeit_sid': 'old-token' } }) as unknown as Request;
 
 	it('swaps the session and answers with the new token', async () => {
-		const { demo, store, sessions, response, asResponse } = setup();
+		const { demo, store, sessions, asResponse } = setup();
 		const incoming = request();
 		const session = await demo.switchTo('u-hr', incoming, asResponse);
 
-		const token = response.cookie.mock.calls[0]![1] as string;
+		const token = sessions.setCookie.mock.calls[0]![1];
 		expect(token).not.toBe('old-token');
-		expect(response.cookie).toHaveBeenCalledWith('__Host-zeit_sid', token, {
-			httpOnly: true,
-			secure: true,
-			sameSite: 'strict',
-			path: '/'
-		});
+		expect(sessions.setCookie).toHaveBeenCalledWith(asResponse, token);
 		expect(store.switchPersona).toHaveBeenCalledWith(
 			hashToken('old-token'),
 			'u-hr',
@@ -298,13 +287,13 @@ describe('DemoService.switchTo', () => {
 	});
 
 	it('answers 404 for someone outside the sandbox and keeps the cookie', async () => {
-		const { demo, store, response, asResponse } = setup();
+		const { demo, store, sessions, asResponse } = setup();
 		store.switchPersona.mockResolvedValue(false);
 
 		await expect(demo.switchTo('u-elsewhere', request(), asResponse)).rejects.toThrow(
 			NotFoundException
 		);
-		expect(response.cookie).not.toHaveBeenCalled();
+		expect(sessions.setCookie).not.toHaveBeenCalled();
 	});
 });
 

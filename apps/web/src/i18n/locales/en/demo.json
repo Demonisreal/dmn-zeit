@@ -36,7 +36,9 @@
 	},
 	"switch": {
 		"label": "Switch role",
-		"loading": "Loading roles"
+		"loading": "Loading roles",
+		"others": "Other people",
+		"noTeam": "No team"
 	},
 	"outbox": {
 		"title": "Outbox",

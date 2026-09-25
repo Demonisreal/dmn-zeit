@@ -36,7 +36,9 @@
 	},
 	"switch": {
 		"label": "Rolle wechseln",
-		"loading": "Rollen werden geladen"
+		"loading": "Rollen werden geladen",
+		"others": "Weitere Personen",
+		"noTeam": "Ohne Team"
 	},
 	"outbox": {
 		"title": "Postausgang",

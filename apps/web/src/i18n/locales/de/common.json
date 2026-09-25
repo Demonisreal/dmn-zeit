@@ -25,6 +25,7 @@
 	"errors": {
 		"network": "Server nicht erreichbar. Verbindung prüfen und erneut versuchen.",
 		"rateLimited": "Zu viele Versuche. Bitte später erneut versuchen.",
+		"sandboxQuota": "Die Demo hat für diese Art von Eintrag ihre Grenze erreicht.",
 		"unexpected": "Das hat nicht geklappt. Bitte erneut versuchen."
 	},
 	"validation": {

@@ -1,16 +1,14 @@
 import { createHmac, randomBytes, randomInt } from 'node:crypto';
 import { HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { generateDemo, type DemoPlan } from '@zeit/demo-data';
+import { generateDemo, type DemoPlan, type PlanRow } from '@zeit/demo-data';
 import type { ApiError, CreateSandboxInput, OutboxMail, Persona, Session } from '@zeit/shared';
-import type { CookieOptions, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { Temporal } from 'temporal-polyfill';
 import { SessionService } from '../auth/session.service';
 import { csrfTokenFor, hashToken, newToken } from '../auth/tokens';
 import type { Client } from '../common/client.decorator';
 import { Clock } from '../common/clock';
 import type { AuthSession } from '../common/session.guard';
-import type { Config } from '../config';
 import { Database } from '../db/database';
 import { berlinToday } from '../vacation/buckets';
 import { networkOf } from './address';
@@ -36,23 +34,19 @@ function refuse(
 const freshPlan = (today: Temporal.PlainDate) => generateDemo({ today, seed: randomInt(2 ** 32) });
 
 // the story has the employee persona clocked in since about eight, the demo opens as that person
-function starterOf(plan: DemoPlan, today: string): string {
-	const shift = plan.entries.find(
-		(entry) => entry.endedAt === null && entry.startedAt.startsWith(today)
+function shiftOf(plan: DemoPlan, today: Temporal.PlainDate): PlanRow<'entries'> {
+	return plan.entries.find(
+		(entry) => entry.endedAt === null && entry.startedAt.startsWith(today.toString())
 	)!;
-	return plan.users.find((user) => user.employeeId === shift.employeeId)!.id;
 }
 
 // the story clocks in at ten past eight, an earlier visitor finds the persona arrived minutes ago
-function clockInBefore(plan: DemoPlan, today: Temporal.PlainDate, now: Date) {
-	const shift = plan.entries.find(
-		(entry) => entry.endedAt === null && entry.startedAt.startsWith(today.toString())
-	)!;
+function clockInBefore(shift: PlanRow<'entries'>, today: Temporal.PlainDate, now: Date) {
 	const instant = Temporal.Instant.fromEpochMilliseconds(now.getTime());
 	if (Temporal.Instant.compare(Temporal.Instant.from(shift.startedAt), instant) <= 0) return;
 
 	const start = instant.subtract({ seconds: randomInt(5 * 60, 15 * 60) });
-	// not back into yesterday, starterOf looks for a shift begun today
+	// not back into yesterday, the shift would then count for yesterday's workday
 	const midnight = today.toZonedDateTime('Europe/Berlin').toInstant();
 	shift.startedAt = (Temporal.Instant.compare(start, midnight) < 0 ? midnight : start)
 		.toZonedDateTimeISO('Europe/Berlin')
@@ -62,7 +56,6 @@ function clockInBefore(plan: DemoPlan, today: Temporal.PlainDate, now: Date) {
 @Injectable()
 export class DemoService {
 	private readonly logger = new Logger(DemoService.name);
-	private readonly cookie: CookieOptions;
 	private salt = { day: '', secret: Buffer.alloc(0) };
 	private prepared: { day: string; plan: DemoPlan } | undefined;
 
@@ -70,13 +63,8 @@ export class DemoService {
 		private readonly db: Database,
 		private readonly store: DemoStore,
 		private readonly sessions: SessionService,
-		private readonly clock: Clock,
-		config: ConfigService<Config, true>
-	) {
-		// the same cookie SessionService sets, the switch only swaps the token in it
-		const secure = new URL(config.get('APP_ORIGIN', { infer: true })).protocol === 'https:';
-		this.cookie = { httpOnly: true, secure, sameSite: 'strict', path: '/' };
-	}
+		private readonly clock: Clock
+	) {}
 
 	async create(input: CreateSandboxInput, client: Client, response: Response): Promise<Session> {
 		// checked first, a full demo should not cost the visitor one of their tries
@@ -105,19 +93,12 @@ export class DemoService {
 		}
 
 		const plan = this.planFor(today);
+		const shift = shiftOf(plan, today);
 		// a prepared plan can be hours old, what still lies ahead depends on the request
-		clockInBefore(plan, today, now);
-		await this.db.withTenant(
-			{
-				tenantId: plan.tenant.id,
-				userId: null,
-				role: 'admin',
-				employeeId: null,
-				requestId: client.requestId
-			},
-			(trx) => this.store.write(trx, plan, input.locale)
-		);
-		const session = await this.sessions.open(response, starterOf(plan, today.toString()), client);
+		clockInBefore(shift, today, now);
+		await this.store.write(plan, input.locale);
+		const starter = plan.users.find((user) => user.employeeId === shift.employeeId)!;
+		const session = await this.sessions.open(response, starter.id, client);
 		// runs once the answer is out, the next visitor then only waits for the database
 		setImmediate(() => this.prepare(today));
 		return session;
@@ -141,7 +122,7 @@ export class DemoService {
 		);
 		if (!switched) throw new NotFoundException('No persona with this id in the sandbox');
 
-		response.cookie(name, token, this.cookie);
+		this.sessions.setCookie(response, token);
 		// resolve() and current() read the token from the request, from here on it is the new one
 		request.cookies[name] = token;
 		const session = await this.sessions.resolve(request);

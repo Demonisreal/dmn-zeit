@@ -25,6 +25,7 @@
 	"errors": {
 		"network": "Server unreachable. Check the connection and try again.",
 		"rateLimited": "Too many attempts. Please try again later.",
+		"sandboxQuota": "The demo has reached its limit for this kind of entry.",
 		"unexpected": "That did not work. Please try again."
 	},
 	"validation": {

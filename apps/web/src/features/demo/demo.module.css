@@ -63,7 +63,8 @@
 	transition: transform 160ms var(--ease);
 }
 
-.tourToggle[aria-expanded='true'] .fold {
+.tourToggle[aria-expanded='true'] .fold,
+.more[aria-expanded='true'] .fold {
 	transform: rotate(45deg);
 }
 
@@ -141,6 +142,8 @@
 }
 
 .popover {
+	display: flex;
+	flex-direction: column;
 	min-width: 15rem;
 	max-width: calc(100vw - 2rem);
 	border: 1px solid var(--edge);
@@ -176,8 +179,12 @@
 	}
 }
 
+/* react-aria caps the popover at the room below the trigger, the list scrolls and the error stays in view */
 .menu {
+	min-height: 0;
 	padding: 0.25rem;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	outline: none;
 }
 
@@ -187,15 +194,18 @@
 	padding: 0.4375rem 0.625rem;
 	border-radius: 4px;
 	color: var(--text);
+	overflow-wrap: anywhere;
 	cursor: default;
 	outline: none;
 }
 
-.persona[data-focused] {
+.persona[data-focused],
+.more[data-focused] {
 	background: var(--edge);
 }
 
-.persona[data-focus-visible] {
+.persona[data-focus-visible],
+.more[data-focus-visible] {
 	outline: 2px solid var(--red);
 	outline-offset: -2px;
 }
@@ -217,6 +227,55 @@
 .name {
 	color: var(--muted);
 	font-size: 0.8125rem;
+}
+
+.others {
+	margin: 0.25rem -0.25rem 0;
+	padding: 0.25rem 0.25rem 0;
+	border-top: 1px solid var(--edge);
+}
+
+.more {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2.25rem;
+	padding: 0 0.625rem;
+	border-radius: 4px;
+	color: var(--text);
+	cursor: default;
+	outline: none;
+}
+
+@media (pointer: coarse) {
+	.more {
+		min-height: 2.75rem;
+	}
+}
+
+/* padding plus chevron and gap of the toggle, the team names line up with its label */
+.group {
+	padding-inline-start: 0.875rem;
+}
+
+.team {
+	padding: 0.625rem 0.625rem 0.25rem;
+	color: var(--muted);
+	font-size: 0.75rem;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+/* in a team the person leads, a step quieter than the four roles up top */
+.group .name {
+	color: var(--text);
+	font-size: inherit;
+}
+
+.group .role {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 400;
 }
 
 .status {

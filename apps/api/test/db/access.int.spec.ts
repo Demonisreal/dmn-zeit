@@ -46,9 +46,15 @@ describe('privileges', () => {
 		expect(idle.rows[0].idle_in_transaction_session_timeout).toBe('30s');
 	});
 
-	it('never lets zeit_app touch kind, slug or expiry of a tenant', async () => {
+	// audit.track trusts kind and created_at to tell the seed of a new sandbox apart
+	it('never lets zeit_app touch kind, slug, expiry or creation time of a tenant', async () => {
 		await withContext(app, admin.context);
-		for (const change of [`kind = 'sandbox'`, `slug = 'woanders'`, `expires_at = now()`]) {
+		for (const change of [
+			`kind = 'sandbox'`,
+			`slug = 'woanders'`,
+			`expires_at = now()`,
+			`created_at = now()`
+		]) {
 			await expect(app.query(`update app.tenants set ${change}`)).rejects.toMatchObject({
 				code: '42501'
 			});

@@ -18,6 +18,7 @@ export const errorCodes = [
 	'APPEND_ONLY',
 	'RATE_LIMITED',
 	'SANDBOX_LIMIT',
+	'SANDBOX_QUOTA',
 	'INTERNAL'
 ] as const;
 

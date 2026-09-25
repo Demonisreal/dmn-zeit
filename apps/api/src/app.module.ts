@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConditionalModule, ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
@@ -63,7 +63,8 @@ import { VacationModule } from './vacation/vacation.module';
 		MonthsModule,
 		ExportsModule,
 		AuditModule,
-		DemoModule,
+		// elsewhere the routes do not exist at all, not even for the session guard to answer 401
+		ConditionalModule.registerWhen(DemoModule, (env) => env.APP_MODE === 'demo'),
 		MailModule,
 		JobsModule
 	],

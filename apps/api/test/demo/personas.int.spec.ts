@@ -45,6 +45,25 @@ describe('GET /api/demo/personas', () => {
 		const current = (answer.body as Persona[]).filter((persona) => persona.current);
 		expect(current.map((persona) => persona.userId)).toEqual([session.user.id]);
 	});
+
+	it('names the team of everyone with a personnel record', async () => {
+		const { rows } = await demo.superuser.query<{ employee: string; id: string; name: string }>(
+			`select e.id as employee, tm.id, tm.name
+				from app.employees e join app.teams tm on tm.id = e.team_id
+				where e.tenant_id = $1`,
+			[session.tenant.id]
+		);
+		const teamOf = new Map(rows.map(({ employee, ...team }) => [employee, team]));
+		const personas = answer.body as Persona[];
+
+		for (const persona of personas.filter((persona) => persona.employee)) {
+			expect(persona.team).toEqual(teamOf.get(persona.employee!.id));
+		}
+		// the sandbox admin is the one account without a personnel record
+		expect(personas.filter((persona) => !persona.employee)).toEqual([
+			expect.objectContaining({ role: 'admin', team: null })
+		]);
+	});
 });
 
 describe('POST /api/demo/switch', () => {

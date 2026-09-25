@@ -49,10 +49,14 @@ export class SessionService {
 			ip: client.ip,
 			userAgent: client.userAgent
 		});
-		response.cookie(this.cookieName, token, this.cookie);
+		this.setCookie(response, token);
 
 		const session = await this.store.resolveSession(hashToken(token));
 		return this.describe({ ...session!, requestId: client.requestId }, token);
+	}
+
+	setCookie(response: Response, token: string) {
+		response.cookie(this.cookieName, token, this.cookie);
 	}
 
 	async resolve(request: Request): Promise<AuthSession | undefined> {
