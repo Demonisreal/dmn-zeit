@@ -554,7 +554,7 @@ export const invoiceForm = (input: {
 	}
 	if (treatment === 'reverse_charge') {
 		form.legalNotes.push('reverse_charge_13b');
-		form.hints.push('service_deadline_14a_3');
+		form.hints.push('service_deadline_14a_1');
 		// § 14a Abs. 1 UStG wants both vat ids, the buyer's is already why it is reverse charge
 		if (!profile.hasVatId) {
 			form.blockers.push('vat_id_missing');

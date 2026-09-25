@@ -102,7 +102,7 @@ Steuer, muss die Rechnung nach § 14a Abs. 1 bzw. Abs. 5 UStG zusätzlich enthal
 USt-IdNr. des leistenden Unternehmers und die des Leistungsempfängers sowie den Hinweis
 "Steuerschuldnerschaft des Leistungsempfängers". Ein gesonderter Steuerausweis unterbleibt in
 diesem Fall. Bei innergemeinschaftlichen Lieferungen/Leistungen ist die Rechnung zusätzlich bis
-zum 15. Tag des Monats zu stellen, der auf den Monat der Leistung folgt (§ 14a Abs. 3 UStG).
+zum 15. Tag des Monats zu stellen, der auf den Monat der Leistung folgt (§ 14a Abs. 1 S. 2 UStG; Abs. 3 gilt für innergemeinschaftliche Lieferungen).
 
 Für innergemeinschaftliche Leistungen an Unternehmer in der EU ist außerdem eine Zusammenfassende
 Meldung nach § 18a UStG an das Bundeszentralamt für Steuern abzugeben — das betrifft die

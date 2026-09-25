@@ -281,7 +281,7 @@ describe('invoices end to end', () => {
 		expect(form(true)).toEqual({
 			legalNotes: ['reverse_charge_13b'],
 			blockers: [],
-			hints: ['service_deadline_14a_3']
+			hints: ['service_deadline_14a_1']
 		});
 		expect(form(false).blockers).toEqual(['vat_id_missing']);
 	});

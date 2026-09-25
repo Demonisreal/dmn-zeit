@@ -743,7 +743,7 @@ describe('invoiceForm', () => {
 		expect(form({ treatment: 'reverse_charge' })).toEqual({
 			legalNotes: ['reverse_charge_13b'],
 			blockers: [],
-			hints: ['service_deadline_14a_3']
+			hints: ['service_deadline_14a_1']
 		});
 	});
 
@@ -1247,7 +1247,7 @@ describe('invoice check properties', () => {
 				profile: { hasVatId, hasTaxNumber }
 			});
 			expect(form.legalNotes).toContain('reverse_charge_13b');
-			expect(form.hints).toEqual(['service_deadline_14a_3']);
+			expect(form.hints).toEqual(['service_deadline_14a_1']);
 			expect(form.blockers).toEqual(hasVatId ? [] : ['vat_id_missing']);
 			expect(isSmallAmountInvoice(grossCents, 'reverse_charge')).toBe(false);
 		}
