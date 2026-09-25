@@ -132,30 +132,34 @@ describe('row level security', () => {
 		expect(seen.rows[0].n).toBe(0);
 	});
 
-	it.each(tables)('refuses rows for tenant b in %s', async (table) => {
-		const { rows } = await superuser.query(
-			`select to_jsonb(t) as row from ${table} t where ${fenceColumn(table)} = $1 limit 1`,
-			[tenantB]
-		);
-		// every column zeit_app may fill, except the key, so only the fence can object
-		const columns = await superuser.query<{ name: string }>(
-			`select a.attname as name
+	// zeit_app has no insert on app.tenants at all, access.int.spec.ts covers that
+	it.each(tables.filter((table) => table !== 'app.tenants'))(
+		'refuses rows for tenant b in %s',
+		async (table) => {
+			const { rows } = await superuser.query(
+				`select to_jsonb(t) as row from ${table} t where ${fenceColumn(table)} = $1 limit 1`,
+				[tenantB]
+			);
+			// every column zeit_app may fill, except the key, so only the fence can object
+			const columns = await superuser.query<{ name: string }>(
+				`select a.attname as name
 			   from pg_attribute a
 			  where a.attrelid = $1::regclass and a.attnum > 0 and not a.attisdropped
 			    and a.attgenerated = '' and a.attidentity = '' and a.attname <> 'id'
 			    and has_column_privilege('zeit_app', a.attrelid, a.attname, 'INSERT')`,
-			[table]
-		);
-		const list = columns.rows.map((c) => `"${c.name}"`).join(', ');
+				[table]
+			);
+			const list = columns.rows.map((c) => `"${c.name}"`).join(', ');
 
-		await expect(
-			app.query(
-				`insert into ${table} (${list}) select ${list} from jsonb_populate_record(null::${table}, $1)`,
-				[rows[0].row]
-			)
-		).rejects.toMatchObject({
-			code: '42501',
-			message: expect.stringContaining('row-level security')
-		});
-	});
+			await expect(
+				app.query(
+					`insert into ${table} (${list}) select ${list} from jsonb_populate_record(null::${table}, $1)`,
+					[rows[0].row]
+				)
+			).rejects.toMatchObject({
+				code: '42501',
+				message: expect.stringContaining('row-level security')
+			});
+		}
+	);
 });

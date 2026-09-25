@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -54,6 +55,23 @@ describe('privileges', () => {
 		}
 		const renamed = await app.query(`update app.tenants set name = 'Steuerbüro Muster'`);
 		expect(renamed.rowCount).toBe(1);
+	});
+
+	it('never lets zeit_app create a tenant of its own', async () => {
+		const id = randomUUID();
+		await withContext(app, { tenantId: id, role: 'admin' });
+		await expect(
+			app.query(
+				`insert into app.tenants (id, name, slug, state) values ($1, 'Kanzlei Neu', $2, 'NW')`,
+				[id, `t-${id.slice(0, 8)}`]
+			)
+		).rejects.toMatchObject({ code: '42501' });
+		await expect(
+			app.query(
+				`select ops.tenant_create($1, 'Kanzlei Neu', $2, 'NW', 'neu@example.test', 'Anna Admin', '\\x00')`,
+				[id, `t-${id.slice(0, 8)}`]
+			)
+		).rejects.toMatchObject({ code: '42501' });
 	});
 
 	it('takes only the known optional holidays', async () => {
@@ -120,6 +138,45 @@ describe('privileges', () => {
 		await expect(
 			app.query('update app.users set employee_id = $2 where id = $1', [user.userId, elsewhere])
 		).rejects.toMatchObject({ code: '23503' });
+	});
+});
+
+describe('tenants', () => {
+	it('opens a sandbox for 24 hours, the rest of it goes in as zeit_app', async () => {
+		const id = randomUUID();
+		await withContext(app, { tenantId: id, role: 'admin' });
+		const { rows } = await app.query(
+			`select ops.sandbox_create($1, 'Musterbetrieb (Beispiel)', $2, 'NW', 600, 300, 'warn') as id`,
+			[id, `musterbetrieb-${id.slice(0, 8)}`]
+		);
+		expect(rows[0].id).toBe(id);
+		await app.query(`insert into app.teams (tenant_id, name) values ($1, 'Buchhaltung')`, [id]);
+
+		const created = await superuser.query(
+			`select kind, flex_cap_plus_min, flex_cap_minus_min, flex_cap_mode,
+			        expires_at - created_at = interval '24 hours' as one_day
+			   from app.tenants where id = $1`,
+			[id]
+		);
+		expect(created.rows[0]).toEqual({
+			kind: 'sandbox',
+			flex_cap_plus_min: 600,
+			flex_cap_minus_min: 300,
+			flex_cap_mode: 'warn',
+			one_day: true
+		});
+	});
+
+	it('deletes sandboxes only, a live tenant stays even for the superuser', async () => {
+		const live = await createTenant();
+		await createUser(live, { role: 'admin' });
+		await expect(
+			superuser.query('delete from app.tenants where id = $1', [live])
+		).rejects.toMatchObject({ code: 'ZT002' });
+
+		const sandbox = await createTenant({ kind: 'sandbox' });
+		const gone = await superuser.query('delete from app.tenants where id = $1', [sandbox]);
+		expect(gone.rowCount).toBe(1);
 	});
 });
 

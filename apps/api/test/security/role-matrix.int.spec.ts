@@ -7,7 +7,7 @@ import type request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ROLE } from '../../src/common/roles.guard';
 import { IS_PUBLIC } from '../../src/common/session.guard';
-import { startApi, type Api } from '../auth/api';
+import { startApi, type Api, type Browser } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
 import { createTenant, createUser } from '../helpers/pg';
 
@@ -125,7 +125,12 @@ const expected: Record<string, Access> = {
 	'PATCH /tenant': 'admin',
 	'GET /holidays': 'employee',
 
-	'GET /audit': 'employee'
+	'GET /audit': 'employee',
+
+	'POST /demo/sandboxes': 'public',
+	'GET /demo/personas': 'signed-in',
+	'POST /demo/switch': 'signed-in',
+	'GET /demo/outbox': 'signed-in'
 };
 
 const routePath = (...parts: string[]) =>
@@ -249,5 +254,39 @@ describe('roles guard', () => {
 	it.each(probes)('lets the role from the table past the guard on $route', async (probe) => {
 		const answer = await probe.send(desks[expected[probe.route] as Role]);
 		expect(answer.body.message).not.toBe('Not allowed for your role');
+	});
+});
+
+// this instance runs in test mode, test/demo covers the routes on the demo instance
+describe('demo routes outside the demo', () => {
+	let persona: Desk;
+
+	beforeAll(async () => {
+		const sandbox = await createTenant({ kind: 'sandbox' });
+		const { userId } = await createUser(sandbox, { status: 'demo' });
+		persona = await signedIn(api, userId);
+	});
+
+	const demoRoutes: { route: string; send: (client: Desk | Browser) => request.Test }[] = [
+		{
+			route: 'POST /demo/sandboxes',
+			send: (client) => client.post('/demo/sandboxes', { locale: 'de' })
+		},
+		{ route: 'GET /demo/personas', send: (client) => client.get('/demo/personas') },
+		{
+			route: 'POST /demo/switch',
+			send: (client) => client.post('/demo/switch', { userId: randomUUID() })
+		},
+		{ route: 'GET /demo/outbox', send: (client) => client.get('/demo/outbox') }
+	];
+
+	it.each(demoRoutes)('answers 404 on $route even for a sandbox persona', async ({ send }) => {
+		expect((await send(persona)).status).toBe(404);
+	});
+
+	// the session guard comes first, so the signed-in routes say 401 where the public one says 404
+	it.each(demoRoutes)('serves nothing on $route without a session', async ({ route, send }) => {
+		const answer = await send(api.browser());
+		expect(answer.status).toBe(expected[route] === 'public' ? 404 : 401);
 	});
 });

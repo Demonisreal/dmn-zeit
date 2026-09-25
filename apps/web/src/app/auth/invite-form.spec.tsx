@@ -65,19 +65,6 @@ describe('invitation', () => {
 		).toBeInTheDocument();
 	});
 
-	it('falls back to the login page if accepting answers with no session', async () => {
-		server.use(
-			http.post('/api/auth/invitations/accept', () => new HttpResponse(null, { status: 204 }))
-		);
-		renderApp(`/invite#t=${token}`);
-		await screen.findByRole('heading', { name: 'Passwort festlegen' });
-
-		await submit('lang-genug-und-gut', 'lang-genug-und-gut');
-
-		expect(await screen.findByRole('heading', { name: 'Anmelden' })).toBeInTheDocument();
-		expect(screen.getByRole('status')).toHaveTextContent('Passwort gespeichert.');
-	});
-
 	it('shows the expired link page when the server refuses the token', async () => {
 		let inspected = 0;
 		server.use(

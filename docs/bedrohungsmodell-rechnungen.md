@@ -137,7 +137,7 @@ Mandant>, true)` ausgestellte Rechnungen.
 - Neuer Fehlercode `ZT004` -> 409 `BILLED_LOCKED` in `apps/api/src/db/errors.ts` und `packages/shared/src/errors.ts`
 
 Migrationen (neu): `db/migrations/20260926000000_projects.sql`, `db/migrations/20260926000100_invoices.sql`,
-`db/migrations/20260926000200_purge_guard.sql`.
+`db/migrations/20260925000200_purge_guard.sql`.
 
 ## 5. K3/K4: Unveränderbarkeit ausgestellter Rechnungen
 
@@ -186,7 +186,7 @@ oder mit Summen an, die nicht zu den Positionen passen.
   Tabelle oder `zeit_system`), vorher per Test belegen und die Bedingung genau darauf setzen.
   Entwürfe liegen in eigenen Tabellen (R-01), damit ein DELETE-Recht auf Entwürfe nie die
   ausgestellten Rechnungen berührt.
-- Ort: `db/migrations/20260926000200_purge_guard.sql` (neu), `create or replace function` beider
+- Ort: `db/migrations/20260925000200_purge_guard.sql` (neu), `create or replace function` beider
   Funktionen.
 - Priorität: muss
 - Test: `apps/api/test/db/journals.int.spec.ts`: "zeit_app setzt `zeit.purge_tenant` auf den eigenen
@@ -198,7 +198,7 @@ oder mit Summen an, die nicht zu den Positionen passen.
 - Maßnahme: `BEFORE DELETE ON app.tenants` mit Abbruch, wenn `old.kind = 'live'`. Nur der
   Sandbox-Purge löscht Mandanten, er ist davon nicht betroffen. Die Fremdschlüssel von
   `app.invoices` auf `app.customers` und `app.users` stehen auf `ON DELETE RESTRICT`, nie auf CASCADE.
-- Ort: `db/migrations/20260926000200_purge_guard.sql` (neu).
+- Ort: `db/migrations/20260925000200_purge_guard.sql` (neu).
 - Priorität: muss
 - Test: `apps/api/test/db/invoices.int.spec.ts`: "delete from app.tenants auf einen Live-Mandanten
   scheitert auch für den Superuser mit ZT002; ein abgelaufener Sandbox-Mandant mit Rechnungen wird
@@ -485,7 +485,7 @@ new.tenant_id::text, 0))` wie in `app.apply_month_closing()`. `POST /users` antw
   eigenen Rolle (z. B. `zeit_cli` oder dem Migrations-Zugang), nicht als `zeit_app`. Sandboxes legt
   `ops.sandbox_create(...)` an, eine Definer-Funktion, die `kind = 'sandbox'` und
   `expires_at = now() + interval '24 hours'` selbst setzt.
-- Ort: Migration `20260926000200_purge_guard.sql`, `apps/api/src/cli/tenant-create.ts`,
+- Ort: Migration `20260925000200_purge_guard.sql`, `apps/api/src/cli/tenant-create.ts`,
   `db/init/00-roles.sh`.
 - Priorität: sollte
 - Test: `apps/api/test/db/access.int.spec.ts`: "insert into app.tenants als zeit_app ergibt 42501;

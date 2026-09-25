@@ -364,9 +364,8 @@ $$;
 
 CREATE FUNCTION app.employee_id() RETURNS uuid
     LANGUAGE sql STABLE PARALLEL SAFE
-    SET search_path TO ''
     AS $$
-  select nullif(current_setting('app.employee_id', true), '')::uuid
+  select nullif(pg_catalog.current_setting('app.employee_id', true), '')::pg_catalog.uuid
 $$;
 
 
@@ -496,6 +495,23 @@ $$;
 
 
 --
+-- Name: guard_tenant_delete(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_tenant_delete() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if old.kind <> 'sandbox' then
+    raise exception 'tenant % is %, only sandboxes are deleted', old.id, old.kind using errcode = 'ZT002';
+  end if;
+  return old;
+end;
+$$;
+
+
+--
 -- Name: guard_time_entry(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -508,7 +524,9 @@ declare
   fillable constant text[] := array['ended_at', 'end_reason', 'voided_at', 'voided_by_request_id', 'workday'];
 begin
   if tg_op = 'DELETE' then
-    if old.tenant_id::text = current_setting('zeit.purge_tenant', true) then
+    -- same rule as app.reject_change
+    if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
+      and current_user in ('zeit_system', 'zeit_owner') then
       return old;
     end if;
     raise exception 'time entries are voided, never deleted' using errcode = 'ZT002';
@@ -618,7 +636,9 @@ CREATE FUNCTION app.reject_change() RETURNS trigger
 begin
   -- the sandbox purge is the only one allowed to delete, and only rows of the tenant it purges
   if tg_op = 'DELETE' then
-    if old.tenant_id::text = current_setting('zeit.purge_tenant', true) then
+    -- any role may set zeit.purge_tenant; the purge deletes as zeit_system, its cascades run as the table owner
+    if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
+      and current_user in ('zeit_system', 'zeit_owner') then
       return old;
     end if;
   end if;
@@ -634,9 +654,8 @@ $$;
 
 CREATE FUNCTION app.role() RETURNS app.user_role
     LANGUAGE sql STABLE PARALLEL SAFE
-    SET search_path TO ''
     AS $$
-  select nullif(current_setting('app.role', true), '')::app.user_role
+  select nullif(pg_catalog.current_setting('app.role', true), '')::app.user_role
 $$;
 
 
@@ -707,9 +726,8 @@ $$;
 
 CREATE FUNCTION app.tenant_id() RETURNS uuid
     LANGUAGE sql STABLE PARALLEL SAFE
-    SET search_path TO ''
     AS $$
-  select nullif(current_setting('app.tenant_id', true), '')::uuid
+  select nullif(pg_catalog.current_setting('app.tenant_id', true), '')::pg_catalog.uuid
 $$;
 
 
@@ -719,9 +737,8 @@ $$;
 
 CREATE FUNCTION app.user_id() RETURNS uuid
     LANGUAGE sql STABLE PARALLEL SAFE
-    SET search_path TO ''
     AS $$
-  select nullif(current_setting('app.user_id', true), '')::uuid
+  select nullif(pg_catalog.current_setting('app.user_id', true), '')::pg_catalog.uuid
 $$;
 
 
@@ -1573,6 +1590,20 @@ $$;
 
 
 --
+-- Name: active_tenants(); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.active_tenants() RETURNS TABLE(id uuid, kind app.tenant_kind)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select t.id, t.kind
+    from app.tenants t
+   where t.expires_at is null or t.expires_at > now();
+$$;
+
+
+--
 -- Name: demo_switch_persona(bytea, uuid, bytea, bytea); Type: FUNCTION; Schema: ops; Owner: -
 --
 
@@ -1618,8 +1649,13 @@ declare
   sandbox uuid;
   purged integer := 0;
 begin
+  -- one sandbox takes about 0.4 s, ten stay inside the 15 s statement_timeout; the job repeats while it gets ten
   for sandbox in
-    select t.id from app.tenants t where t.kind = 'sandbox' and t.expires_at <= now()
+    select t.id
+      from app.tenants t
+     where t.kind = 'sandbox' and t.expires_at <= now()
+     order by t.expires_at
+     limit 10
   loop
     -- lifts app.reject_change for this tenant only, the journals and the trail go with it
     perform set_config('zeit.purge_tenant', sandbox::text, true);
@@ -1630,6 +1666,47 @@ begin
 
   perform set_config('zeit.purge_tenant', '', true);
   return purged;
+end;
+$$;
+
+
+--
+-- Name: sandbox_create(uuid, text, text, app.federal_state, integer, integer, app.flex_cap_mode); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.sandbox_create(p_id uuid, p_name text, p_slug text, p_state app.federal_state, p_flex_cap_plus_min integer, p_flex_cap_minus_min integer, p_flex_cap_mode app.flex_cap_mode) RETURNS uuid
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  insert into app.tenants (
+    id, name, slug, state, flex_cap_plus_min, flex_cap_minus_min, flex_cap_mode, kind, expires_at
+  )
+  values (
+    p_id, p_name, p_slug, p_state, p_flex_cap_plus_min, p_flex_cap_minus_min, p_flex_cap_mode,
+    'sandbox', now() + interval '24 hours'
+  )
+  returning id;
+$$;
+
+
+--
+-- Name: tenant_create(uuid, text, text, app.federal_state, text, text, bytea); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.tenant_create(p_id uuid, p_name text, p_slug text, p_state app.federal_state, p_admin_email text, p_admin_name text, p_token_hash bytea) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  admin uuid;
+begin
+  insert into app.tenants (id, name, slug, state) values (p_id, p_name, p_slug, p_state);
+
+  insert into app.users (tenant_id, email, display_name, role)
+  values (p_id, p_admin_email, p_admin_name, 'admin')
+  returning id into admin;
+
+  perform auth.token_issue(admin, 'invite', p_token_hash);
 end;
 $$;
 
@@ -3196,6 +3273,13 @@ CREATE TRIGGER teams_set_updated_at BEFORE UPDATE ON app.teams FOR EACH ROW EXEC
 
 
 --
+-- Name: tenants tenants_guard_delete; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER tenants_guard_delete BEFORE DELETE ON app.tenants FOR EACH ROW EXECUTE FUNCTION app.guard_tenant_delete();
+
+
+--
 -- Name: tenants tenants_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -3768,13 +3852,6 @@ CREATE POLICY "admins change the tenant" ON app.tenants FOR UPDATE TO zeit_app U
 
 
 --
--- Name: tenants admins create the tenant; Type: POLICY; Schema: app; Owner: -
---
-
-CREATE POLICY "admins create the tenant" ON app.tenants FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) = 'admin'::app.user_role));
-
-
---
 -- Name: users admins manage users; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -3955,7 +4032,7 @@ CREATE POLICY "hr sends notices" ON app.vacation_notices FOR INSERT TO zeit_app 
 -- Name: time_entries leads apply corrections; Type: POLICY; Schema: app; Owner: -
 --
 
-CREATE POLICY "leads apply corrections" ON app.time_entries FOR INSERT TO zeit_app WITH CHECK ((app.leads(employee_id) AND (source = 'correction'::app.entry_source)));
+CREATE POLICY "leads apply corrections" ON app.time_entries FOR INSERT TO zeit_app WITH CHECK (((source = 'correction'::app.entry_source) AND app.leads(employee_id)));
 
 
 --
@@ -4438,4 +4515,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260924000600'),
     ('20260924000700'),
     ('20260924000800'),
-    ('20260925000000');
+    ('20260925000000'),
+    ('20260925000100'),
+    ('20260925000200');

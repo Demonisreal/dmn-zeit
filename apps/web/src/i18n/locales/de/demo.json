@@ -1,0 +1,49 @@
+{
+	"start": {
+		"title": "DMN Zeit ausprobieren",
+		"intro": "Die Demo legt einen eigenen Musterbetrieb an: ein Steuerbüro mit zwölf Personen, Buchungen seit Januar, offenen Anträgen und Befunden nach dem Arbeitszeitgesetz.",
+		"roles": "Die Demo startet in der Rolle Beschäftigte. Über „Rolle wechseln“ geht es ohne Passwort weiter zu Teamleitung, Personalverwaltung und Administration.",
+		"submit": "Demo starten",
+		"note": "Alle Namen und Zeiten sind erfunden. Der Musterbetrieb wird nach 24 Stunden mit allen Eingaben gelöscht.",
+		"throttled": "Von diesem Anschluss wurden in kurzer Zeit zu viele Demos gestartet.",
+		"full": "Die Demo ist gerade voll.",
+		"wait_one": "In {{count}} Minute geht es wieder.",
+		"wait_other": "In {{count}} Minuten geht es wieder.",
+		"later": "Bitte später erneut versuchen."
+	},
+	"banner": {
+		"tag": "Beispieldaten",
+		"until": "Erfundener Musterbetrieb, wird am {{day}} um {{time}} Uhr gelöscht.",
+		"soon": "Erfundener Musterbetrieb, wird nach 24 h gelöscht.",
+		"outbox": "Postausgang"
+	},
+	"tour": {
+		"label": "Rundgang",
+		"progress": "{{done}} von {{total}}",
+		"done": "erledigt",
+		"open": "offen",
+		"steps": {
+			"request": "Urlaub beantragen",
+			"approve": "Antrag genehmigen",
+			"restFinding": "Ruhezeit nach § 5 im Wochenbuch finden",
+			"close": "Monat abschließen"
+		},
+		"as": {
+			"employee": "als Beschäftigte",
+			"team_lead": "als Teamleitung",
+			"hr": "als Personalverwaltung"
+		}
+	},
+	"switch": {
+		"label": "Rolle wechseln",
+		"loading": "Rollen werden geladen"
+	},
+	"outbox": {
+		"title": "Postausgang",
+		"intro": "E-Mails aus diesem Musterbetrieb. In der Demo gehen sie nicht hinaus, sondern landen hier.",
+		"list": "E-Mails im Postausgang",
+		"to": "An",
+		"empty": "Noch keine E-Mails",
+		"emptyText": "Eine E-Mail landet hier zum Beispiel, wenn die Personalverwaltung eine Buchung korrigiert, Hinweise zum Urlaubsverfall verschickt oder Urlaub nach Attest zurückbucht."
+	}
+}

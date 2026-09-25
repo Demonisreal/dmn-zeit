@@ -72,9 +72,6 @@ function InviteForm({ token, invitation }: FormProps) {
 	const accept = useMutation({
 		mutationFn: acceptInvitation,
 		onSuccess: async (session) => {
-			if (!session) {
-				return navigate({ to: '/login', search: { notice: 'passwordSet' }, replace: true });
-			}
 			// the new session may only set up the second factor, the setup page is the one way on
 			queryClient.setQueryData(sessionQuery.queryKey, session);
 			await navigate({ to: '/security/setup', replace: true });

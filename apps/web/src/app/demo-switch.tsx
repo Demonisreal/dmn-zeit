@@ -1,4 +1,8 @@
-// stays empty until the demo module brings the persona switch for sandbox tenants
+import { useQuery } from '@tanstack/react-query';
+import { PersonaMenu } from '../features/demo/persona-menu';
+import { sessionQuery } from '../lib/api/auth';
+
 export function DemoSwitch() {
-	return null;
+	const { data: session } = useQuery(sessionQuery);
+	return session?.mode === 'demo' ? <PersonaMenu /> : null;
 }

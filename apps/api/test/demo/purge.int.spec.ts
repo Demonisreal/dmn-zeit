@@ -1,0 +1,91 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SandboxPurgeJob } from '../../src/jobs/sandbox-purge.job';
+import { fillTenant } from '../db/fixtures';
+import { createTenant } from '../helpers/pg';
+import { openSandbox, startDemo, type Demo } from './sandbox';
+
+let demo: Demo;
+const expired: string[] = [];
+let people: string[];
+let kept: string[];
+
+async function leftIn(schemas: string[], column: string, ids: string[]) {
+	const tables = await demo.superuser.query<{ name: string }>(
+		`select table_schema || '.' || table_name as name from information_schema.columns
+		  where table_schema = any($1) and column_name = $2`,
+		[schemas, column]
+	);
+	expect(tables.rows.length).toBeGreaterThan(0);
+	const left: string[] = [];
+	for (const { name } of tables.rows) {
+		const { rows } = await demo.superuser.query(
+			`select count(*)::int as n from ${name} where ${column} = any($1)`,
+			[ids]
+		);
+		if (rows[0].n > 0) left.push(name);
+	}
+	return left;
+}
+
+// 28 at once, the purge function stops after ten per call and the job has to come back for the rest
+beforeAll(async () => {
+	demo = await startDemo();
+	// three with the whole story from the api, the others with a row in every tenant table
+	for (let i = 0; i < 3; i++) expired.push((await openSandbox(demo)).session.tenant.id);
+	for (let i = 0; i < 25; i++) {
+		const tenantId = await createTenant({ kind: 'sandbox' });
+		await fillTenant(demo.superuser, tenantId);
+		expired.push(tenantId);
+	}
+	await demo.superuser.query(
+		`update app.tenants set expires_at = now() - interval '1 minute' where id = any($1)`,
+		[expired]
+	);
+	// counters from yesterday, the salt behind their keys is gone
+	await demo.superuser.query(`update ops.rate_limits set expires_at = now() - interval '1 minute'`);
+
+	kept = [(await openSandbox(demo)).session.tenant.id, await createTenant()];
+	const { rows } = await demo.superuser.query<{ id: string }>(
+		'select id from app.users where tenant_id = any($1)',
+		[expired]
+	);
+	people = rows.map(({ id }) => id);
+
+	await demo.app.get(SandboxPurgeJob).purgeExpired();
+});
+
+afterAll(() => demo.app.close());
+
+describe('SandboxPurgeJob', () => {
+	it('purges every expired sandbox in one run, the ones the api wrote included', async () => {
+		const { rows } = await demo.superuser.query('select id from app.tenants where id = any($1)', [
+			expired
+		]);
+		expect(rows).toEqual([]);
+	});
+
+	it('leaves no row of them in any tenant table', async () => {
+		expect(await leftIn(['app', 'audit', 'ops'], 'tenant_id', expired)).toEqual([]);
+	});
+
+	it('takes the sessions and factors of their people along', async () => {
+		expect(await leftIn(['auth'], 'user_id', people)).toEqual([]);
+	});
+
+	it('keeps the running sandbox and the live tenant', async () => {
+		const { rows } = await demo.superuser.query<{ id: string }>(
+			'select id from app.tenants where id = any($1)',
+			[kept]
+		);
+		expect(rows.map(({ id }) => id).sort()).toEqual([...kept].sort());
+	});
+
+	it('drops the used-up address counters of the demo and keeps the running ones', async () => {
+		const { rows } = await demo.superuser.query(
+			`select count(*) filter (where expires_at <= now())::int as used,
+			        count(*) filter (where expires_at > now())::int as running
+			   from ops.rate_limits where key like 'demo-sandbox:%'`
+		);
+		expect(rows[0]).toEqual({ used: 0, running: 2 });
+	});
+});

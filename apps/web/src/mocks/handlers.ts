@@ -10,6 +10,7 @@ import type {
 import { http, HttpResponse } from 'msw';
 import { absenceHandlers } from './absences';
 import { adminHandlers } from './admin';
+import { demoHandlers } from './demo';
 import { hrHandlers } from './hr';
 import { securityHandlers } from './security';
 import { mockSession, mockUser } from './session';
@@ -53,6 +54,7 @@ export const handlers = [
 	...absenceHandlers,
 	...hrHandlers,
 	...adminHandlers,
+	...demoHandlers,
 
 	http.get('/api/auth/session', () =>
 		session ? HttpResponse.json(session) : fail(401, 'UNAUTHENTICATED', 'No session')

@@ -6,6 +6,7 @@ import absencesDe from './locales/de/absences.json';
 import adminDe from './locales/de/admin.json';
 import authDe from './locales/de/auth.json';
 import commonDe from './locales/de/common.json';
+import demoDe from './locales/de/demo.json';
 import hrDe from './locales/de/hr.json';
 import inboxDe from './locales/de/inbox.json';
 import navDe from './locales/de/nav.json';
@@ -18,6 +19,7 @@ import absencesEn from './locales/en/absences.json';
 import adminEn from './locales/en/admin.json';
 import authEn from './locales/en/auth.json';
 import commonEn from './locales/en/common.json';
+import demoEn from './locales/en/demo.json';
 import hrEn from './locales/en/hr.json';
 import inboxEn from './locales/en/inbox.json';
 import navEn from './locales/en/nav.json';
@@ -40,7 +42,8 @@ export const resources = {
 		team: teamDe,
 		hr: hrDe,
 		admin: adminDe,
-		security: securityDe
+		security: securityDe,
+		demo: demoDe
 	},
 	en: {
 		common: commonEn,
@@ -54,7 +57,8 @@ export const resources = {
 		team: teamEn,
 		hr: hrEn,
 		admin: adminEn,
-		security: securityEn
+		security: securityEn,
+		demo: demoEn
 	}
 };
 

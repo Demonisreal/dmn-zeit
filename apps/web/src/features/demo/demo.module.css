@@ -1,0 +1,300 @@
+.start {
+	display: grid;
+	gap: 1rem;
+}
+
+.note {
+	margin-top: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--edge);
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.banner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25rem 0.75rem;
+	margin-bottom: 1.25rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--edge);
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.banner a {
+	margin-inline-start: auto;
+}
+
+.tourToggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 1.75rem;
+	margin-block: -0.25rem;
+	padding: 0 0.375rem;
+	border: 0;
+	border-radius: 4px;
+	background: none;
+	color: var(--text);
+	cursor: default;
+	transition: background-color 150ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.tourToggle:hover {
+		background: var(--card);
+	}
+}
+
+@media (pointer: coarse) {
+	.tourToggle {
+		min-height: 2.75rem;
+	}
+}
+
+.fold {
+	width: 0.375rem;
+	height: 0.375rem;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: rotate(-45deg);
+	transition: transform 160ms var(--ease);
+}
+
+.tourToggle[aria-expanded='true'] .fold {
+	transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fold {
+		transition: none;
+	}
+}
+
+.progress {
+	color: var(--muted);
+	font-variant-numeric: tabular-nums;
+}
+
+/* a row of its own under the line, roles line up in one column */
+.tour {
+	display: grid;
+	flex-basis: 100%;
+	grid-template-columns: auto minmax(0, max-content) 1fr;
+	gap: 0.375rem 0.625rem;
+	margin: 0.25rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.tour li {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
+	align-items: center;
+	color: var(--text);
+}
+
+.tour li[data-done] {
+	color: var(--muted);
+}
+
+/* round on purpose, a square box would pass for a checkbox you can click */
+.tick {
+	position: relative;
+	width: 0.875rem;
+	height: 0.875rem;
+	border: 1px solid var(--line);
+	border-radius: 50%;
+	transition: border-color 150ms ease-out;
+}
+
+.tour li[data-done] .tick {
+	border-color: var(--success);
+}
+
+.tour li[data-done] .tick::after {
+	content: '';
+	position: absolute;
+	top: 1.5px;
+	left: 4px;
+	width: 3px;
+	height: 6px;
+	border-right: 1.5px solid var(--success);
+	border-bottom: 1.5px solid var(--success);
+	transform: rotate(45deg);
+}
+
+.as {
+	color: var(--muted);
+}
+
+.caret {
+	width: 0.375rem;
+	height: 0.375rem;
+	margin-top: -0.25rem;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: rotate(45deg);
+}
+
+.popover {
+	min-width: 15rem;
+	max-width: calc(100vw - 2rem);
+	border: 1px solid var(--edge);
+	border-radius: 8px;
+	background: var(--card);
+	box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.7);
+	/* in the mobile panel react-aria flips or shifts the popover, it grows from the trigger either way */
+	transform-origin: var(--trigger-anchor-point);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.popover[data-entering] {
+		animation: open 150ms var(--ease);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.popover[data-entering] {
+		animation: fade 150ms ease-out;
+	}
+}
+
+@keyframes open {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.97);
+	}
+}
+
+@keyframes fade {
+	from {
+		opacity: 0;
+	}
+}
+
+.menu {
+	padding: 0.25rem;
+	outline: none;
+}
+
+.persona {
+	display: grid;
+	gap: 0.0625rem;
+	padding: 0.4375rem 0.625rem;
+	border-radius: 4px;
+	color: var(--text);
+	cursor: default;
+	outline: none;
+}
+
+.persona[data-focused] {
+	background: var(--edge);
+}
+
+.persona[data-focus-visible] {
+	outline: 2px solid var(--red);
+	outline-offset: -2px;
+}
+
+/* red edge like today's row in the week table, it marks the persona in use */
+.persona[data-selected] {
+	box-shadow: inset 2px 0 var(--red);
+}
+
+.persona[data-disabled] {
+	opacity: 0.6;
+}
+
+.role {
+	color: var(--white);
+	font-weight: 500;
+}
+
+.name {
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.status {
+	padding: 0.5rem 0.625rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.error {
+	padding: 0.5rem 0.875rem 0.625rem;
+	border-top: 1px solid var(--edge);
+	color: var(--error);
+	font-size: 0.8125rem;
+}
+
+.page {
+	display: grid;
+	gap: 1.5rem;
+	max-width: 56rem;
+}
+
+.lead {
+	max-width: 70ch;
+	margin-top: 0.3125rem;
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.mails {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.mail {
+	display: grid;
+	gap: 0.25rem 1.5rem;
+	padding-block: 1rem;
+	border-top: 1px solid var(--edge);
+}
+
+.mail:last-child {
+	border-bottom: 1px solid var(--edge);
+}
+
+.stamp {
+	color: var(--muted);
+	font: 0.8125rem/1.6 var(--mono);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.subject {
+	font-size: 0.9375rem;
+}
+
+.to {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	overflow-wrap: anywhere;
+}
+
+.text {
+	max-width: 70ch;
+	margin-top: 0.5rem;
+	font-size: 0.875rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/* the subject comes first for screen readers, on wide screens the time moves left like a log */
+@media (min-width: 48rem) {
+	.mail {
+		grid-template-columns: 9.5rem minmax(0, 1fr);
+	}
+
+	.stamp {
+		grid-column: 1;
+		grid-row: 1 / span 3;
+	}
+}

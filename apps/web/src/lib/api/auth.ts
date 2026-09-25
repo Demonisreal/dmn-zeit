@@ -66,7 +66,7 @@ export const acceptInvitation = (input: AcceptInvitationInput) =>
 	request('/auth/invitations/accept', {
 		method: 'POST',
 		body: input,
-		schema: sessionSchema.optional()
+		schema: sessionSchema
 	});
 
 export const saveLocale = (locale: Locale) =>

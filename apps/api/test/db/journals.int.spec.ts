@@ -34,6 +34,34 @@ describe('journals', () => {
 		});
 	});
 
+	it.each(journals)('keeps %s closed to zeit_app that sets zeit.purge_tenant', async (table) => {
+		const admin = await createUser(tenant, { role: 'admin' });
+		await withContext(app, admin.context);
+		await app.query('begin');
+		await app.query(`select set_config('zeit.purge_tenant', $1, true)`, [tenant]);
+		const refused = await app.query(`delete from ${table}`).catch((error) => error);
+		await app.query('rollback');
+		expect(refused).toMatchObject({ code: '42501' });
+	});
+
+	// "hr books flex time" and "hr manages entries" cover delete, a grant alone would open these
+	it.each(['app.flex_bookings', 'app.time_entries'])(
+		'ignores zeit.purge_tenant from zeit_app even with a delete grant on %s',
+		async (table) => {
+			await superuser.query('begin');
+			await superuser.query(`grant delete on ${table} to zeit_app`);
+			await superuser.query('set local role zeit_app');
+			await superuser.query(
+				`select set_config('app.tenant_id', $1, true), set_config('app.role', 'admin', true),
+					set_config('zeit.purge_tenant', $1, true)`,
+				[tenant]
+			);
+			const refused = await superuser.query(`delete from ${table}`).catch((error) => error);
+			await superuser.query('rollback');
+			expect(refused).toMatchObject({ code: 'ZT002' });
+		}
+	);
+
 	it('lets a person acknowledge a vacation notice once and nothing else', async () => {
 		await withContext(app, worker.context);
 		const first = await app.query('update app.vacation_notices set acknowledged_at = now()');

@@ -13,11 +13,9 @@ import { hasCode } from '../../lib/api/errors';
 import { errorKey } from '../error-key';
 import styles from './auth.module.css';
 
-export type LoginNotice = 'passwordSet' | 'passwordReset';
-
 type Props = {
 	next?: string | undefined;
-	notice?: LoginNotice | undefined;
+	notice?: 'passwordReset' | undefined;
 };
 
 export function LoginForm({ next, notice }: Props) {

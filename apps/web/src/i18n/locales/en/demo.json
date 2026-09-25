@@ -1,0 +1,49 @@
+{
+	"start": {
+		"title": "Try DMN Zeit",
+		"intro": "The demo sets up a sample company of its own: a tax office with twelve people, bookings since January, open requests and findings under the German Working Hours Act.",
+		"roles": "The demo opens in the employee role. “Switch role” leads on to team lead, HR and administration, no password needed.",
+		"submit": "Start demo",
+		"note": "All names and times are made up. The sample company is deleted after 24 hours, together with everything entered.",
+		"throttled": "Too many demos were started from this connection in a short time.",
+		"full": "The demo is full right now.",
+		"wait_one": "Try again in {{count}} minute.",
+		"wait_other": "Try again in {{count}} minutes.",
+		"later": "Please try again later."
+	},
+	"banner": {
+		"tag": "Sample data",
+		"until": "Made-up sample company, deleted on {{day}} at {{time}}.",
+		"soon": "Made-up sample company, deleted after 24 h.",
+		"outbox": "Outbox"
+	},
+	"tour": {
+		"label": "Tour",
+		"progress": "{{done}} of {{total}}",
+		"done": "done",
+		"open": "open",
+		"steps": {
+			"request": "Request leave",
+			"approve": "Approve a request",
+			"restFinding": "Find the § 5 rest period in the week",
+			"close": "Close a month"
+		},
+		"as": {
+			"employee": "as an employee",
+			"team_lead": "as team lead",
+			"hr": "as HR"
+		}
+	},
+	"switch": {
+		"label": "Switch role",
+		"loading": "Loading roles"
+	},
+	"outbox": {
+		"title": "Outbox",
+		"intro": "Emails from this sample company. In the demo they are not sent out but end up here.",
+		"list": "Emails in the outbox",
+		"to": "To",
+		"empty": "No emails yet",
+		"emptyText": "An email lands here when, for example, HR corrects a time entry, sends leave forfeiture notices or credits leave back after a medical certificate."
+	}
+}

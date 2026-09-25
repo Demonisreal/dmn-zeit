@@ -3,6 +3,7 @@ import type { Session } from '@zeit/shared';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/button';
+import { DemoBanner } from '../features/demo/demo-banner';
 import styles from './app-shell.module.css';
 import { Brand } from './brand';
 import { DemoSwitch } from './demo-switch';
@@ -95,6 +96,7 @@ export function AppShell({ session, children }: Props) {
 				</div>
 			</nav>
 			<main id="main" tabIndex={-1} className={styles.main}>
+				<DemoBanner session={session} />
 				{children}
 			</main>
 		</div>

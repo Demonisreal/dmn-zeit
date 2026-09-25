@@ -50,9 +50,12 @@ async function main() {
 	const envFile = join(__dirname, '..', '..', '..', '.env');
 	if (existsSync(envFile)) process.loadEnvFile(envFile);
 	const config = loadConfig(process.env);
+	if (!config.CLI_DATABASE_URL) {
+		return fail('CLI_DATABASE_URL is not set, tenant:create connects as zeit_owner, not zeit_app');
+	}
 
 	const args = parsed.data;
-	const db = new Database(config.DATABASE_URL);
+	const db = new Database(config.CLI_DATABASE_URL);
 	try {
 		const link = await createTenant(
 			db,
@@ -70,7 +73,7 @@ async function main() {
 		);
 		console.log(link);
 	} catch (error) {
-		// slug or email taken; RLS hides the detail, but the constraint name in the message tells which
+		// slug or email taken, the constraint name in the message tells which
 		if (error instanceof DatabaseError && error.code === '23505') return fail(error.message);
 		throw error;
 	} finally {

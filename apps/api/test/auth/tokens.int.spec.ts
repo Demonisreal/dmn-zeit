@@ -49,7 +49,7 @@ describe('invitations', () => {
 	});
 
 	it('takes the link the cli hands out for a new tenant', async () => {
-		const db = new Database(databaseUrl('app'));
+		const db = new Database(databaseUrl('owner'));
 		const email = `${randomUUID()}@example.test`;
 		const link = await createTenant(
 			db,

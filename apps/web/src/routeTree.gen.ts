@@ -24,6 +24,7 @@ import { Route as LoginVerifyRouteImport } from './routes/login_.verify';
 import { Route as SecuritySetupRouteImport } from './routes/security.setup';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
 import { Route as AppAdminTenantRouteImport } from './routes/_app/admin/tenant';
+import { Route as AppDemoOutboxRouteImport } from './routes/_app/demo/outbox';
 import { Route as AppHrIndexRouteImport } from './routes/_app/hr/index';
 import { Route as AppHrAuditRouteImport } from './routes/_app/hr/audit';
 import { Route as AppHrExportsRouteImport } from './routes/_app/hr/exports';
@@ -112,6 +113,11 @@ const AppAdminTenantRoute = AppAdminTenantRouteImport.update({
   path: '/admin/tenant',
   getParentRoute: () => AppRoute,
 } as any);
+const AppDemoOutboxRoute = AppDemoOutboxRouteImport.update({
+  id: '/demo/outbox',
+  path: '/demo/outbox',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppHrIndexRoute = AppHrIndexRouteImport.update({
   id: '/hr/',
   path: '/hr/',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/login/verify': typeof LoginVerifyRoute;
   '/security/setup': typeof SecuritySetupRoute;
   '/admin/tenant': typeof AppAdminTenantRoute;
+  '/demo/outbox': typeof AppDemoOutboxRoute;
   '/hr/audit': typeof AppHrAuditRoute;
   '/hr/exports': typeof AppHrExportsRoute;
   '/hr/findings': typeof AppHrFindingsRoute;
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/security/setup': typeof SecuritySetupRoute;
   '/': typeof AppIndexRoute;
   '/admin/tenant': typeof AppAdminTenantRoute;
+  '/demo/outbox': typeof AppDemoOutboxRoute;
   '/hr/audit': typeof AppHrAuditRoute;
   '/hr/exports': typeof AppHrExportsRoute;
   '/hr/findings': typeof AppHrFindingsRoute;
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/security/setup': typeof SecuritySetupRoute;
   '/_app/': typeof AppIndexRoute;
   '/_app/admin/tenant': typeof AppAdminTenantRoute;
+  '/_app/demo/outbox': typeof AppDemoOutboxRoute;
   '/_app/hr/audit': typeof AppHrAuditRoute;
   '/_app/hr/exports': typeof AppHrExportsRoute;
   '/_app/hr/findings': typeof AppHrFindingsRoute;
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/login/verify'
     | '/security/setup'
     | '/admin/tenant'
+    | '/demo/outbox'
     | '/hr/audit'
     | '/hr/exports'
     | '/hr/findings'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/security/setup'
     | '/'
     | '/admin/tenant'
+    | '/demo/outbox'
     | '/hr/audit'
     | '/hr/exports'
     | '/hr/findings'
@@ -342,6 +353,7 @@ export interface FileRouteTypes {
     | '/security/setup'
     | '/_app/'
     | '/_app/admin/tenant'
+    | '/_app/demo/outbox'
     | '/_app/hr/audit'
     | '/_app/hr/exports'
     | '/_app/hr/findings'
@@ -475,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminTenantRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/demo/outbox': {
+      id: '/_app/demo/outbox';
+      path: '/demo/outbox';
+      fullPath: '/demo/outbox';
+      preLoaderRoute: typeof AppDemoOutboxRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/hr/': {
       id: '/_app/hr/';
       path: '/hr';
@@ -578,6 +597,7 @@ interface AppRouteChildren {
   AppVacationRoute: typeof AppVacationRoute;
   AppIndexRoute: typeof AppIndexRoute;
   AppAdminTenantRoute: typeof AppAdminTenantRoute;
+  AppDemoOutboxRoute: typeof AppDemoOutboxRoute;
   AppHrAuditRoute: typeof AppHrAuditRoute;
   AppHrExportsRoute: typeof AppHrExportsRoute;
   AppHrFindingsRoute: typeof AppHrFindingsRoute;
@@ -602,6 +622,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppVacationRoute: AppVacationRoute,
   AppIndexRoute: AppIndexRoute,
   AppAdminTenantRoute: AppAdminTenantRoute,
+  AppDemoOutboxRoute: AppDemoOutboxRoute,
   AppHrAuditRoute: AppHrAuditRoute,
   AppHrExportsRoute: AppHrExportsRoute,
   AppHrFindingsRoute: AppHrFindingsRoute,
