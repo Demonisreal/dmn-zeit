@@ -63,22 +63,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # service containers take no volume mounts, db/init/00-roles.sh can't run here
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # service containers take no volume mounts, run the same script the db image uses instead of a copy of it
       - name: Create roles
         env:
+          PGHOST: localhost
           PGPASSWORD: postgres
-        run: |
-          psql -h localhost -U postgres -d zeit -v ON_ERROR_STOP=1 <<'SQL'
-          create role zeit_owner login password 'zeit_owner';
-          create role zeit_app login nobypassrls password 'zeit_app';
-          create role zeit_system nologin bypassrls;
-          alter role zeit_app set statement_timeout = '15s';
-          alter role zeit_app set idle_in_transaction_session_timeout = '30s';
-          grant zeit_system to zeit_owner;
-          alter database zeit owner to zeit_owner;
-          revoke all on database zeit from public;
-          grant connect on database zeit to zeit_app;
-          SQL
+          POSTGRES_USER: postgres
+          POSTGRES_DB: zeit
+          ZEIT_OWNER_PASSWORD: zeit_owner
+          ZEIT_APP_PASSWORD: zeit_app
+        run: sh db/init/00-roles.sh
       - name: Install dbmate
         run: |
           curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.36.0/dbmate-linux-amd64
@@ -92,6 +92,12 @@ jobs:
           dbmate up
           dbmate rollback
           dbmate up
+      # .kysely-codegenrc.json points at the dev port, --url overrides it for the CI database
+      - name: Check for schema drift
+        run: >-
+          pnpm --filter @zeit/api exec kysely-codegen
+          --url postgres://zeit_owner:zeit_owner@localhost:5432/zeit?sslmode=disable
+      - run: git diff --exit-code apps/api/src/db/schema.generated.ts
 
   integration:
     runs-on: ubuntu-latest
@@ -148,11 +154,29 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: false
+          load: true
+          tags: zeit-api:ci
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: apps/web/Dockerfile
           push: false
+          load: true
+          tags: zeit-web:ci
+      - name: Trivy scan zeit-api
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: zeit-api:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Trivy scan zeit-web
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: zeit-web:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   audit:
     runs-on: ubuntu-latest

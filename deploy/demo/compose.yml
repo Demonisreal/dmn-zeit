@@ -5,7 +5,7 @@ services:
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
-    image: zeit-web:${IMAGE_TAG:-local}
+    image: zeit-web:${IMAGE_TAG:-local-demo}
     environment:
       API_UPSTREAM: zeit-demo-api:3001
       ROBOTS_NOINDEX: noindex
@@ -24,6 +24,7 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 128m
+    cpus: 0.5
     pids_limit: 100
     logging:
       driver: json-file
@@ -45,7 +46,7 @@ services:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
-    image: zeit-api:${IMAGE_TAG:-local}
+    image: zeit-api:${IMAGE_TAG:-local-demo}
     environment:
       APP_MODE: demo
       APP_ORIGIN: ${APP_ORIGIN}
@@ -67,6 +68,7 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 256m
+    cpus: 1
     pids_limit: 100
     stop_grace_period: 30s
     logging:
@@ -90,7 +92,7 @@ services:
         condition: service_completed_successfully
 
   zeit-demo-migrate:
-    image: zeit-api:${IMAGE_TAG:-local}
+    image: zeit-api:${IMAGE_TAG:-local-demo}
     command:
       [
         "dbmate",
@@ -110,6 +112,7 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 128m
+    cpus: 0.5
     pids_limit: 50
     logging:
       driver: json-file
@@ -144,6 +147,7 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 512m
+    cpus: 1
     pids_limit: 100
     logging:
       driver: json-file

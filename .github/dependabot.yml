@@ -19,3 +19,18 @@ updates:
     directory: /apps/web
     schedule:
       interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /deploy/demo
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /deploy/live
+    schedule:
+      interval: weekly

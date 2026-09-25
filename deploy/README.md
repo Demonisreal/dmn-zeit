@@ -22,15 +22,32 @@ Für jede Instanz (`demo` und `live` getrennt ausführen):
 5. `DEMO_APP_SUBNET`/`DEMO_DB_SUBNET` bzw. `LIVE_APP_SUBNET`/`LIVE_DB_SUBNET` gegen
    `docker network inspect` auf Kollisionen mit anderen Projekten auf demselben Server prüfen.
 6. `docker compose -f deploy/<instanz>/compose.yml up -d`
+7. Nur bei `live`, vor dem ersten Login: ersten Mandanten anlegen, `apps/api/src/cli.ts` läuft
+   dabei als `zeit_owner` im API-Image mit:
+   ```
+   docker compose -f deploy/live/compose.yml run --rm \
+     -e CLI_DATABASE_URL=postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable \
+     zeit-live-api node dist/cli.js tenant:create \
+       --name "<Firma>" --slug <slug> --state <Bundesland, z. B. NW> \
+       --admin-email <erste Administration> --admin-name "<Name>"
+   ```
+   Der Befehl gibt den Einladungslink aus, gültig 7 Tage.
 
 Der Migrationsdienst (`zeit-<instanz>-migrate`) läuft dabei automatisch vor der API
 (`dbmate --wait up` als `zeit_owner`), die API startet erst nach dessen erfolgreichem Ende.
 
+Vor dem ersten Livegang muss außerdem `security@dmn-software.com` erreichbar sein
+(Sicherheitskontakt aus `SECURITY.md`) — ohne Postfach läuft jede Schwachstellenmeldung ins Leere.
+
 ## Update
 
-1. Neues Image bauen oder ziehen (Tag über `IMAGE_TAG` in der jeweiligen `.env`).
-2. Bei `live`: vorher `deploy/live/backup.sh` laufen lassen.
-3. `docker compose -f deploy/<instanz>/compose.yml up -d`
+1. `IMAGE_TAG` in der `.env` der Instanz auf `$(git rev-parse --short HEAD)` setzen, bevor gebaut
+   wird. Demo und Live brauchen dabei jeweils ihren eigenen Wert in ihrer eigenen `.env` — sonst
+   überschreibt der zweite Build das lokale Image der ersten Instanz unter demselben Tag, und ein
+   Rollback über `IMAGE_TAG` in der anderen Instanz geht ins Leere.
+2. Neues Image bauen: `docker compose -f deploy/<instanz>/compose.yml build`.
+3. Bei `live`: vorher `deploy/live/backup.sh` laufen lassen.
+4. `docker compose -f deploy/<instanz>/compose.yml up -d`
 
 Der Migrationsdienst läuft bei jedem `up` erneut, `dbmate` überspringt bereits angewendete
 Migrationen selbst. Erst danach wird die API neu gestartet. Reihenfolge nicht von Hand
@@ -54,6 +71,10 @@ zeit-demo.example.invalid {
 
 Voraussetzung: der zentrale Caddy hängt im selben externen Netz wie `zeit-live-web` bzw.
 `zeit-demo-web` (Variable `EDGE_NETWORK` in der jeweiligen `.env`).
+
+HSTS gehört an den zentralen Caddy, nicht ins Web-Image: `header >Strict-Transport-Security "..."`
+(das `>` ergänzt statt zu ersetzen). Setzt eine andere Config-Datei des zentralen Caddy den Header
+schon global, hier keinen zweiten `header`-Block dafür anlegen, sonst kommt der Header doppelt an.
 
 Domains zeigen aktuell direkt auf den Server. Ein Schutz gegen DDoS über den Hoster oder
 einen vorgeschalteten Proxy ist vor dem eigentlichen Livegang noch zu entscheiden.
