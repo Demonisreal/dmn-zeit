@@ -4,8 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
 import { Notice } from '../../components/ui/notice';
-import { formatDate, formatDays } from '../../i18n/format';
-import { formatInstant } from '../absences/dates';
+import { formatDate, formatDays, formatInstant } from '../../i18n/format';
 import { acknowledgeNotice } from './api';
 import styles from './vacation.module.css';
 

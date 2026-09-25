@@ -1,5 +1,6 @@
 import { createFileRoute, notFound, redirect } from '@tanstack/react-router';
-import { monthSchema, type Session } from '@zeit/shared';
+import { monthSchema, uuidSchema, type Session } from '@zeit/shared';
+import { requireRole } from '../../app/require-role';
 import { TimesheetSheet } from '../../features/hr/print/timesheet-sheet';
 import { i18n } from '../../i18n';
 import { sessionQuery } from '../../lib/api/auth';
@@ -16,7 +17,9 @@ export const Route = createFileRoute('/print/timesheet/$id/$month')({
 			applied.add(session);
 			await i18n.changeLanguage(session.user.locale);
 		}
+		requireRole(session, 'hr');
 		if (!monthSchema.safeParse(params.month).success) throw notFound();
+		if (!uuidSchema.safeParse(params.id).success) throw notFound();
 	},
 	component: PrintRoute
 });

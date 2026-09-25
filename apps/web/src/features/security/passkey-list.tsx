@@ -1,17 +1,17 @@
 import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Passkey } from '@zeit/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { Table } from '../../components/ui/table';
+import { formatInstant } from '../../i18n/format';
 import { removePasskey, securityQuery } from '../../lib/api/auth';
 import { hasCode } from '../../lib/api/errors';
 import { AddPasskey } from './add-passkey';
-import { ConfirmDialog } from './confirm-dialog';
 import { ErrorNotice } from './error-notice';
-import { formatInstant } from './format-instant';
 import { ReauthDialog } from './reauth-dialog';
 import { RenamePasskey } from './rename-passkey';
 import styles from './security.module.css';
@@ -25,10 +25,13 @@ export function PasskeyList({ passkeys, onCodes }: Props) {
 	const { t, i18n } = useTranslation('security');
 	const queryClient = useQueryClient();
 	const [adding, setAdding] = useState(false);
+	// focus goes back to the button once the form closes, not on first render
+	const [closed, setClosed] = useState(false);
 	const [renaming, setRenaming] = useState<string | null>(null);
 	// the row is rebuilt after editing, its rename button takes the focus back
 	const [renamed, setRenamed] = useState<string | null>(null);
 	const [removing, setRemoving] = useState<Passkey | null>(null);
+	const heading = useRef<HTMLHeadingElement>(null);
 	const refresh = () => queryClient.invalidateQueries({ queryKey: securityQuery.queryKey });
 
 	const remove = useMutation({
@@ -36,6 +39,8 @@ export function PasskeyList({ passkeys, onCodes }: Props) {
 		onSuccess: async () => {
 			setRemoving(null);
 			await refresh();
+			// the removed row took the focused button with it
+			heading.current?.focus();
 		}
 	});
 	const stepUp = hasCode(remove.error, 'REAUTH_REQUIRED');
@@ -43,22 +48,30 @@ export function PasskeyList({ passkeys, onCodes }: Props) {
 		setRemoving(null);
 		remove.reset();
 	};
+	const closeForm = () => {
+		setAdding(false);
+		setClosed(true);
+	};
 
 	return (
 		<section className={styles.section} aria-labelledby="passkeys">
 			<div className={styles.sectionHead}>
-				<h2 id="passkeys">{t('passkey.title')}</h2>
+				<h2 id="passkeys" ref={heading} tabIndex={-1} className={styles.anchor}>
+					{t('passkey.title')}
+				</h2>
 				{!adding && browserSupportsWebAuthn() && (
-					<Button onPress={() => setAdding(true)}>{t('passkey.add')}</Button>
+					<Button autoFocus={closed} onPress={() => setAdding(true)}>
+						{t('passkey.add')}
+					</Button>
 				)}
 			</div>
 			<p className={styles.text}>{t('passkey.intro')}</p>
 			{adding && (
 				<div className={styles.panel}>
 					<AddPasskey
-						onCancel={() => setAdding(false)}
+						onCancel={closeForm}
 						onCreated={async ({ recoveryCodes }) => {
-							setAdding(false);
+							closeForm();
 							if (recoveryCodes.length > 0) onCodes(recoveryCodes);
 							await refresh();
 						}}

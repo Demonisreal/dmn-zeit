@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
+import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { Notice } from '../../components/ui/notice';
 import { renewRecoveryCodes, securityQuery } from '../../lib/api/auth';
 import { hasCode } from '../../lib/api/errors';
-import { ConfirmDialog } from './confirm-dialog';
 import { ErrorNotice } from './error-notice';
 import { ReauthDialog } from './reauth-dialog';
 import { RecoveryCodes } from './recovery-codes';
@@ -23,6 +23,7 @@ export function RecoverySection({ left, hasFactor, codes, onCodes }: Props) {
 	const { t } = useTranslation('security');
 	const queryClient = useQueryClient();
 	const [confirming, setConfirming] = useState(false);
+	const heading = useRef<HTMLHeadingElement>(null);
 
 	const renew = useMutation({
 		mutationFn: renewRecoveryCodes,
@@ -41,14 +42,23 @@ export function RecoverySection({ left, hasFactor, codes, onCodes }: Props) {
 	return (
 		<section className={styles.section} aria-labelledby="recovery">
 			<div className={styles.sectionHead}>
-				<h2 id="recovery">{t('recovery.title')}</h2>
+				<h2 id="recovery" ref={heading} tabIndex={-1} className={styles.anchor}>
+					{t('recovery.title')}
+				</h2>
 				{hasFactor && !codes && (
 					<Button onPress={() => setConfirming(true)}>{t('recovery.renew')}</Button>
 				)}
 			</div>
 			<p className={styles.text}>{t('recovery.intro')}</p>
 			{codes ? (
-				<RecoveryCodes codes={codes} doneLabel={t('recovery.done')} onDone={() => onCodes(null)} />
+				<RecoveryCodes
+					codes={codes}
+					doneLabel={t('recovery.done')}
+					onDone={() => {
+						onCodes(null);
+						heading.current?.focus();
+					}}
+				/>
 			) : !hasFactor ? (
 				<p className={styles.text}>{t('recovery.none')}</p>
 			) : left <= 3 ? (

@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { formatDays, formatMinutes } from '../../../i18n/format';
 import { monthOverviewQuery } from '../api';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 
 export function MonthOverview({ month }: { month: string }) {

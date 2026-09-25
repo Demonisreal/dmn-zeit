@@ -24,12 +24,32 @@ export function formatDate(isoDate: string, lng: string, options?: Intl.DateTime
 	}).format(new Date(`${isoDate}T00:00:00Z`));
 }
 
+export function formatMonth(month: string, lng: string) {
+	return formatDate(`${month}-01`, lng, { day: undefined, month: 'long' });
+}
+
 export function formatTime(instant: string, lng: string) {
 	return new Intl.DateTimeFormat(tagFor(lng), {
 		hour: '2-digit',
 		minute: '2-digit',
 		timeZone: 'Europe/Berlin'
 	}).format(new Date(instant));
+}
+
+export function formatInstant(
+	instant: string,
+	lng: string,
+	options: Intl.DateTimeFormatOptions = {
+		day: '2-digit',
+		month: '2-digit',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	}
+) {
+	return new Intl.DateTimeFormat(tagFor(lng), { ...options, timeZone: 'Europe/Berlin' }).format(
+		new Date(instant)
+	);
 }
 
 export function formatDays(days: string, lng: string) {

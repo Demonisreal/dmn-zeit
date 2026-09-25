@@ -16,8 +16,8 @@ import { request } from '../../lib/api/client';
 
 export type AbsenceFilter = {
 	scope: RequestScope;
-	from: string;
-	to: string;
+	from?: string | undefined;
+	to?: string | undefined;
 	status?: AbsenceStatus[] | undefined;
 	type?: AbsenceType[] | undefined;
 };
@@ -25,12 +25,9 @@ export type AbsenceFilter = {
 export type PreviewInput = Omit<CreateAbsenceInput, 'note'>;
 
 function absencesPath(filter: AbsenceFilter, cursor: string | undefined) {
-	const search = new URLSearchParams({
-		scope: filter.scope,
-		from: filter.from,
-		to: filter.to,
-		limit: '100'
-	});
+	const search = new URLSearchParams({ scope: filter.scope, limit: '100' });
+	if (filter.from) search.set('from', filter.from);
+	if (filter.to) search.set('to', filter.to);
 	if (filter.status?.length) search.set('status', filter.status.join(','));
 	if (filter.type?.length) search.set('type', filter.type.join(','));
 	if (cursor) search.set('cursor', cursor);

@@ -5,12 +5,12 @@ import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import css from '../../components/ui/dialog.module.css';
+import { TextAreaField } from '../../components/ui/field';
 import { Notice } from '../../components/ui/notice';
 import { hasCode } from '../../lib/api/errors';
 import { cancelAbsence, refreshAbsences } from './api';
-import css from './cancel-dialog.module.css';
 import { formatPeriod } from './dates';
-import { TextAreaField } from './ui/text-area-field';
 
 const styles = css as Record<'overlay' | 'modal' | 'dialog' | 'actions', string>;
 
@@ -48,6 +48,7 @@ export function CancelDialog({ absence, onClose }: Props) {
 			isOpen={absence !== null}
 			onOpenChange={(open) => !open && close()}
 			isDismissable={!cancel.isPending}
+			isKeyboardDismissDisabled={cancel.isPending}
 			className={styles.overlay}
 		>
 			<Modal className={styles.modal}>
@@ -66,7 +67,7 @@ export function CancelDialog({ absence, onClose }: Props) {
 								rows={2}
 								maxLength={500}
 								value={note}
-								onChange={(e) => setNote(e.target.value)}
+								onChange={setNote}
 							/>
 							{cancel.error && <Notice tone="error">{failure(cancel.error)}</Notice>}
 							<div className={styles.actions}>

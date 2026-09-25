@@ -20,16 +20,22 @@ const openForm = async () => {
 	return screen.getByRole('form', { name: 'Buchung erfassen' });
 };
 
-const fill = async (form: HTMLElement, type: string, time: string, reason: string) => {
+const fill = async (
+	form: HTMLElement,
+	type: string,
+	time: string,
+	reason: string,
+	day = '30092026'
+) => {
 	await userEvent.click(within(form).getByRole('button', { name: /Art/ }));
 	await userEvent.click(await screen.findByRole('option', { name: type }));
 	await userEvent.type(within(form).getByLabelText('Zeit'), time);
 	await userEvent.type(within(form).getByLabelText('Begründung'), reason);
-	const [day] = within(within(form).getByRole('group', { name: 'Wirksam am' })).getAllByRole(
+	const [dayField] = within(within(form).getByRole('group', { name: 'Wirksam am' })).getAllByRole(
 		'spinbutton'
 	);
-	await userEvent.click(day!);
-	await userEvent.keyboard('30092026');
+	await userEvent.click(dayField!);
+	await userEvent.keyboard(day);
 };
 
 describe('flextime postings', () => {
@@ -81,6 +87,29 @@ describe('flextime postings', () => {
 
 		const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
 		expect(options).toEqual(['Anfangssaldo', 'Manuelle Buchung', 'Auszahlung']);
+	});
+
+	it('refuses a posting in a month that is already closed', async () => {
+		const form = await openForm();
+
+		// the mock has closed everything up to july
+		await fill(
+			form,
+			'Manuelle Buchung',
+			'2:00',
+			'Mehrarbeit Jahresabschluss nachgetragen',
+			'15072026'
+		);
+		await userEvent.click(within(form).getByRole('button', { name: 'Buchen' }));
+
+		expect(await within(form).findByRole('alert')).toHaveTextContent(
+			'Der Zeitraum liegt in einem abgeschlossenen Monat und ist gesperrt.'
+		);
+		expect(
+			within(screen.getByRole('table', { name: 'Buchungen' })).queryByText(
+				'Mehrarbeit Jahresabschluss nachgetragen'
+			)
+		).not.toBeInTheDocument();
 	});
 
 	it('wants a reason of some length', async () => {

@@ -7,11 +7,11 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import { FormTextArea } from '../../components/ui/field';
 import { Notice } from '../../components/ui/notice';
 import { hasCode } from '../../lib/api/errors';
 import type { DayFinding } from '../week/day-detail';
 import styles from '../week/form.module.css';
-import { FormTextArea } from '../week/text-area';
 import { ackFinding } from './api';
 
 const ackSchema = z.object({ note: noteSchema });

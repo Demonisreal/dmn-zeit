@@ -42,7 +42,9 @@
 	},
 	"decided": {
 		"approved": "Antrag von {{name}} genehmigt.",
-		"rejected": "Antrag von {{name}} abgelehnt."
+		"rejected": "Antrag von {{name}} abgelehnt.",
+		"cancelApproved": "Stornierung von {{name}} genehmigt.",
+		"cancelRejected": "Stornierung von {{name}} abgelehnt."
 	},
 	"errors": {
 		"forbidden": "Über eigene Anträge und Anträge außerhalb des eigenen Teams entscheidet jemand anderes.",

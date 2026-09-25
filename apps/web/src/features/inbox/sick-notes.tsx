@@ -3,10 +3,11 @@ import type { Absence } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import { formatInstant } from '../../i18n/format';
 import { hasCode } from '../../lib/api/errors';
 import { TypeTag } from '../absences/absence-tags';
 import { absencesQuery, refreshAbsences } from '../absences/api';
-import { formatInstant, formatPeriod } from '../absences/dates';
+import { formatPeriod } from '../absences/dates';
 import { confirmSickNote, inboxRange } from './api';
 import styles from './inbox.module.css';
 import { InboxSection } from './inbox-section';
@@ -20,7 +21,7 @@ export function SickNotes({ employeeId, onDone }: Props) {
 	const { t } = useTranslation('inbox');
 	// scope=inbox only ever returns pending/cancel_pending, a confirmed sick note is already approved
 	const list = useInfiniteQuery(
-		absencesQuery({ scope: 'all', ...inboxRange('back'), type: ['sick'], status: ['approved'] })
+		absencesQuery({ scope: 'all', ...inboxRange(), type: ['sick'], status: ['approved'] })
 	);
 	// the api has no filter for the certificate state, and nobody confirms their own note
 	const open = (list.data?.pages.flatMap((part) => part.items) ?? []).filter(

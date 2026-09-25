@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { CheckboxGroup, Label, Text } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { Checkbox } from '../../../components/ui/checkbox';
 import { Notice } from '../../../components/ui/notice';
 import { setTeamLeads } from '../api';
 import { useErrorText } from '../error-text';
 import { fullName } from '../people/employee-options';
-import { Checkbox } from '../ui/checkbox';
 import styles from '../ui/page.module.css';
 import css from './team-leads-form.module.css';
 

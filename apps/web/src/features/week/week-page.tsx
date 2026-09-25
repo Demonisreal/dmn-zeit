@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Skeleton } from '../../components/ui/skeleton';
+import { LoadError, Loading } from '../../components/ui/states';
 import { formatDate, formatMinutes } from '../../i18n/format';
 import { Accounts } from './accounts';
 import { daysQuery, flexQuery } from './api';
@@ -14,7 +15,6 @@ import { addDays, isoWeek, mondayOf, shortDate, todayIso } from './dates';
 import { DayTable } from './day-table';
 import styles from './page.module.css';
 import { PeriodNav } from './period-nav';
-import { LoadError, TableLoading } from './states';
 
 type Props = {
 	session: Session;
@@ -75,7 +75,7 @@ function Week({ employeeId, monday, number }: WeekProps) {
 		return days.isError ? (
 			<LoadError error={days.error} onRetry={() => void days.refetch()} />
 		) : (
-			<TableLoading rows={7} />
+			<Loading rows={7} />
 		);
 	}
 

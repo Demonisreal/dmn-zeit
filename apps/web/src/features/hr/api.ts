@@ -10,7 +10,7 @@ import {
 	ruleSetSchema,
 	teamSchema,
 	timesheetSchema,
-	vacationNoticeSchema,
+	vacationNoticePageSchema,
 	workModelSchema,
 	type AckFindingInput,
 	type CreateContractInput,
@@ -103,12 +103,15 @@ export const setTeamLeads = (id: string, userIds: string[]) =>
 	request(`/teams/${id}/leads`, { method: 'PUT', body: { userIds } });
 
 export const noticesQuery = (year: number) =>
-	queryOptions({
+	infiniteQueryOptions({
 		queryKey: ['vacation-notices', year],
-		queryFn: () =>
-			request(withSearch('/vacation/notices', { year }), {
-				schema: z.array(vacationNoticeSchema)
-			})
+		// the table shows each person's newest notice, a short first page would hide some
+		queryFn: ({ pageParam }) =>
+			request(withSearch('/vacation/notices', { year, cursor: pageParam, limit: 200 }), {
+				schema: vacationNoticePageSchema
+			}),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (page) => page.nextCursor ?? undefined
 	});
 
 export const sendNotices = (input: CreateVacationNoticesInput) =>

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { i18n } from '../i18n';
 import { queryClient } from '../lib/api/query-client';
@@ -13,6 +13,9 @@ import { resetMockWeek } from '../mocks/week';
 
 // jsdom cannot scroll, the router still resets the scroll position on every navigation
 window.scrollTo = () => {};
+
+// with many workers the lazy route chunks load cold, the default 1000ms findBy timeout is too tight
+configure({ asyncUtilTimeout: 3000 });
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 

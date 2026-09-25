@@ -1,17 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ActiveSession } from '@zeit/shared';
+import { useRef } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
-import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
-import { Notice } from '../../components/ui/notice';
-import { Skeleton } from '../../components/ui/skeleton';
+import { LoadError, Loading } from '../../components/ui/states';
 import { Table } from '../../components/ui/table';
 import { Tag } from '../../components/ui/tag';
+import { formatInstant } from '../../i18n/format';
 import { activeSessionsQuery, endSession } from '../../lib/api/auth';
 import { hasCode } from '../../lib/api/errors';
 import { ErrorNotice } from './error-notice';
-import { formatInstant } from './format-instant';
 import styles from './security.module.css';
 import { describeAgent } from './user-agent';
 
@@ -19,14 +18,19 @@ const byRecent = (a: ActiveSession, b: ActiveSession) =>
 	Number(b.current) - Number(a.current) || Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt);
 
 export function SessionList() {
-	const { t, i18n } = useTranslation(['security', 'common', 'nav']);
+	const { t, i18n } = useTranslation(['security', 'nav']);
 	const queryClient = useQueryClient();
 	const sessions = useQuery(activeSessionsQuery);
+	const heading = useRef<HTMLHeadingElement>(null);
 
 	const end = useMutation({
 		mutationFn: endSession,
 		// already gone counts as done, the list just catches up
-		onSettled: () => queryClient.invalidateQueries({ queryKey: activeSessionsQuery.queryKey })
+		onSettled: (_, err) => {
+			// the ended row leaves the table and takes the focused button with it
+			if (!err || hasCode(err, 'NOT_FOUND')) heading.current?.focus();
+			return queryClient.invalidateQueries({ queryKey: activeSessionsQuery.queryKey });
+		}
 	});
 
 	const device = (userAgent: string | null) => {
@@ -38,23 +42,15 @@ export function SessionList() {
 	return (
 		<div className={styles.page}>
 			<header>
-				<h1>{t('nav:sessions')}</h1>
+				<h1 ref={heading} tabIndex={-1} className={styles.anchor}>
+					{t('nav:sessions')}
+				</h1>
 				<p className={styles.lead}>{t('sessions.intro')}</p>
 			</header>
 			{sessions.isPending ? (
-				<div className={styles.loading} role="status" aria-busy="true">
-					<VisuallyHidden>{t('common:loading')}</VisuallyHidden>
-					<Skeleton height="2rem" />
-					<Skeleton height="2rem" />
-					<Skeleton height="2rem" />
-				</div>
+				<Loading rows={3} />
 			) : sessions.isError ? (
-				<Notice
-					tone="error"
-					action={<Button onPress={() => void sessions.refetch()}>{t('common:retry')}</Button>}
-				>
-					{t(errorKey(sessions.error))}
-				</Notice>
+				<LoadError error={sessions.error} onRetry={() => void sessions.refetch()} />
 			) : (
 				<>
 					<div className={styles.scroll}>

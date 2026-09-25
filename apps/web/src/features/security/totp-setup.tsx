@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { mfaTotpSchema, type TotpSetup as Setup } from '@zeit/shared';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
@@ -23,14 +24,24 @@ const svgImage = (svg: string) =>
 export function TotpSetup({ onConfirmed }: Props) {
 	const { t } = useTranslation('security');
 	const start = useMutation({ mutationFn: startTotpSetup });
+	const [closed, setClosed] = useState(false);
 
 	if (start.data) {
-		return <TotpConfirm setup={start.data} onConfirmed={onConfirmed} onCancel={start.reset} />;
+		return (
+			<TotpConfirm
+				setup={start.data}
+				onConfirmed={onConfirmed}
+				onCancel={() => {
+					start.reset();
+					setClosed(true);
+				}}
+			/>
+		);
 	}
 	return (
 		<>
 			<div className={styles.actions}>
-				<Button isPending={start.isPending} onPress={() => start.mutate()}>
+				<Button autoFocus={closed} isPending={start.isPending} onPress={() => start.mutate()}>
 					{t('totp.setup')}
 				</Button>
 			</div>
@@ -62,11 +73,17 @@ function TotpConfirm({ setup, onConfirmed, onCancel }: ConfirmProps) {
 		}
 	});
 	const submit = handleSubmit((input) => confirm.mutate(input));
+	const intro = useRef<HTMLParagraphElement>(null);
+
+	// the setup button that led here is gone
+	useEffect(() => intro.current?.focus(), []);
 
 	return (
 		<>
 			<form noValidate className={styles.flow} onSubmit={submit}>
-				<p>{t('totp.scan')}</p>
+				<p ref={intro} tabIndex={-1} className={styles.anchor}>
+					{t('totp.scan')}
+				</p>
 				<img
 					className={styles.qr}
 					src={svgImage(setup.qrSvg)}
@@ -98,7 +115,6 @@ function TotpConfirm({ setup, onConfirmed, onCancel }: ConfirmProps) {
 					</Button>
 				</div>
 			</form>
-			{/* outside the form: react lets submit events bubble through portals into it */}
 			<ReauthDialog
 				isOpen={hasCode(confirm.error, 'REAUTH_REQUIRED')}
 				onClose={confirm.reset}

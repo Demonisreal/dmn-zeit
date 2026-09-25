@@ -43,6 +43,56 @@ describe('inbox', () => {
 		expect(screen.queryByRole('group', { name: /^Deniz Aydın, Urlaub/ })).not.toBeInTheDocument();
 	});
 
+	it('names a cancellation as such, not only by its tag', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		await openInbox('Abwesenheiten 5');
+		const tobias = screen.getByRole('group', {
+			name: /^Tobias Kämmerer, Urlaub .+, Stornierung beantragt$/
+		});
+
+		await userEvent.click(within(tobias).getByRole('button', { name: 'Genehmigen' }));
+
+		expect(
+			await screen.findByText('Stornierung von Tobias Kämmerer genehmigt.')
+		).toBeInTheDocument();
+		expect(screen.queryByText('Antrag von Tobias Kämmerer genehmigt.')).not.toBeInTheDocument();
+	});
+
+	it('lists open requests however far ahead they lie', async () => {
+		signInAs('team_lead', [steuerberatung]);
+		const later = {
+			id: '5c2e8f1a-9d47-4b36-a0e1-7f3b6d2c9a58',
+			employee: { id: 'bc1e61b4-d3d8-4290-9124-bc7adf87efde', name: 'Deniz Aydın' },
+			type: 'vacation',
+			startDate: '2028-08-07',
+			endDate: '2028-08-11',
+			halfDayStart: false,
+			halfDayEnd: false,
+			status: 'pending',
+			note: null,
+			vacationDays: '5.00',
+			targetMinutes: 2340,
+			requestedBy: { id: '9e54ff3b-ee67-48c7-8424-9364dabd4b90', displayName: 'Deniz Aydın' },
+			decidedBy: null,
+			decidedAt: null,
+			decisionNote: null,
+			sickNote: null,
+			createdAt: '2026-09-20T10:00:00+02:00'
+		};
+		// the api applies a range whenever one is sent
+		server.use(
+			http.get('/api/absences', ({ request }) => {
+				const to = new URL(request.url).searchParams.get('to');
+				const items = to !== null && to < later.startDate ? [] : [later];
+				return HttpResponse.json({ items, nextCursor: null });
+			})
+		);
+
+		const absences = await openInbox('Abwesenheiten 1');
+
+		expect(within(absences).getByRole('group', { name: /^Deniz Aydın, Urlaub/ })).toBeVisible();
+	});
+
 	it('does not reject without a reason', async () => {
 		let sent = 0;
 		server.events.on('request:start', ({ request: outgoing }) => {

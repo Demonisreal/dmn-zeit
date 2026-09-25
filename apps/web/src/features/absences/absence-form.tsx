@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import { FormTextArea } from '../../components/ui/field';
 import field from '../../components/ui/field.module.css';
 import { Notice } from '../../components/ui/notice';
 import { issueText } from '../../i18n';
@@ -15,7 +16,6 @@ import { createAbsence, refreshAbsences, type PreviewInput } from './api';
 import { DateRangeField } from './date-range-field';
 import { formatPeriod } from './dates';
 import styles from './absence-form.module.css';
-import { TextAreaField } from './ui/text-area-field';
 
 const formSchema = z.object({
 	type: z.enum(absenceTypes),
@@ -46,14 +46,11 @@ type Props = {
 export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 	const { t, i18n } = useTranslation(['absences', 'common']);
 	const queryClient = useQueryClient();
-	const {
-		control,
-		register,
-		handleSubmit,
-		setValue,
-		setError,
-		formState: { errors }
-	} = useForm<z.input<typeof formSchema>, unknown, z.output<typeof formSchema>>({
+	const { control, register, handleSubmit, setValue, setError } = useForm<
+		z.input<typeof formSchema>,
+		unknown,
+		z.output<typeof formSchema>
+	>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			type: 'vacation',
@@ -164,11 +161,11 @@ export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 						</div>
 					</fieldset>
 
-					<TextAreaField
+					<FormTextArea
+						control={control}
+						name="note"
 						label={t('form.note')}
 						description={t('form.noteHint')}
-						error={message(errors.note?.message)}
-						{...register('note')}
 					/>
 
 					{create.error && <Notice tone="error">{failure(create.error)}</Notice>}

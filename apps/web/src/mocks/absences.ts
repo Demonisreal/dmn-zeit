@@ -7,13 +7,13 @@ import {
 	type Correction,
 	type ErrorCode,
 	type Holiday,
-	type Team,
 	type TeamCalendar,
 	type VacationAccount,
 	type VacationBucket,
 	type VacationLedgerEntry
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
+import { teamIds } from './hr';
 
 // sample company for working on the ui without the api: a tax office in NRW, names made up
 const person = (id: string, userId: string, name: string) => ({
@@ -64,33 +64,12 @@ const helin = person(
 	'Helin Demir'
 );
 const sabine = { id: '5b004527-423c-4b82-89ae-323b702a9c62', displayName: 'Sabine Kortmann' };
-const petra = { id: '2ad6595f-149f-45ac-8b75-1baedd67e6d8', displayName: 'Petra Wiegand' };
 
-export const mockTeams: Team[] = [
-	{
-		id: 'e1f9ecbb-e6ff-4aa4-b29b-703459281a47',
-		name: 'Steuerberatung',
-		leads: [katrin.user],
-		memberCount: 6
-	},
-	{
-		id: 'c1b89b13-aeb6-4609-a49e-f1fe33512388',
-		name: 'Lohnbuchhaltung',
-		leads: [frank.user],
-		memberCount: 2
-	},
-	{
-		id: '46fee763-03eb-4e93-904a-877f5494a37f',
-		name: 'Finanzbuchhaltung',
-		leads: [petra],
-		memberCount: 0
-	}
-];
-
+// the teams themselves come from mocks/hr.ts, which also answers GET /api/teams
 const members: Record<string, (typeof mara)[]> = {
-	[mockTeams[0]!.id]: [katrin, mara, deniz, jonas, lea, tobias],
-	[mockTeams[1]!.id]: [frank, helin],
-	[mockTeams[2]!.id]: []
+	[teamIds.tax]: [katrin, mara, deniz, jonas, lea, tobias],
+	[teamIds.payroll]: [frank, helin],
+	[teamIds.books]: []
 };
 
 const holidays: Holiday[] = [
@@ -858,12 +837,10 @@ export const absenceHandlers = [
 		return new HttpResponse(null, { status: 204 });
 	}),
 
-	http.get('/api/teams', () => HttpResponse.json(mockTeams)),
-
 	http.get('/api/team-calendar', ({ request }) => {
 		const params = new URL(request.url).searchParams;
 		const month = params.get('month') ?? '';
-		const team = params.get('team') ?? mockTeams[0]!.id;
+		const team = params.get('team') ?? teamIds.tax;
 		const first = `${month}-01`;
 		const last = addDays(`${addDays(first, 31).slice(0, 7)}-01`, -1);
 		const people = (members[team] ?? []).map((member) => ({

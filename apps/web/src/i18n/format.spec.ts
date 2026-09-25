@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, formatDate, formatDays, formatMinutes, formatTime } from './format';
+import {
+	formatClock,
+	formatDate,
+	formatDays,
+	formatInstant,
+	formatMinutes,
+	formatMonth,
+	formatTime
+} from './format';
 
 describe('format', () => {
 	it('writes minutes as hours and minutes', () => {
@@ -17,8 +25,14 @@ describe('format', () => {
 	it('keeps the calendar day of iso dates and the berlin time of instants', () => {
 		expect(formatDate('2026-03-29', 'de')).toBe('29.03.2026');
 		expect(formatDate('2026-03-29', 'en')).toBe('29/03/2026');
+		expect(formatMonth('2026-03', 'de')).toBe('März 2026');
+		expect(formatMonth('2026-03', 'en')).toBe('March 2026');
 		expect(formatTime('2026-03-29T06:12:00Z', 'de')).toBe('08:12');
 		expect(formatTime('2026-03-28T06:12:00Z', 'en')).toBe('07:12');
+		expect(formatInstant('2026-03-29T06:12:00Z', 'de')).toBe('29.03.2026, 08:12');
+		expect(formatInstant('2026-03-29T06:12:00Z', 'en', { dateStyle: 'medium' })).toBe(
+			'29 Mar 2026'
+		);
 	});
 
 	it('shows leave days with two decimals in the language of the user', () => {

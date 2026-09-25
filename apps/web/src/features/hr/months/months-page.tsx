@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
-import { formatDate } from '../../../i18n/format';
+import { formatDate, formatMonth } from '../../../i18n/format';
 import { employeesQuery } from '../api';
-import { currentMonth, formatMonth, monthsBack, shiftMonth } from '../dates';
+import { currentMonth, monthsBack, shiftMonth } from '../dates';
 import { HrNav } from '../hr-nav';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 
 export function MonthsPage() {

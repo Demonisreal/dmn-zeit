@@ -169,12 +169,6 @@
 	color: var(--white);
 }
 
-.area {
-	min-height: 5rem;
-	resize: vertical;
-	line-height: 1.5;
-}
-
 @media (max-width: 30rem) {
 	.times {
 		grid-template-columns: repeat(2, minmax(0, 1fr));

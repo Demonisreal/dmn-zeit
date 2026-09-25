@@ -3,12 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { reopenMonthSchema } from '@zeit/shared';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+import { FormTextArea } from '../../../components/ui/field';
+import { Notice } from '../../../components/ui/notice';
+import { formatMonth } from '../../../i18n/format';
 import { hasCode } from '../../../lib/api/errors';
 import { reopenMonth } from '../api';
-import { formatMonth } from '../dates';
 import { useErrorText } from '../error-text';
-import { ConfirmDialog } from '../ui/confirm-dialog';
-import { FormTextArea } from '../ui/text-area-field';
 import { useReauth } from '../../security/reauth-dialog';
 
 type Props = {
@@ -57,7 +58,7 @@ export function ReopenDialog({ month, isOpen, onClose }: Props) {
 				confirmLabel={t('months.reopen')}
 				onConfirm={() => void submit()}
 				isPending={reopen.isPending}
-				error={problem}
+				error={problem && <Notice tone="error">{problem}</Notice>}
 			>
 				<p>{t('months.reopenText')}</p>
 				<FormTextArea control={control} name="reason" label={t('months.reason')} />

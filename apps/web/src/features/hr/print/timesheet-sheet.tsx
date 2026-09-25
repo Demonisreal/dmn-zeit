@@ -3,10 +3,16 @@ import { useRouter } from '@tanstack/react-router';
 import { weekdays, type Timesheet } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
-import { formatDate, formatMinutes, formatTime } from '../../../i18n/format';
+import { Loading, LoadError } from '../../../components/ui/states';
+import {
+	formatDate,
+	formatInstant,
+	formatMinutes,
+	formatMonth,
+	formatTime
+} from '../../../i18n/format';
 import { timesheetQuery } from '../api';
-import { formatInstant, formatMonth, lastDayOf } from '../dates';
-import { Loading, LoadError } from '../ui/states';
+import { lastDayOf } from '../dates';
 import styles from './timesheet-sheet.module.css';
 
 type Props = {

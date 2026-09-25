@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+import { Notice } from '../../../components/ui/notice';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
 import { formatDate, formatDays, formatMinutes } from '../../../i18n/format';
 import { deleteContract } from '../api';
 import { todayIso } from '../dates';
 import { useErrorText } from '../error-text';
-import { ConfirmDialog } from '../ui/confirm-dialog';
 import styles from '../ui/page.module.css';
 import { WeekdayMinutes, weekMinutes } from '../weekday-minutes';
 import { contractOn } from './contract-schema';
@@ -124,7 +125,7 @@ export function ContractHistory({ employee, contracts, workModels }: Props) {
 				confirmLabel={t('contracts.delete')}
 				onConfirm={() => removing && remove.mutate(removing)}
 				isPending={remove.isPending}
-				error={remove.error ? errorText(remove.error) : undefined}
+				error={remove.error && <Notice tone="error">{errorText(remove.error)}</Notice>}
 			>
 				<p>{t('contracts.deleteText')}</p>
 			</ConfirmDialog>

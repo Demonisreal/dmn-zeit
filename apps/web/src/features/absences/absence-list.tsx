@@ -12,18 +12,20 @@ import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
+import { SelectField } from '../../components/ui/select-field';
+import { LoadError, Loading } from '../../components/ui/states';
 import { Table } from '../../components/ui/table';
-import { formatDays, formatMinutes } from '../../i18n/format';
+import { formatDays, formatInstant, formatMinutes } from '../../i18n/format';
 import { hasCode } from '../../lib/api/errors';
 import { HalfDays, SickNoteTag, StatusTag, TypeTag } from './absence-tags';
 import styles from './absence-list.module.css';
 import { absencesQuery, refreshAbsences, withdrawAbsence } from './api';
 import { CancelDialog } from './cancel-dialog';
-import { formatInstant, formatPeriod, todayIso, yearSpan } from './dates';
+import { formatPeriod, todayIso, yearSpan } from './dates';
 import page from './ui/page.module.css';
 import { PeriodStepper } from './ui/period-stepper';
-import { SelectField } from './ui/select-field';
-import { LoadError, Loading } from './ui/states';
+
+const all = 'all';
 
 export type AbsenceListFilter = {
 	year: number;
@@ -130,30 +132,22 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 				</PeriodStepper>
 				<SelectField
 					label={t('list.type')}
-					value={type ?? ''}
-					onChange={(next) => onFilter({ type: absenceTypes.find((option) => option === next) })}
-				>
-					<option value="">{t('list.all')}</option>
-					{absenceTypes.map((option) => (
-						<option key={option} value={option}>
-							{t(`type.${option}`)}
-						</option>
-					))}
-				</SelectField>
+					options={[
+						{ id: all, label: t('list.all') },
+						...absenceTypes.map((option) => ({ id: option, label: t(`type.${option}`) }))
+					]}
+					value={type ?? all}
+					onChange={(key) => onFilter({ type: absenceTypes.find((option) => option === key) })}
+				/>
 				<SelectField
 					label={t('list.status')}
-					value={status ?? ''}
-					onChange={(next) =>
-						onFilter({ status: absenceStatuses.find((option) => option === next) })
-					}
-				>
-					<option value="">{t('list.all')}</option>
-					{absenceStatuses.map((option) => (
-						<option key={option} value={option}>
-							{t(`status.${option}`)}
-						</option>
-					))}
-				</SelectField>
+					options={[
+						{ id: all, label: t('list.all') },
+						...absenceStatuses.map((option) => ({ id: option, label: t(`status.${option}`) }))
+					]}
+					value={status ?? all}
+					onChange={(key) => onFilter({ status: absenceStatuses.find((option) => option === key) })}
+				/>
 			</div>
 			{rows()}
 			<CancelDialog absence={cancelling} onClose={() => setCancelling(null)} />

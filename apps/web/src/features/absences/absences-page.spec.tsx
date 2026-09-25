@@ -23,6 +23,11 @@ const enterPeriod = async (start: string, end: string) => {
 
 const row = (period: string) => screen.getByRole('row', { name: new RegExp(period) });
 
+const choose = async (label: RegExp, option: string) => {
+	await userEvent.click(screen.getByRole('button', { name: label }));
+	await userEvent.click(await screen.findByRole('option', { name: option }));
+};
+
 describe('absences', () => {
 	beforeEach(() => signInAs('employee'));
 	afterEach(() => vi.useRealTimers());
@@ -176,12 +181,12 @@ describe('absences', () => {
 		renderApp('/absences');
 		await screen.findByRole('table', { name: 'Meine Anträge 2026' });
 
-		await userEvent.selectOptions(screen.getByLabelText('Status'), 'abgelehnt');
+		await choose(/Status$/, 'abgelehnt');
 		await waitFor(() =>
 			expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2)
 		);
 
-		await userEvent.selectOptions(screen.getByLabelText('Art'), 'Zeitausgleich');
+		await choose(/Art$/, 'Zeitausgleich');
 		expect(
 			await screen.findByText('Keine Anträge in 2026, die zum Filter passen.')
 		).toBeInTheDocument();

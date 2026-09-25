@@ -1,18 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { Fragment, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { SelectField } from '../../../components/ui/select-field';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
-import { formatDate } from '../../../i18n/format';
+import { formatDate, formatInstant } from '../../../i18n/format';
 import { employeesQuery, findingsQuery } from '../api';
-import { formatInstant } from '../dates';
 import { HrNav } from '../hr-nav';
 import { employeeOptions } from '../people/employee-options';
 import { DateInputField } from '../ui/date-field';
-import { SelectField } from '../ui/select-field';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { AckForm } from './ack-form';
 import { factParams, findingKey, paragraphOf } from './finding-text';
@@ -38,6 +37,7 @@ const DAY_MS = 86_400_000;
 export function FindingsPage({ filter, onFilter }: Props) {
 	const { t, i18n } = useTranslation('hr');
 	const [acking, setAcking] = useState<string | null>(null);
+	const heading = useRef<HTMLHeadingElement>(null);
 	const employees = useQuery(employeesQuery(true));
 	const date = (iso: string) => formatDate(iso, i18n.language);
 
@@ -117,7 +117,14 @@ export function FindingsPage({ filter, onFilter }: Props) {
 									{acking === key && (
 										<tr>
 											<td colSpan={5}>
-												<AckForm finding={finding} onDone={() => setAcking(null)} />
+												<AckForm
+													finding={finding}
+													onDone={() => {
+														setAcking(null);
+														// once acknowledged the row loses its button or leaves the list
+														heading.current?.focus();
+													}}
+												/>
 											</td>
 										</tr>
 									)}
@@ -136,7 +143,9 @@ export function FindingsPage({ filter, onFilter }: Props) {
 			<div className={styles.page}>
 				<header className={styles.head}>
 					<div>
-						<h1>{t('findings.title')}</h1>
+						<h1 ref={heading} tabIndex={-1} className={styles.anchor}>
+							{t('findings.title')}
+						</h1>
 						<p className={styles.lead}>{t('findings.lead')}</p>
 					</div>
 				</header>

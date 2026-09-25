@@ -130,4 +130,23 @@ describe('month-end close', () => {
 
 		expect(await screen.findByRole('button', { name: 'Monat abschließen' })).toBeInTheDocument();
 	});
+
+	it('offers a retry when the checklist cannot be loaded', async () => {
+		server.use(
+			signedInAs('hr'),
+			http.get(
+				'/api/months/:month/checklist',
+				() =>
+					HttpResponse.json({ code: 'FORBIDDEN', message: 'No', details: null }, { status: 403 }),
+				{ once: true }
+			)
+		);
+		renderApp('/hr/months/2026-08');
+
+		expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt.');
+		expect(screen.queryByRole('button', { name: 'Monat abschließen' })).not.toBeInTheDocument();
+		await userEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+
+		expect(await screen.findByRole('heading', { name: 'Checkliste' })).toBeInTheDocument();
+	});
 });

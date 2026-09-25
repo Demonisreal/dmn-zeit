@@ -9,7 +9,7 @@ import {
 	today
 } from '@internationalized/date';
 import { weekdays } from '@zeit/shared';
-import { formatDate, tagFor } from '../../i18n/format';
+import { formatDate } from '../../i18n/format';
 
 // the company's day, someone abroad still sees the German workday
 export const zone = 'Europe/Berlin';
@@ -45,8 +45,3 @@ export const shortDate = (iso: string, lng: string) => formatDate(iso, lng, { ye
 
 export const weekdayShort = (iso: string, lng: string) =>
 	formatDate(iso, lng, { weekday: 'short', day: undefined, month: undefined, year: undefined });
-
-export const monthName = (month: string, lng: string) =>
-	new Intl.DateTimeFormat(tagFor(lng), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
-		new Date(`${month}-01T00:00:00Z`)
-	);

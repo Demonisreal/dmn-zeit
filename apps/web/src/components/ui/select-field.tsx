@@ -11,8 +11,8 @@ import {
 	type SelectProps
 } from 'react-aria-components';
 import { useController, type Control, type FieldPath, type FieldValues } from 'react-hook-form';
-import field from '../../../components/ui/field.module.css';
-import { issueText } from '../../../i18n';
+import { issueText } from '../../i18n';
+import field from './field.module.css';
 import css from './select-field.module.css';
 
 const styles = css as Record<'trigger' | 'value' | 'caret' | 'popover' | 'list' | 'option', string>;

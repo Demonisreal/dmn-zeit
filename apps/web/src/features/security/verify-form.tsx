@@ -90,6 +90,7 @@ export function VerifyForm({ methods, next }: Props) {
 					<div className={styles.actions}>
 						<Button
 							variant="primary"
+							autoFocus
 							isPending={verify.isPending}
 							onPress={() => verify.mutate({ method: 'passkey' })}
 						>

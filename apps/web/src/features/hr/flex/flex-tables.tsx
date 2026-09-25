@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
-import { formatDate, formatMinutes } from '../../../i18n/format';
-import { formatMonth } from '../dates';
+import { formatDate, formatMinutes, formatMonth } from '../../../i18n/format';
 import styles from '../ui/page.module.css';
 
 export function FlexBookings({ bookings }: { bookings: FlexBooking[] }) {

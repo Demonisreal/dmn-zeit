@@ -5,10 +5,10 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
+import { FormTextArea } from '../../../components/ui/field';
 import { Notice } from '../../../components/ui/notice';
 import { ackFinding } from '../api';
 import { useErrorText } from '../error-text';
-import { FormTextArea } from '../ui/text-area-field';
 import styles from '../ui/page.module.css';
 
 const schema = z.object({ note: ackFindingSchema.shape.note });
@@ -55,6 +55,7 @@ export function AckForm({ finding, onDone }: Props) {
 				label={t('findings.note')}
 				description={t('findings.noteHint')}
 				rows={2}
+				autoFocus
 			/>
 			{ack.error && <Notice tone="error">{errorText(ack.error)}</Notice>}
 			<div className={styles.actions}>

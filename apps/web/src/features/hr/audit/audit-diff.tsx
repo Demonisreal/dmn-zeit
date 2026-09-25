@@ -1,20 +1,17 @@
 import type { AuditEntry } from '@zeit/shared';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from '../ui/page.module.css';
 import css from './audit-diff.module.css';
 
-type Props = {
-	diff: NonNullable<AuditEntry['diff']>;
-};
-
-// values arrive as json from the trigger; they are only ever shown as text
+// values arrive as json from the database; they are only ever shown as text
 const shown = (value: unknown) => {
 	if (value === null || value === undefined) return '–';
 	if (typeof value === 'object') return JSON.stringify(value);
 	return String(value);
 };
 
-export function AuditDiff({ diff }: Props) {
+export function AuditDiff({ changes }: { changes: NonNullable<AuditEntry['changes']> }) {
 	const { t } = useTranslation('hr');
 	return (
 		<table className={css.diff}>
@@ -26,7 +23,7 @@ export function AuditDiff({ diff }: Props) {
 				</tr>
 			</thead>
 			<tbody>
-				{Object.entries(diff).map(([field, [before, after]]) => (
+				{Object.entries(changes).map(([field, [before, after]]) => (
 					<tr key={field}>
 						<th scope="row" className={styles.mono}>
 							{field}
@@ -37,5 +34,19 @@ export function AuditDiff({ diff }: Props) {
 				))}
 			</tbody>
 		</table>
+	);
+}
+
+// app rows log a flat context, there is nothing before or after
+export function AuditContext({ context }: { context: NonNullable<AuditEntry['context']> }) {
+	return (
+		<dl className={css.context}>
+			{Object.entries(context).map(([field, value]) => (
+				<Fragment key={field}>
+					<dt>{field}</dt>
+					<dd>{shown(value)}</dd>
+				</Fragment>
+			))}
+		</dl>
 	);
 }

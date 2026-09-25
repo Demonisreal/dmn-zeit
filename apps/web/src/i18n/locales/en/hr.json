@@ -177,7 +177,8 @@
 		"send_one": "Send notice to {{count}} person",
 		"send_other": "Send notice to {{count}} people",
 		"sent_one": "{{count}} notice sent.",
-		"sent_other": "{{count}} notices sent."
+		"sent_other": "{{count}} notices sent.",
+		"more": "Load older notices"
 	},
 	"flex": {
 		"title": "Flextime postings",
@@ -330,6 +331,7 @@
 		"employee": "Person",
 		"chooseEmployee": "Choose a person for the timesheet.",
 		"csv": "Download CSV",
+		"csvHint": "CSV with a comma as the separator, UTF-8 with BOM. Excel opens the files without extra steps.",
 		"print": "Open print view",
 		"overview": "Monthly overview",
 		"notClosed": "The month is still open. The figures can change until it is closed.",
@@ -410,5 +412,13 @@
 		"generated": "Created on {{at}} with DMN Zeit",
 		"back": "Back",
 		"print": "Print"
+	},
+	"explain": {
+		"flex": {
+			"opening": {
+				"none": "No carry-over from a December close of the previous year",
+				"carryover": "Plus {{minutes}} carried over from last year's December close, without a posting of its own"
+			}
+		}
 	}
 }

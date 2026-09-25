@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
 import { FormField } from '../../../components/ui/field';
 import { Notice } from '../../../components/ui/notice';
+import { FormSelect } from '../../../components/ui/select-field';
 import { useErrorText } from '../../hr/error-text';
-import { FormSelect } from '../../hr/ui/select-field';
 import styles from '../../hr/ui/page.module.css';
 import { createUser } from '../api';
 import { employeeField, linkOptions, noEmployee } from './employee-link';
@@ -70,6 +70,7 @@ export function InviteForm({ employees, onDone }: Props) {
 					label={t('users.email')}
 					type="email"
 					autoComplete="off"
+					autoFocus
 				/>
 				<FormField control={control} name="displayName" label={t('users.name')} />
 				<FormSelect

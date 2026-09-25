@@ -3,10 +3,8 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
-import { errorKey } from '../../app/error-key';
-import { Button } from '../../components/ui/button';
-import { Notice } from '../../components/ui/notice';
 import { Skeleton } from '../../components/ui/skeleton';
+import { LoadError } from '../../components/ui/states';
 import { securityQuery } from '../../lib/api/auth';
 import { PasskeyList } from './passkey-list';
 import { RecoverySection } from './recovery-section';
@@ -34,12 +32,7 @@ export function SecurityPage() {
 					<Skeleton height="2.5rem" />
 				</div>
 			) : overview.isError ? (
-				<Notice
-					tone="error"
-					action={<Button onPress={() => void overview.refetch()}>{t('common:retry')}</Button>}
-				>
-					{t(errorKey(overview.error))}
-				</Notice>
+				<LoadError error={overview.error} onRetry={() => void overview.refetch()} />
 			) : (
 				<>
 					<PasskeyList passkeys={overview.data.passkeys} onCodes={setCodes} />

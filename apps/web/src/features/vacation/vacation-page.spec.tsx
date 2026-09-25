@@ -138,6 +138,23 @@ describe('leave account', () => {
 		).toBeInTheDocument();
 	});
 
+	it('offers a retry when the account cannot be loaded', async () => {
+		server.use(
+			http.get(
+				'/api/employees/:id/vacation',
+				() =>
+					HttpResponse.json({ code: 'FORBIDDEN', message: 'No', details: null }, { status: 403 }),
+				{ once: true }
+			)
+		);
+		renderApp('/vacation');
+
+		expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt.');
+		await userEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+
+		expect(await screen.findByRole('table', { name: 'Urlaubskonto 2026' })).toBeInTheDocument();
+	});
+
 	it('steps through the years', async () => {
 		renderApp('/vacation');
 		await screen.findByRole('table', { name: 'Urlaubskonto 2026' });

@@ -3,10 +3,11 @@ import type { Employee } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+import { Notice } from '../../../components/ui/notice';
 import { formatDate } from '../../../i18n/format';
 import { exitEmployee } from '../api';
 import { useErrorText } from '../error-text';
-import { ConfirmDialog } from '../ui/confirm-dialog';
 import { DateInputField } from '../ui/date-field';
 import styles from '../ui/page.module.css';
 import { fullName } from './employee-options';
@@ -65,7 +66,7 @@ export function ExitForm({ employee }: Props) {
 				confirmLabel={t('people.exitSubmit')}
 				onConfirm={() => save.mutate()}
 				isPending={save.isPending}
-				error={save.error ? errorText(save.error) : undefined}
+				error={save.error && <Notice tone="error">{errorText(save.error)}</Notice>}
 			>
 				<p>{t('people.exitConfirmText', { date: exitDate ? date(exitDate) : '' })}</p>
 			</ConfirmDialog>

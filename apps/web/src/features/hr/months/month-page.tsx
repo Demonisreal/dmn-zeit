@@ -4,15 +4,16 @@ import { hasRole, type Role } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+import { Notice } from '../../../components/ui/notice';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Tag } from '../../../components/ui/tag';
-import { formatDate } from '../../../i18n/format';
+import { formatDate, formatMonth } from '../../../i18n/format';
 import { hasCode } from '../../../lib/api/errors';
 import { checklistQuery, closeMonth } from '../api';
-import { formatMonth, lastDayOf } from '../dates';
+import { lastDayOf } from '../dates';
 import { useErrorText } from '../error-text';
 import { HrNav } from '../hr-nav';
-import { ConfirmDialog } from '../ui/confirm-dialog';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { Checklist } from './checklist';
 import { ReopenDialog } from './reopen-dialog';
@@ -134,7 +135,7 @@ export function MonthPage({ month, role }: Props) {
 				confirmLabel={t('months.close')}
 				onConfirm={() => close.mutate()}
 				isPending={close.isPending}
-				error={closeProblem}
+				error={closeProblem && <Notice tone="error">{closeProblem}</Notice>}
 			>
 				<p>{t('months.closeText', { date: formatDate(lastDayOf(month), i18n.language) })}</p>
 				<p>{t('months.closeReopenHint')}</p>

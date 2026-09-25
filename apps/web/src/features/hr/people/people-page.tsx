@@ -3,14 +3,14 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { Checkbox } from '../../../components/ui/checkbox';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Field } from '../../../components/ui/field';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { formatDate } from '../../../i18n/format';
 import { employeesQuery, teamsQuery, workModelsQuery } from '../api';
 import { HrNav } from '../hr-nav';
-import { Checkbox } from '../ui/checkbox';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { byLastName, fullName } from './employee-options';
 import { EmployeeForm } from './employee-form';
@@ -20,6 +20,7 @@ export function PeoplePage() {
 	const [search, setSearch] = useState('');
 	const [includeExited, setIncludeExited] = useState(false);
 	const [creating, setCreating] = useState(false);
+	const [closed, setClosed] = useState(false);
 	const employees = useQuery(employeesQuery(includeExited));
 	const teams = useQuery(teamsQuery);
 	const workModels = useQuery({ ...workModelsQuery(), enabled: creating });
@@ -96,7 +97,10 @@ export function PeoplePage() {
 			<EmployeeForm
 				teams={teams.data}
 				workModels={workModels.data}
-				onDone={() => setCreating(false)}
+				onDone={() => {
+					setCreating(false);
+					setClosed(true);
+				}}
 			/>
 		);
 	} else if (creating) {
@@ -113,7 +117,7 @@ export function PeoplePage() {
 						<p className={styles.lead}>{t('people.lead')}</p>
 					</div>
 					{!creating && (
-						<Button variant="primary" onPress={() => setCreating(true)}>
+						<Button variant="primary" autoFocus={closed} onPress={() => setCreating(true)}>
 							{t('people.new')}
 						</Button>
 					)}

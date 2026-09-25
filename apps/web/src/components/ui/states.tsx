@@ -1,12 +1,12 @@
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
-import { errorKey } from '../../../app/error-key';
-import { Button } from '../../../components/ui/button';
-import { Notice } from '../../../components/ui/notice';
-import { Skeleton } from '../../../components/ui/skeleton';
-import styles from './page.module.css';
+import { errorKey } from '../../app/error-key';
+import { Button } from './button';
+import { Notice } from './notice';
+import { Skeleton } from './skeleton';
+import styles from './states.module.css';
 
-export function Loading({ rows = 3 }: { rows?: number }) {
+export function Loading({ rows = 4 }: { rows?: number }) {
 	const { t } = useTranslation();
 	return (
 		<div className={styles.loading} role="status" aria-busy="true">

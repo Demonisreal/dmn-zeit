@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Notice } from '../../components/ui/notice';
+import { LoadError, Loading } from '../../components/ui/states';
 import { Table } from '../../components/ui/table';
 import { issueText } from '../../i18n';
 import { formatDate, formatDays, formatMinutes } from '../../i18n/format';
@@ -8,7 +9,6 @@ import { hasCode } from '../../lib/api/errors';
 import { useExplain } from '../vacation/explain';
 import styles from './absence-preview.module.css';
 import { previewQuery, type PreviewInput } from './api';
-import { LoadError, Loading } from './ui/states';
 
 type Props = {
 	input: PreviewInput | null;

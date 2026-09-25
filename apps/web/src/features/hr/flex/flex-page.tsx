@@ -1,15 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { SelectField } from '../../../components/ui/select-field';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { formatDate, formatMinutes } from '../../../i18n/format';
 import { employeesQuery, flexQuery } from '../api';
 import { currentYear } from '../dates';
 import { HrNav } from '../hr-nav';
 import { employeeOptions } from '../people/employee-options';
-import { SelectField } from '../ui/select-field';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { FlexBookingForm } from './flex-booking-form';
 import { FlexBookings, FlexMonths } from './flex-tables';
@@ -23,6 +23,7 @@ type Props = {
 export function FlexPage({ employeeId, year, onChange }: Props) {
 	const { t, i18n } = useTranslation('hr');
 	const [booking, setBooking] = useState(false);
+	const bookingsHeading = useRef<HTMLHeadingElement>(null);
 	const employees = useQuery(employeesQuery());
 	const account = useQuery({ ...flexQuery(employeeId ?? '', year), enabled: !!employeeId });
 	const years = [currentYear() - 1, currentYear()].map((option) => ({
@@ -40,13 +41,25 @@ export function FlexPage({ employeeId, year, onChange }: Props) {
 	} else {
 		const flex = account.data;
 		const { plusMinutes, minusMinutes, mode } = flex.cap;
+		const opening = flex.openingExplanation;
 		body = (
 			<>
 				<dl className={styles.facts}>
 					<dt>{t('flex.balanceOn', { date: formatDate(flex.asOf, i18n.language) })}</dt>
 					<dd className={styles.mono}>{formatMinutes(flex.balanceMinutes, { signed: true })}</dd>
 					<dt>{t('flex.opening', { year: flex.year })}</dt>
-					<dd className={styles.mono}>{formatMinutes(flex.openingMinutes, { signed: true })}</dd>
+					<dd>
+						<span className={styles.mono}>
+							{formatMinutes(flex.openingMinutes, { signed: true })}
+						</span>
+						<p className={`${styles.small} ${styles.muted}`}>
+							{opening.key === 'flex.opening.carryover'
+								? t('explain.flex.opening.carryover', {
+										minutes: formatMinutes(Number(opening.params.minutes), { signed: true })
+									})
+								: t('explain.flex.opening.none')}
+						</p>
+					</dd>
 					<dt>{t('flex.cap')}</dt>
 					<dd>
 						{mode === 'none' || (plusMinutes === null && minusMinutes === null)
@@ -61,14 +74,25 @@ export function FlexPage({ employeeId, year, onChange }: Props) {
 
 				<section className={styles.section} aria-labelledby="flex-bookings">
 					<div className={styles.sectionHead}>
-						<h2 id="flex-bookings">{t('flex.bookings')}</h2>
+						<h2 id="flex-bookings" ref={bookingsHeading} tabIndex={-1} className={styles.anchor}>
+							{t('flex.bookings')}
+						</h2>
 						{!booking && (
 							<Button variant="primary" onPress={() => setBooking(true)}>
 								{t('flex.new')}
 							</Button>
 						)}
 					</div>
-					{booking && <FlexBookingForm employeeId={employeeId} onDone={() => setBooking(false)} />}
+					{booking && (
+						<FlexBookingForm
+							employeeId={employeeId}
+							onDone={() => {
+								setBooking(false);
+								// the new button only mounts again after this render, its heading is already there
+								bookingsHeading.current?.focus();
+							}}
+						/>
+					)}
 					<FlexBookings bookings={flex.bookings} />
 				</section>
 

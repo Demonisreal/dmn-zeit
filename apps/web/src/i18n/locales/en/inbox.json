@@ -42,7 +42,9 @@
 	},
 	"decided": {
 		"approved": "Request from {{name}} approved.",
-		"rejected": "Request from {{name}} rejected."
+		"rejected": "Request from {{name}} rejected.",
+		"cancelApproved": "Cancellation for {{name}} approved.",
+		"cancelRejected": "Cancellation for {{name}} rejected."
 	},
 	"errors": {
 		"forbidden": "Someone else decides on your own requests and on requests outside your team.",

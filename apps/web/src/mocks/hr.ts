@@ -64,7 +64,7 @@ const invalid = (error: ZodError) =>
 
 const done = () => new HttpResponse(null, { status: 204 });
 
-const teamIds = {
+export const teamIds = {
 	tax: 'e1f9ecbb-e6ff-4aa4-b29b-703459281a47',
 	payroll: 'c1b89b13-aeb6-4609-a49e-f1fe33512388',
 	books: '46fee763-03eb-4e93-904a-877f5494a37f'
@@ -634,6 +634,7 @@ function accountOf(employee: Employee, year: number): FlexAccount {
 		employeeId: employee.id,
 		year,
 		openingMinutes,
+		openingExplanation: { key: 'flex.opening.none', params: {} },
 		balanceMinutes: balance,
 		asOf: year === Number(today().slice(0, 4)) ? today() : `${year}-12-31`,
 		cap: {
@@ -704,14 +705,15 @@ function seedAudit(): AuditEntry[] {
 				table: null,
 				rowId: null,
 				subjectEmployeeId: null,
-				diff: null,
+				changes: null,
+				context: { method: 'password' },
 				requestId: null,
 				ip: '203.0.113.24'
 			};
 		}
 		const table = auditTables[i % auditTables.length]!;
 		const day = occurredAt.slice(0, 10);
-		const diffs: Record<(typeof auditTables)[number], NonNullable<AuditEntry['diff']>> = {
+		const diffs: Record<(typeof auditTables)[number], NonNullable<AuditEntry['changes']>> = {
 			time_entries: {
 				ended_at: [null, `${day}T16:5${i % 10}:00+02:00`],
 				end_reason: [null, 'leave']
@@ -749,7 +751,8 @@ function seedAudit(): AuditEntry[] {
 			table,
 			rowId: seq(5000 + i),
 			subjectEmployeeId: table === 'month_closings' || table === 'users' ? null : subject.id,
-			diff: diffs[table],
+			changes: diffs[table],
+			context: null,
 			requestId: null,
 			ip: null
 		};
@@ -928,8 +931,15 @@ export const hrHandlers = [
 	}),
 
 	http.get('/api/vacation/notices', ({ request }) => {
-		const year = Number(new URL(request.url).searchParams.get('year'));
-		return HttpResponse.json(notices.filter((notice) => notice.bucketYear === year));
+		const search = new URL(request.url).searchParams;
+		const year = Number(search.get('year'));
+		const limit = Number(search.get('limit') ?? 50);
+		const offset = Number(search.get('cursor') ?? 0);
+		const matching = notices.filter((notice) => notice.bucketYear === year);
+		return HttpResponse.json({
+			items: matching.slice(offset, offset + limit),
+			nextCursor: offset + limit < matching.length ? String(offset + limit) : null
+		});
 	}),
 
 	http.post('/api/vacation/notices', async ({ request }) => {

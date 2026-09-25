@@ -76,7 +76,8 @@ describe('team calendar', () => {
 		renderApp('/team/calendar');
 		await screen.findByRole('region', { name: 'Teamkalender September 2026' });
 
-		await userEvent.selectOptions(screen.getByLabelText('Team'), 'Lohnbuchhaltung');
+		await userEvent.click(screen.getByRole('button', { name: /Team$/ }));
+		await userEvent.click(await screen.findByRole('option', { name: 'Lohnbuchhaltung' }));
 
 		expect(
 			await within(await screen.findByRole('row', { name: /^Frank Oberdiek/ })).findAllByText(
@@ -91,14 +92,14 @@ describe('team calendar', () => {
 		signInAs('hr');
 		renderApp('/team/calendar');
 		await screen.findByRole('region', { name: 'Teamkalender September 2026' });
-		const teams = screen.getByLabelText('Team');
-		expect(
-			within(teams)
-				.getAllByRole('option')
-				.map((option) => option.textContent)
-		).toEqual(['Steuerberatung', 'Lohnbuchhaltung', 'Finanzbuchhaltung']);
+		await userEvent.click(screen.getByRole('button', { name: /Team$/ }));
+		expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+			'Steuerberatung',
+			'Lohnbuchhaltung',
+			'Finanzbuchhaltung'
+		]);
 
-		await userEvent.selectOptions(teams, 'Finanzbuchhaltung');
+		await userEvent.click(screen.getByRole('option', { name: 'Finanzbuchhaltung' }));
 
 		expect(await screen.findByText('In diesem Team ist niemand eingetragen.')).toBeInTheDocument();
 	});

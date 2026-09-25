@@ -53,7 +53,7 @@ export function ContractForm({ employee, current, workModels, onDone }: Props) {
 				<p className={styles.lead}>{t('contracts.newHint')}</p>
 			</div>
 			<div className={styles.fields}>
-				<FormDate control={control} name="validFrom" label={t('contracts.validFrom')} />
+				<FormDate control={control} name="validFrom" label={t('contracts.validFrom')} autoFocus />
 				<ContractFields control={control} workModels={workModels} />
 			</div>
 			{save.error && <Notice tone="error">{errorText(save.error)}</Notice>}

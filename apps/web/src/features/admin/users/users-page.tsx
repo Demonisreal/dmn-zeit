@@ -6,12 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
+import { formatInstant } from '../../../i18n/format';
 import { employeesQuery } from '../../hr/api';
-import { formatInstant } from '../../hr/dates';
 import { fullName } from '../../hr/people/employee-options';
-import { Loading, LoadError } from '../../hr/ui/states';
 import styles from '../../hr/ui/page.module.css';
 import { AdminNav } from '../admin-nav';
 import { usersQuery } from '../api';
@@ -32,8 +32,11 @@ type Props = {
 export function UsersPage({ selfId }: Props) {
 	const { t, i18n } = useTranslation(['admin', 'common']);
 	const [inviting, setInviting] = useState(false);
+	const [closed, setClosed] = useState(false);
 	const [invited, setInvited] = useState<string>();
 	const [editing, setEditing] = useState<string | null>(null);
+	// the row's edit button is rebuilt after editing and takes the focus back
+	const [edited, setEdited] = useState<string | null>(null);
 	const users = useQuery(usersQuery);
 	const employees = useQuery(employeesQuery(true));
 	const failed = [users, employees].find((query) => query.isError);
@@ -98,7 +101,11 @@ export function UsersPage({ selfId }: Props) {
 													</span>
 												) : (
 													editing !== user.id && (
-														<Button variant="quiet" onPress={() => setEditing(user.id)}>
+														<Button
+															variant="quiet"
+															autoFocus={edited === user.id}
+															onPress={() => setEditing(user.id)}
+														>
 															{t('edit')}
 														</Button>
 													)
@@ -112,7 +119,10 @@ export function UsersPage({ selfId }: Props) {
 												<UserEditor
 													user={user}
 													employees={people}
-													onDone={() => setEditing(null)}
+													onDone={() => {
+														setEditing(null);
+														setEdited(user.id);
+													}}
 												/>
 											</td>
 										</tr>
@@ -137,6 +147,7 @@ export function UsersPage({ selfId }: Props) {
 					{!inviting && (
 						<Button
 							variant="primary"
+							autoFocus={closed}
 							onPress={() => {
 								setInvited(undefined);
 								setInviting(true);
@@ -152,6 +163,7 @@ export function UsersPage({ selfId }: Props) {
 						onDone={(email) => {
 							setInviting(false);
 							setInvited(email);
+							setClosed(true);
 						}}
 					/>
 				)}

@@ -2,11 +2,11 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { Absence } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { Tag } from '../../components/ui/tag';
-import { formatDays, formatMinutes } from '../../i18n/format';
+import { formatDays, formatInstant, formatMinutes } from '../../i18n/format';
 import { HalfDays, TypeTag } from '../absences/absence-tags';
 import { absencesQuery, refreshAbsences } from '../absences/api';
-import { formatInstant, formatPeriod } from '../absences/dates';
-import { approveAbsence, inboxRange, rejectAbsence } from './api';
+import { formatPeriod } from '../absences/dates';
+import { approveAbsence, rejectAbsence } from './api';
 import { Decision } from './decision';
 import styles from './inbox.module.css';
 import { InboxSection } from './inbox-section';
@@ -18,11 +18,7 @@ type Props = {
 export function AbsenceRequests({ onDone }: Props) {
 	const { t } = useTranslation('inbox');
 	const list = useInfiniteQuery(
-		absencesQuery({
-			scope: 'inbox',
-			...inboxRange('ahead'),
-			status: ['pending', 'cancel_pending']
-		})
+		absencesQuery({ scope: 'inbox', status: ['pending', 'cancel_pending'] })
 	);
 	return (
 		<InboxSection
@@ -48,6 +44,8 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 	const queryClient = useQueryClient();
 	const period = formatPeriod(absence.startDate, absence.endDate, lng);
 	const name = absence.employee.name;
+	const cancelling = absence.status === 'cancel_pending';
+	const subject = `${name}, ${t(`absences:type.${absence.type}`)} ${period}`;
 
 	return (
 		<li className={styles.item}>
@@ -55,9 +53,7 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 				<p className={styles.who}>{name}</p>
 				<p className={styles.what}>
 					<TypeTag type={absence.type} />{' '}
-					{absence.status === 'cancel_pending' && (
-						<Tag tone="warning">{t('absences.cancelRequested')}</Tag>
-					)}{' '}
+					{cancelling && <Tag tone="warning">{t('absences.cancelRequested')}</Tag>}{' '}
 					<span className={styles.mono}>{period}</span>{' '}
 					<HalfDays absence={absence} className={styles.quiet} />{' '}
 					<span className={styles.amount}>
@@ -74,12 +70,16 @@ function AbsenceRequest({ absence, onDone }: RequestProps) {
 				</p>
 			</div>
 			<Decision
-				label={`${name}, ${t(`absences:type.${absence.type}`)} ${period}`}
+				label={cancelling ? `${subject}, ${t('absences.cancelRequested')}` : subject}
 				onApprove={() => approveAbsence(absence.id)}
 				onReject={(note) => rejectAbsence(absence.id, note)}
 				onDone={async (outcome) => {
 					await refreshAbsences(queryClient);
-					onDone(t(`decided.${outcome}`, { name }));
+					const decided = {
+						approved: cancelling ? 'decided.cancelApproved' : 'decided.approved',
+						rejected: cancelling ? 'decided.cancelRejected' : 'decided.rejected'
+					} as const;
+					onDone(t(decided[outcome], { name }));
 				}}
 			/>
 		</li>

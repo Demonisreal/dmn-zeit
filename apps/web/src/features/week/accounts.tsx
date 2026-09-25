@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { formatDays } from '../../i18n/format';
-import { openAbsencesQuery, openCorrectionsQuery, vacationQuery } from './api';
+import { vacationQuery } from '../vacation/api';
+import { openAbsencesQuery, openCorrectionsQuery } from './api';
 import styles from './accounts.module.css';
 import { addDays, todayIso } from './dates';
 

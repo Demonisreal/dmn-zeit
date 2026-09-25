@@ -6,13 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Skeleton } from '../../components/ui/skeleton';
-import { formatDate, formatMinutes } from '../../i18n/format';
+import { LoadError, Loading } from '../../components/ui/states';
+import { formatDate, formatMinutes, formatMonth } from '../../i18n/format';
 import { daysQuery, flexQuery } from '../week/api';
-import { lastOfMonth, monthName, shiftMonth, todayIso } from '../week/dates';
+import { lastOfMonth, shiftMonth, todayIso } from '../week/dates';
 import { DayTable } from '../week/day-table';
 import styles from '../week/page.module.css';
 import { PeriodNav } from '../week/period-nav';
-import { LoadError, TableLoading } from '../week/states';
 import { AckForm } from './ack-form';
 
 type Props = {
@@ -33,7 +33,7 @@ export function TimePage({ session, month, employee }: Props) {
 			<header className={styles.head}>
 				<VisuallyHidden elementType="h1">{t('nav:time')}</VisuallyHidden>
 				<PeriodNav
-					label={monthName(shown, i18n.language)}
+					label={formatMonth(shown, i18n.language)}
 					previous={t('previous')}
 					next={t('next')}
 					current={t('current')}
@@ -83,7 +83,7 @@ function Month({ employeeId, month, own, canAck }: MonthProps) {
 		return days.isError ? (
 			<LoadError error={days.error} onRetry={() => void days.refetch()} />
 		) : (
-			<TableLoading rows={10} />
+			<Loading rows={10} />
 		);
 	}
 
@@ -101,7 +101,7 @@ function Month({ employeeId, month, own, canAck }: MonthProps) {
 				<span className={styles.caption}>
 					{month === todayIso().slice(0, 7)
 						? t('week:asOf', { date: formatDate(flex.data.asOf, lng) })
-						: t('monthEnd', { month: monthName(month, lng) })}
+						: t('monthEnd', { month: formatMonth(month, lng) })}
 				</span>
 			</>
 		)
@@ -110,7 +110,7 @@ function Month({ employeeId, month, own, canAck }: MonthProps) {
 	return (
 		<>
 			<DayTable
-				label={t('table', { month: monthName(month, lng) })}
+				label={t('table', { month: formatMonth(month, lng) })}
 				range={days.data}
 				fetchedAt={days.dataUpdatedAt}
 				totalLabel={t('total')}

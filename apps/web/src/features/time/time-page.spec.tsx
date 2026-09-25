@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../mocks/server';
 import { renderApp } from '../../test/render-app';
@@ -103,6 +103,27 @@ describe('month', () => {
 			expect(within(finding).getByLabelText('Notiz')).toHaveAttribute('aria-invalid', 'true')
 		);
 		expect(sent).toBe(false);
+	});
+
+	it('offers a retry when the month of a team member cannot be loaded', async () => {
+		signInForWeek('team_lead');
+		server.use(
+			http.get(
+				'/api/employees/:id/days',
+				() =>
+					HttpResponse.json(
+						{ code: 'FORBIDDEN', message: 'Not in your team', details: null },
+						{ status: 403 }
+					),
+				{ once: true }
+			)
+		);
+		renderApp(`/time?employee=${katrinId}`);
+
+		expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt.');
+		await userEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+
+		expect(await monthTable('September 2026')).toBeInTheDocument();
 	});
 
 	it('shows employees who acknowledged a finding but offers no button', async () => {

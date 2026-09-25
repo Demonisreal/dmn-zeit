@@ -9,6 +9,7 @@
 	"loadFailed": "The page could not be loaded",
 	"toStart": "Go to the start page",
 	"retry": "Try again",
+	"cancel": "Cancel",
 	"roles": {
 		"employee": "Employee",
 		"team_lead": "Team lead",
@@ -32,6 +33,7 @@
 		"tooLong": "At most {{count}} characters",
 		"email": "Not a valid email address",
 		"format": {
+			"date": "Year between 1900 and 2100",
 			"month": "Month as YYYY-MM",
 			"monthDay": "Not a valid cut-off day, 29 February is not allowed",
 			"dayCount": "Days with two decimals",
@@ -41,6 +43,7 @@
 			"recoveryCode": "Ten characters, like ABCDE-FGH23"
 		},
 		"range": {
+			"required": "The date range is missing",
 			"unordered": "The end is before the start",
 			"tooLong": "At most {{max}} days"
 		},

@@ -4,32 +4,23 @@ import { correctionPageSchema } from '@zeit/shared';
 import { request } from '../../lib/api/client';
 import { todayIso } from '../absences/dates';
 
-// the api wants a range of at most 366 days; requests are made ahead, corrections look back
-export function inboxRange(kind: 'ahead' | 'back') {
+// only scope=inbox may go without a range, everything else needs one of at most 366 days
+export function inboxRange() {
 	const today = parseDate(todayIso());
-	const from = kind === 'ahead' ? today.subtract({ days: 60 }) : today.subtract({ days: 365 });
-	return { from: from.toString(), to: from.add({ days: 365 }).toString() };
+	return { from: today.subtract({ days: 365 }).toString(), to: today.toString() };
 }
 
-export const pendingCorrectionsQuery = () => {
-	const { from, to } = inboxRange('back');
-	return infiniteQueryOptions({
-		queryKey: ['corrections', 'inbox', from],
+export const pendingCorrectionsQuery = () =>
+	infiniteQueryOptions({
+		queryKey: ['corrections', 'inbox'],
 		queryFn: ({ pageParam }) => {
-			const search = new URLSearchParams({
-				scope: 'inbox',
-				status: 'pending',
-				from,
-				to,
-				limit: '100'
-			});
+			const search = new URLSearchParams({ scope: 'inbox', status: 'pending', limit: '100' });
 			if (pageParam) search.set('cursor', pageParam);
 			return request(`/corrections?${search}`, { schema: correctionPageSchema });
 		},
 		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (page) => page.nextCursor ?? undefined
 	});
-};
 
 export const approveAbsence = (id: string) =>
 	request(`/absences/${id}/approve`, { method: 'POST' });

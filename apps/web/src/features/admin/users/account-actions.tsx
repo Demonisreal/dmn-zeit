@@ -3,9 +3,9 @@ import type { User } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { Notice } from '../../../components/ui/notice';
 import { useErrorText } from '../../hr/error-text';
-import { ConfirmDialog } from '../../hr/ui/confirm-dialog';
 import styles from '../../hr/ui/page.module.css';
 import { useReauth } from '../../security/reauth-dialog';
 import { inviteUser, resetUserMfa, setUserDisabled } from '../api';
@@ -83,7 +83,7 @@ export function AccountActions({ user }: Props) {
 				confirmLabel={t('users.disable')}
 				onConfirm={() => setDisabled(true)}
 				isPending={lock.isPending}
-				error={lock.error ? errorText(lock.error) : undefined}
+				error={lock.error && <Notice tone="error">{errorText(lock.error)}</Notice>}
 			>
 				<p>{t('users.disableText')}</p>
 			</ConfirmDialog>
@@ -96,7 +96,7 @@ export function AccountActions({ user }: Props) {
 					resetMfa.mutate(undefined, { onError: reauth.onError(() => resetMfa.mutate()) })
 				}
 				isPending={resetMfa.isPending}
-				error={resetMfa.error ? errorText(resetMfa.error) : undefined}
+				error={resetMfa.error && <Notice tone="error">{errorText(resetMfa.error)}</Notice>}
 			>
 				<p>{t('users.resetMfaText')}</p>
 			</ConfirmDialog>

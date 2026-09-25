@@ -4,16 +4,16 @@ import { useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { Checkbox } from '../../../components/ui/checkbox';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
 import { formatMinutes } from '../../../i18n/format';
 import { updateWorkModel, workModelsQuery } from '../api';
 import { useErrorText } from '../error-text';
 import { HrNav } from '../hr-nav';
-import { Checkbox } from '../ui/checkbox';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { WeekdayMinutes, weekMinutes } from '../weekday-minutes';
 import { WorkModelForm } from './work-model-form';
@@ -27,6 +27,7 @@ export function WorkModelsPage() {
 	const queryClient = useQueryClient();
 	const [includeArchived, setIncludeArchived] = useState(false);
 	const [editing, setEditing] = useState<Editing>();
+	const [closed, setClosed] = useState(false);
 	const models = useQuery(workModelsQuery(includeArchived));
 
 	const archive = useMutation({
@@ -104,7 +105,7 @@ export function WorkModelsPage() {
 						<p className={styles.lead}>{t('workModels.lead')}</p>
 					</div>
 					{editing === undefined && (
-						<Button variant="primary" onPress={() => setEditing(null)}>
+						<Button variant="primary" autoFocus={closed} onPress={() => setEditing(null)}>
 							{t('workModels.new')}
 						</Button>
 					)}
@@ -114,7 +115,10 @@ export function WorkModelsPage() {
 					<WorkModelForm
 						key={editing?.id ?? 'new'}
 						model={editing ?? undefined}
-						onDone={() => setEditing(undefined)}
+						onDone={() => {
+							setEditing(undefined);
+							setClosed(true);
+						}}
 					/>
 				)}
 

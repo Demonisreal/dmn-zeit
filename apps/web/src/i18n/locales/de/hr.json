@@ -177,7 +177,8 @@
 		"send_one": "Hinweis an {{count}} Person senden",
 		"send_other": "Hinweis an {{count}} Personen senden",
 		"sent_one": "{{count}} Hinweis versandt.",
-		"sent_other": "{{count}} Hinweise versandt."
+		"sent_other": "{{count}} Hinweise versandt.",
+		"more": "Ältere Hinweise laden"
 	},
 	"flex": {
 		"title": "Gleitzeitbuchungen",
@@ -330,6 +331,7 @@
 		"employee": "Person",
 		"chooseEmployee": "Für den Stundenzettel eine Person wählen.",
 		"csv": "CSV herunterladen",
+		"csvHint": "CSV mit Semikolon als Trennzeichen, UTF-8 mit BOM. Excel öffnet die Dateien ohne Zusatzschritt.",
 		"print": "Druckansicht öffnen",
 		"overview": "Monatsübersicht",
 		"notClosed": "Der Monat ist noch offen. Die Zahlen können sich bis zum Abschluss ändern.",
@@ -410,5 +412,13 @@
 		"generated": "Erstellt am {{at}} mit DMN Zeit",
 		"back": "Zurück",
 		"print": "Drucken"
+	},
+	"explain": {
+		"flex": {
+			"opening": {
+				"none": "Kein Übertrag aus einem Dezemberabschluss des Vorjahres",
+				"carryover": "Dazu {{minutes}} Übertrag aus dem Dezemberabschluss des Vorjahres, ohne eigene Buchung"
+			}
+		}
 	}
 }

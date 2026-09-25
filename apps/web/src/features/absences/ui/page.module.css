@@ -41,11 +41,6 @@
 	overflow-x: auto;
 }
 
-.loading {
-	display: grid;
-	gap: 0.5rem;
-}
-
 .muted {
 	color: var(--muted);
 }
@@ -57,4 +52,9 @@
 .count {
 	color: var(--muted);
 	font: 500 0.875rem var(--mono);
+}
+
+/* focused by script once a request is decided, a ring would make the heading look clickable */
+.anchor:focus {
+	outline: none;
 }

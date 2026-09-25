@@ -39,3 +39,19 @@ table.diff .before {
 table.diff .after {
 	color: var(--white);
 }
+
+.context {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.5rem 0.75rem;
+	max-width: 60rem;
+	margin: 0;
+	font-family: var(--mono);
+	font-size: 0.8125rem;
+}
+
+.context dd {
+	margin: 0;
+	color: var(--white);
+	overflow-wrap: anywhere;
+}

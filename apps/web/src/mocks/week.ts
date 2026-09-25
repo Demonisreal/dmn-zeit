@@ -353,6 +353,7 @@ function flexAccount(year: number): FlexAccount {
 		employeeId: employee.id,
 		year,
 		openingMinutes: 480,
+		openingExplanation: { key: 'flex.opening.none', params: {} },
 		balanceMinutes:
 			480 +
 			Array.from({ length: months }, (_, i) => diffs[i % diffs.length]!).reduce((a, b) => a + b, 0),

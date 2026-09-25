@@ -52,12 +52,14 @@ export function AddPasskey({ onCreated, onCancel }: Props) {
 					register.mutate(input);
 				})}
 			>
+				{/* opened on demand on the security page, in the setup flow it is there from the start */}
 				<FormField
 					control={control}
 					name="name"
 					label={t('passkey.name')}
 					description={t('passkey.nameHint')}
 					autoComplete="off"
+					autoFocus={onCancel !== undefined}
 				/>
 				{error && <ErrorNotice error={error} />}
 				<div className={styles.actions}>

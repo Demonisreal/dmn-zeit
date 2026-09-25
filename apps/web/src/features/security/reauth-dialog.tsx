@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
+import css from '../../components/ui/dialog.module.css';
 import { FormField } from '../../components/ui/field';
 import {
 	reauth,
@@ -16,7 +17,6 @@ import {
 	sessionQuery
 } from '../../lib/api/auth';
 import { hasCode } from '../../lib/api/errors';
-import css from './dialog.module.css';
 import { ErrorNotice } from './error-notice';
 import { signWithPasskey } from './passkey';
 
@@ -105,7 +105,15 @@ function ReauthForm({ onClose, onConfirmed }: Omit<Props, 'isOpen'>) {
 	const viaPasskey = confirm.variables === 'passkey';
 
 	return (
-		<form noValidate className={styles.body} onSubmit={handleSubmit(send)}>
+		<form
+			noValidate
+			className={styles.body}
+			onSubmit={(e) => {
+				// the dialog sits in a portal, react would still hand the submit to a form around the caller
+				e.stopPropagation();
+				void handleSubmit(send)(e);
+			}}
+		>
 			<Heading slot="title">{t('reauth.title')}</Heading>
 			<p>{t('reauth.intro')}</p>
 			{hasTotp && (

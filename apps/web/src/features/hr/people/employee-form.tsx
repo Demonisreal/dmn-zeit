@@ -13,10 +13,10 @@ import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
 import { FormField } from '../../../components/ui/field';
 import { Notice } from '../../../components/ui/notice';
+import { FormSelect } from '../../../components/ui/select-field';
 import { createEmployee } from '../api';
 import { useErrorText } from '../error-text';
 import { FormDate } from '../ui/date-field';
-import { FormSelect } from '../ui/select-field';
 import styles from '../ui/page.module.css';
 import { ContractFields } from './contract-fields';
 import { contractDefaults, contractShape } from './contract-schema';
@@ -94,7 +94,7 @@ export function EmployeeForm({ teams, workModels, onDone }: Props) {
 				<p className={styles.lead}>{t('people.newHint')}</p>
 			</div>
 			<div className={styles.fields}>
-				<FormField control={control} name="personnelNo" label={t('people.personnelNo')} />
+				<FormField control={control} name="personnelNo" label={t('people.personnelNo')} autoFocus />
 				<FormField control={control} name="firstName" label={t('people.firstName')} />
 				<FormField control={control} name="lastName" label={t('people.lastName')} />
 				<FormSelect

@@ -17,9 +17,3 @@ export function formatPeriod(start: string, end: string, lng: string) {
 		timeZone: 'UTC'
 	}).formatRange(utc(start), utc(end));
 }
-
-export function formatInstant(instant: string, lng: string, options: Intl.DateTimeFormatOptions) {
-	return new Intl.DateTimeFormat(tagFor(lng), { ...options, timeZone: 'Europe/Berlin' }).format(
-		new Date(instant)
-	);
-}

@@ -91,7 +91,7 @@ export function WorkModelForm({ model, onDone }: Props) {
 				<p className={styles.lead}>{t('workModels.formHint')}</p>
 			</div>
 			<div className={css.name}>
-				<FormField control={control} name="name" label={t('workModels.name')} />
+				<FormField control={control} name="name" label={t('workModels.name')} autoFocus />
 			</div>
 			<fieldset className={css.week}>
 				<legend className={css.legend}>{t('workModels.minutes')}</legend>

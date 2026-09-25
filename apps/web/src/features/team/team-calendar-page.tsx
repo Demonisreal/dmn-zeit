@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { hasRole, type Session } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../components/ui/empty-state';
-import { tagFor } from '../../i18n/format';
+import { SelectField } from '../../components/ui/select-field';
+import { LoadError, Loading } from '../../components/ui/states';
+import { formatMonth } from '../../i18n/format';
 import page from '../absences/ui/page.module.css';
 import { PeriodStepper } from '../absences/ui/period-stepper';
-import { SelectField } from '../absences/ui/select-field';
-import { LoadError, Loading } from '../absences/ui/states';
-import { teamCalendarQuery, teamsQuery } from './api';
+import { teamsQuery } from '../hr/api';
+import { teamCalendarQuery } from './api';
 import styles from './team-calendar.module.css';
 import { TeamGrid } from './team-grid';
 
@@ -64,15 +65,10 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 					{options.length > 1 && (
 						<SelectField
 							label={t('team')}
-							value={selected ?? ''}
-							onChange={(next) => onSearch({ team: next })}
-						>
-							{options.map((option) => (
-								<option key={option.id} value={option.id}>
-									{option.name}
-								</option>
-							))}
-						</SelectField>
+							options={options.map((option) => ({ id: option.id, label: option.name }))}
+							value={selected ?? null}
+							onChange={(key) => key !== null && onSearch({ team: String(key) })}
+						/>
 					)}
 					<PeriodStepper
 						label={t('month')}
@@ -82,11 +78,7 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 						onNext={() => onSearch({ month: shift(month, 1) })}
 					>
 						<span id="team-calendar-month" className={styles.month}>
-							{new Intl.DateTimeFormat(tagFor(i18n.language), {
-								month: 'long',
-								year: 'numeric',
-								timeZone: 'UTC'
-							}).format(new Date(`${month}-01T00:00:00Z`))}
+							{formatMonth(month, i18n.language)}
 						</span>
 					</PeriodStepper>
 				</div>

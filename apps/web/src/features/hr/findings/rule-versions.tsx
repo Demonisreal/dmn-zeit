@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import type { RuleSetInfo } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { formatDate, formatMinutes } from '../../../i18n/format';
 import { ruleVersionsQuery } from '../api';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 
 const limits: (keyof RuleSetInfo['limits'])[] = [

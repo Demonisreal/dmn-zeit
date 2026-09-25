@@ -7,6 +7,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import { FormTextArea } from '../../components/ui/field';
 import { Notice } from '../../components/ui/notice';
 import { formatMinutes, formatTime } from '../../i18n/format';
 import { hasCode } from '../../lib/api/errors';
@@ -22,7 +23,6 @@ import {
 	type CorrectionFormOutput
 } from './correction-schema';
 import css from './form.module.css';
-import { FormTextArea } from './text-area';
 import { FormTime } from './time-field';
 
 // react-aria refuses className={undefined}, naming the classes keeps them plain strings

@@ -9,6 +9,7 @@
 	"loadFailed": "Seite konnte nicht geladen werden",
 	"toStart": "Zur Startseite",
 	"retry": "Erneut versuchen",
+	"cancel": "Abbrechen",
 	"roles": {
 		"employee": "Beschäftigte",
 		"team_lead": "Teamleitung",
@@ -32,6 +33,7 @@
 		"tooLong": "Höchstens {{count}} Zeichen",
 		"email": "Keine gültige E-Mail-Adresse",
 		"format": {
+			"date": "Jahr zwischen 1900 und 2100",
 			"month": "Monat im Format JJJJ-MM",
 			"monthDay": "Kein gültiger Stichtag, der 29.02. ist nicht erlaubt",
 			"dayCount": "Tage mit zwei Nachkommastellen",
@@ -41,6 +43,7 @@
 			"recoveryCode": "Zehn Zeichen, wie ABCDE-FGH23"
 		},
 		"range": {
+			"required": "Zeitraum fehlt",
 			"unordered": "Das Ende liegt vor dem Anfang",
 			"tooLong": "Höchstens {{max}} Tage"
 		},

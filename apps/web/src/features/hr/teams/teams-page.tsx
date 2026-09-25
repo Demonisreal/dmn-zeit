@@ -5,10 +5,10 @@ import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { employeesQuery, teamsQuery } from '../api';
 import { HrNav } from '../hr-nav';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { TeamLeadsForm } from './team-leads-form';
 import { TeamNameForm } from './team-name-form';
@@ -18,6 +18,7 @@ type Editing = { team: Team; part: 'name' | 'leads' } | null;
 export function TeamsPage() {
 	const { t, i18n } = useTranslation('hr');
 	const [creating, setCreating] = useState(false);
+	const [closed, setClosed] = useState(false);
 	const [editing, setEditing] = useState<Editing>(null);
 	const teams = useQuery(teamsQuery);
 	const employees = useQuery(employeesQuery());
@@ -104,12 +105,19 @@ export function TeamsPage() {
 						<p className={styles.lead}>{t('teams.lead')}</p>
 					</div>
 					{!creating && (
-						<Button variant="primary" onPress={() => setCreating(true)}>
+						<Button variant="primary" autoFocus={closed} onPress={() => setCreating(true)}>
 							{t('teams.new')}
 						</Button>
 					)}
 				</header>
-				{creating && <TeamNameForm onDone={() => setCreating(false)} />}
+				{creating && (
+					<TeamNameForm
+						onDone={() => {
+							setCreating(false);
+							setClosed(true);
+						}}
+					/>
+				)}
 				<section className={styles.section} aria-label={t('teams.title')}>
 					{list}
 				</section>

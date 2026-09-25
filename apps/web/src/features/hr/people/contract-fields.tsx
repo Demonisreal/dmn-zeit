@@ -2,7 +2,7 @@ import type { WorkModel } from '@zeit/shared';
 import { useWatch, type Control, type FieldPath, type FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { FormField } from '../../../components/ui/field';
-import { FormSelect } from '../ui/select-field';
+import { FormSelect } from '../../../components/ui/select-field';
 import styles from '../ui/page.module.css';
 import { WeekdayMinutes } from '../weekday-minutes';
 import { basisDayOptions, type ContractValues } from './contract-schema';

@@ -13,8 +13,8 @@ import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
 import { FormField } from '../../../components/ui/field';
 import { Notice } from '../../../components/ui/notice';
+import { FormSelect } from '../../../components/ui/select-field';
 import { useErrorText } from '../../hr/error-text';
-import { FormSelect } from '../../hr/ui/select-field';
 import styles from '../../hr/ui/page.module.css';
 import { useReauth } from '../../security/reauth-dialog';
 import { updateUser } from '../api';
@@ -77,7 +77,7 @@ export function UserEditor({ user, employees, onDone }: Props) {
 				onSubmit={submit}
 			>
 				<div className={styles.fields}>
-					<FormField control={control} name="displayName" label={t('users.name')} />
+					<FormField control={control} name="displayName" label={t('users.name')} autoFocus />
 					<FormSelect
 						control={control}
 						name="role"

@@ -5,7 +5,6 @@ import {
 	correctionPageSchema,
 	dayRangeSchema,
 	flexAccountSchema,
-	vacationAccountSchema,
 	type CreateCorrectionInput
 } from '@zeit/shared';
 import { request } from '../../lib/api/client';
@@ -36,13 +35,6 @@ export const flexQuery = (employeeId: string, year: number) =>
 		queryKey: ['flex', employeeId, year],
 		queryFn: () =>
 			request(`/employees/${employeeId}/flex?year=${year}`, { schema: flexAccountSchema })
-	});
-
-export const vacationQuery = (employeeId: string, year: number) =>
-	queryOptions({
-		queryKey: ['vacation', employeeId, year],
-		queryFn: () =>
-			request(`/employees/${employeeId}/vacation?year=${year}`, { schema: vacationAccountSchema })
 	});
 
 export const openAbsencesQuery = (from: string, to: string) =>

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
-import { Button } from '../../components/ui/button';
+import { Button } from './button';
 import css from './dialog.module.css';
 
 // react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
@@ -28,12 +28,13 @@ export function ConfirmDialog({
 	isPending,
 	error
 }: Props) {
-	const { t } = useTranslation('security');
+	const { t } = useTranslation();
 	return (
 		<ModalOverlay
 			isOpen={isOpen}
 			onOpenChange={(open) => !open && onClose()}
 			isDismissable={!isPending}
+			isKeyboardDismissDisabled={isPending}
 			className={styles.overlay}
 		>
 			<Modal className={styles.modal}>

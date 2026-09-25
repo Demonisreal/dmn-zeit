@@ -3,11 +3,11 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { formatDate } from '../../../i18n/format';
 import { contractsQuery, employeeQuery, teamsQuery, workModelsQuery } from '../api';
 import { currentMonth, todayIso } from '../dates';
 import { HrNav } from '../hr-nav';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { ContractForm } from './contract-form';
 import { ContractHistory } from './contract-history';
@@ -24,6 +24,8 @@ export function EmployeePage({ id }: Props) {
 	const { t, i18n } = useTranslation('hr');
 	const [editing, setEditing] = useState(false);
 	const [adding, setAdding] = useState(false);
+	// only the button of the form that just closed mounts again and takes the focus back
+	const [closed, setClosed] = useState(false);
 	const employee = useQuery(employeeQuery(id));
 	const contracts = useQuery(contractsQuery(id));
 	const workModels = useQuery(workModelsQuery(true));
@@ -50,14 +52,21 @@ export function EmployeePage({ id }: Props) {
 						</p>
 					</div>
 					{!editing && (
-						<Button variant="secondary" onPress={() => setEditing(true)}>
+						<Button variant="secondary" autoFocus={closed} onPress={() => setEditing(true)}>
 							{t('people.edit')}
 						</Button>
 					)}
 				</header>
 
 				{editing ? (
-					<MasterDataForm employee={person} teams={teams.data} onDone={() => setEditing(false)} />
+					<MasterDataForm
+						employee={person}
+						teams={teams.data}
+						onDone={() => {
+							setEditing(false);
+							setClosed(true);
+						}}
+					/>
 				) : (
 					<dl className={styles.facts}>
 						<dt>{t('people.personnelNo')}</dt>
@@ -93,7 +102,7 @@ export function EmployeePage({ id }: Props) {
 					<div className={styles.sectionHead}>
 						<h2 id="contracts">{t('contracts.title')}</h2>
 						{!adding && (
-							<Button variant="secondary" onPress={() => setAdding(true)}>
+							<Button variant="secondary" autoFocus={closed} onPress={() => setAdding(true)}>
 								{t('contracts.new')}
 							</Button>
 						)}
@@ -103,7 +112,10 @@ export function EmployeePage({ id }: Props) {
 							employee={person}
 							current={contractOn(contracts.data, todayIso())}
 							workModels={workModels.data}
-							onDone={() => setAdding(false)}
+							onDone={() => {
+								setAdding(false);
+								setClosed(true);
+							}}
 						/>
 					)}
 					<ContractHistory

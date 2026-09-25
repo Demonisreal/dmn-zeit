@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Notice } from '../../../components/ui/notice';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
-import { formatDate } from '../../../i18n/format';
-import { currentYear, formatInstant } from '../../hr/dates';
-import { Loading, LoadError } from '../../hr/ui/states';
+import { formatDate, formatInstant } from '../../../i18n/format';
+import { currentYear } from '../../hr/dates';
 import styles from '../../hr/ui/page.module.css';
 import { AdminNav } from '../admin-nav';
 import { holidaysQuery, tenantQuery } from '../api';

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Checkbox } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import { formatInstant } from '../../i18n/format';
 import { CopyButton } from './copy-button';
-import { formatInstant } from './format-instant';
 import css from './security.module.css';
 
 // react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
-const styles = css as Record<'flow' | 'anchor' | 'codes' | 'actions' | 'checkbox' | 'box', string>;
+const styles = css as Record<'flow' | 'anchor' | 'codes' | 'actions', string>;
 
 type Props = {
 	codes: string[];
@@ -51,8 +51,7 @@ export function RecoveryCodes({ codes, doneLabel, onDone }: Props) {
 				<CopyButton text={codes.join('\n')} label={t('copy')} />
 				<Button onPress={download}>{t('recovery.download')}</Button>
 			</div>
-			<Checkbox isSelected={saved} onChange={setSaved} className={styles.checkbox}>
-				<span className={styles.box} aria-hidden="true" />
+			<Checkbox isSelected={saved} onChange={setSaved}>
 				{t('recovery.saved')}
 			</Checkbox>
 			<div className={styles.actions}>

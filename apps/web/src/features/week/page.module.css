@@ -52,11 +52,6 @@
 	font-size: 0.875rem;
 }
 
-.loading {
-	display: grid;
-	gap: 0.5rem;
-}
-
 .caption {
 	display: block;
 	color: var(--muted);

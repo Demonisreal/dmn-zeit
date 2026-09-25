@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { SelectField } from '../../../components/ui/select-field';
+import { LoadError } from '../../../components/ui/states';
+import { formatMonth } from '../../../i18n/format';
 import { employeesQuery, withSearch } from '../api';
-import { currentMonth, formatMonth, monthsBack } from '../dates';
+import { currentMonth, monthsBack } from '../dates';
 import { HrNav } from '../hr-nav';
 import { employeeOptions } from '../people/employee-options';
-import { SelectField } from '../ui/select-field';
-import { LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 import { MonthOverview } from './month-overview';
 
@@ -32,6 +33,9 @@ export function ExportsPage({ month, employeeId, onChange }: Props) {
 					<div>
 						<h1>{t('exports.title')}</h1>
 						<p className={styles.lead}>{t('exports.lead')}</p>
+						<p id="csv-hint" className={`${styles.lead} ${styles.small}`}>
+							{t('exports.csvHint')}
+						</p>
 					</div>
 				</header>
 				<div className={styles.filters}>
@@ -69,6 +73,7 @@ export function ExportsPage({ month, employeeId, onChange }: Props) {
 									format: 'csv'
 								})}
 								download
+								aria-describedby="csv-hint"
 							>
 								{t('exports.csv')}
 							</a>
@@ -84,7 +89,11 @@ export function ExportsPage({ month, employeeId, onChange }: Props) {
 				<section className={styles.section} aria-labelledby="overview">
 					<div className={styles.sectionHead}>
 						<h2 id="overview">{t('exports.overview')}</h2>
-						<a href={withSearch('/api/exports/month-overview', { month, format: 'csv' })} download>
+						<a
+							href={withSearch('/api/exports/month-overview', { month, format: 'csv' })}
+							download
+							aria-describedby="csv-hint"
+						>
 							{t('exports.csv')}
 						</a>
 					</div>

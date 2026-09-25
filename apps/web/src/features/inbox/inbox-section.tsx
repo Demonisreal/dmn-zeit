@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
+import { LoadError, Loading } from '../../components/ui/states';
 import page from '../absences/ui/page.module.css';
-import { LoadError, Loading } from '../absences/ui/states';
 import styles from './inbox.module.css';
 
 type ListState = {

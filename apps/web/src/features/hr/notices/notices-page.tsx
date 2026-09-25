@@ -1,21 +1,21 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { noticeChannels, type NoticeChannel, type VacationNotice } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { Checkbox } from '../../../components/ui/checkbox';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { SelectField } from '../../../components/ui/select-field';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
-import { formatDate, formatDays } from '../../../i18n/format';
+import { formatDate, formatDays, formatInstant } from '../../../i18n/format';
 import { employeesQuery, noticesQuery, sendNotices } from '../api';
-import { currentYear, formatInstant } from '../dates';
+import { currentYear } from '../dates';
 import { useErrorText } from '../error-text';
 import { HrNav } from '../hr-nav';
 import { byLastName, fullName } from '../people/employee-options';
-import { Checkbox } from '../ui/checkbox';
-import { SelectField } from '../ui/select-field';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
 
 export function NoticesPage() {
@@ -26,7 +26,7 @@ export function NoticesPage() {
 	const [channel, setChannel] = useState<NoticeChannel>('in_app');
 	const [chosen, setChosen] = useState<string[]>([]);
 	const employees = useQuery(employeesQuery());
-	const notices = useQuery(noticesQuery(year));
+	const notices = useInfiniteQuery(noticesQuery(year));
 	const date = (iso: string) => formatDate(iso, i18n.language);
 
 	const send = useMutation({
@@ -38,7 +38,7 @@ export function NoticesPage() {
 	});
 
 	const latest = new Map<string, VacationNotice>();
-	for (const notice of notices.data ?? []) {
+	for (const notice of notices.data?.pages.flatMap((page) => page.items) ?? []) {
 		const seen = latest.get(notice.employee.id);
 		if (!seen || seen.sentAt < notice.sentAt) latest.set(notice.employee.id, notice);
 	}
@@ -132,6 +132,17 @@ export function NoticesPage() {
 						</tbody>
 					</Table>
 				</div>
+				{notices.hasNextPage && (
+					<div className={styles.actions}>
+						<Button
+							variant="secondary"
+							isPending={notices.isFetchingNextPage}
+							onPress={() => void notices.fetchNextPage()}
+						>
+							{t('notices.more')}
+						</Button>
+					</div>
+				)}
 				<div className={styles.filters}>
 					<SelectField
 						label={t('notices.channelLabel')}

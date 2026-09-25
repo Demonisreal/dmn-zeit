@@ -80,11 +80,6 @@
 	overflow-x: auto;
 }
 
-.loading {
-	display: grid;
-	gap: 0.5rem;
-}
-
 .muted {
 	color: var(--muted);
 }
@@ -120,4 +115,9 @@
 .facts dd {
 	margin: 0;
 	color: var(--white);
+}
+
+/* only reached by script after a form or row is gone, a ring around a heading would read as a control */
+.anchor:focus {
+	outline: none;
 }

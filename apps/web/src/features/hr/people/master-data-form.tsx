@@ -7,9 +7,9 @@ import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
 import { FormField } from '../../../components/ui/field';
 import { Notice } from '../../../components/ui/notice';
+import { FormSelect } from '../../../components/ui/select-field';
 import { updateEmployee } from '../api';
 import { useErrorText } from '../error-text';
-import { FormSelect } from '../ui/select-field';
 import styles from '../ui/page.module.css';
 import { noTeam, teamField, teamOptions } from './employee-options';
 
@@ -59,7 +59,7 @@ export function MasterDataForm({ employee, teams, onDone }: Props) {
 		>
 			<h2 id="master-data">{t('people.editTitle')}</h2>
 			<div className={styles.fields}>
-				<FormField control={control} name="personnelNo" label={t('people.personnelNo')} />
+				<FormField control={control} name="personnelNo" label={t('people.personnelNo')} autoFocus />
 				<FormField control={control} name="firstName" label={t('people.firstName')} />
 				<FormField control={control} name="lastName" label={t('people.lastName')} />
 				<FormSelect

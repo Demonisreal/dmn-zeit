@@ -1,6 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import { teamCalendarSchema, teamSchema } from '@zeit/shared';
-import { z } from 'zod';
+import { teamCalendarSchema } from '@zeit/shared';
 import { request } from '../../lib/api/client';
 
 // without a team the api answers with the caller's own team
@@ -12,8 +11,3 @@ export const teamCalendarQuery = (month: string, team: string | undefined) =>
 				schema: teamCalendarSchema
 			})
 	});
-
-export const teamsQuery = queryOptions({
-	queryKey: ['teams'],
-	queryFn: () => request('/teams', { schema: z.array(teamSchema) })
-});

@@ -1,8 +1,7 @@
 import type { VacationAccount, VacationBucket } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { Table } from '../../components/ui/table';
-import { formatDate, formatDays } from '../../i18n/format';
-import { formatInstant } from '../absences/dates';
+import { formatDate, formatDays, formatInstant } from '../../i18n/format';
 import { useExplain } from './explain';
 import styles from './vacation.module.css';
 

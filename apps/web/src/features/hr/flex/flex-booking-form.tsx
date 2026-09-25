@@ -9,15 +9,14 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
-import { FormField } from '../../../components/ui/field';
+import { FormField, FormTextArea } from '../../../components/ui/field';
 import { Notice } from '../../../components/ui/notice';
+import { FormSelect } from '../../../components/ui/select-field';
 import { bookFlex } from '../api';
 import { todayIso } from '../dates';
 import { durationField } from '../duration';
 import { useErrorText } from '../error-text';
 import { FormDate } from '../ui/date-field';
-import { FormSelect } from '../ui/select-field';
-import { FormTextArea } from '../ui/text-area-field';
 import styles from '../ui/page.module.css';
 
 const fields = createFlexBookingSchema.shape;
@@ -70,6 +69,7 @@ export function FlexBookingForm({ employeeId, onDone }: Props) {
 					control={control}
 					name="type"
 					label={t('flex.type')}
+					autoFocus
 					options={flexBookingTypes
 						.filter((type) => type !== 'cap_forfeit')
 						.map((type) => ({ id: type, label: t(`flex.types.${type}`) }))}

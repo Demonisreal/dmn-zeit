@@ -4,17 +4,17 @@ import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { SelectField } from '../../../components/ui/select-field';
+import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
+import { formatInstant } from '../../../i18n/format';
 import { auditQuery, employeesQuery, type AuditFilter } from '../api';
-import { formatInstant } from '../dates';
 import { HrNav } from '../hr-nav';
 import { employeeOptions, fullName } from '../people/employee-options';
 import { DateInputField } from '../ui/date-field';
-import { SelectField } from '../ui/select-field';
-import { Loading, LoadError } from '../ui/states';
 import styles from '../ui/page.module.css';
-import { AuditDiff } from './audit-diff';
+import { AuditContext, AuditDiff } from './audit-diff';
 
 export const auditTables = [
 	'time_entries',
@@ -98,57 +98,66 @@ export function AuditPage({ filter, onFilter }: Props) {
 							</tr>
 						</thead>
 						<tbody>
-							{entries.map((entry) => (
-								<Fragment key={entry.id}>
-									<tr>
-										<td className={styles.mono}>
-											{formatInstant(entry.occurredAt, i18n.language)}
-										</td>
-										<td>
-											{entry.actorName ?? t('audit.system')}
-											{entry.actorRole && (
-												<span className={`${styles.small} ${styles.muted}`}>
-													{' '}
-													{t(`common:roles.${entry.actorRole}`)}
-												</span>
-											)}
-										</td>
-										<td>
-											<Tag>{actionText(entry)}</Tag>
-										</td>
-										<td>
-											{isKnownTable(entry.table)
-												? t(`audit.tables.${entry.table}`)
-												: (entry.table ?? '–')}
-										</td>
-										<td>
-											{entry.subjectEmployeeId ? (names.get(entry.subjectEmployeeId) ?? '–') : '–'}
-										</td>
-										<td>
-											{entry.diff ? (
-												<Button
-													variant="quiet"
-													aria-expanded={open.includes(entry.id)}
-													onPress={() => toggle(entry.id)}
-												>
-													{t('audit.showChanges', { count: Object.keys(entry.diff).length })}
-												</Button>
-											) : (
-												entry.ip && (
-													<span className={`${styles.small} ${styles.mono}`}>{entry.ip}</span>
-												)
-											)}
-										</td>
-									</tr>
-									{entry.diff && open.includes(entry.id) && (
+							{entries.map((entry) => {
+								const fields = entry.changes ?? entry.context;
+								return (
+									<Fragment key={entry.id}>
 										<tr>
-											<td colSpan={6}>
-												<AuditDiff diff={entry.diff} />
+											<td className={styles.mono}>
+												{formatInstant(entry.occurredAt, i18n.language)}
+											</td>
+											<td>
+												{entry.actorName ?? t('audit.system')}
+												{entry.actorRole && (
+													<span className={`${styles.small} ${styles.muted}`}>
+														{' '}
+														{t(`common:roles.${entry.actorRole}`)}
+													</span>
+												)}
+											</td>
+											<td>
+												<Tag>{actionText(entry)}</Tag>
+											</td>
+											<td>
+												{isKnownTable(entry.table)
+													? t(`audit.tables.${entry.table}`)
+													: (entry.table ?? '–')}
+											</td>
+											<td>
+												{entry.subjectEmployeeId
+													? (names.get(entry.subjectEmployeeId) ?? '–')
+													: '–'}
+											</td>
+											<td>
+												{fields ? (
+													<Button
+														variant="quiet"
+														aria-expanded={open.includes(entry.id)}
+														onPress={() => toggle(entry.id)}
+													>
+														{t('audit.showChanges', { count: Object.keys(fields).length })}
+													</Button>
+												) : (
+													entry.ip && (
+														<span className={`${styles.small} ${styles.mono}`}>{entry.ip}</span>
+													)
+												)}
 											</td>
 										</tr>
-									)}
-								</Fragment>
-							))}
+										{fields && open.includes(entry.id) && (
+											<tr>
+												<td colSpan={6}>
+													{entry.changes ? (
+														<AuditDiff changes={entry.changes} />
+													) : (
+														<AuditContext context={fields} />
+													)}
+												</td>
+											</tr>
+										)}
+									</Fragment>
+								);
+							})}
 						</tbody>
 					</Table>
 				</div>
