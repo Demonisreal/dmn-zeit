@@ -123,8 +123,8 @@ describe('ops.sandbox_seed', () => {
 		]);
 	});
 
-	// the fence reads app.tenant_id once for the old row and once more for the new one
-	it('trails a team moved out of a live tenant into a new sandbox', async () => {
+	// the fence alone lets it through, it reads app.tenant_id once for the old row and once more for the new one
+	it('refuses to move a team out of a live tenant into a new sandbox', async () => {
 		const live = await createTenant();
 		const team = await createTeam(live);
 		const sandbox = randomUUID();
@@ -134,18 +134,16 @@ describe('ops.sandbox_seed', () => {
 			`select ops.sandbox_create($1, 'Musterbetrieb (Beispiel)', $2, 'NW', null, null, 'none')`,
 			[sandbox, `musterbetrieb-${sandbox.slice(0, 8)}`]
 		);
-		const moved = await app.query(
-			`update app.teams set tenant_id = set_config('app.tenant_id', $1, true)::uuid where id = $2`,
-			[sandbox, team]
-		);
-		await app.query('commit');
-		expect(moved.rowCount).toBe(1);
+		await expect(
+			app.query(
+				`update app.teams set tenant_id = set_config('app.tenant_id', $1, true)::uuid where id = $2`,
+				[sandbox, team]
+			)
+		).rejects.toMatchObject({ code: '42501' });
+		await app.query('rollback');
 
-		const { rows } = await superuser.query(
-			`select tenant_id, diff from audit.log where table_name = 'teams' and row_id = $1 and action = 'update'`,
-			[team]
-		);
-		expect(rows).toEqual([{ tenant_id: sandbox, diff: { tenant_id: [live, sandbox] } }]);
+		const { rows } = await superuser.query('select tenant_id from app.teams where id = $1', [team]);
+		expect(rows).toEqual([{ tenant_id: live }]);
 	});
 
 	// the story reaches back to january of the year before, the end of july is its longest day

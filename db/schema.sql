@@ -1676,31 +1676,39 @@ $$;
 
 
 --
--- Name: purge_expired_sandboxes(); Type: FUNCTION; Schema: ops; Owner: -
+-- Name: expired_sandboxes(integer); Type: FUNCTION; Schema: ops; Owner: -
 --
 
-CREATE FUNCTION ops.purge_expired_sandboxes() RETURNS integer
+CREATE FUNCTION ops.expired_sandboxes(p_limit integer) RETURNS TABLE(id uuid)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select t.id
+    from app.tenants t
+   where t.kind = 'sandbox' and t.expires_at <= now()
+   order by t.expires_at
+   limit p_limit;
+$$;
+
+
+--
+-- Name: purge_sandbox(uuid); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.purge_sandbox(p_id uuid) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 declare
-  sandbox uuid;
-  purged integer := 0;
+  purged boolean;
 begin
-  -- one sandbox takes about 0.4 s, ten stay inside the 15 s statement_timeout; the job repeats while it gets ten
-  for sandbox in
-    select t.id
-      from app.tenants t
-     where t.kind = 'sandbox' and t.expires_at <= now()
-     order by t.expires_at
-     limit 10
-  loop
-    -- lifts app.reject_change for this tenant only, the journals and the trail go with it
-    perform set_config('zeit.purge_tenant', sandbox::text, true);
-    delete from app.tenants t where t.id = sandbox;
-    delete from audit.log l where l.tenant_id = sandbox;
-    purged := purged + 1;
-  end loop;
+  -- lifts app.reject_change for this tenant only, the journals and the trail go with it
+  perform set_config('zeit.purge_tenant', p_id::text, true);
+  delete from app.tenants t where t.id = p_id and t.kind = 'sandbox' and t.expires_at <= now();
+  purged := found;
+  if purged then
+    delete from audit.log l where l.tenant_id = p_id;
+  end if;
 
   perform set_config('zeit.purge_tenant', '', true);
   return purged;
@@ -4832,4 +4840,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260925000200'),
     ('20260925000300'),
     ('20260925000400'),
-    ('20260925000500');
+    ('20260925000500'),
+    ('20260925000600'),
+    ('20260925000700');

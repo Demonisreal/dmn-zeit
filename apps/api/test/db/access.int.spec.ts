@@ -63,6 +63,55 @@ describe('privileges', () => {
 		expect(renamed.rowCount).toBe(1);
 	});
 
+	// the trail files a change under the new tenant_id, a row moved into a sandbox would go with its purge
+	it('grants no update of an id or tenant_id to zeit_app or zeit_system', async () => {
+		const { rows } = await superuser.query(
+			`select r.name as role, n.nspname || '.' || c.relname || '.' || a.attname as col
+			   from pg_class c
+			   join pg_namespace n on n.oid = c.relnamespace
+			   join pg_attribute a on a.attrelid = c.oid and a.attname in ('id', 'tenant_id')
+			  cross join (values ('zeit_app'), ('zeit_system')) r (name)
+			  where n.nspname in ('app', 'audit', 'ops') and c.relkind = 'r'
+			    and has_column_privilege(r.name, c.oid, a.attnum, 'UPDATE')`
+		);
+		expect(rows).toEqual([]);
+	});
+
+	it('keeps teams and work models in their tenant and still lets them be edited', async () => {
+		const team = await createTeam(tenant);
+		const model = await insertId(
+			superuser,
+			`insert into app.work_models (tenant_id, name, min_mon, min_tue, min_wed, min_thu, min_fri, min_sat, min_sun)
+			 values ($1, 'Vollzeit 40 h', 480, 480, 480, 480, 480, 0, 0) returning id`,
+			[tenant]
+		);
+		const elsewhere = await createTenant({ kind: 'sandbox' });
+		await withContext(app, admin.context);
+
+		for (const [table, id] of [
+			['app.teams', team],
+			['app.work_models', model]
+		]) {
+			await expect(
+				app.query(`update ${table} set tenant_id = $2 where id = $1`, [id, elsewhere])
+			).rejects.toMatchObject({ code: '42501' });
+			await expect(
+				app.query(`update ${table} set id = gen_random_uuid() where id = $1`, [id])
+			).rejects.toMatchObject({ code: '42501' });
+		}
+
+		const renamed = await app.query(`update app.teams set name = 'Lohnbuchhaltung' where id = $1`, [
+			team
+		]);
+		expect(renamed.rowCount).toBe(1);
+		const reworked = await app.query(
+			`update app.work_models set name = 'Vier-Tage-Woche', min_mon = 600, min_fri = 0, archived_at = now()
+			  where id = $1`,
+			[model]
+		);
+		expect(reworked.rowCount).toBe(1);
+	});
+
 	it('never lets zeit_app create a tenant of its own', async () => {
 		const id = randomUUID();
 		await withContext(app, { tenantId: id, role: 'admin' });

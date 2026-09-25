@@ -177,11 +177,17 @@ describe('sandbox purge', () => {
 			[expired]
 		);
 
-		const due = await superuser.query(
-			`select count(*)::int as n from app.tenants where kind = 'sandbox' and expires_at <= now()`
+		const due = await app.query<{ id: string }>('select id from ops.expired_sandboxes(1000)');
+		expect(due.rows.map(({ id }) => id)).toContain(expired);
+		expect(due.rows.map(({ id }) => id)).not.toContain(fresh);
+
+		const refused = await app.query(
+			'select ops.purge_sandbox(t) as purged from unnest($1::uuid[]) t',
+			[[fresh, live]]
 		);
-		const { rows } = await app.query('select ops.purge_expired_sandboxes() as purged');
-		expect(rows[0].purged).toBe(due.rows[0].n);
+		expect(refused.rows).toEqual([{ purged: false }, { purged: false }]);
+		const { rows } = await app.query('select ops.purge_sandbox($1) as purged', [expired]);
+		expect(rows[0].purged).toBe(true);
 
 		const tables = await superuser.query<{ name: string; fence: string }>(
 			`select c.table_schema || '.' || c.table_name as name,

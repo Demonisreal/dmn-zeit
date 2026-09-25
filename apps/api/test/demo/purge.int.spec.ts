@@ -27,7 +27,7 @@ async function leftIn(schemas: string[], column: string, ids: string[]) {
 	return left;
 }
 
-// 28 at once, the purge function stops after ten per call and the job has to come back for the rest
+// 28 at once, the job purges them one call after the other
 beforeAll(async () => {
 	demo = await startDemo();
 	// three with the whole story from the api, the others with a row in every tenant table
@@ -87,5 +87,56 @@ describe('SandboxPurgeJob', () => {
 			   from ops.rate_limits where key like 'demo-sandbox:%'`
 		);
 		expect(rows[0]).toEqual({ used: 0, running: 2 });
+	});
+});
+
+describe('SandboxPurgeJob with a sandbox that cannot be deleted', () => {
+	let stuck: string;
+	const behind: string[] = [];
+
+	async function left() {
+		const { rows } = await demo.superuser.query<{ id: string }>(
+			'select id from app.tenants where id = any($1)',
+			[[stuck, ...behind]]
+		);
+		return rows.map(({ id }) => id);
+	}
+
+	beforeAll(async () => {
+		stuck = await createTenant({ kind: 'sandbox' });
+		await fillTenant(demo.superuser, stuck);
+		for (let i = 0; i < 3; i++) behind.push(await createTenant({ kind: 'sandbox' }));
+		// due first, a purge that always picks the oldest would never get past it
+		await demo.superuser.query(
+			`update app.tenants set expires_at = now() - interval '2 hours' where id = $1`,
+			[stuck]
+		);
+		await demo.superuser.query(
+			`update app.tenants set expires_at = now() - interval '1 minute' where id = any($1)`,
+			[behind]
+		);
+		await demo.superuser.query(
+			`create function public.refuse_purge() returns trigger language plpgsql
+			   as $$ begin raise exception 'purge refused for the test'; end $$`
+		);
+		await demo.superuser.query(
+			`create trigger refuse_purge before delete on app.tenants
+			   for each row when (old.id = '${stuck}') execute function public.refuse_purge()`
+		);
+
+		await demo.app.get(SandboxPurgeJob).purgeExpired();
+	});
+
+	it('purges the others and leaves the failing one whole', async () => {
+		expect(await left()).toEqual([stuck]);
+		expect(await leftIn(['app'], 'tenant_id', [stuck])).not.toEqual([]);
+	});
+
+	it('takes it along on the next run once the delete goes through', async () => {
+		await demo.superuser.query('drop trigger refuse_purge on app.tenants');
+		await demo.app.get(SandboxPurgeJob).purgeExpired();
+
+		expect(await left()).toEqual([]);
+		expect(await leftIn(['app', 'audit', 'ops'], 'tenant_id', [stuck])).toEqual([]);
 	});
 });

@@ -79,7 +79,7 @@ API-Prozess voraus, B12 verrät nur die Existenz einer Adresse.
   ausgestellte Rechnung in derselben Tabelle, löscht ein `set_config('zeit.purge_tenant', <eigener
 Mandant>, true)` ausgestellte Rechnungen.
 - **B2 Kaskade beim Löschen eines Mandanten.** Alle Fremdschlüssel auf `app.tenants` stehen auf
-  `ON DELETE CASCADE` (`db/schema.sql:3332` ff.). Heute löscht nur `ops.purge_expired_sandboxes()`
+  `ON DELETE CASCADE` (`db/schema.sql:3332` ff.). Heute löscht nur `ops.purge_sandbox()`
   und nur Sandboxes. Für Rechnungen mit acht Jahren Aufbewahrungspflicht darf ein Live-Mandant nie
   per Kaskade verschwinden, auch nicht durch einen Handgriff mit Owner-Rechten.
 - **B3 `zeit_app` darf Live-Mandanten anlegen.** `grant select, insert, update on app.tenants`
@@ -511,7 +511,7 @@ Punkt 3). `ops.demo_switch_persona` erlaubt heute nur Ziele im selben Mandanten.
   UPDATE-Grant. Der Wechsel erlaubt Ziele mit gleicher Gruppe, `kind = 'sandbox'`, nicht abgelaufen.
   Der Purge räumt die Gruppe gemeinsam ab.
 - Ort: `db/migrations/20260926000000_projects.sql` (neu), `ops.demo_switch_persona`,
-  `ops.purge_expired_sandboxes`.
+  `ops.purge_sandbox`.
 - Priorität: muss (falls eigener Mandant)
 - Test: `apps/api/test/db/sessions.int.spec.ts`: "Wechsel auf eine Persona aus einer Sandbox mit
   anderer Gruppe liefert null, die alte Sitzung bleibt bestehen."
