@@ -258,6 +258,16 @@ CREATE TYPE app.vacation_entry_type AS ENUM (
 
 
 --
+-- Name: workspace_kind; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.workspace_kind AS ENUM (
+    'company',
+    'solo'
+);
+
+
+--
 -- Name: token_kind; Type: TYPE; Schema: auth; Owner: -
 --
 
@@ -487,6 +497,38 @@ begin
        and u.id in (new.decided_by, (to_jsonb(new) ->> 'certificate_confirmed_by')::uuid)
   ) then
     raise exception 'nobody decides on their own %', tg_table_name using errcode = 'insufficient_privilege';
+  end if;
+
+  return new;
+end;
+$$;
+
+
+--
+-- Name: guard_solo_members(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_solo_members() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  if not exists (select 1 from app.tenants t where t.id = new.tenant_id and t.workspace = 'solo') then
+    return new;
+  end if;
+
+  -- one key for users and employees, an invitation and a new employee would otherwise both get through
+  perform pg_advisory_xact_lock(hashtextextended('solo_members ' || new.tenant_id::text, 0));
+
+  if tg_table_name = 'users' then
+    if new.role <> 'admin' then
+      raise exception 'the person of a solo workspace is its admin' using errcode = 'ZT003';
+    end if;
+    if exists (select 1 from app.users u where u.tenant_id = new.tenant_id and u.id <> new.id) then
+      raise exception 'a solo workspace holds one % row', tg_table_name using errcode = 'ZT003';
+    end if;
+  elsif exists (select 1 from app.employees e where e.tenant_id = new.tenant_id and e.id <> new.id) then
+    raise exception 'a solo workspace holds one % row', tg_table_name using errcode = 'ZT003';
   end if;
 
   return new;
@@ -767,6 +809,18 @@ CREATE FUNCTION app.user_id() RETURNS uuid
     LANGUAGE sql STABLE PARALLEL SAFE
     AS $$
   select nullif(pg_catalog.current_setting('app.user_id', true), '')::pg_catalog.uuid
+$$;
+
+
+--
+-- Name: workspace(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.workspace() RETURNS app.workspace_kind
+    LANGUAGE sql STABLE PARALLEL SAFE
+    SET search_path TO ''
+    AS $$
+  select t.workspace from app.tenants t where t.id = app.tenant_id()
 $$;
 
 
@@ -1356,13 +1410,13 @@ $$;
 -- Name: session_resolve(bytea); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_id uuid, user_id uuid, tenant_id uuid, role app.user_role, employee_id uuid, csrf_hash bytea, reauth_at timestamp with time zone, enrollment_pending boolean)
+CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_id uuid, user_id uuid, tenant_id uuid, role app.user_role, employee_id uuid, csrf_hash bytea, reauth_at timestamp with time zone, enrollment_pending boolean, workspace app.workspace_kind)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
   with hit as (
     select s.id, s.last_seen_at, s.csrf_hash, s.reauth_at, s.enrollment_pending,
-           u.id as user_id, u.tenant_id, u.role, u.employee_id
+           u.id as user_id, u.tenant_id, u.role, u.employee_id, t.workspace
       from auth.sessions s
       join app.users u on u.id = s.user_id
       join app.tenants t on t.id = u.tenant_id
@@ -1381,7 +1435,7 @@ CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_i
        and hit.last_seen_at < now() - interval '1 minute'
   )
   select hit.id, hit.user_id, hit.tenant_id, hit.role, hit.employee_id, hit.csrf_hash,
-         hit.reauth_at, hit.enrollment_pending
+         hit.reauth_at, hit.enrollment_pending, hit.workspace
     from hit;
 $$;
 
@@ -1631,11 +1685,11 @@ $$;
 -- Name: active_tenants(); Type: FUNCTION; Schema: ops; Owner: -
 --
 
-CREATE FUNCTION ops.active_tenants() RETURNS TABLE(id uuid, kind app.tenant_kind)
+CREATE FUNCTION ops.active_tenants() RETURNS TABLE(id uuid, kind app.tenant_kind, workspace app.workspace_kind)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  select t.id, t.kind
+  select t.id, t.kind, t.workspace
     from app.tenants t
    where t.expires_at is null or t.expires_at > now();
 $$;
@@ -1688,6 +1742,47 @@ CREATE FUNCTION ops.expired_sandboxes(p_limit integer) RETURNS TABLE(id uuid)
    where t.kind = 'sandbox' and t.expires_at <= now()
    order by t.expires_at
    limit p_limit;
+$$;
+
+
+--
+-- Name: mfa_reset_operator(public.citext); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.mfa_reset_operator(p_email public.citext) RETURNS TABLE(user_id uuid, tenant_id uuid, display_name text, locale text, email public.citext)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  target app.users;
+  previous_tenant text := current_setting('app.tenant_id', true);
+  previous_user text := current_setting('app.user_id', true);
+  previous_role text := current_setting('app.role', true);
+begin
+  select * into target from app.users u where u.email operator(public.=) p_email;
+  if not found then
+    return;
+  end if;
+
+  -- auth.mfa_reset wants an admin of the target's tenant who is not the target
+  perform set_config('app.tenant_id', target.tenant_id::text, true),
+          set_config('app.user_id', '', true),
+          set_config('app.role', 'admin', true);
+  perform auth.mfa_reset(target.id);
+  perform set_config('app.tenant_id', coalesce(previous_tenant, ''), true),
+          set_config('app.user_id', coalesce(previous_user, ''), true),
+          set_config('app.role', coalesce(previous_role, ''), true);
+
+  insert into audit.log (
+    tenant_id, actor_user_id, actor_role, source, action, table_name, row_id, subject_employee_id, request_id
+  )
+  values (
+    target.tenant_id, null, 'admin', 'cli', 'mfa.reset', 'users', target.id, target.employee_id,
+    gen_random_uuid()
+  );
+
+  return query select target.id, target.tenant_id, target.display_name, target.locale, target.email;
+end;
 $$;
 
 
@@ -1926,20 +2021,58 @@ $$;
 
 
 --
--- Name: tenant_create(uuid, text, text, app.federal_state, text, text, bytea); Type: FUNCTION; Schema: ops; Owner: -
+-- Name: tenant_archive(uuid); Type: FUNCTION; Schema: ops; Owner: -
 --
 
-CREATE FUNCTION ops.tenant_create(p_id uuid, p_name text, p_slug text, p_state app.federal_state, p_admin_email text, p_admin_name text, p_token_hash bytea) RETURNS void
+CREATE FUNCTION ops.tenant_archive(p_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  update app.users u set status = 'disabled'
+   where u.tenant_id = p_id and u.status <> 'disabled';
+  if not found then
+    return;
+  end if;
+
+  delete from auth.sessions s
+   using app.users u
+   where s.user_id = u.id and u.tenant_id = p_id;
+
+  insert into audit.log (tenant_id, actor_user_id, actor_role, source, action, table_name, row_id, request_id)
+  values (p_id, null, 'admin', 'cli', 'tenant.archived', 'tenants', p_id, gen_random_uuid());
+end;
+$$;
+
+
+--
+-- Name: tenant_create(uuid, text, text, app.federal_state, text, text, bytea, app.workspace_kind, text, text); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.tenant_create(p_id uuid, p_name text, p_slug text, p_state app.federal_state, p_admin_email text, p_admin_name text, p_token_hash bytea, p_workspace app.workspace_kind DEFAULT 'company'::app.workspace_kind, p_first_name text DEFAULT NULL::text, p_last_name text DEFAULT NULL::text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 declare
   admin uuid;
+  person uuid;
 begin
-  insert into app.tenants (id, name, slug, state) values (p_id, p_name, p_slug, p_state);
+  if p_workspace = 'solo' and (p_first_name is null or p_last_name is null) then
+    raise exception 'a solo workspace needs first and last name of its person' using errcode = 'ZT003';
+  end if;
 
-  insert into app.users (tenant_id, email, display_name, role)
-  values (p_id, p_admin_email, p_admin_name, 'admin')
+  insert into app.tenants (id, name, slug, state, workspace)
+  values (p_id, p_name, p_slug, p_state, p_workspace);
+
+  -- project entries and the trail hang on employee_id, so the solo person gets a personnel record
+  if p_workspace = 'solo' then
+    insert into app.employees (tenant_id, personnel_no, first_name, last_name, entry_date)
+    values (p_id, '1', p_first_name, p_last_name, (now() at time zone 'Europe/Berlin')::date)
+    returning id into person;
+  end if;
+
+  insert into app.users (tenant_id, email, display_name, role, employee_id)
+  values (p_id, p_admin_email, p_admin_name, 'admin', person)
   returning id into admin;
 
   perform auth.token_issue(admin, 'invite', p_token_hash);
@@ -2222,12 +2355,15 @@ CREATE TABLE app.tenants (
     expires_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    workspace app.workspace_kind DEFAULT 'company'::app.workspace_kind NOT NULL,
+    sandbox_group uuid,
     CONSTRAINT tenants_carryover_until_check CHECK ((carryover_until ~ '^((0[1-9]|1[0-2])-(0[1-9]|1[0-9]|2[0-8])|(0[13-9]|1[0-2])-(29|30)|(0[13578]|1[02])-31)$'::text)),
     CONSTRAINT tenants_check CHECK (((kind = 'sandbox'::app.tenant_kind) = (expires_at IS NOT NULL))),
     CONSTRAINT tenants_flex_cap_minus_min_check CHECK ((flex_cap_minus_min >= 0)),
     CONSTRAINT tenants_flex_cap_plus_min_check CHECK ((flex_cap_plus_min >= 0)),
     CONSTRAINT tenants_holiday_options_check CHECK ((holiday_options <@ ARRAY['corpus_christi'::text, 'augsburg_peace'::text, 'assumption_day'::text])),
     CONSTRAINT tenants_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT tenants_sandbox_group_check CHECK (((sandbox_group IS NULL) OR (kind = 'sandbox'::app.tenant_kind))),
     CONSTRAINT tenants_slug_check CHECK (((slug)::text ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)),
     CONSTRAINT tenants_timezone_check CHECK ((timezone = 'Europe/Berlin'::text))
 );
@@ -2399,7 +2535,7 @@ CREATE TABLE audit.log (
     request_id uuid,
     ip inet,
     CONSTRAINT log_check CHECK (((ip IS NULL) OR (source = 'app'::text))),
-    CONSTRAINT log_source_check CHECK ((source = ANY (ARRAY['trigger'::text, 'app'::text])))
+    CONSTRAINT log_source_check CHECK ((source = ANY (ARRAY['trigger'::text, 'app'::text, 'cli'::text])))
 );
 
 ALTER TABLE ONLY audit.log FORCE ROW LEVEL SECURITY;
@@ -3474,6 +3610,13 @@ CREATE TRIGGER correction_requests_set_updated_at BEFORE UPDATE ON app.correctio
 
 
 --
+-- Name: employees employees_guard_solo; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER employees_guard_solo BEFORE INSERT OR UPDATE ON app.employees FOR EACH ROW EXECUTE FUNCTION app.guard_solo_members();
+
+
+--
 -- Name: employees employees_inherit_closed_through; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -3611,6 +3754,13 @@ CREATE TRIGGER time_entries_sandbox_quota AFTER INSERT ON app.time_entries REFER
 --
 
 CREATE TRIGGER users_guard_own BEFORE UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION app.guard_own_user();
+
+
+--
+-- Name: users users_guard_solo; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER users_guard_solo BEFORE INSERT OR UPDATE ON app.users FOR EACH ROW EXECUTE FUNCTION app.guard_solo_members();
 
 
 --
@@ -4176,6 +4326,97 @@ CREATE POLICY "admins change the tenant" ON app.tenants FOR UPDATE TO zeit_app U
 --
 
 CREATE POLICY "admins manage users" ON app.users TO zeit_app USING ((( SELECT app.role() AS role) = 'admin'::app.user_role));
+
+
+--
+-- Name: absence_days company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.absence_days AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: absence_requests company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.absence_requests AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: contracts company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.contracts AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: correction_requests company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.correction_requests AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: finding_acks company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.finding_acks AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: flex_bookings company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.flex_bookings AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: month_closings company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.month_closings AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: team_leads company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.team_leads AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: teams company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.teams AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: time_entries company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.time_entries AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: vacation_ledger company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.vacation_ledger AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: vacation_notices company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.vacation_notices AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
+
+
+--
+-- Name: work_models company workspace; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "company workspace" ON app.work_models AS RESTRICTIVE TO zeit_app USING ((( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind));
 
 
 --
@@ -4842,4 +5083,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260925000400'),
     ('20260925000500'),
     ('20260925000600'),
-    ('20260925000700');
+    ('20260925000700'),
+    ('20260926000000');

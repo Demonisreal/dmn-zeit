@@ -5,11 +5,13 @@ import { CurrentSession } from '../common/current-session.decorator';
 import { RequireReauth } from '../common/reauth.guard';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { MonthsService } from './months.service';
 
 @Controller('months/:month')
 @Roles('hr')
+@Workspace('company')
 export class MonthsController {
 	constructor(private readonly months: MonthsService) {}
 

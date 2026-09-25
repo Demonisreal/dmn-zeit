@@ -63,6 +63,23 @@ describe('privileges', () => {
 		expect(renamed.rowCount).toBe(1);
 	});
 
+	// a company would shed its hr rules as solo, a solo admin could invite people as company
+	it('never lets zeit_app switch the workspace of a tenant', async () => {
+		const solo = await createTenant({ workspace: 'solo' });
+		const freelancer = await createPerson(solo, { role: 'admin' });
+
+		for (const [context, change] of [
+			[admin.context, `workspace = 'solo'`],
+			[freelancer.context, `workspace = 'company'`],
+			[admin.context, 'sandbox_group = gen_random_uuid()']
+		] as const) {
+			await withContext(app, context);
+			await expect(app.query(`update app.tenants set ${change}`)).rejects.toMatchObject({
+				code: '42501'
+			});
+		}
+	});
+
 	// the trail files a change under the new tenant_id, a row moved into a sandbox would go with its purge
 	it('grants no update of an id or tenant_id to zeit_app or zeit_system', async () => {
 		const { rows } = await superuser.query(

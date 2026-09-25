@@ -2,18 +2,20 @@ import { randomUUID } from 'node:crypto';
 import { RequestMethod, type INestApplication, type Type } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { MetadataScanner, ModulesContainer, Reflector } from '@nestjs/core';
-import { roles, type Role } from '@zeit/shared';
+import { roles, type Role, type WorkspaceKind } from '@zeit/shared';
 import type request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ROLE } from '../../src/common/roles.guard';
 import { IS_PUBLIC } from '../../src/common/session.guard';
+import { WORKSPACE } from '../../src/common/workspace.guard';
 import { DemoController } from '../../src/demo/demo.controller';
 import { startApi, type Api, type Browser } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
-import { createTenant, createUser } from '../helpers/pg';
+import { createPerson, createTenant, createUser } from '../helpers/pg';
 
 // signed-in: neither @Roles nor @Public, only the session guard stands in front
 type Access = Role | 'public' | 'signed-in';
+type Reach = 'company' | 'both';
 
 // a key written twice does not compile, so every route has exactly one line
 const expected: Record<string, Access> = {
@@ -134,6 +136,125 @@ const expected: Record<string, Access> = {
 	'GET /demo/outbox': 'signed-in'
 };
 
+// company: a solo workspace gets the 404 of an unknown route, both: served in either workspace
+const expectedWorkspace: Record<string, Reach> = {
+	'GET /health': 'both',
+	'GET /config': 'both',
+
+	'POST /auth/login': 'both',
+	'POST /auth/password/forgot': 'both',
+	'POST /auth/password/reset': 'both',
+	'POST /auth/invitations/inspect': 'both',
+	'POST /auth/invitations/accept': 'both',
+	'POST /auth/mfa/totp': 'both',
+	'POST /auth/mfa/recovery': 'both',
+	'POST /auth/mfa/passkey/options': 'both',
+	'POST /auth/passkey/options': 'both',
+	'POST /auth/mfa/passkey': 'both',
+	'POST /auth/passkey/verify': 'both',
+	'GET /auth/session': 'both',
+	'POST /auth/logout': 'both',
+	'POST /auth/password/change': 'both',
+	'GET /auth/sessions': 'both',
+	'DELETE /auth/sessions/:id': 'both',
+	'POST /auth/reauth': 'both',
+	'POST /auth/reauth/passkey/options': 'both',
+	'POST /auth/reauth/passkey': 'both',
+
+	'GET /security': 'both',
+	'POST /security/totp/setup': 'both',
+	'POST /security/totp/confirm': 'both',
+	'DELETE /security/totp': 'both',
+	'POST /security/passkeys/options': 'both',
+	'POST /security/passkeys': 'both',
+	'PATCH /security/passkeys/:id': 'both',
+	'DELETE /security/passkeys/:id': 'both',
+	'POST /security/recovery-codes': 'both',
+
+	'GET /me': 'both',
+	'PATCH /me': 'both',
+
+	'GET /clock': 'company',
+	'POST /clock/in': 'company',
+	'POST /clock/break': 'company',
+	'POST /clock/resume': 'company',
+	'POST /clock/out': 'company',
+
+	'GET /employees/:id/entries': 'company',
+	'GET /employees/:id/days': 'company',
+	'GET /employees/:id/flex': 'company',
+
+	'POST /corrections': 'company',
+	'GET /corrections': 'company',
+	'POST /corrections/:id/approve': 'company',
+	'POST /corrections/:id/reject': 'company',
+	'POST /corrections/:id/withdraw': 'company',
+
+	'POST /absences/preview': 'company',
+	'POST /absences': 'company',
+	'GET /absences': 'company',
+	'POST /absences/:id/approve': 'company',
+	'POST /absences/:id/reject': 'company',
+	'POST /absences/:id/withdraw': 'company',
+	'POST /absences/:id/cancel': 'company',
+	'POST /absences/:id/confirm-sick-note': 'company',
+	'GET /team-calendar': 'company',
+
+	'GET /employees/:id/vacation': 'company',
+	'POST /employees/:id/vacation/adjustments': 'company',
+	'POST /vacation/notices': 'company',
+	'GET /vacation/notices': 'company',
+	'POST /me/vacation/notices/:id/acknowledge': 'company',
+
+	'POST /employees/:id/flex/bookings': 'company',
+
+	'GET /compliance/findings': 'company',
+	'POST /compliance/findings/ack': 'company',
+	'GET /compliance/rule-versions': 'company',
+
+	'GET /employees': 'company',
+	'POST /employees': 'company',
+	'GET /employees/:id': 'company',
+	'PATCH /employees/:id': 'company',
+	'POST /employees/:id/exit': 'company',
+	'GET /employees/:id/contracts': 'company',
+	'POST /employees/:id/contracts': 'company',
+	'DELETE /employees/:id/contracts/:cid': 'company',
+	'GET /work-models': 'company',
+	'POST /work-models': 'company',
+	'PATCH /work-models/:id': 'company',
+	'GET /teams': 'company',
+	'POST /teams': 'company',
+	'PATCH /teams/:id': 'company',
+	'PUT /teams/:id/leads': 'company',
+
+	'GET /users': 'both',
+	'POST /users': 'company',
+	'POST /users/:id/invite': 'company',
+	'PATCH /users/:id': 'both',
+	'POST /users/:id/disable': 'both',
+	'POST /users/:id/enable': 'both',
+	'POST /users/:id/mfa/reset': 'both',
+
+	'GET /months/:month/checklist': 'company',
+	'POST /months/:month/close': 'company',
+	'POST /months/:month/reopen': 'company',
+
+	'GET /exports/timesheet': 'company',
+	'GET /exports/month-overview': 'company',
+
+	'GET /tenant': 'both',
+	'PATCH /tenant': 'both',
+	'GET /holidays': 'both',
+
+	'GET /audit': 'both',
+
+	'POST /demo/sandboxes': 'both',
+	'GET /demo/personas': 'both',
+	'POST /demo/switch': 'both',
+	'GET /demo/outbox': 'both'
+};
+
 const routePath = (...parts: string[]) =>
 	'/' +
 	parts
@@ -145,7 +266,7 @@ const routePath = (...parts: string[]) =>
 function registeredRoutes(app: INestApplication, ...unmounted: Type[]) {
 	const reflector = app.get(Reflector);
 	const scanner = new MetadataScanner();
-	const routes: [route: string, access: Access][] = [];
+	const routes: [route: string, access: Access, reach: Reach][] = [];
 	const mounted = [...app.get(ModulesContainer).values()]
 		.flatMap((module) => [...module.controllers.values()])
 		.map(({ metatype }) => metatype as Type);
@@ -164,10 +285,14 @@ function registeredRoutes(app: INestApplication, ...unmounted: Type[]) {
 				(reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC, targets)
 					? 'public'
 					: 'signed-in');
+			const reach =
+				reflector.getAllAndOverride<WorkspaceKind | undefined>(WORKSPACE, targets) === 'company'
+					? 'company'
+					: 'both';
 
 			for (const prefix of [Reflect.getMetadata(PATH_METADATA, controller)].flat()) {
 				for (const path of [paths].flat()) {
-					routes.push([`${method} ${routePath(prefix, path)}`, access]);
+					routes.push([`${method} ${routePath(prefix, path)}`, access, reach]);
 				}
 			}
 		}
@@ -176,7 +301,7 @@ function registeredRoutes(app: INestApplication, ...unmounted: Type[]) {
 }
 
 let api: Api;
-let routes: [route: string, access: Access][];
+let routes: [route: string, access: Access, reach: Reach][];
 
 beforeAll(async () => {
 	api = await startApi();
@@ -207,6 +332,32 @@ describe('role matrix', () => {
 	it('registers no route twice', () => {
 		const keys = routes.map(([route]) => route);
 		expect(keys.filter((route, i) => keys.indexOf(route) !== i)).toEqual([]);
+	});
+
+	it('has a workspace line for every registered route', () => {
+		const unlisted = routes.filter(([route]) => !Object.hasOwn(expectedWorkspace, route));
+		expect(unlisted).toEqual([]);
+	});
+
+	it('has no workspace line for a route that is gone', () => {
+		const served = new Set(routes.map(([route]) => route));
+		expect(Object.keys(expectedWorkspace).filter((route) => !served.has(route))).toEqual([]);
+	});
+
+	it('finds on every route the workspace the table expects', () => {
+		const drifted = routes
+			.filter(
+				([route, , reach]) =>
+					Object.hasOwn(expectedWorkspace, route) && expectedWorkspace[route] !== reach
+			)
+			.map(
+				([route, , reach]) => `${route} is ${reach}, the table says ${expectedWorkspace[route]}`
+			);
+		expect(drifted).toEqual([]);
+	});
+
+	it('keeps both tables on the same routes', () => {
+		expect(Object.keys(expectedWorkspace)).toEqual(Object.keys(expected));
 	});
 });
 
@@ -288,5 +439,83 @@ describe('demo routes outside the demo', () => {
 	// without the module nest does not know the routes, no guard gets to answer 401 first
 	it.each(demoRoutes)('serves nothing on $route without a session', async ({ send }) => {
 		expect((await send(api.browser())).status).toBe(404);
+	});
+});
+
+describe('workspace guard', () => {
+	let solo: Desk;
+	let company: Desk;
+
+	beforeAll(async () => {
+		const freelancer = await createPerson(await createTenant({ workspace: 'solo' }), {
+			role: 'admin'
+		});
+		const owner = await createPerson(await createTenant(), { role: 'admin' });
+		solo = await signedIn(api, freelancer.userId);
+		company = await signedIn(api, owner.userId);
+	});
+
+	// what nest answers for a route it does not know, through the same exception filter
+	const unknownRoute = (method: string, path: string) => ({
+		code: 'NOT_FOUND',
+		message: `Cannot ${method} /api${path}`,
+		details: null
+	});
+
+	// at least one route of every module that carries @Workspace('company')
+	const probes: { route: string; path: string }[] = [
+		{ route: 'GET /clock', path: '/clock' },
+		{ route: 'GET /employees/:id/entries', path: `/employees/${randomUUID()}/entries` },
+		{ route: 'POST /corrections', path: '/corrections' },
+		{ route: 'GET /absences', path: '/absences' },
+		{ route: 'GET /team-calendar', path: '/team-calendar' },
+		{ route: 'GET /employees/:id/vacation', path: `/employees/${randomUUID()}/vacation` },
+		{
+			route: 'POST /employees/:id/flex/bookings',
+			path: `/employees/${randomUUID()}/flex/bookings`
+		},
+		{ route: 'GET /compliance/findings', path: '/compliance/findings' },
+		{ route: 'GET /employees', path: '/employees' },
+		{ route: 'GET /teams', path: '/teams' },
+		{ route: 'GET /work-models', path: '/work-models' },
+		{ route: 'GET /months/:month/checklist', path: '/months/2026-08/checklist' },
+		{ route: 'GET /exports/timesheet', path: '/exports/timesheet?month=2026-08' },
+		{ route: 'GET /exports/month-overview', path: '/exports/month-overview?month=2026-08' },
+		{ route: 'POST /users', path: '/users' },
+		{ route: 'POST /users/:id/invite', path: `/users/${randomUUID()}/invite` }
+	];
+
+	const send = (desk: Desk, route: string, path: string) =>
+		route.startsWith('GET ') ? desk.get(path) : desk.post(path);
+
+	it('answers an unknown route with the plain not found body', async () => {
+		const answer = await solo.get('/nirgends');
+		expect(answer.status).toBe(404);
+		expect(answer.body).toEqual(unknownRoute('GET', '/nirgends'));
+	});
+
+	it.each(probes)(
+		'hides $route from a solo workspace like an unknown route',
+		async ({ route, path }) => {
+			expect(expectedWorkspace[route]).toBe('company');
+			const answer = await send(solo, route, path);
+			expect(answer.status).toBe(404);
+			expect(answer.body).toEqual(unknownRoute(route.split(' ')[0]!, path));
+		}
+	);
+
+	it.each(probes)('lets a company past the guard on $route', async ({ route, path }) => {
+		const answer = await send(company, route, path);
+		expect(answer.body).not.toEqual(unknownRoute(route.split(' ')[0]!, path));
+	});
+
+	it('still serves the tenant and the session to a solo workspace', async () => {
+		const tenant = await solo.get('/tenant');
+		expect(tenant.status).toBe(200);
+		expect(tenant.body.workspace).toBe('solo');
+
+		const session = await solo.get('/auth/session');
+		expect(session.status).toBe(200);
+		expect(session.body.tenant.workspace).toBe('solo');
 	});
 });

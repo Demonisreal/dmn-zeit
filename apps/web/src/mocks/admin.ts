@@ -90,6 +90,7 @@ const seedTenant = (): Tenant => ({
 	flexCapMode: 'forfeit_at_close',
 	carryoverUntil: '03-31',
 	kind: 'live',
+	workspace: 'company',
 	expiresAt: null
 });
 

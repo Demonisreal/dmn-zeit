@@ -29,7 +29,7 @@ const schema = z
 		PORT: z.coerce.number().int().min(1).max(65535).default(3001),
 		// the runtime role zeit_app, migrations run as owner in their own job
 		DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-		// zeit_owner for tenant:create only, never part of the api's own environment
+		// zeit_owner for the cli commands only, never part of the api's own environment
 		CLI_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
 		TRUSTED_PROXY: proxyRanges,
 		MAIL_FROM: z.string().optional(),

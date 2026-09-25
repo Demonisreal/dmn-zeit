@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ActiveSession, Locale, Role, Session } from '@zeit/shared';
+import type { ActiveSession, Locale, Role, Session, WorkspaceKind } from '@zeit/shared';
 import { sql } from 'kysely';
 import { Database, type TenantContext } from '../db/database';
 
@@ -18,6 +18,7 @@ export type SessionRow = {
 	userId: string;
 	tenantId: string;
 	role: Role;
+	workspace: WorkspaceKind;
 	employeeId: string | null;
 	csrfHash: Buffer;
 	enrollmentPending: boolean;
@@ -97,7 +98,7 @@ export class AuthStore {
 	async resolveSession(tokenHash: Buffer): Promise<SessionRow | undefined> {
 		// a confirmation with password and second factor holds for ten minutes
 		const { rows } = await sql<SessionRow>`
-			select session_id as id, user_id as "userId", tenant_id as "tenantId", role,
+			select session_id as id, user_id as "userId", tenant_id as "tenantId", role, workspace,
 				employee_id as "employeeId", csrf_hash as "csrfHash",
 				enrollment_pending as "enrollmentPending",
 				case when reauth_at > now() - interval '10 minutes'
@@ -138,6 +139,7 @@ export class AuthStore {
 					't.id as tenant_id',
 					't.name as tenant_name',
 					't.kind as tenant_kind',
+					't.workspace as tenant_workspace',
 					't.expires_at as tenant_expires_at'
 				])
 				.where('u.id', '=', ctx.userId)
@@ -166,6 +168,7 @@ export class AuthStore {
 					id: row.tenant_id,
 					name: row.tenant_name,
 					kind: row.tenant_kind,
+					workspace: row.tenant_workspace,
 					expiresAt: row.tenant_expires_at
 				},
 				leadsTeams

@@ -525,6 +525,8 @@ Punkt 3). `ops.demo_switch_persona` erlaubt heute nur Ziele im selben Mandanten.
 - Test: `apps/api/test/users/*.int.spec.ts`: "POST /users mit einer Adresse aus einem anderen
   Mandanten antwortet wie mit einer neuen Adresse."
 
+Nachtrag 25.09.2026 (Stufe 10a): Die Umsetzung weicht in den Namen von M-01, M-02 und M-05 ab, fachlich gilt alles unverändert. Die Spalte heißt `app.tenants.workspace` (Enum `app.workspace_kind` mit `company`/`solo`, nicht `mode`/`team`), beide Spalten und der Trigger stehen in `20260926000000_workspaces.sql`, nicht in `…_projects.sql`. `POST /users` und `POST /users/:id/invite` antworten im Solo-Bereich über den `WorkspaceGuard` mit 404 `NOT_FOUND` wie eine unbekannte Route, nicht mit 409. Ein zweiter Insert in `app.users` oder `app.employees` eines Solo-Mandanten scheitert im Trigger `app.guard_solo_members()` mit ZT003 (API: 409 `INVALID_STATE`), nicht mit 42501; der Advisory-Lock-Schlüssel ist `'solo_members ' || tenant_id` für beide Tabellen statt `'users '`. `PATCH /tenant` mit `workspace` im Body ergibt 200 ohne Wirkung statt 400, weil `updateTenantSchema` wie alle Schemas im Projekt unbekannte Felder verwirft; ein direktes UPDATE der Spalte als `zeit_app` scheitert davon unabhängig mit 42501. Die Betreiberbefehle aus Punkt 10 in Abschnitt 8 von `docs/planung-projekte.md` gibt es als `user:mfa-reset` und `tenant:archive` (`ops.mfa_reset_operator`, `ops.tenant_archive`, ausführbar nur für `zeit_owner`, Protokolleintrag mit Quelle `cli`).
+
 ## 9. K5/K6: Injection in PDF, XML und CSV
 
 ### I-01 XML-Injection über Freitexte (Tampering)

@@ -184,6 +184,7 @@ const annasSession = {
 	userId: 'u-anna',
 	tenantId: 't1',
 	role: 'hr',
+	workspace: 'company',
 	employeeId: null,
 	csrfHash: Buffer.alloc(32),
 	enrollmentPending: false,

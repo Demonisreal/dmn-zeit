@@ -18,6 +18,7 @@ export const mockSession: Session = {
 		id: 'c2e8f4a1-6b3d-4f70-8a95-1d4c7b2e9f60',
 		name: 'Musterbetrieb (Beispiel)',
 		kind: 'live',
+		workspace: 'company',
 		expiresAt: null
 	},
 	mode: 'live',

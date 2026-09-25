@@ -22,6 +22,7 @@ const profile: Profile = {
 		id: '5d2e6f1a-3b4c-4d5e-9f6a-7b8c9d0e1f2a',
 		name: 'Steuerbüro Muster',
 		kind: 'live',
+		workspace: 'company',
 		expiresAt: null
 	},
 	leadsTeams: [{ id: '9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b', name: 'Buchhaltung' }]
@@ -36,6 +37,7 @@ function setup(origin = 'https://zeit.example.com') {
 				userId,
 				tenantId: 't1',
 				role: 'admin',
+				workspace: 'company',
 				employeeId: null,
 				csrfHash: session.csrfHash,
 				enrollmentPending: true,

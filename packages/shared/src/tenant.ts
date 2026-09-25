@@ -6,7 +6,8 @@ import {
 	plainText,
 	portionSchema,
 	queryYearSchema,
-	uuidSchema
+	uuidSchema,
+	workspaceKinds
 } from './common';
 
 export const federalStates = [
@@ -87,9 +88,11 @@ export const tenantSchema = z.object({
 	flexCapMode: z.enum(flexCapModes),
 	carryoverUntil: monthDaySchema,
 	kind: z.enum(tenantKinds),
+	workspace: z.enum(workspaceKinds),
 	expiresAt: instantSchema.nullable()
 });
 
+// workspace stays out on purpose: a company never turns into a solo workspace or back
 export const updateTenantSchema = z
 	.object({
 		name: plainText(120),

@@ -45,6 +45,7 @@ function session(role: AuthSession['role'], employeeId: string | null): AuthSess
 		userId: 'u1',
 		tenantId: 't1',
 		role,
+		workspace: 'company',
 		employeeId,
 		csrfHash: Buffer.alloc(32),
 		enrollmentPending: false,

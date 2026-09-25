@@ -18,11 +18,13 @@ import type {
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { CorrectionsService } from './corrections.service';
 
 @Controller('corrections')
 @Roles('employee')
+@Workspace('company')
 export class CorrectionsController {
 	constructor(private readonly corrections: CorrectionsService) {}
 

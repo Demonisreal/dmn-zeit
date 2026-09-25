@@ -4,6 +4,7 @@ import type { CreateTeamInput, Team, TeamLeadsInput, UpdateTeamInput } from '@ze
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { TeamsService } from './teams.service';
 
@@ -11,6 +12,7 @@ const id = new ZodPipe(uuidSchema);
 
 @Roles('hr')
 @Controller('teams')
+@Workspace('company')
 export class TeamsController {
 	constructor(private readonly teams: TeamsService) {}
 

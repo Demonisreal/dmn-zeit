@@ -23,7 +23,9 @@ export class VacationExpiryJob {
 	async expireAll() {
 		const today = berlinToday(this.clock.now());
 		await withAdvisoryLock(this.db, 'zeit:vacation-expiry', async (conn) => {
-			for (const tenantId of await activeTenants(conn)) {
+			for (const { id: tenantId, workspace } of await activeTenants(conn)) {
+				// solo workspaces keep no leave, the company-only policies would answer 42501
+				if (workspace === 'solo') continue;
 				try {
 					await this.expire(tenantId, today);
 				} catch (error) {

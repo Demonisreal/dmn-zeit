@@ -59,6 +59,9 @@ export const capMinutesSchema = z.int().min(0).max(60000);
 export const requestScopes = ['mine', 'inbox', 'all'] as const;
 export type RequestScope = (typeof requestScopes)[number];
 
+export const workspaceKinds = ['company', 'solo'] as const;
+export type WorkspaceKind = (typeof workspaceKinds)[number];
+
 export const explanationSchema = z.object({
 	key: z.string(),
 	params: z.record(z.string(), z.union([z.string(), z.number()]))

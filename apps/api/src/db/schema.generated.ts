@@ -35,6 +35,8 @@ export type AppUserStatus = "active" | "demo" | "disabled" | "invited";
 
 export type AppVacationEntryType = "adjustment" | "entitlement" | "expiry" | "manual" | "refund_cancel" | "refund_sick" | "taken";
 
+export type AppWorkspaceKind = "company" | "solo";
+
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
@@ -205,10 +207,12 @@ export interface AppTenants {
   id: Generated<string>;
   kind: Generated<AppTenantKind>;
   name: string;
+  sandbox_group: string | null;
   slug: string;
   state: AppFederalState;
   timezone: Generated<string>;
   updated_at: Generated<string>;
+  workspace: Generated<AppWorkspaceKind>;
 }
 
 export interface AppTimeEntries {

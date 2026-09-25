@@ -37,7 +37,7 @@ const teams = [
 	{ id: teamIds.books, name: 'Finanzbuchhaltung' }
 ];
 
-const castAs = (lastName: string, role: Role) => {
+const castAs = (lastName: string, role: Role): Omit<Persona, 'current'> => {
 	const employee = mockEmployees.find((e) => e.lastName === lastName)!;
 	const name = `${employee.firstName} ${employee.lastName}`;
 	return {
@@ -45,7 +45,8 @@ const castAs = (lastName: string, role: Role) => {
 		displayName: name,
 		role,
 		employee: { id: employee.id, name },
-		team: teams.find((team) => team.id === employee.teamId) ?? null
+		team: teams.find((team) => team.id === employee.teamId) ?? null,
+		workspace: 'company'
 	};
 };
 
@@ -64,7 +65,8 @@ const cast: Omit<Persona, 'current'>[] = [
 		displayName: 'Uwe Tiemann',
 		role: 'admin',
 		employee: null,
-		team: null
+		team: null,
+		workspace: 'company'
 	}
 ];
 

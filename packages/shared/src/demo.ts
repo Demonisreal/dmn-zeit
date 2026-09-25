@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { employeeRefSchema, instantSchema, uuidSchema } from './common';
+import { employeeRefSchema, instantSchema, uuidSchema, workspaceKinds } from './common';
 import { roleSchema } from './roles';
 import { locales } from './users';
 
@@ -13,6 +13,7 @@ export const personaSchema = z.object({
 	role: roleSchema,
 	employee: employeeRefSchema.nullable(),
 	team: z.object({ id: uuidSchema, name: z.string() }).nullable(),
+	workspace: z.enum(workspaceKinds),
 	current: z.boolean()
 });
 

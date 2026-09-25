@@ -51,7 +51,8 @@ export class DemoStore {
 				'e.id as employee_id',
 				sql<string>`e.first_name || ' ' || e.last_name`.as('employee_name'),
 				'tm.id as team_id',
-				'tm.name as team_name'
+				'tm.name as team_name',
+				't.workspace'
 			])
 			.where('t.kind', '=', 'sandbox')
 			.where('u.status', 'in', ['active', 'demo'])
@@ -66,6 +67,7 @@ export class DemoStore {
 			role: row.role,
 			employee: row.employee_id ? { id: row.employee_id, name: row.employee_name } : null,
 			team: row.team_id ? { id: row.team_id, name: row.team_name! } : null,
+			workspace: row.workspace,
 			current: row.id === userId
 		}));
 	}

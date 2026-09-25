@@ -7,6 +7,7 @@ import { CurrentSession } from '../common/current-session.decorator';
 import { RequireReauth } from '../common/reauth.guard';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { UsersService } from './users.service';
 
@@ -24,6 +25,7 @@ export class UsersController {
 
 	// sends the invitation right away, POST :id/invite is only for another copy
 	@Post()
+	@Workspace('company')
 	@Throttle({ default: { limit: 20, ttl: hours(1) } })
 	create(
 		@CurrentSession() session: AuthSession,
@@ -34,6 +36,7 @@ export class UsersController {
 	}
 
 	@Post(':id/invite')
+	@Workspace('company')
 	@HttpCode(204)
 	@Throttle({ default: { limit: 20, ttl: hours(1) } })
 	async invite(

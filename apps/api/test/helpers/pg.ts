@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Role, UserStatus } from '@zeit/shared';
+import type { Role, UserStatus, WorkspaceKind } from '@zeit/shared';
 import pg from 'pg';
 import { inject } from 'vitest';
 
@@ -80,17 +80,23 @@ async function seed() {
 	return seeder;
 }
 
+// a solo tenant takes one person only: createPerson(tenant, { role: 'admin' }) and nobody else
 export async function createTenant(
-	options: { kind?: 'live' | 'sandbox'; expiresIn?: string } = {}
+	options: { kind?: 'live' | 'sandbox'; expiresIn?: string; workspace?: WorkspaceKind } = {}
 ) {
 	const kind = options.kind ?? 'live';
 	return insertId(
 		await seed(),
-		`insert into app.tenants (name, slug, state, kind, expires_at)
+		`insert into app.tenants (name, slug, state, kind, expires_at, workspace)
 		 values ('Steuerbüro Beispiel', $1, 'NW', $2::app.tenant_kind,
-			case when $2 = 'sandbox' then now() + $3::interval end)
+			case when $2 = 'sandbox' then now() + $3::interval end, $4)
 		 returning id`,
-		[`t-${randomUUID().slice(0, 8)}`, kind, options.expiresIn ?? '24 hours']
+		[
+			`t-${randomUUID().slice(0, 8)}`,
+			kind,
+			options.expiresIn ?? '24 hours',
+			options.workspace ?? 'company'
+		]
 	);
 }
 

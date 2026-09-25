@@ -14,11 +14,13 @@ import type {
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { WorkModelsService } from './work-models.service';
 
 @Roles('hr')
 @Controller('work-models')
+@Workspace('company')
 export class WorkModelsController {
 	constructor(private readonly models: WorkModelsService) {}
 

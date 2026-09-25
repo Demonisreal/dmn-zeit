@@ -16,6 +16,7 @@ import { ReauthGuard } from './common/reauth.guard';
 import { RolesGuard } from './common/roles.guard';
 import { SessionGuard } from './common/session.guard';
 import { throttlerOptions } from './common/throttle';
+import { WorkspaceGuard } from './common/workspace.guard';
 import { ComplianceModule } from './compliance/compliance.module';
 import { loadConfig, type Config } from './config';
 import { CorrectionsModule } from './corrections/corrections.module';
@@ -75,6 +76,8 @@ import { VacationModule } from './vacation/vacation.module';
 		{ provide: APP_GUARD, useClass: SessionGuard },
 		{ provide: APP_GUARD, useClass: CsrfGuard },
 		{ provide: APP_GUARD, useClass: EnrollmentGuard },
+		// before the roles, a solo workspace gets 404 for company routes and never a 403
+		{ provide: APP_GUARD, useClass: WorkspaceGuard },
 		{ provide: APP_GUARD, useClass: RolesGuard },
 		{ provide: APP_GUARD, useClass: ReauthGuard }
 	]

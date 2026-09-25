@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { FederalState } from '@zeit/shared';
+import type { FederalState, WorkspaceKind } from '@zeit/shared';
 import { sql } from 'kysely';
 import { hashToken, newToken } from '../auth/tokens';
 import type { Database, TenantContext } from '../db/database';
@@ -10,6 +10,10 @@ export type NewTenant = {
 	state: FederalState;
 	adminEmail: string;
 	adminName: string;
+	workspace?: WorkspaceKind;
+	// the personnel record of a solo workspace, ignored for a company
+	firstName?: string | undefined;
+	lastName?: string | undefined;
 };
 
 // db connects as zeit_owner, only ops.tenant_create may insert; the context just fills the trail
@@ -26,7 +30,8 @@ export async function createTenant(db: Database, tenant: NewTenant, origin: stri
 
 	await db.withTenant(ctx, (trx) =>
 		sql`select ops.tenant_create(${tenantId}, ${tenant.name}, ${tenant.slug}, ${tenant.state},
-			${tenant.adminEmail}, ${tenant.adminName}, ${hashToken(token)})`.execute(trx)
+			${tenant.adminEmail}, ${tenant.adminName}, ${hashToken(token)}, ${tenant.workspace ?? 'company'},
+			${tenant.firstName ?? null}, ${tenant.lastName ?? null})`.execute(trx)
 	);
 
 	return `${origin}/invite#t=${token}`;

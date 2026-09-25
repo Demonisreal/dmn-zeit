@@ -4,6 +4,7 @@ import type { Clock } from '@zeit/shared';
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { ClockService } from './clock.service';
 
@@ -11,6 +12,7 @@ const empty = new ZodPipe(emptyBodySchema);
 
 @Controller('clock')
 @Roles('employee')
+@Workspace('company')
 export class ClockController {
 	constructor(private readonly clock: ClockService) {}
 

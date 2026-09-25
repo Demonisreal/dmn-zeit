@@ -19,6 +19,7 @@ const session: AuthSession = {
 	userId: 'u1',
 	tenantId: 't1',
 	role: 'employee',
+	workspace: 'company',
 	employeeId: 'e1',
 	csrfHash: Buffer.alloc(32),
 	enrollmentPending: false,

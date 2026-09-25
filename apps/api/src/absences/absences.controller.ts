@@ -22,12 +22,14 @@ import type {
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { AbsencesService } from './absences.service';
 
 const id = new ZodPipe(uuidSchema);
 
 @Controller('absences')
+@Workspace('company')
 export class AbsencesController {
 	constructor(private readonly absences: AbsencesService) {}
 

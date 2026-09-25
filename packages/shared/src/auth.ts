@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailSchema, instantSchema, uuidSchema } from './common';
+import { emailSchema, instantSchema, uuidSchema, workspaceKinds } from './common';
 import { appModes } from './system';
 import { tenantKinds } from './tenant';
 import { userSchema } from './users';
@@ -45,6 +45,7 @@ export const sessionSchema = z.object({
 		id: uuidSchema,
 		name: z.string(),
 		kind: z.enum(tenantKinds),
+		workspace: z.enum(workspaceKinds),
 		expiresAt: instantSchema.nullable()
 	}),
 	mode: z.enum(appModes),

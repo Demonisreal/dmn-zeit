@@ -33,11 +33,46 @@ Für jede Instanz (`demo` und `live` getrennt ausführen):
    ```
    Der Befehl gibt den Einladungslink aus, gültig 7 Tage.
 
+   Einen Solo-Bereich (Freiberufler, genau eine Person, ohne Stempeln, Urlaub und Personal)
+   legt derselbe Befehl mit `--workspace solo` an. Dann sind Vor- und Nachname Pflicht, daraus
+   entsteht der Personalstamm; `--admin-name` darf fehlen und wird aus beiden gebildet:
+   ```
+   docker compose -f deploy/live/compose.yml run --rm \
+     -e CLI_DATABASE_URL=postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable \
+     zeit-live-api node dist/cli.js tenant:create --workspace solo \
+       --name "<Firma oder Name>" --slug <slug> --state <Bundesland, z. B. NW> \
+       --admin-email <E-Mail> --first-name "<Vorname>" --last-name "<Nachname>"
+   ```
+   Der Mandantentyp lässt sich danach nicht mehr ändern.
+
 Der Migrationsdienst (`zeit-<instanz>-migrate`) läuft dabei automatisch vor der API
 (`dbmate --wait up` als `zeit_owner`), die API startet erst nach dessen erfolgreichem Ende.
 
 Vor dem ersten Livegang muss außerdem `security@dmn-software.com` erreichbar sein
 (Sicherheitskontakt aus `SECURITY.md`) — ohne Postfach läuft jede Schwachstellenmeldung ins Leere.
+
+## Betreiberbefehle
+
+Beide laufen wie `tenant:create` als `zeit_owner` und schreiben einen Protokolleintrag mit der
+Quelle `cli`.
+
+Zweiten Faktor zurücksetzen, wenn niemand im Mandanten es selbst kann (etwa im Solo-Bereich).
+Entfernt TOTP, Passkeys und Wiederherstellungscodes und beendet alle Sitzungen. Im Live-Modus
+geht die Hinweis-Mail direkt über Resend raus, sonst muss die Person selbst benachrichtigt werden:
+```
+docker compose -f deploy/live/compose.yml run --rm \
+  -e CLI_DATABASE_URL=postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable \
+  zeit-live-api node dist/cli.js user:mfa-reset --email <E-Mail>
+```
+
+Mandanten archivieren: sperrt alle Nutzer und beendet ihre Sitzungen, gelöscht wird nichts
+(Aufbewahrungsfristen). Die ID liefert `select id, slug from app.tenants;` als `postgres` in
+`docker compose -f deploy/live/compose.yml exec zeit-live-db psql -U postgres -d zeit`:
+```
+docker compose -f deploy/live/compose.yml run --rm \
+  -e CLI_DATABASE_URL=postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable \
+  zeit-live-api node dist/cli.js tenant:archive --id <uuid>
+```
 
 ## Update
 

@@ -5,6 +5,7 @@ import type { Response } from 'express';
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { ExportsService, type Download } from './exports.service';
 
@@ -20,6 +21,7 @@ export class ExportsController {
 
 	// whose sheet the reader may have is checked per person in the service
 	@Get('timesheet')
+	@Workspace('company')
 	@Roles('employee')
 	async timesheet(
 		@CurrentSession() session: AuthSession,
@@ -34,6 +36,7 @@ export class ExportsController {
 
 	// sick days of the whole tenant are payroll matters, not something for leads or colleagues
 	@Get('month-overview')
+	@Workspace('company')
 	@Roles('hr')
 	async monthOverview(
 		@CurrentSession() session: AuthSession,

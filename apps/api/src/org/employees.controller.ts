@@ -19,6 +19,7 @@ import type {
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { EmployeesService } from './employees.service';
 
@@ -26,6 +27,7 @@ const id = new ZodPipe(uuidSchema);
 
 @Roles('hr')
 @Controller('employees')
+@Workspace('company')
 export class EmployeesController {
 	constructor(private readonly employees: EmployeesService) {}
 

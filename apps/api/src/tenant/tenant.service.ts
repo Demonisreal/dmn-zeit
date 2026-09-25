@@ -21,6 +21,7 @@ function toTenant(row: Selectable<AppTenants>): Tenant {
 		flexCapMode: row.flex_cap_mode,
 		carryoverUntil: row.carryover_until,
 		kind: row.kind,
+		workspace: row.workspace,
 		expiresAt: row.expires_at
 	};
 }

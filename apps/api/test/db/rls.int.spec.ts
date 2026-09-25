@@ -24,6 +24,23 @@ const tables = [
 	'ops.demo_outbox'
 ];
 
+// the hr side of a company; employees and users stay, a solo workspace has its one person in them
+const companyOnly = [
+	'app.absence_days',
+	'app.absence_requests',
+	'app.contracts',
+	'app.correction_requests',
+	'app.finding_acks',
+	'app.flex_bookings',
+	'app.month_closings',
+	'app.team_leads',
+	'app.teams',
+	'app.time_entries',
+	'app.vacation_ledger',
+	'app.vacation_notices',
+	'app.work_models'
+];
+
 // app and audit as a whole, elsewhere every table that carries a tenant_id
 const owned = `c.relkind = 'r' and (
 	n.nspname in ('app', 'audit')
@@ -89,6 +106,30 @@ describe('row level security', () => {
 				roles: ['zeit_app'],
 				cmd: 'ALL',
 				qual: `(${column} = ( SELECT app.tenant_id() AS tenant_id))`
+			});
+		}
+	});
+
+	// by name across the whole database, so a table too many fails as well as one too few
+	it('closes the hr tables and only those to a solo workspace', async () => {
+		const { rows } = await superuser.query(
+			`select p.schemaname || '.' || p.tablename as name,
+			        p.permissive,
+			        p.roles::text[] as roles,
+			        p.cmd,
+			        p.qual
+			   from pg_policies p
+			  where p.policyname = 'company workspace'
+			  order by 1`
+		);
+		expect(rows.map((r) => r.name)).toEqual(companyOnly);
+
+		for (const row of rows) {
+			expect(row, row.name).toMatchObject({
+				permissive: 'RESTRICTIVE',
+				roles: ['zeit_app'],
+				cmd: 'ALL',
+				qual: `(( SELECT app.workspace() AS workspace) = 'company'::app.workspace_kind)`
 			});
 		}
 	});

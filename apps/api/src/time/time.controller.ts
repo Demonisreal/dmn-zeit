@@ -11,12 +11,14 @@ import type {
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { TimeService } from './time.service';
 
 // who may see whom is checked per person in the service, the role alone says nothing here
 @Controller('employees/:id')
 @Roles('employee')
+@Workspace('company')
 export class TimeController {
 	constructor(private readonly time: TimeService) {}
 

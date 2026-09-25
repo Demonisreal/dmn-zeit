@@ -74,11 +74,12 @@ describe('PATCH /api/tenant', () => {
 		expect((await admin.patch('/tenant', {})).body).toEqual(answer.body);
 	});
 
-	it('ignores kind, slug and expiry', async () => {
+	it('ignores kind, workspace, slug and expiry', async () => {
 		const { admin } = await staff();
 		const before = (await admin.get('/tenant')).body;
 		const answer = await admin.patch('/tenant', {
 			kind: 'sandbox',
+			workspace: 'solo',
 			slug: 'woanders',
 			expiresAt: '2030-01-01T00:00:00Z'
 		});

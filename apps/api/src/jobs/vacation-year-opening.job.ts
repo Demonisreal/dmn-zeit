@@ -23,7 +23,8 @@ export class VacationYearOpeningJob {
 	async openYear() {
 		const year = berlinToday(this.clock.now()).year;
 		await withAdvisoryLock(this.db, 'zeit:vacation-year-opening', async (conn) => {
-			for (const tenantId of await activeTenants(conn)) {
+			for (const { id: tenantId, workspace } of await activeTenants(conn)) {
+				if (workspace === 'solo') continue;
 				// one broken tenant must not keep the others from their new leave year
 				try {
 					await this.open(tenantId, year);

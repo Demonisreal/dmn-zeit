@@ -4,10 +4,12 @@ import type { AckFindingInput, Finding, FindingsQuery, RuleSetInfo } from '@zeit
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
+import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { ComplianceService } from './compliance.service';
 
 @Controller('compliance')
+@Workspace('company')
 export class ComplianceController {
 	constructor(private readonly compliance: ComplianceService) {}
 

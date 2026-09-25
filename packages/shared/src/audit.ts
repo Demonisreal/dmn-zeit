@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { inRange, instantSchema, pageOf, pagingShape, rangeShape, uuidSchema } from './common';
 import { roleSchema } from './roles';
 
-export const auditSources = ['trigger', 'app'] as const;
+export const auditSources = ['trigger', 'app', 'cli'] as const;
 export type AuditSource = (typeof auditSources)[number];
 
 export const auditEntrySchema = z.object({
