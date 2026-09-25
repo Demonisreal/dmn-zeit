@@ -5,6 +5,9 @@ const functions = [
 	'fraction',
 	'parseDecimal',
 	'toDecimal',
+	'roundDiv',
+	'percentOf',
+	'parseCents',
 	'workdayOf',
 	'splitByLocalDate',
 	'monthDays',
@@ -25,7 +28,23 @@ const functions = [
 	'daysForRange',
 	'allocate',
 	'expiryDecision',
-	'sickRefund'
+	'sickRefund',
+	'roundMinutes',
+	'roundingFor',
+	'resolveRate',
+	'isBillable',
+	'aggregate',
+	'linesFromCells',
+	'vatRateFor',
+	'taxTreatment',
+	'invoiceTotals',
+	'negateLines',
+	'isSmallAmountInvoice',
+	'smallBusinessCheck',
+	'invoiceForm',
+	'budgetStatus',
+	'projectCoverage',
+	'timerHint'
 ] as const;
 
 describe('@zeit/rules', () => {
