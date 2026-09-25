@@ -45,6 +45,18 @@ export function BucketDetail({ bucket, account }: Props) {
 
 	return (
 		<div className={styles.detail}>
+			<dl className={styles.figures}>
+				<dt>{t('account.taken')}</dt>
+				<dd>{formatDays(bucket.taken, lng)}</dd>
+				<dt>{t('account.refunded')}</dt>
+				<dd>{formatDays(bucket.refunded, lng)}</dd>
+				<dt>{t('account.adjusted')}</dt>
+				<dd>{formatDays(bucket.adjusted, lng)}</dd>
+				<dt>{t('account.expired')}</dt>
+				<dd>{formatDays(bucket.expired, lng)}</dd>
+				<dt>{t('account.deadline')}</dt>
+				<dd>{bucket.deadline ? formatDate(bucket.deadline, lng) : t('account.noDeadline')}</dd>
+			</dl>
 			{bucket.year === account.year && (
 				<div className={styles.block}>
 					<h3>
@@ -74,26 +86,29 @@ export function BucketDetail({ bucket, account }: Props) {
 								<th scope="col" data-numeric>
 									{t('ledger.days')}
 								</th>
-								<th scope="col" data-numeric>
+								<th scope="col" data-numeric data-priority="mid">
 									{t('ledger.balance')}
 								</th>
-								<th scope="col">{t('ledger.remark')}</th>
 							</tr>
 						</thead>
 						<tbody>
 							{entries.map((entry) => {
 								const source = notices.find((other) => other.id === entry.noticeId);
+								const remark =
+									entry.reason ?? (source && t('ledger.notice', { date: day(source.sentAt) }));
 								return (
 									<tr key={entry.id}>
 										<td className={styles.date}>{formatDate(entry.effectiveDate, lng)}</td>
-										<td>{t(`ledger.type.${entry.entryType}`)}</td>
+										<td>
+											{t(`ledger.type.${entry.entryType}`)}
+											{remark && <span className={styles.remark}>{remark}</span>}
+										</td>
 										<td data-numeric>
 											{Number(entry.days) > 0 ? '+' : ''}
 											{formatDays(entry.days, lng)}
 										</td>
-										<td data-numeric>{formatDays(entry.balance, lng)}</td>
-										<td className={styles.remark}>
-											{entry.reason ?? (source && t('ledger.notice', { date: day(source.sentAt) }))}
+										<td data-numeric data-priority="mid">
+											{formatDays(entry.balance, lng)}
 										</td>
 									</tr>
 								);

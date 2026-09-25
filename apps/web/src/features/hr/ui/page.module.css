@@ -38,6 +38,25 @@
 	flex: 0 1 12rem;
 }
 
+/* from and to keep one row on a phone as long as both dates fit */
+.filters > .range {
+	display: flex;
+	flex: 0 1 25rem;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 0.75rem 1rem;
+}
+
+.range > * {
+	flex: 1 1 8rem;
+}
+
+@media (max-width: 30rem) {
+	.filters:has(> .range) > * {
+		flex-grow: 1;
+	}
+}
+
 /* inline forms sit in their own quiet area so they read as work in progress, not as content */
 .panel {
 	display: grid;
@@ -68,6 +87,11 @@
 	position: relative;
 	overflow-x: auto;
 	container-type: inline-size;
+}
+
+/* the limit names wrap on a phone, the version columns next to them cannot */
+.rules tbody th {
+	white-space: normal;
 }
 
 .muted {

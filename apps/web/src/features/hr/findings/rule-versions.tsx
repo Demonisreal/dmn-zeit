@@ -31,7 +31,12 @@ export function RuleVersions() {
 		body = <Loading rows={3} />;
 	} else {
 		body = (
-			<div className={styles.scroll} role="group" aria-label={t('rules.title')} tabIndex={0}>
+			<div
+				className={`${styles.scroll} ${styles.rules}`}
+				role="group"
+				aria-label={t('rules.title')}
+				tabIndex={0}
+			>
 				<Table label={t('rules.title')}>
 					<thead>
 						<tr>

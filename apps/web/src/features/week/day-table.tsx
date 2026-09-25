@@ -166,7 +166,7 @@ export function DayTable({
 					</tr>
 					{balance && (
 						<tr className={styles.row}>
-							<th scope="row" className={styles.sumLabel}>
+							<th scope="row" colSpan={2} className={styles.sumLabel}>
 								{explained ? (
 									<button
 										type="button"
@@ -182,7 +182,6 @@ export function DayTable({
 									t('flex')
 								)}
 							</th>
-							<td className={styles.barCol} />
 							<td data-priority="wide" />
 							<td data-priority="wide" />
 							<td data-priority="wide" />

@@ -213,14 +213,6 @@
 		grid-column: 2;
 	}
 
-	/* the long balance label may break, otherwise it widens the day column of every row */
-	.frame .sumLabel,
-	.sumLabel .toggle {
-		text-align: start;
-		white-space: normal;
-		hyphens: auto;
-	}
-
 	.barCol {
 		width: auto;
 		min-width: 0;

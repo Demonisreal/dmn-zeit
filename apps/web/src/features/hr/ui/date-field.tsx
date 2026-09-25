@@ -43,6 +43,7 @@ export function DateInputField({ label, value, onChange, description, error, ...
 			value={value ? parseDate(value) : null}
 			onChange={(date) => onChange(date ? date.toString() : '')}
 			granularity="day"
+			shouldForceLeadingZeros
 			isInvalid={error !== undefined}
 			validationBehavior="aria"
 			className={fieldStyles.field}

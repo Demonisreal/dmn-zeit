@@ -74,7 +74,7 @@
 		"period": "Period",
 		"vacationDays": "Leave days",
 		"targetTime": "Target time",
-		"actions": "Actions",
+		"days": "{{days}} leave days",
 		"decisionNote": "Reason:",
 		"decidedBy": "{{name}}, {{date}}",
 		"empty": "No requests in {{year}}.",

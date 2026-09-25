@@ -6,6 +6,12 @@
 	min-width: 12rem;
 }
 
+/* stands in for the type column once that is gone */
+.type {
+	display: none;
+	margin-bottom: 0.25rem;
+}
+
 .dates {
 	color: var(--white);
 	font-family: var(--mono);
@@ -28,6 +34,13 @@
 	white-space: pre-line;
 }
 
+.days {
+	display: none;
+	margin-top: 0.125rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
 .noteLabel {
 	color: var(--text);
 }
@@ -46,9 +59,13 @@
 	white-space: nowrap;
 }
 
-.actions {
-	text-align: end;
-	white-space: nowrap;
+/* the row action sits at the far edge, below the status once the column gets narrow */
+.state {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem 1rem;
 }
 
 .rowError {
@@ -58,4 +75,22 @@
 	color: var(--error);
 	font-size: 0.8125rem;
 	white-space: normal;
+}
+
+/* the same step at which the table drops its mid columns */
+@container (max-width: 38rem) {
+	.period {
+		min-width: 0;
+	}
+
+	.type,
+	.days {
+		display: block;
+	}
+
+	/* a range across two months breaks at its dash rather than pushing the row action out */
+	.dates,
+	.decided {
+		white-space: normal;
+	}
 }

@@ -184,17 +184,19 @@ export function FindingsPage({ filter, onFilter }: Props) {
 							value={filter.state}
 							onChange={(key) => onFilter({ state: key as FindingsFilter['state'] })}
 						/>
-						<DateInputField
-							label={t('from')}
-							value={filter.from}
-							onChange={(from) => from && onFilter({ from })}
-						/>
-						<DateInputField
-							label={t('to')}
-							value={filter.to}
-							onChange={(to) => to && onFilter({ to })}
-							error={rangeProblem}
-						/>
+						<div className={styles.range}>
+							<DateInputField
+								label={t('from')}
+								value={filter.from}
+								onChange={(from) => from && onFilter({ from })}
+							/>
+							<DateInputField
+								label={t('to')}
+								value={filter.to}
+								onChange={(to) => to && onFilter({ to })}
+								error={rangeProblem}
+							/>
+						</div>
 						<SelectField
 							label={t('findings.employee')}
 							options={[

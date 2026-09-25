@@ -208,17 +208,19 @@ export function AuditPage({ filter, onFilter }: Props) {
 				</PageHead>
 				<section className={styles.section} aria-label={t('audit.title')}>
 					<div className={styles.filters}>
-						<DateInputField
-							label={t('from')}
-							value={filter.from}
-							onChange={(from) => from && onFilter({ from })}
-						/>
-						<DateInputField
-							label={t('to')}
-							value={filter.to}
-							onChange={(to) => to && onFilter({ to })}
-							error={rangeProblem}
-						/>
+						<div className={styles.range}>
+							<DateInputField
+								label={t('from')}
+								value={filter.from}
+								onChange={(from) => from && onFilter({ from })}
+							/>
+							<DateInputField
+								label={t('to')}
+								value={filter.to}
+								onChange={(to) => to && onFilter({ to })}
+								error={rangeProblem}
+							/>
+						</div>
 						<SelectField
 							label={t('audit.table')}
 							options={[

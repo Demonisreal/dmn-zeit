@@ -23,6 +23,18 @@
 	flex: 0 1 11rem;
 }
 
+/* on a phone the stepper takes its own row and the selects split the next one */
+@media (max-width: 30rem) {
+	.filters > [role='group'] {
+		flex-basis: 100%;
+		justify-content: space-between;
+	}
+
+	.filters > :not([role='group']) {
+		flex: 1 1 0;
+	}
+}
+
 /* visually hidden cell labels are absolute, without a positioned box here they widen the page */
 .scroll {
 	position: relative;

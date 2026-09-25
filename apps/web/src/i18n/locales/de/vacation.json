@@ -34,7 +34,6 @@
 		"entry": "Buchung",
 		"days": "Tage",
 		"balance": "Stand",
-		"remark": "Bemerkung",
 		"notice": "nach Hinweis vom {{date}}",
 		"type": {
 			"entitlement": "Anspruch",

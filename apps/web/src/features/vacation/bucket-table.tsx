@@ -38,22 +38,24 @@ export function BucketTable({ account }: Props) {
 						<th scope="col" data-numeric>
 							{t('account.entitlement')}
 						</th>
-						<th scope="col" data-numeric>
+						<th scope="col" data-numeric data-priority="mid">
 							{t('account.taken')}
 						</th>
-						<th scope="col" data-numeric>
+						<th scope="col" data-numeric data-priority="mid">
 							{t('account.refunded')}
 						</th>
-						<th scope="col" data-numeric>
+						<th scope="col" data-numeric data-priority="mid">
 							{t('account.adjusted')}
 						</th>
-						<th scope="col" data-numeric>
+						<th scope="col" data-numeric data-priority="mid">
 							{t('account.expired')}
 						</th>
 						<th scope="col" data-numeric>
 							{t('account.remaining')}
 						</th>
-						<th scope="col">{t('account.deadline')}</th>
+						<th scope="col" data-priority="mid">
+							{t('account.deadline')}
+						</th>
 					</tr>
 				</thead>
 				{account.buckets.map((bucket) => (
@@ -67,7 +69,7 @@ export function BucketTable({ account }: Props) {
 				))}
 				<tfoot>
 					<tr>
-						<td colSpan={6}>
+						<td colSpan={2}>
 							{t('account.available')}
 							{Number(account.pending) > 0 && (
 								<span className={styles.pending}>
@@ -75,8 +77,12 @@ export function BucketTable({ account }: Props) {
 								</span>
 							)}
 						</td>
+						<td data-priority="mid" />
+						<td data-priority="mid" />
+						<td data-priority="mid" />
+						<td data-priority="mid" />
 						<td data-numeric>{formatDays(account.available, lng)}</td>
-						<td />
+						<td data-priority="mid" />
 					</tr>
 				</tfoot>
 			</Table>
@@ -115,14 +121,22 @@ function BucketRows({ bucket, account, open, onToggle }: RowsProps) {
 					</button>
 				</th>
 				<td data-numeric>{formatDays(bucket.entitlement, lng)}</td>
-				<td data-numeric>{formatDays(bucket.taken, lng)}</td>
-				<td data-numeric>{formatDays(bucket.refunded, lng)}</td>
-				<td data-numeric>{formatDays(bucket.adjusted, lng)}</td>
-				<td data-numeric>{formatDays(bucket.expired, lng)}</td>
+				<td data-numeric data-priority="mid">
+					{formatDays(bucket.taken, lng)}
+				</td>
+				<td data-numeric data-priority="mid">
+					{formatDays(bucket.refunded, lng)}
+				</td>
+				<td data-numeric data-priority="mid">
+					{formatDays(bucket.adjusted, lng)}
+				</td>
+				<td data-numeric data-priority="mid">
+					{formatDays(bucket.expired, lng)}
+				</td>
 				<td data-numeric className={styles.remaining}>
 					{formatDays(bucket.remaining, lng)}
 				</td>
-				<td className={styles.deadline}>
+				<td className={styles.deadline} data-priority="mid">
 					{bucket.deadline ? formatDate(bucket.deadline, lng) : t('account.noDeadline')}
 				</td>
 			</tr>

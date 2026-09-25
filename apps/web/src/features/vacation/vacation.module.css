@@ -3,6 +3,7 @@
 }
 
 .scroll {
+	container-type: inline-size;
 	overflow-x: auto;
 }
 
@@ -69,7 +70,7 @@
 }
 
 .pending {
-	margin-left: 0.75rem;
+	display: block;
 	color: var(--muted);
 	font-size: 0.8125rem;
 	font-weight: 400;
@@ -85,6 +86,26 @@ tr.detailRow > td {
 	gap: 1.125rem;
 	max-width: 56rem;
 	animation: global(reveal) var(--open-panel) var(--ease);
+}
+
+/* the columns the table drops on a phone, only shown there */
+.figures {
+	display: none;
+	grid-template-columns: max-content 1fr;
+	gap: 0.25rem 1.25rem;
+	margin: 0;
+	padding-top: 0.75rem;
+	font-size: 0.875rem;
+}
+
+.figures dt {
+	color: var(--muted);
+}
+
+.figures dd {
+	margin: 0;
+	color: var(--white);
+	font-family: var(--mono);
 }
 
 .block {
@@ -126,8 +147,10 @@ tr.detailRow > td {
 }
 
 .remark {
+	display: block;
 	max-width: 36ch;
 	color: var(--muted);
+	font-size: 0.8125rem;
 	overflow-wrap: anywhere;
 }
 
@@ -156,4 +179,18 @@ tr.detailRow > td {
 .legal {
 	color: var(--muted);
 	font-size: 0.8125rem;
+}
+
+@container (max-width: 38rem) {
+	.scroll > table {
+		min-width: 0;
+	}
+
+	tr.detailRow > td {
+		padding-inline: 0.375rem;
+	}
+
+	.figures {
+		display: grid;
+	}
 }

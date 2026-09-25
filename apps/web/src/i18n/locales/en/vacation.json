@@ -34,7 +34,6 @@
 		"entry": "Entry",
 		"days": "Days",
 		"balance": "Balance",
-		"remark": "Remark",
 		"notice": "after the notice of {{date}}",
 		"type": {
 			"entitlement": "Entitlement",

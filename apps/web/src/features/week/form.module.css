@@ -130,7 +130,7 @@
 	display: flex;
 	align-items: center;
 	min-height: 2.5rem;
-	padding: 0.5rem 0.75rem;
+	padding: 0.5rem;
 	border: 1px solid var(--muted);
 	border-radius: 6px;
 	background: var(--card);
@@ -153,10 +153,24 @@
 }
 
 .segment {
-	padding: 0 0.0625rem;
+	padding: 0 0.1875rem;
 	border-radius: 2px;
 	outline: none;
 	font-variant-numeric: tabular-nums;
+}
+
+.segment:not([data-type='literal']) {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.5rem;
+	min-height: 1.5rem;
+}
+
+/* the digit segments are wider than their text for touch, the dots take that room back */
+.segment[data-type='literal'] {
+	margin-inline: -0.1875rem;
+	padding: 0;
 }
 
 .segment[data-type='literal'],

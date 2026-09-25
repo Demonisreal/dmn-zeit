@@ -7,7 +7,6 @@ import {
 	type AbsenceType
 } from '@zeit/shared';
 import { useRef, useState } from 'react';
-import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
@@ -94,18 +93,17 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 					<Table label={t('list.label', { year })}>
 						<thead>
 							<tr>
-								<th scope="col">{t('list.type')}</th>
+								<th scope="col" data-priority="mid">
+									{t('list.type')}
+								</th>
 								<th scope="col">{t('list.period')}</th>
-								<th scope="col" data-numeric>
+								<th scope="col" data-numeric data-priority="mid">
 									{t('list.vacationDays')}
 								</th>
-								<th scope="col" data-numeric>
+								<th scope="col" data-numeric data-priority="mid">
 									{t('list.targetTime')}
 								</th>
 								<th scope="col">{t('list.status')}</th>
-								<th scope="col">
-									<VisuallyHidden>{t('list.actions')}</VisuallyHidden>
-								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -217,12 +215,20 @@ function AbsenceRow({ absence, onWithdraw, onCancel }: RowProps) {
 
 	return (
 		<tr>
-			<td>
+			<td data-priority="mid">
 				<TypeTag type={absence.type} />
 			</td>
 			<td className={styles.period}>
+				<span className={styles.type}>
+					<TypeTag type={absence.type} />
+				</span>
 				<span className={styles.dates}>{period}</span>{' '}
 				<HalfDays absence={absence} className={styles.half} />
+				{absence.type === 'vacation' && (
+					<span className={styles.days}>
+						{t('list.days', { days: formatDays(absence.vacationDays, lng) })}
+					</span>
+				)}
 				{absence.note && <p className={styles.note}>{absence.note}</p>}
 				{absence.decisionNote && (
 					<p className={styles.note}>
@@ -231,43 +237,47 @@ function AbsenceRow({ absence, onWithdraw, onCancel }: RowProps) {
 					</p>
 				)}
 			</td>
-			<td data-numeric>
+			<td data-numeric data-priority="mid">
 				{absence.type === 'vacation' ? formatDays(absence.vacationDays, lng) : '–'}
 			</td>
-			<td data-numeric>{formatMinutes(absence.targetMinutes)}</td>
-			<td>
-				<span className={styles.tags}>
-					<StatusTag absence={absence} />
-					{sick && <SickNoteTag absence={absence} />}
-				</span>
-				{absence.decidedBy && absence.decidedAt && (
-					<span className={styles.decided}>
-						{t('list.decidedBy', {
-							name: absence.decidedBy.displayName,
-							date: formatInstant(absence.decidedAt, lng, { dateStyle: 'medium' })
-						})}
-					</span>
-				)}
+			<td data-numeric data-priority="mid">
+				{formatMinutes(absence.targetMinutes)}
 			</td>
-			<td className={styles.actions}>
-				{absence.status === 'pending' && (
-					<Button
-						variant="secondary"
-						aria-label={t('list.withdrawLabel', { period })}
-						onPress={onWithdraw}
-					>
-						{t('list.withdraw')}
-					</Button>
-				)}
-				{cancellable && (
-					<Button
-						variant="secondary"
-						aria-label={t('list.cancelLabel', { period })}
-						onPress={onCancel}
-					>
-						{t('list.cancel')}
-					</Button>
-				)}
+			<td>
+				<div className={styles.state}>
+					<div>
+						<span className={styles.tags}>
+							<StatusTag absence={absence} />
+							{sick && <SickNoteTag absence={absence} />}
+						</span>
+						{absence.decidedBy && absence.decidedAt && (
+							<span className={styles.decided}>
+								{t('list.decidedBy', {
+									name: absence.decidedBy.displayName,
+									date: formatInstant(absence.decidedAt, lng, { dateStyle: 'medium' })
+								})}
+							</span>
+						)}
+					</div>
+					{absence.status === 'pending' && (
+						<Button
+							variant="secondary"
+							aria-label={t('list.withdrawLabel', { period })}
+							onPress={onWithdraw}
+						>
+							{t('list.withdraw')}
+						</Button>
+					)}
+					{cancellable && (
+						<Button
+							variant="secondary"
+							aria-label={t('list.cancelLabel', { period })}
+							onPress={onCancel}
+						>
+							{t('list.cancel')}
+						</Button>
+					)}
+				</div>
 			</td>
 		</tr>
 	);

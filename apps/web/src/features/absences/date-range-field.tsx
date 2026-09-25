@@ -50,6 +50,7 @@ export function DateRangeField({ label, start, end, onChange, error }: Props) {
 		<DateRangePicker
 			value={start && end ? { start: parseDate(start), end: parseDate(end) } : null}
 			onChange={(range) => onChange(range?.start.toString() ?? '', range?.end.toString() ?? '')}
+			shouldForceLeadingZeros
 			isInvalid={error !== undefined}
 			validationBehavior="aria"
 			className={fieldStyles.field}
