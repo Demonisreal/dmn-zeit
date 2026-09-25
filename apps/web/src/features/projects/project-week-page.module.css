@@ -1,0 +1,58 @@
+/* the period heads the table below it, the line ties the two together */
+.head {
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--edge);
+}
+
+/* no bookable project yet, the control renders nothing and would leave an empty bar on a phone */
+.timer:empty {
+	display: none;
+}
+
+.matrix {
+	display: grid;
+	gap: 0.625rem;
+}
+
+.legend {
+	max-width: 70ch;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.add {
+	display: grid;
+	justify-items: start;
+	gap: 0.75rem;
+}
+
+/* money is the narrower list, the budgets carry names, figures and a tag */
+.below {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+	gap: 1.25rem 2.5rem;
+	max-width: 64rem;
+}
+
+@media (max-width: 48rem) {
+	.below {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+@media (max-width: 37.5rem) {
+	/* the header gives up its box, otherwise the timer could only stick inside the header */
+	.head:has(> .timer) {
+		display: contents;
+	}
+
+	/* the week scrolls under the timer, stop stays in reach */
+	.timer {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		padding-block: 0.5rem 0.75rem;
+		border-bottom: 1px solid var(--edge);
+		background: var(--dark);
+	}
+}

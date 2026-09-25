@@ -18,3 +18,4 @@ export * from './months';
 export * from './exports';
 export * from './audit';
 export * from './demo';
+export * from './projects';

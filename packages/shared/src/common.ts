@@ -23,6 +23,8 @@ export const queryYearSchema = z.coerce.number().pipe(yearSchema);
 // numeric(5,2) leaves pg as a string, keeping it one spares the client float drift
 export const dayCountSchema = z.string().regex(/^-?\d{1,3}\.\d{2}$/, 'format.dayCount');
 export const portionSchema = z.literal([0.5, 1]);
+// bigint cents stay a string too, kysely-codegen types int8 as string anyway
+export const centsSchema = z.string().regex(/^-?\d{1,15}$/, 'format.cents');
 
 // \p{Cc} covers C0, DEL and C1 without putting control characters into the source
 const CONTROL = /\p{Cc}/u;

@@ -1,0 +1,32 @@
+/* the long client form reads in three parts, each a plain group without a box of its own */
+.group {
+	display: grid;
+	gap: 0.625rem;
+	min-width: 0;
+	margin: 0;
+	padding: 0.75rem 0 0;
+	border: 0;
+	border-top: 1px solid var(--edge);
+}
+
+/* muted like the headings under the matrix, in white it reads as one more field label */
+.legend {
+	float: left;
+	margin-bottom: 0.25rem;
+	padding: 0;
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 500;
+}
+
+.legend + * {
+	clear: both;
+}
+
+.name {
+	max-width: 36rem;
+}
+
+.amount input {
+	font-family: var(--mono);
+}

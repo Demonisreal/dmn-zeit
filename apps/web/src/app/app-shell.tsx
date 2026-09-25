@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/button';
 import { DemoBanner } from '../features/demo/demo-banner';
+import { TimerChip } from '../features/projects/timer-chip';
 import styles from './app-shell.module.css';
 import { Brand } from './brand';
 import { DemoSwitch } from './demo-switch';
@@ -25,6 +26,8 @@ export function AppShell({ session, children }: Props) {
 	const signOut = useSignOut();
 	const close = () => setOpen(false);
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
+	// an admin without a personnel record books no project time
+	const timer = session.user.employeeId && <TimerChip workspace={session.tenant.workspace} />;
 	const shownPath = useRef(pathname);
 
 	// only the path matters here, a `?week=` change on the same page must not steal focus
@@ -57,6 +60,7 @@ export function AppShell({ session, children }: Props) {
 				</div>
 				<p className={styles.tenant}>{session.tenant.name}</p>
 				<div className={styles.tools}>
+					{timer}
 					<DemoSwitch />
 					<LangSwitch />
 					<UserMenu user={session.user} />
@@ -79,13 +83,14 @@ export function AppShell({ session, children }: Props) {
 				data-open={open || undefined}
 				aria-label={t('nav:label')}
 			>
-				<MainNav role={session.user.role} onNavigate={close} />
+				<MainNav role={session.user.role} workspace={session.tenant.workspace} onNavigate={close} />
 				{/* on narrow screens the header has no room, so language and account move in here */}
 				<div className={styles.more}>
 					<p className={styles.who}>
 						{session.user.displayName}
 						<span>{t(`roles.${session.user.role}`)}</span>
 					</p>
+					{timer}
 					<DemoSwitch />
 					<div className={styles.lang}>
 						<LangSwitch />

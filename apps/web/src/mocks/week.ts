@@ -206,7 +206,7 @@ const minutesOf = (entry: Entry, now: number) =>
 		((entry.endedAt ? Date.parse(entry.endedAt) : now) - Date.parse(entry.startedAt)) / 60_000
 	);
 
-function entriesOf(date: string, employeeId = employee.id): Entry[] {
+export function entriesOf(date: string, employeeId = employee.id): Entry[] {
 	const away = absenceOn(employeeId, date);
 	if (away?.portion === 1) return [];
 	if (date === todayIso()) return store.today;

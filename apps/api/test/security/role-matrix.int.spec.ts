@@ -12,6 +12,7 @@ import { DemoController } from '../../src/demo/demo.controller';
 import { startApi, type Api, type Browser } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
 import { createPerson, createTenant, createUser } from '../helpers/pg';
+import { createClient, createProject } from '../projects/books';
 
 // signed-in: neither @Roles nor @Public, only the session guard stands in front
 type Access = Role | 'public' | 'signed-in';
@@ -88,6 +89,38 @@ const expected: Record<string, Access> = {
 	'POST /me/vacation/notices/:id/acknowledge': 'signed-in',
 
 	'POST /employees/:id/flex/bookings': 'hr',
+
+	'GET /project-timer': 'employee',
+	'POST /project-timer/start': 'employee',
+	'POST /project-timer/stop': 'employee',
+	'GET /employees/:id/project-entries': 'employee',
+	'POST /project-entries': 'employee',
+	'PATCH /project-entries/:id': 'employee',
+	'POST /project-entries/:id/void': 'employee',
+	'GET /employees/:id/project-week': 'employee',
+	'GET /project-time/summary': 'team_lead',
+	'GET /clients': 'hr',
+	'POST /clients': 'hr',
+	'GET /clients/:id': 'hr',
+	'PATCH /clients/:id': 'hr',
+	'POST /clients/:id/archive': 'hr',
+	'DELETE /clients/:id': 'admin',
+	'GET /projects/bookable': 'employee',
+	'GET /projects/budgets': 'hr',
+	'GET /projects': 'hr',
+	'POST /projects': 'hr',
+	'GET /projects/:id': 'hr',
+	'PATCH /projects/:id': 'hr',
+	'POST /projects/:id/archive': 'hr',
+	'GET /projects/:id/members': 'hr',
+	'PUT /projects/:id/members': 'hr',
+	'GET /projects/:id/tasks': 'hr',
+	'POST /projects/:id/tasks': 'hr',
+	'PATCH /tasks/:id': 'hr',
+	'POST /tasks/:id/archive': 'hr',
+	'GET /rates': 'hr',
+	'POST /rates': 'hr',
+	'DELETE /rates/:id': 'hr',
 
 	'GET /compliance/findings': 'team_lead',
 	'POST /compliance/findings/ack': 'team_lead',
@@ -207,6 +240,38 @@ const expectedWorkspace: Record<string, Reach> = {
 	'POST /me/vacation/notices/:id/acknowledge': 'company',
 
 	'POST /employees/:id/flex/bookings': 'company',
+
+	'GET /project-timer': 'both',
+	'POST /project-timer/start': 'both',
+	'POST /project-timer/stop': 'both',
+	'GET /employees/:id/project-entries': 'both',
+	'POST /project-entries': 'both',
+	'PATCH /project-entries/:id': 'both',
+	'POST /project-entries/:id/void': 'both',
+	'GET /employees/:id/project-week': 'both',
+	'GET /project-time/summary': 'company',
+	'GET /clients': 'both',
+	'POST /clients': 'both',
+	'GET /clients/:id': 'both',
+	'PATCH /clients/:id': 'both',
+	'POST /clients/:id/archive': 'both',
+	'DELETE /clients/:id': 'both',
+	'GET /projects/bookable': 'both',
+	'GET /projects/budgets': 'both',
+	'GET /projects': 'both',
+	'POST /projects': 'both',
+	'GET /projects/:id': 'both',
+	'PATCH /projects/:id': 'both',
+	'POST /projects/:id/archive': 'both',
+	'GET /projects/:id/members': 'company',
+	'PUT /projects/:id/members': 'company',
+	'GET /projects/:id/tasks': 'both',
+	'POST /projects/:id/tasks': 'both',
+	'PATCH /tasks/:id': 'both',
+	'POST /tasks/:id/archive': 'both',
+	'GET /rates': 'both',
+	'POST /rates': 'both',
+	'DELETE /rates/:id': 'both',
 
 	'GET /compliance/findings': 'company',
 	'POST /compliance/findings/ack': 'company',
@@ -390,6 +455,13 @@ describe('roles guard', () => {
 			route: 'POST /months/:month/reopen',
 			below: 'hr',
 			send: (desk) => desk.post('/months/2026-08/reopen')
+		},
+		{ route: 'GET /projects', below: 'team_lead', send: (desk) => desk.get('/projects') },
+		{ route: 'GET /rates', below: 'team_lead', send: (desk) => desk.get('/rates') },
+		{
+			route: 'DELETE /clients/:id',
+			below: 'hr',
+			send: (desk) => desk.delete(`/clients/${randomUUID()}`)
 		}
 	];
 
@@ -406,6 +478,43 @@ describe('roles guard', () => {
 	it.each(probes)('lets the role from the table past the guard on $route', async (probe) => {
 		const answer = await probe.send(desks[expected[probe.route] as Role]);
 		expect(answer.body.message).not.toBe('Not allowed for your role');
+	});
+
+	// clients, projects and rates are closed to employees in the database as well
+	it('keeps the project list from an employee', async () => {
+		const answer = await desks.employee.get('/projects');
+		expect(answer.status).toBe(403);
+		expect(answer.body.code).toBe('FORBIDDEN');
+	});
+});
+
+describe('project time summary', () => {
+	it('carries minutes and never an amount, not even for hr', async () => {
+		const tenant = await createTenant();
+		const worker = await createPerson(tenant);
+		const hr = await createPerson(tenant, { role: 'hr' });
+		const client = await createClient(api.superuser, tenant);
+		const project = await createProject(api.superuser, tenant, client);
+		await api.superuser.query(
+			`insert into app.rates (tenant_id, client_id, valid_from, rate_cents) values ($1, $2, '2026-01-01', 9000)`,
+			[tenant, client]
+		);
+		await (
+			await signedIn(api, worker.userId)
+		).post('/project-entries', {
+			projectId: project,
+			startedAt: '2026-09-22T09:00:00+02:00',
+			endedAt: '2026-09-22T11:00:00+02:00',
+			note: 'Startseite'
+		});
+
+		const answer = await (
+			await signedIn(api, hr.userId)
+		).get('/project-time/summary?from=2026-09-21&to=2026-09-27');
+		expect(answer.status).toBe(200);
+		expect(answer.body).toHaveLength(1);
+		expect(answer.body[0]).not.toHaveProperty('amountCents');
+		expect(JSON.stringify(answer.body)).not.toMatch(/amount|9000/);
 	});
 });
 
@@ -482,7 +591,11 @@ describe('workspace guard', () => {
 		{ route: 'GET /exports/timesheet', path: '/exports/timesheet?month=2026-08' },
 		{ route: 'GET /exports/month-overview', path: '/exports/month-overview?month=2026-08' },
 		{ route: 'POST /users', path: '/users' },
-		{ route: 'POST /users/:id/invite', path: `/users/${randomUUID()}/invite` }
+		{ route: 'POST /users/:id/invite', path: `/users/${randomUUID()}/invite` },
+		{
+			route: 'GET /project-time/summary',
+			path: '/project-time/summary?from=2026-09-21&to=2026-09-27'
+		}
 	];
 
 	const send = (desk: Desk, route: string, path: string) =>

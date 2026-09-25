@@ -1,0 +1,104 @@
+.wrap {
+	display: grid;
+	justify-items: end;
+	gap: 0.625rem;
+	min-width: 0;
+}
+
+.panel {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.75rem 1.25rem;
+	min-width: 0;
+}
+
+.time {
+	display: grid;
+	grid-template-columns: minmax(0, auto) auto;
+	align-items: baseline;
+	column-gap: 0.625rem;
+	min-width: 0;
+	text-align: end;
+}
+
+/* client and project can be long, the running time next to it must stay whole */
+.what {
+	max-width: 18rem;
+	overflow: hidden;
+	color: var(--text);
+	font-size: 0.8125rem;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.minutes {
+	color: var(--white);
+	font: 600 1.375rem/1.2 var(--mono);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+.state {
+	grid-column: 1 / -1;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.state[data-running] {
+	color: var(--green);
+}
+
+.controls {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.controls > button {
+	min-width: 6.5rem;
+}
+
+/* project and task in one line fit without being cut off, the picker comes after react-aria's template */
+.controls > div {
+	width: 20rem;
+}
+
+.failed {
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+@media (max-width: 37.5rem) {
+	.wrap,
+	.panel {
+		justify-items: stretch;
+		justify-content: space-between;
+		width: 100%;
+	}
+
+	.time {
+		text-align: start;
+	}
+
+	.what {
+		max-width: none;
+	}
+
+	.controls {
+		flex-wrap: wrap;
+		width: 100%;
+	}
+
+	.controls > div {
+		flex: 1 1 10rem;
+		width: auto;
+		min-width: 0;
+	}
+
+	.controls > button {
+		min-width: 5rem;
+	}
+}

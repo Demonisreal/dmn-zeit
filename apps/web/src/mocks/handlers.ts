@@ -10,10 +10,12 @@ import type {
 import { http, HttpResponse } from 'msw';
 import { absenceHandlers } from './absences';
 import { adminHandlers } from './admin';
+import { billingHandlers, resetMockBilling } from './billing';
 import { demoHandlers } from './demo';
 import { hrHandlers } from './hr';
+import { projectHandlers, resetMockProjects } from './projects';
 import { securityHandlers } from './security';
-import { mockSession, mockUser } from './session';
+import { mockAccounts, mockSession, mockUser } from './session';
 import { weekHandlers } from './week';
 
 export { mockSession, mockUser };
@@ -51,6 +53,9 @@ export const handlers = [
 	// the security handlers answer /auth/mfa*, /security* and the passkey-only login, everything else falls through
 	...securityHandlers,
 	...weekHandlers,
+	...projectHandlers,
+	// after the project handlers, which answer /projects/bookable and /projects/budgets first
+	...billingHandlers,
 	...absenceHandlers,
 	...hrHandlers,
 	...adminHandlers,
@@ -62,10 +67,13 @@ export const handlers = [
 
 	http.post('/api/auth/login', async ({ request }) => {
 		const { email, password } = (await request.json()) as LoginInput;
-		if (email !== mockUser.email || password !== mockUser.password) {
-			return fail(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-		}
-		session = mockSession;
+		const account = mockAccounts.find(
+			(candidate) => candidate.email === email && candidate.password === password
+		);
+		if (!account) return fail(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
+		session = account.session;
+		resetMockProjects(account.world, account.session.user.role);
+		resetMockBilling(account.world);
 		return HttpResponse.json(session);
 	}),
 

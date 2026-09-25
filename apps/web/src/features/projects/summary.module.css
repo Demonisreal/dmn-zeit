@@ -1,0 +1,82 @@
+/* the two lists under the matrix read like the accounts under the week */
+.section {
+	display: grid;
+	align-content: start;
+	gap: 0.5rem;
+	min-width: 0;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--edge);
+}
+
+.section h2 {
+	margin-bottom: 0.125rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	letter-spacing: 0;
+}
+
+.list {
+	display: grid;
+	gap: 0.375rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.list > li {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	align-items: baseline;
+	gap: 0.125rem 1rem;
+	font-size: 0.875rem;
+}
+
+.name {
+	display: grid;
+	min-width: 0;
+	color: var(--white);
+	overflow-wrap: anywhere;
+}
+
+.client {
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.figure {
+	min-width: 5rem;
+	color: var(--white);
+	font-family: var(--mono);
+	font-size: 0.8125rem;
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+	white-space: nowrap;
+}
+
+.state {
+	flex: none;
+	min-width: 3.5rem;
+	text-align: end;
+}
+
+/* next to "59:30 h von 70:00 h" and the tag a budget's client breaks into three lines on a phone */
+@media (max-width: 30rem) {
+	.list > li:has(> .state) > .name {
+		grid-column: 1 / -1;
+	}
+}
+
+.total {
+	padding-top: 0.375rem;
+	border-top: 1px solid var(--line);
+}
+
+.total .name {
+	font-weight: 600;
+}
+
+.muted {
+	color: var(--muted);
+	font-size: 0.875rem;
+}

@@ -1,0 +1,12 @@
+.level {
+	min-width: 10rem;
+	overflow-wrap: anywhere;
+}
+
+/* on a phone the rate itself has to stay in view, the level wraps between words */
+@container (max-width: 38rem) {
+	.level {
+		min-width: 0;
+		overflow-wrap: break-word;
+	}
+}

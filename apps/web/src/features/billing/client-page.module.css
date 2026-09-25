@@ -1,0 +1,19 @@
+.name {
+	min-width: 12rem;
+	overflow-wrap: anywhere;
+}
+
+.budget {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.5rem;
+}
+
+.title {
+	overflow-wrap: anywhere;
+}
+
+/* street, postcode and country on their own lines, as on an envelope */
+.address {
+	white-space: pre-line;
+}

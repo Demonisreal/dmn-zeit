@@ -1,0 +1,65 @@
+.controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75rem 1rem;
+}
+
+.controls > :first-child:not([role='group']) {
+	min-width: 12rem;
+}
+
+/* the table's columns leave by container width, visually hidden labels need the positioned box */
+.scroll {
+	position: relative;
+	overflow-x: auto;
+	container-type: inline-size;
+}
+
+.name {
+	width: 30%;
+}
+
+/* the name picks the person whose week opens below, it reads as a link */
+.pick {
+	min-height: 2rem;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--white);
+	font: 500 0.875rem/1.3 var(--sans);
+	text-align: start;
+	text-decoration-line: underline;
+	text-decoration-color: var(--red);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.2em;
+	cursor: pointer;
+}
+
+.pick[aria-pressed='true'] {
+	text-decoration-thickness: 2px;
+}
+
+.tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
+.legend {
+	max-width: 80ch;
+	margin-top: -0.75rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+}
+
+.detail {
+	display: grid;
+	gap: 0.75rem;
+}
+
+@media (pointer: coarse) {
+	.pick {
+		min-height: 2.75rem;
+	}
+}

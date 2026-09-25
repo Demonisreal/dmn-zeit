@@ -8,6 +8,7 @@ const known: Record<string, [HttpStatus, ErrorCode, string]> = {
 	ZT001: [HttpStatus.CONFLICT, 'PERIOD_LOCKED', 'The month is already closed'],
 	ZT002: [HttpStatus.CONFLICT, 'APPEND_ONLY', 'Recorded entries cannot be changed'],
 	ZT003: [HttpStatus.CONFLICT, 'INVALID_STATE', 'Not possible in the current state'],
+	ZT004: [HttpStatus.CONFLICT, 'INVOICED', 'Already invoiced'],
 	ZT005: [
 		HttpStatus.CONFLICT,
 		'SANDBOX_QUOTA',

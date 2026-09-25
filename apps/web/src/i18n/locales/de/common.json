@@ -38,6 +38,7 @@
 			"month": "Monat im Format JJJJ-MM",
 			"monthDay": "Kein gültiger Stichtag, der 29.02. ist nicht erlaubt",
 			"dayCount": "Tage mit zwei Nachkommastellen",
+			"cents": "Kein gültiger Betrag",
 			"entitlement": "Bis 99 Tage, höchstens eine Nachkommastelle",
 			"token": "Der Link ist unvollständig",
 			"totp": "Sechs Ziffern aus der Authenticator-App",
@@ -64,6 +65,13 @@
 		},
 		"team": {
 			"duplicateLead": "Diese Person steht schon in der Liste"
+		},
+		"project": {
+			"endBeforeStart": "Das Ende liegt vor dem Beginn",
+			"noteRequired": "Beim Nachtrag ist eine Notiz Pflicht"
+		},
+		"rate": {
+			"futureOnly": "Nur ein Satz, der noch nicht gilt, lässt sich löschen"
 		},
 		"text": {
 			"empty": "Dieses Feld darf nicht leer sein",

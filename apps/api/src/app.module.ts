@@ -29,6 +29,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { MailModule } from './mail/mail.module';
 import { MonthsModule } from './months/months.module';
 import { OrgModule } from './org/org.module';
+import { ProjectsModule } from './projects/projects.module';
 import { TenantModule } from './tenant/tenant.module';
 import { TimeModule } from './time/time.module';
 import { UsersModule } from './users/users.module';
@@ -56,6 +57,7 @@ import { VacationModule } from './vacation/vacation.module';
 		TenantModule,
 		UsersModule,
 		TimeModule,
+		ProjectsModule,
 		CorrectionsModule,
 		AbsencesModule,
 		VacationModule,

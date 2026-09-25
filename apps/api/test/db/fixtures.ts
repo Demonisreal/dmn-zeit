@@ -64,5 +64,40 @@ export async function fillTenant(db: pg.Client, tenantId: string) {
 		[tenantId]
 	);
 
+	const client = await insertId(
+		db,
+		`insert into app.clients (tenant_id, number, name, city) values ($1, 'K-1001', 'Bäckerei Korn', 'Münster') returning id`,
+		[tenantId]
+	);
+	const project = await insertId(
+		db,
+		`insert into app.projects (tenant_id, client_id, name, open_to_all)
+		 values ($1, $2, 'Jahresabschluss 2025', false) returning id`,
+		[tenantId, client]
+	);
+	const task = await insertId(
+		db,
+		`insert into app.tasks (tenant_id, client_id, project_id, name) values ($1, $2, $3, 'Belege sichten') returning id`,
+		[tenantId, client, project]
+	);
+	await db.query(
+		'insert into app.project_members (tenant_id, project_id, employee_id) values ($1, $2, $3)',
+		[tenantId, project, worker.employeeId]
+	);
+	await db.query(
+		`insert into app.rates (tenant_id, client_id, valid_from, rate_cents, created_by)
+		 values ($1, $2, '2026-01-01', 9500, $3)`,
+		[tenantId, client, hr.userId]
+	);
+	// without a context the guard asks for the release of the project, hr books past it
+	await db.query('begin');
+	await db.query(`select set_config('app.role', 'hr', true)`);
+	await db.query(
+		`insert into app.project_entries (tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source)
+		 values ($1, $2, $3, $4, '2026-02-02 13:00+01', '2026-02-02 15:00+01', 'Belege Januar', 'manual')`,
+		[tenantId, worker.employeeId, project, task]
+	);
+	await db.query('commit');
+
 	return { team, lead, worker, hr, entry, absence };
 }

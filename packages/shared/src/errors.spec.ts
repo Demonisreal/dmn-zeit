@@ -3,6 +3,7 @@ import type { ZodType } from 'zod';
 import { absencesQuerySchema, createAbsenceSchema } from './absences';
 import { tokenSchema } from './auth';
 import {
+	centsSchema,
 	dayCountSchema,
 	displayNameSchema,
 	isoDateSchema,
@@ -13,6 +14,7 @@ import { createCorrectionSchema } from './corrections';
 import { apiErrorSchema, validationKeys, type ValidationKey } from './errors';
 import { createFlexBookingSchema } from './flex';
 import { createContractSchema, teamLeadsSchema } from './org';
+import { createProjectEntrySchema } from './projects';
 import { recoveryCodeSchema, totpCodeSchema } from './security';
 import { updateTenantSchema } from './tenant';
 import { daysQuerySchema } from './time';
@@ -71,6 +73,7 @@ const failures: [ValidationKey, ZodType, unknown][] = [
 	['format.month', monthSchema, '2026-13'],
 	['format.monthDay', updateTenantSchema, { carryoverUntil: '02-29' }],
 	['format.dayCount', dayCountSchema, '1.5'],
+	['format.cents', centsSchema, '12.50'],
 	[
 		'format.entitlement',
 		createContractSchema,
@@ -127,11 +130,30 @@ const failures: [ValidationKey, ZodType, unknown][] = [
 		createVacationAdjustmentSchema,
 		{ bucketYear: 2026, days: '0.00', effectiveDate: '2026-09-30', reason }
 	],
-	['team.duplicateLead', teamLeadsSchema, { userIds: [entryId, entryId] }]
+	['team.duplicateLead', teamLeadsSchema, { userIds: [entryId, entryId] }],
+	[
+		'project.endBeforeStart',
+		createProjectEntrySchema,
+		{
+			projectId: entryId,
+			startedAt: '2026-09-24T12:00:00+02:00',
+			endedAt: '2026-09-24T09:00:00+02:00',
+			note: 'Abstimmung Angebot'
+		}
+	],
+	[
+		'project.noteRequired',
+		createProjectEntrySchema,
+		{
+			projectId: entryId,
+			startedAt: '2026-09-24T09:00:00+02:00',
+			endedAt: '2026-09-24T12:00:00+02:00'
+		}
+	]
 ];
 
-// the api raises this one itself after checking the list of common passwords
-const raisedByApi: ValidationKey[] = ['password.common'];
+// password.common after the list of common passwords, rate.futureOnly against the tenant's today
+const raisedByApi: ValidationKey[] = ['password.common', 'rate.futureOnly'];
 
 describe('validation keys', () => {
 	it.each(failures)('%s comes out of the schema', (key, schema, input) => {

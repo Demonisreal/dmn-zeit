@@ -1,0 +1,57 @@
+.actions {
+	display: flex;
+	flex-basis: 100%;
+	gap: 0.25rem;
+	margin-inline-start: -0.625rem;
+}
+
+.actions button {
+	min-height: 2rem;
+	font-size: 0.8125rem;
+}
+
+.state {
+	align-items: center;
+}
+
+.more {
+	display: grid;
+	justify-items: start;
+	gap: 0.75rem;
+}
+
+.more > form {
+	justify-self: stretch;
+}
+
+/* the day reads like the others in the list, only the underline says it opens */
+.day {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--white);
+	font: inherit;
+	text-decoration-line: underline;
+	text-decoration-color: var(--red);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.2em;
+	cursor: pointer;
+}
+
+.money {
+	min-width: 6.5rem;
+	margin-inline-start: 0;
+	text-align: end;
+}
+
+.sum > span:first-child {
+	color: var(--white);
+	font-weight: 600;
+}
+
+@media (pointer: coarse) {
+	.actions button,
+	.day {
+		min-height: 2.75rem;
+	}
+}

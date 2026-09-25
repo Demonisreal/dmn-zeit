@@ -4,12 +4,14 @@ import { initReactI18next } from 'react-i18next';
 import { z } from 'zod';
 import absencesDe from './locales/de/absences.json';
 import type adminDe from './locales/de/admin.json';
+import type billingDe from './locales/de/billing.json';
 import authDe from './locales/de/auth.json';
 import commonDe from './locales/de/common.json';
 import type demoDe from './locales/de/demo.json';
 import type hrDe from './locales/de/hr.json';
 import inboxDe from './locales/de/inbox.json';
 import navDe from './locales/de/nav.json';
+import projectsDe from './locales/de/projects.json';
 import type securityDe from './locales/de/security.json';
 import teamDe from './locales/de/team.json';
 import timeDe from './locales/de/time.json';
@@ -26,7 +28,8 @@ const bundled = {
 	absences: absencesDe,
 	vacation: vacationDe,
 	inbox: inboxDe,
-	team: teamDe
+	team: teamDe,
+	projects: projectsDe
 };
 
 export type Resources = typeof bundled & {
@@ -34,10 +37,11 @@ export type Resources = typeof bundled & {
 	admin: typeof adminDe;
 	security: typeof securityDe;
 	demo: typeof demoDe;
+	billing: typeof billingDe;
 };
 
 const later = import.meta.glob<Record<string, unknown>>(
-	['./locales/en/*.json', './locales/de/{hr,admin,security,demo}.json'],
+	['./locales/en/*.json', './locales/de/{hr,admin,security,demo,billing}.json'],
 	{ import: 'default' }
 );
 

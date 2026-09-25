@@ -129,6 +129,69 @@ describe('privileges', () => {
 		expect(reworked.rowCount).toBe(1);
 	});
 
+	it('keeps clients, projects, rates and project entries in their tenant', async () => {
+		const person = await createPerson(tenant);
+		const client = await insertId(
+			superuser,
+			`insert into app.clients (tenant_id, name) values ($1, 'Bäckerei Korn') returning id`,
+			[tenant]
+		);
+		const project = await insertId(
+			superuser,
+			`insert into app.projects (tenant_id, client_id, name) values ($1, $2, 'Website') returning id`,
+			[tenant, client]
+		);
+		const task = await insertId(
+			superuser,
+			`insert into app.tasks (tenant_id, client_id, project_id, name) values ($1, $2, $3, 'Texte') returning id`,
+			[tenant, client, project]
+		);
+		const rate = await insertId(
+			superuser,
+			`insert into app.rates (tenant_id, valid_from, rate_cents) values ($1, '2026-01-01', 8000) returning id`,
+			[tenant]
+		);
+		await superuser.query(
+			'insert into app.project_members (tenant_id, project_id, employee_id) values ($1, $2, $3)',
+			[tenant, project, person.employeeId]
+		);
+		const elsewhere = await createTenant({ kind: 'sandbox' });
+		await withContext(app, admin.context);
+		const entry = await insertId(
+			app,
+			`insert into app.project_entries (tenant_id, employee_id, project_id, started_at, ended_at, note, source)
+			 values ($1, $2, $3, '2026-03-02 09:00+01', '2026-03-02 10:00+01', 'Startseite', 'manual') returning id`,
+			[tenant, person.employeeId, project]
+		);
+
+		for (const [table, id] of [
+			['app.clients', client],
+			['app.projects', project],
+			['app.tasks', task],
+			['app.rates', rate],
+			['app.project_entries', entry]
+		]) {
+			await expect(
+				app.query(`update ${table} set tenant_id = $2 where id = $1`, [id, elsewhere])
+			).rejects.toMatchObject({ code: '42501' });
+			await expect(
+				app.query(`update ${table} set id = gen_random_uuid() where id = $1`, [id])
+			).rejects.toMatchObject({ code: '42501' });
+		}
+		await expect(
+			app.query('update app.project_members set tenant_id = $2 where project_id = $1', [
+				project,
+				elsewhere
+			])
+		).rejects.toMatchObject({ code: '42501' });
+
+		const archived = await app.query(
+			`update app.projects set name = 'Website 2026', archived_at = now() where id = $1`,
+			[project]
+		);
+		expect(archived.rowCount).toBe(1);
+	});
+
 	it('never lets zeit_app create a tenant of its own', async () => {
 		const id = randomUUID();
 		await withContext(app, { tenantId: id, role: 'admin' });

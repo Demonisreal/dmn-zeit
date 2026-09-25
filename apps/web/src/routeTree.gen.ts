@@ -16,6 +16,7 @@ import { Route as ResetRouteImport } from './routes/reset';
 import { Route as AppIndexRouteImport } from './routes/_app/index';
 import { Route as AppAbsencesRouteImport } from './routes/_app/absences';
 import { Route as AppInboxRouteImport } from './routes/_app/inbox';
+import { Route as AppProjectsRouteImport } from './routes/_app/projects';
 import { Route as AppSecurityRouteImport } from './routes/_app/security';
 import { Route as AppSessionsRouteImport } from './routes/_app/sessions';
 import { Route as AppTimeRouteImport } from './routes/_app/time';
@@ -34,6 +35,10 @@ import { Route as AppHrNoticesRouteImport } from './routes/_app/hr/notices';
 import { Route as AppHrTeamsRouteImport } from './routes/_app/hr/teams';
 import { Route as AppHrWorkModelsRouteImport } from './routes/_app/hr/work-models';
 import { Route as AppTeamCalendarRouteImport } from './routes/_app/team/calendar';
+import { Route as AppTeamProjectsRouteImport } from './routes/_app/team/projects';
+import { Route as AppBillingClientsIndexRouteImport } from './routes/_app/billing/clients.index';
+import { Route as AppBillingClientsIdRouteImport } from './routes/_app/billing/clients.$id';
+import { Route as AppBillingProjectsIdRouteImport } from './routes/_app/billing/projects.$id';
 import { Route as AppHrMonthsIndexRouteImport } from './routes/_app/hr/months.index';
 import { Route as AppHrMonthsMonthRouteImport } from './routes/_app/hr/months.$month';
 import { Route as AppHrPeopleIdRouteImport } from './routes/_app/hr/people.$id';
@@ -71,6 +76,11 @@ const AppAbsencesRoute = AppAbsencesRouteImport.update({
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppProjectsRoute = AppProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => AppRoute,
 } as any);
 const AppSecurityRoute = AppSecurityRouteImport.update({
@@ -163,6 +173,26 @@ const AppTeamCalendarRoute = AppTeamCalendarRouteImport.update({
   path: '/team/calendar',
   getParentRoute: () => AppRoute,
 } as any);
+const AppTeamProjectsRoute = AppTeamProjectsRouteImport.update({
+  id: '/team/projects',
+  path: '/team/projects',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppBillingClientsIndexRoute = AppBillingClientsIndexRouteImport.update({
+  id: '/billing/clients/',
+  path: '/billing/clients/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppBillingClientsIdRoute = AppBillingClientsIdRouteImport.update({
+  id: '/billing/clients/$id',
+  path: '/billing/clients/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppBillingProjectsIdRoute = AppBillingProjectsIdRouteImport.update({
+  id: '/billing/projects/$id',
+  path: '/billing/projects/$id',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppHrMonthsIndexRoute = AppHrMonthsIndexRouteImport.update({
   id: '/hr/months/',
   path: '/hr/months/',
@@ -191,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/reset': typeof ResetRoute;
   '/absences': typeof AppAbsencesRoute;
   '/inbox': typeof AppInboxRoute;
+  '/projects': typeof AppProjectsRoute;
   '/security': typeof AppSecurityRoute;
   '/sessions': typeof AppSessionsRoute;
   '/time': typeof AppTimeRoute;
@@ -207,11 +238,15 @@ export interface FileRoutesByFullPath {
   '/hr/teams': typeof AppHrTeamsRoute;
   '/hr/work-models': typeof AppHrWorkModelsRoute;
   '/team/calendar': typeof AppTeamCalendarRoute;
+  '/team/projects': typeof AppTeamProjectsRoute;
   '/admin/': typeof AppAdminIndexRoute;
   '/hr/': typeof AppHrIndexRoute;
+  '/billing/clients/$id': typeof AppBillingClientsIdRoute;
+  '/billing/projects/$id': typeof AppBillingProjectsIdRoute;
   '/hr/months/$month': typeof AppHrMonthsMonthRoute;
   '/hr/people/$id': typeof AppHrPeopleIdRoute;
   '/print/timesheet/$id/$month': typeof PrintTimesheetIdMonthRoute;
+  '/billing/clients/': typeof AppBillingClientsIndexRoute;
   '/hr/months/': typeof AppHrMonthsIndexRoute;
 }
 export interface FileRoutesByTo {
@@ -220,6 +255,7 @@ export interface FileRoutesByTo {
   '/reset': typeof ResetRoute;
   '/absences': typeof AppAbsencesRoute;
   '/inbox': typeof AppInboxRoute;
+  '/projects': typeof AppProjectsRoute;
   '/security': typeof AppSecurityRoute;
   '/sessions': typeof AppSessionsRoute;
   '/time': typeof AppTimeRoute;
@@ -237,11 +273,15 @@ export interface FileRoutesByTo {
   '/hr/teams': typeof AppHrTeamsRoute;
   '/hr/work-models': typeof AppHrWorkModelsRoute;
   '/team/calendar': typeof AppTeamCalendarRoute;
+  '/team/projects': typeof AppTeamProjectsRoute;
   '/admin': typeof AppAdminIndexRoute;
   '/hr': typeof AppHrIndexRoute;
+  '/billing/clients/$id': typeof AppBillingClientsIdRoute;
+  '/billing/projects/$id': typeof AppBillingProjectsIdRoute;
   '/hr/months/$month': typeof AppHrMonthsMonthRoute;
   '/hr/people/$id': typeof AppHrPeopleIdRoute;
   '/print/timesheet/$id/$month': typeof PrintTimesheetIdMonthRoute;
+  '/billing/clients': typeof AppBillingClientsIndexRoute;
   '/hr/months': typeof AppHrMonthsIndexRoute;
 }
 export interface FileRoutesById {
@@ -252,6 +292,7 @@ export interface FileRoutesById {
   '/reset': typeof ResetRoute;
   '/_app/absences': typeof AppAbsencesRoute;
   '/_app/inbox': typeof AppInboxRoute;
+  '/_app/projects': typeof AppProjectsRoute;
   '/_app/security': typeof AppSecurityRoute;
   '/_app/sessions': typeof AppSessionsRoute;
   '/_app/time': typeof AppTimeRoute;
@@ -269,11 +310,15 @@ export interface FileRoutesById {
   '/_app/hr/teams': typeof AppHrTeamsRoute;
   '/_app/hr/work-models': typeof AppHrWorkModelsRoute;
   '/_app/team/calendar': typeof AppTeamCalendarRoute;
+  '/_app/team/projects': typeof AppTeamProjectsRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
   '/_app/hr/': typeof AppHrIndexRoute;
+  '/_app/billing/clients/$id': typeof AppBillingClientsIdRoute;
+  '/_app/billing/projects/$id': typeof AppBillingProjectsIdRoute;
   '/_app/hr/months/$month': typeof AppHrMonthsMonthRoute;
   '/_app/hr/people/$id': typeof AppHrPeopleIdRoute;
   '/print/timesheet/$id/$month': typeof PrintTimesheetIdMonthRoute;
+  '/_app/billing/clients/': typeof AppBillingClientsIndexRoute;
   '/_app/hr/months/': typeof AppHrMonthsIndexRoute;
 }
 export interface FileRouteTypes {
@@ -285,6 +330,7 @@ export interface FileRouteTypes {
     | '/reset'
     | '/absences'
     | '/inbox'
+    | '/projects'
     | '/security'
     | '/sessions'
     | '/time'
@@ -301,11 +347,15 @@ export interface FileRouteTypes {
     | '/hr/teams'
     | '/hr/work-models'
     | '/team/calendar'
+    | '/team/projects'
     | '/admin/'
     | '/hr/'
+    | '/billing/clients/$id'
+    | '/billing/projects/$id'
     | '/hr/months/$month'
     | '/hr/people/$id'
     | '/print/timesheet/$id/$month'
+    | '/billing/clients/'
     | '/hr/months/';
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -314,6 +364,7 @@ export interface FileRouteTypes {
     | '/reset'
     | '/absences'
     | '/inbox'
+    | '/projects'
     | '/security'
     | '/sessions'
     | '/time'
@@ -331,11 +382,15 @@ export interface FileRouteTypes {
     | '/hr/teams'
     | '/hr/work-models'
     | '/team/calendar'
+    | '/team/projects'
     | '/admin'
     | '/hr'
+    | '/billing/clients/$id'
+    | '/billing/projects/$id'
     | '/hr/months/$month'
     | '/hr/people/$id'
     | '/print/timesheet/$id/$month'
+    | '/billing/clients'
     | '/hr/months';
   id:
     | '__root__'
@@ -345,6 +400,7 @@ export interface FileRouteTypes {
     | '/reset'
     | '/_app/absences'
     | '/_app/inbox'
+    | '/_app/projects'
     | '/_app/security'
     | '/_app/sessions'
     | '/_app/time'
@@ -362,11 +418,15 @@ export interface FileRouteTypes {
     | '/_app/hr/teams'
     | '/_app/hr/work-models'
     | '/_app/team/calendar'
+    | '/_app/team/projects'
     | '/_app/admin/'
     | '/_app/hr/'
+    | '/_app/billing/clients/$id'
+    | '/_app/billing/projects/$id'
     | '/_app/hr/months/$month'
     | '/_app/hr/people/$id'
     | '/print/timesheet/$id/$month'
+    | '/_app/billing/clients/'
     | '/_app/hr/months/';
   fileRoutesById: FileRoutesById;
 }
@@ -429,6 +489,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox';
       fullPath: '/inbox';
       preLoaderRoute: typeof AppInboxRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/projects': {
+      id: '/_app/projects';
+      path: '/projects';
+      fullPath: '/projects';
+      preLoaderRoute: typeof AppProjectsRouteImport;
       parentRoute: typeof AppRoute;
     };
     '/_app/security': {
@@ -557,6 +624,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamCalendarRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/team/projects': {
+      id: '/_app/team/projects';
+      path: '/team/projects';
+      fullPath: '/team/projects';
+      preLoaderRoute: typeof AppTeamProjectsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/billing/clients/': {
+      id: '/_app/billing/clients/';
+      path: '/billing/clients';
+      fullPath: '/billing/clients/';
+      preLoaderRoute: typeof AppBillingClientsIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/billing/clients/$id': {
+      id: '/_app/billing/clients/$id';
+      path: '/billing/clients/$id';
+      fullPath: '/billing/clients/$id';
+      preLoaderRoute: typeof AppBillingClientsIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/billing/projects/$id': {
+      id: '/_app/billing/projects/$id';
+      path: '/billing/projects/$id';
+      fullPath: '/billing/projects/$id';
+      preLoaderRoute: typeof AppBillingProjectsIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/hr/months/': {
       id: '/_app/hr/months/';
       path: '/hr/months';
@@ -591,6 +686,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAbsencesRoute: typeof AppAbsencesRoute;
   AppInboxRoute: typeof AppInboxRoute;
+  AppProjectsRoute: typeof AppProjectsRoute;
   AppSecurityRoute: typeof AppSecurityRoute;
   AppSessionsRoute: typeof AppSessionsRoute;
   AppTimeRoute: typeof AppTimeRoute;
@@ -606,16 +702,21 @@ interface AppRouteChildren {
   AppHrTeamsRoute: typeof AppHrTeamsRoute;
   AppHrWorkModelsRoute: typeof AppHrWorkModelsRoute;
   AppTeamCalendarRoute: typeof AppTeamCalendarRoute;
+  AppTeamProjectsRoute: typeof AppTeamProjectsRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
   AppHrIndexRoute: typeof AppHrIndexRoute;
+  AppBillingClientsIdRoute: typeof AppBillingClientsIdRoute;
+  AppBillingProjectsIdRoute: typeof AppBillingProjectsIdRoute;
   AppHrMonthsMonthRoute: typeof AppHrMonthsMonthRoute;
   AppHrPeopleIdRoute: typeof AppHrPeopleIdRoute;
+  AppBillingClientsIndexRoute: typeof AppBillingClientsIndexRoute;
   AppHrMonthsIndexRoute: typeof AppHrMonthsIndexRoute;
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAbsencesRoute: AppAbsencesRoute,
   AppInboxRoute: AppInboxRoute,
+  AppProjectsRoute: AppProjectsRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppSessionsRoute: AppSessionsRoute,
   AppTimeRoute: AppTimeRoute,
@@ -631,10 +732,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppHrTeamsRoute: AppHrTeamsRoute,
   AppHrWorkModelsRoute: AppHrWorkModelsRoute,
   AppTeamCalendarRoute: AppTeamCalendarRoute,
+  AppTeamProjectsRoute: AppTeamProjectsRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppHrIndexRoute: AppHrIndexRoute,
+  AppBillingClientsIdRoute: AppBillingClientsIdRoute,
+  AppBillingProjectsIdRoute: AppBillingProjectsIdRoute,
   AppHrMonthsMonthRoute: AppHrMonthsMonthRoute,
   AppHrPeopleIdRoute: AppHrPeopleIdRoute,
+  AppBillingClientsIndexRoute: AppBillingClientsIndexRoute,
   AppHrMonthsIndexRoute: AppHrMonthsIndexRoute,
 };
 

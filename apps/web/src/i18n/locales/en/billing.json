@@ -1,0 +1,164 @@
+{
+	"nav": {
+		"label": "Billing",
+		"clients": "Clients"
+	},
+	"actions": "Actions",
+	"edit": "Edit",
+	"save": "Save",
+	"cancel": "Cancel",
+	"archived": "archived",
+	"restricted": "locked",
+	"inheritGeneral": "general default",
+	"inheritClient": "same as the client",
+	"rounding": {
+		"title": "Rounding",
+		"increment": "Rounding increment",
+		"modeLabel": "Rounding mode",
+		"minutes": "{{minutes}} min",
+		"modes": {
+			"up": "round up",
+			"nearest": "round to nearest",
+			"down": "round down"
+		},
+		"hint": "Rounding applies per project, task and day, never per entry.",
+		"summary": "{{increment}}, {{mode}}"
+	},
+	"clients": {
+		"title": "Clients",
+		"lead": "Clients with address and invoice details. Projects and rates are on each client's page.",
+		"new": "Add client",
+		"search": "Name or client number",
+		"includeArchived": "Show archived",
+		"archive": "Archive",
+		"archiveTitle": "Archive {{name}}",
+		"archiveText": "The client leaves the list and cannot be restored here. Projects, booked time and rates are kept.",
+		"delete": "Delete",
+		"deleteTitle": "Delete {{name}}?",
+		"deleteText": "A client without projects and rates is deleted for good. If projects or rates still refer to it, it stays in the records as locked, a restriction of processing under Art. 18 DSGVO (GDPR). You may have to confirm your sign-in again first.",
+		"firstRun": {
+			"title": "No clients yet",
+			"text": "Project time is always booked on a project, and every project belongs to a client.",
+			"action": "Add the first client"
+		},
+		"allArchived": "All clients are archived.",
+		"noMatch": "No client matches “{{search}}”"
+	},
+	"client": {
+		"back": "All clients",
+		"lead": "Client number {{number}}",
+		"edit": "Edit client details",
+		"editTitle": "Client details",
+		"restrictedText": "Locked under Art. 18 DSGVO (GDPR): the details stay in the records, the client can no longer be chosen anywhere.",
+		"name": "Name",
+		"number": "Client number",
+		"email": "Email",
+		"address": "Address",
+		"street": "Street and number",
+		"postalCode": "Postcode",
+		"city": "City",
+		"country": "Country",
+		"countryHint": "Two-letter country code, such as DE, AT or NL",
+		"countryInvalid": "Two letters, such as DE",
+		"invoice": "Invoice",
+		"kind": "Type",
+		"business": "Business (B2B)",
+		"private": "Private person (B2C)",
+		"vatId": "VAT ID",
+		"invoiceLocale": "Invoice language",
+		"locales": {
+			"de": "German",
+			"en": "English"
+		},
+		"paymentTerms": "Payment terms",
+		"paymentTermsHint": "In days. Leave empty for the general default.",
+		"paymentDays_one": "{{count}} day",
+		"paymentDays_other": "{{count}} days",
+		"paymentRange": "Between 0 and 120 days"
+	},
+	"projects": {
+		"title": "Projects",
+		"new": "Add project",
+		"name": "Project",
+		"code": "Code",
+		"billing": "Billing",
+		"billable": "billable",
+		"notBillable": "not billable",
+		"billableLabel": "Billable",
+		"budget": "Budget",
+		"budgetHint": "Hours, such as 40 or 37:30. Leave empty for no budget. A warning shows from 80%.",
+		"budgetMin": "More than 0:00",
+		"noBudget": "no budget",
+		"includeArchived": "Show archived",
+		"empty": "No projects for this client yet",
+		"emptyHint": "Time can only be booked once the client has a project.",
+		"allArchived": "All projects of this client are archived."
+	},
+	"project": {
+		"back": "Back to {{client}}",
+		"leadWithCode": "{{client}} · code {{code}}",
+		"edit": "Edit project",
+		"editTitle": "Project details"
+	},
+	"members": {
+		"title": "Who books on the project",
+		"openToAll": "Open to everyone",
+		"openHint": "Everyone with a personnel record can book on the project.",
+		"closedHint": "Only the members and HR can book on the project.",
+		"none": "No members yet.",
+		"edit": "Choose members",
+		"choose": "Members of {{name}}",
+		"save": "Save members"
+	},
+	"tasks": {
+		"title": "Tasks",
+		"lead": "Split up the project. Without a setting of its own, a task takes over whether the project is billable.",
+		"new": "Add task",
+		"name": "Task",
+		"editTitle": "Edit {{name}}",
+		"archive": "Archive",
+		"archiveTitle": "Archive {{name}}",
+		"archiveText": "The task can no longer be chosen and cannot be restored here. Booked time and rates are kept.",
+		"empty": "No tasks. Time is booked on the project itself.",
+		"billable": {
+			"inherit": "same as the project",
+			"yes": "billable",
+			"no": "not billable"
+		},
+		"inheritYes": "billable (same as the project)",
+		"inheritNo": "not billable (same as the project)"
+	},
+	"rates": {
+		"title": "Rates",
+		"defaultTitle": "Default rate",
+		"lead": {
+			"default": "Applies when no more specific rate fits the client, project, task or person.",
+			"client": "Apply to all projects of this client unless the project or task has a rate of its own.",
+			"project": "The most specific rate applies: task before project before client, a rate for one person before the one for everyone."
+		},
+		"validFrom": "Valid from",
+		"level": "Level",
+		"levels": {
+			"project": "Project",
+			"task": "Task “{{name}}”"
+		},
+		"person": "Person",
+		"everyone": "everyone",
+		"perHour": "Hourly rate",
+		"current": "valid today",
+		"future": "upcoming",
+		"new": "Add rate",
+		"create": "Add rate",
+		"formHint": "A rate is never changed, a new one with a later valid-from date takes over. It applies to all unbilled time from that day on.",
+		"amount": "Rate in €",
+		"amountHint": "Net per hour, such as 95 or 95.50",
+		"delete": "Delete rate",
+		"deleteTitle": "Delete rate from {{date}}?",
+		"deleteText": "The rate has not taken effect yet. Without it, the previous rate stays in force from that day on.",
+		"empty": {
+			"default": "No default rate yet",
+			"client": "No rate of its own, the default rate applies.",
+			"project": "No rate of its own, the client's rate or the default rate applies."
+		}
+	}
+}

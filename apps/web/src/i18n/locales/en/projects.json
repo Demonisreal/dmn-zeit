@@ -1,0 +1,173 @@
+{
+	"table": "Project time Wk {{week}}",
+	"empty": "No project time this week.",
+	"emptyCurrent": "No project time this week yet. Recording starts with “Start”.",
+	"noEmployee": "Project time is only available for accounts with a personnel number. HR can link this account to an employee record.",
+	"noTask": "no task",
+	"firstRun": {
+		"title": "No clients and projects yet",
+		"text": "Project time is always booked on a project, and every project belongs to a client. Once both exist, the timer can start.",
+		"action": "Add the first client"
+	},
+	"noProjects": {
+		"title": "No project released yet",
+		"text": "HR sets up clients and projects. As soon as a project is bookable for this account, it shows up here."
+	},
+	"col": {
+		"project": "Project",
+		"total": "Total",
+		"amount": "Amount"
+	},
+	"row": {
+		"tasks_one": "{{count}} task",
+		"tasks_other": "{{count}} tasks"
+	},
+	"cell": {
+		"toggle": "breakdown",
+		"running": "timer running",
+		"lock": {
+			"draft": "on a draft invoice",
+			"issued": "invoiced"
+		}
+	},
+	"picker": {
+		"placeholder": "Choose a project",
+		"none": "No matching project"
+	},
+	"timer": {
+		"label": "Project timer",
+		"idle": "No timer running",
+		"running": "Running since {{since}}",
+		"otherProject": "Project no longer bookable",
+		"pick": "Project",
+		"start": "Start",
+		"stop": "Stop",
+		"switch": "Switch",
+		"longText": "The timer has been running since {{since}}, more than 12 hours. After stopping, the actual end can be entered.",
+		"loadFailed": "Timer not loaded.",
+		"changed": "The timer was stopped or started elsewhere in the meantime. The display is up to date again.",
+		"forbidden": "This project cannot be booked."
+	},
+	"chip": {
+		"label": "Running timer",
+		"running": "running",
+		"longTag": "over 12 h",
+		"started": "Timer running: {{project}}",
+		"stopped": "Timer stopped",
+		"long": "The timer has been running for more than 12 hours"
+	},
+	"fix": {
+		"title": "Correct the end",
+		"text": "The timer ran since {{since}} and is stopped now. When did the work actually end?"
+	},
+	"detail": {
+		"entries": "Entries",
+		"days": "Days",
+		"weekSum": "Week",
+		"raw": "Recorded",
+		"rawHint": "Sum of the entries. Rounding applies per project, task and day.",
+		"rounded": "Rounded",
+		"rate": "Rate",
+		"amount": "Amount",
+		"notBillable": "not billable",
+		"lock": {
+			"draft": "On a draft invoice and locked until the draft releases the time again.",
+			"issued": "Invoiced, the entries are locked."
+		},
+		"edit": "Change",
+		"void": "Void",
+		"add": "Add a manual entry",
+		"done": {
+			"added": "Manual entry added.",
+			"changed": "Entry changed.",
+			"voided": "Entry voided."
+		}
+	},
+	"entry": {
+		"open": "Add a manual entry",
+		"title": "Manual entry",
+		"editTitle": "Change entry",
+		"project": "Project",
+		"date": "Day",
+		"start": "Start",
+		"end": "End",
+		"note": "Note",
+		"noteHint": "Required for a manual entry: what was done? The note stays in the audit log.",
+		"noteHintEdit": "Optional. The change stays in the audit log.",
+		"duration": "Duration {{minutes}}",
+		"submit": "Add entry",
+		"save": "Save",
+		"overlap": "The time overlaps another entry.",
+		"invoiced": "The entry is on an invoice or a draft invoice and is locked.",
+		"forbidden": "This project cannot be booked.",
+		"voidTitle": "Void this entry?",
+		"voidText": "{{span}}, {{project}}. The entry no longer counts but stays in the audit log.",
+		"voidConfirm": "Void"
+	},
+	"coverage": {
+		"worked": "Working time",
+		"unassigned": "unassigned",
+		"outside": "outside working time",
+		"hints": "Reconciliation",
+		"tag": {
+			"PROJECT_OVER_WORKED": "above worked",
+			"PROJECT_OUTSIDE_WORK": "outside"
+		},
+		"hint": {
+			"PROJECT_OVER_WORKED": "More project time than clocked working time",
+			"PROJECT_OUTSIDE_WORK": "Project time outside the clocked working time"
+		},
+		"legend": "Reconciliation with the clock, as a hint only: no finding under the Arbeitszeitgesetz (Working Hours Act) and not part of the month-end close. Differences up to 5 minutes do not count."
+	},
+	"unbilled": {
+		"title": "Unbilled",
+		"none": "Everything is billed.",
+		"total": "Total",
+		"hint": "Billable time up to today, rounded, amounts net."
+	},
+	"budgets": {
+		"title": "Budgets",
+		"none": "No project with a budget.",
+		"loadFailed": "Not loaded.",
+		"used": "{{used}} of {{budget}}",
+		"share": "{{share}}%",
+		"state": {
+			"ok": "within budget",
+			"warn": "warning from 80%",
+			"exceeded": "Over budget"
+		}
+	},
+	"team": {
+		"title": "Team project time",
+		"week": "Week",
+		"table": "Team project time Wk {{week}}",
+		"projectTime": "Project time",
+		"empty": "Nobody in this team has project time this week.",
+		"legend": "Minutes without amounts. The name opens the person's week with its breakdown.",
+		"matrix": "Project time {{name}} Wk {{week}}"
+	},
+	"explain": {
+		"billing": {
+			"rounding": {
+				"up": "Rounding increment {{increment}} min, rounded up: {{raw}} becomes {{rounded}}",
+				"nearest": "Rounding increment {{increment}} min, rounded to nearest: {{raw}} becomes {{rounded}}",
+				"down": "Rounding increment {{increment}} min, rounded down: {{raw}} becomes {{rounded}}"
+			},
+			"rate": {
+				"task_employee": "Rate of the task for this person, valid from {{validFrom}}",
+				"task": "Rate of the task, valid from {{validFrom}}",
+				"project_employee": "Rate of the project for this person, valid from {{validFrom}}",
+				"project": "Rate of the project, valid from {{validFrom}}",
+				"client_employee": "Rate of the client for this person, valid from {{validFrom}}",
+				"client": "Rate of the client, valid from {{validFrom}}",
+				"employee": "Personal rate, valid from {{validFrom}}",
+				"default": "Default rate, valid from {{validFrom}}"
+			},
+			"budget": {
+				"ok": "{{usedMinutes}} of {{budgetMinutes}} used",
+				"warn": "{{usedMinutes}} of {{budgetMinutes}} used, warning from 80%",
+				"exceeded": "{{usedMinutes}} of {{budgetMinutes}} used, over budget"
+			}
+		}
+	}
+}

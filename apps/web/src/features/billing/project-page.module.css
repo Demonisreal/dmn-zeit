@@ -1,0 +1,17 @@
+.title {
+	overflow-wrap: anywhere;
+}
+
+.budget {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25rem 0.5rem;
+}
+
+.options {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+	gap: 0 1rem;
+	margin-top: 0.25rem;
+}

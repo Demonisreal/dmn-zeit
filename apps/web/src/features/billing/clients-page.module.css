@@ -1,0 +1,10 @@
+/* client names run long ("… vertreten durch …"), they wrap instead of pushing the counts off screen */
+.name {
+	min-width: 12rem;
+	max-width: 36rem;
+	overflow-wrap: anywhere;
+}
+
+.kind {
+	white-space: nowrap;
+}

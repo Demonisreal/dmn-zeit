@@ -129,6 +129,11 @@ Leave Act).
 | Abgleich                  | reconciliation       | Arbeitszeit gegen Projektzeit, nur Hinweis, kein Befund       |
 | ohne Projekt              | unassigned           | Arbeitszeit ohne Projektzeit                                  |
 | außerhalb der Arbeitszeit | outside working time | Projektzeit ohne gestempelte Zeit                             |
+| Kürzel (Projekt)          | code                 | freiwillig, eindeutig je Mandant                              |
+| Rundungsart               | rounding mode        | aufrunden, kaufmännisch runden oder abrunden                  |
+| für alle buchbar          | open to everyone     | sonst nur Mitglieder und Personalverwaltung                   |
+| Mitglied (Projekt)        | member               |                                                               |
+| gesperrt (Kunde)          | locked               | Einschränkung nach Art. 18 DSGVO statt Löschen                |
 | Solo-Bereich              | solo workspace       | Mandant für eine Person, nur auf Einladung                    |
 | Freelancer                | freelancer           |                                                               |
 

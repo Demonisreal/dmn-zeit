@@ -16,6 +16,7 @@ export const errorCodes = [
 	'TIME_OVERLAP',
 	'PERIOD_LOCKED',
 	'APPEND_ONLY',
+	'INVOICED',
 	'RATE_LIMITED',
 	'SANDBOX_LIMIT',
 	'SANDBOX_QUOTA',
@@ -30,6 +31,7 @@ export const validationKeys = [
 	'format.month',
 	'format.monthDay',
 	'format.dayCount',
+	'format.cents',
 	'format.entitlement',
 	'format.token',
 	'format.totp',
@@ -46,6 +48,9 @@ export const validationKeys = [
 	'flex.payoutPositive',
 	'vacation.zeroDays',
 	'team.duplicateLead',
+	'project.endBeforeStart',
+	'project.noteRequired',
+	'rate.futureOnly',
 	'password.common'
 ] as const;
 

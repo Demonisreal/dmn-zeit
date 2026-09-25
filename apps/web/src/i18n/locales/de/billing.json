@@ -1,0 +1,164 @@
+{
+	"nav": {
+		"label": "Abrechnung",
+		"clients": "Kunden"
+	},
+	"actions": "Aktionen",
+	"edit": "Bearbeiten",
+	"save": "Speichern",
+	"cancel": "Abbrechen",
+	"archived": "archiviert",
+	"restricted": "gesperrt",
+	"inheritGeneral": "allgemeine Vorgabe",
+	"inheritClient": "wie beim Kunden",
+	"rounding": {
+		"title": "Rundung",
+		"increment": "Rundungsraster",
+		"modeLabel": "Rundungsart",
+		"minutes": "{{minutes}} min",
+		"modes": {
+			"up": "aufrunden",
+			"nearest": "kaufmännisch runden",
+			"down": "abrunden"
+		},
+		"hint": "Gerundet wird je Projekt, Aufgabe und Tag, nie je Eintrag.",
+		"summary": "{{increment}}, {{mode}}"
+	},
+	"clients": {
+		"title": "Kunden",
+		"lead": "Auftraggeber mit Anschrift und Rechnungsangaben. Projekte und Sätze stehen auf der Seite des Kunden.",
+		"new": "Kunde anlegen",
+		"search": "Name oder Kundennummer",
+		"includeArchived": "Archivierte anzeigen",
+		"archive": "Archivieren",
+		"archiveTitle": "{{name}} archivieren",
+		"archiveText": "Der Kunde verschwindet aus der Liste und lässt sich hier nicht wiederherstellen. Projekte, gebuchte Zeiten und Sätze bleiben erhalten.",
+		"delete": "Löschen",
+		"deleteTitle": "{{name}} löschen?",
+		"deleteText": "Ohne Projekte und Sätze wird der Kunde endgültig gelöscht. Hängen noch Projekte oder Sätze an ihm, bleibt er gesperrt in den Unterlagen (Einschränkung der Verarbeitung nach Art. 18 DSGVO). Vorher kann eine erneute Bestätigung der Anmeldung nötig sein.",
+		"firstRun": {
+			"title": "Noch keine Kunden",
+			"text": "Projektzeit wird immer auf ein Projekt gebucht, und jedes Projekt gehört zu einem Kunden.",
+			"action": "Ersten Kunden anlegen"
+		},
+		"allArchived": "Alle Kunden sind archiviert.",
+		"noMatch": "Kein Kunde passt zu „{{search}}“"
+	},
+	"client": {
+		"back": "Alle Kunden",
+		"lead": "Kundennummer {{number}}",
+		"edit": "Stammdaten bearbeiten",
+		"editTitle": "Stammdaten",
+		"restrictedText": "Gesperrt nach Art. 18 DSGVO: Die Angaben bleiben für die Unterlagen erhalten, der Kunde steht nirgends mehr zur Auswahl.",
+		"name": "Name",
+		"number": "Kundennummer",
+		"email": "E-Mail",
+		"address": "Anschrift",
+		"street": "Straße und Hausnummer",
+		"postalCode": "PLZ",
+		"city": "Ort",
+		"country": "Land",
+		"countryHint": "Ländercode aus zwei Buchstaben, etwa DE, AT oder NL",
+		"countryInvalid": "Zwei Buchstaben, etwa DE",
+		"invoice": "Rechnung",
+		"kind": "Art",
+		"business": "Unternehmen (B2B)",
+		"private": "Privatperson (B2C)",
+		"vatId": "USt-IdNr.",
+		"invoiceLocale": "Rechnungssprache",
+		"locales": {
+			"de": "Deutsch",
+			"en": "Englisch"
+		},
+		"paymentTerms": "Zahlungsziel",
+		"paymentTermsHint": "In Tagen. Leer lassen für die allgemeine Vorgabe.",
+		"paymentDays_one": "{{count}} Tag",
+		"paymentDays_other": "{{count}} Tage",
+		"paymentRange": "Zwischen 0 und 120 Tagen"
+	},
+	"projects": {
+		"title": "Projekte",
+		"new": "Projekt anlegen",
+		"name": "Projekt",
+		"code": "Kürzel",
+		"billing": "Abrechnung",
+		"billable": "abrechenbar",
+		"notBillable": "nicht abrechenbar",
+		"billableLabel": "Abrechenbar",
+		"budget": "Budget",
+		"budgetHint": "Stunden, etwa 40 oder 37:30. Leer lassen für kein Budget. Ab 80 % erscheint eine Warnung.",
+		"budgetMin": "Mehr als 0:00",
+		"noBudget": "kein Budget",
+		"includeArchived": "Archivierte anzeigen",
+		"empty": "Noch keine Projekte für diesen Kunden",
+		"emptyHint": "Zeit lässt sich erst buchen, wenn der Kunde ein Projekt hat.",
+		"allArchived": "Alle Projekte dieses Kunden sind archiviert."
+	},
+	"project": {
+		"back": "Zurück zu {{client}}",
+		"leadWithCode": "{{client}} · Kürzel {{code}}",
+		"edit": "Projekt bearbeiten",
+		"editTitle": "Projektangaben"
+	},
+	"members": {
+		"title": "Wer auf das Projekt bucht",
+		"openToAll": "Für alle buchbar",
+		"openHint": "Alle mit Personalstamm können auf das Projekt buchen.",
+		"closedHint": "Nur die Mitglieder und die Personalverwaltung können auf das Projekt buchen.",
+		"none": "Noch keine Mitglieder.",
+		"edit": "Mitglieder festlegen",
+		"choose": "Mitglieder von {{name}}",
+		"save": "Mitglieder speichern"
+	},
+	"tasks": {
+		"title": "Aufgaben",
+		"lead": "Unterteilen das Projekt. Ohne eigene Einstellung übernimmt eine Aufgabe, ob das Projekt abrechenbar ist.",
+		"new": "Aufgabe anlegen",
+		"name": "Aufgabe",
+		"editTitle": "{{name}} bearbeiten",
+		"archive": "Archivieren",
+		"archiveTitle": "{{name}} archivieren",
+		"archiveText": "Die Aufgabe steht danach nicht mehr zur Auswahl und lässt sich hier nicht wiederherstellen. Gebuchte Zeiten und Sätze bleiben erhalten.",
+		"empty": "Keine Aufgaben. Zeit wird direkt auf das Projekt gebucht.",
+		"billable": {
+			"inherit": "wie das Projekt",
+			"yes": "abrechenbar",
+			"no": "nicht abrechenbar"
+		},
+		"inheritYes": "abrechenbar (wie das Projekt)",
+		"inheritNo": "nicht abrechenbar (wie das Projekt)"
+	},
+	"rates": {
+		"title": "Sätze",
+		"defaultTitle": "Standardsatz",
+		"lead": {
+			"default": "Gilt, wenn für Kunde, Projekt, Aufgabe oder Person kein speziellerer Satz passt.",
+			"client": "Gelten für alle Projekte dieses Kunden, sofern Projekt oder Aufgabe keinen eigenen Satz haben.",
+			"project": "Der speziellste passende Satz gilt: Aufgabe vor Projekt vor Kunde, ein Satz für eine Person vor dem für alle."
+		},
+		"validFrom": "Gültig ab",
+		"level": "Ebene",
+		"levels": {
+			"project": "Projekt",
+			"task": "Aufgabe „{{name}}“"
+		},
+		"person": "Person",
+		"everyone": "alle",
+		"perHour": "Satz je Stunde",
+		"current": "gilt heute",
+		"future": "künftig",
+		"new": "Satz anlegen",
+		"create": "Satz anlegen",
+		"formHint": "Ein Satz wird nicht geändert, sondern von einem neuen mit späterem Gültig-ab abgelöst. Er wirkt auf alle noch nicht abgerechneten Zeiten ab diesem Tag.",
+		"amount": "Satz in €",
+		"amountHint": "Netto je Stunde, etwa 95 oder 95,50",
+		"delete": "Satz löschen",
+		"deleteTitle": "Satz ab {{date}} löschen?",
+		"deleteText": "Der Satz gilt noch nicht. Ohne ihn bleibt ab diesem Tag der bisherige Satz.",
+		"empty": {
+			"default": "Noch kein Standardsatz",
+			"client": "Kein eigener Satz, es gilt der Standardsatz.",
+			"project": "Kein eigener Satz, es gilt der Satz des Kunden oder der Standardsatz."
+		}
+	}
+}

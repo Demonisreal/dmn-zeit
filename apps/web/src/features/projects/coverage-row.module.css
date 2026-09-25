@@ -1,0 +1,27 @@
+/* quieter than the project sums above: regular weight, text colour, no second rule line */
+tfoot tr.row > th,
+tfoot tr.row > td {
+	border-top: 0;
+	font-weight: 400;
+}
+
+tfoot tr.row > th {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	white-space: normal;
+}
+
+tfoot tr.row > td[data-numeric] {
+	color: var(--text);
+}
+
+tfoot tr.first > * {
+	padding-top: 1rem;
+}
+
+.tags {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.25rem;
+}

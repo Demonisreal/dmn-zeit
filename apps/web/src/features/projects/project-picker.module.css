@@ -1,0 +1,62 @@
+.picker {
+	min-width: min(100%, 16rem);
+}
+
+/* same as VisuallyHidden, the label element itself has to stay for react-aria */
+.hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.control {
+	position: relative;
+}
+
+.input {
+	padding-inline-end: 2.25rem;
+	text-overflow: ellipsis;
+}
+
+.input::placeholder {
+	color: var(--muted);
+	opacity: 1;
+}
+
+.button {
+	position: absolute;
+	inset-block: 1px;
+	inset-inline-end: 1px;
+	display: grid;
+	place-items: center;
+	width: 2.25rem;
+	border: 0;
+	border-radius: 0 5px 5px 0;
+	background: none;
+	color: var(--muted);
+	cursor: default;
+}
+
+.button[data-hovered] {
+	color: var(--white);
+}
+
+.client {
+	padding: 0.5rem 0.625rem 0.25rem;
+	color: var(--muted);
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+
+.task {
+	padding-inline-start: 1.5rem;
+}
+
+.none {
+	padding: 0.5rem 0.625rem;
+	color: var(--muted);
+	font-size: 0.875rem;
+}

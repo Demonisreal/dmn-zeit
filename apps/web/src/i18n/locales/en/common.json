@@ -38,6 +38,7 @@
 			"month": "Month as YYYY-MM",
 			"monthDay": "Not a valid cut-off day, 29 February is not allowed",
 			"dayCount": "Days with two decimals",
+			"cents": "Not a valid amount",
 			"entitlement": "Up to 99 days, at most one decimal",
 			"token": "The link is incomplete",
 			"totp": "Six digits from the authenticator app",
@@ -64,6 +65,13 @@
 		},
 		"team": {
 			"duplicateLead": "This person is already on the list"
+		},
+		"project": {
+			"endBeforeStart": "The end is before the start",
+			"noteRequired": "A manual entry needs a note"
+		},
+		"rate": {
+			"futureOnly": "Only a rate that has not taken effect yet can be removed"
 		},
 		"text": {
 			"empty": "This field cannot be empty",

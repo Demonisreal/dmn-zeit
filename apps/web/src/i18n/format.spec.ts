@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	dateFormat,
+	formatCents,
 	formatClock,
 	formatDate,
 	formatDays,
@@ -34,6 +35,12 @@ describe('format', () => {
 		expect(formatInstant('2026-03-29T06:12:00Z', 'en', { dateStyle: 'medium' })).toBe(
 			'29 Mar 2026'
 		);
+	});
+
+	it('writes cents as euros', () => {
+		expect(formatCents('9500', 'de')).toBe('95,00 €');
+		expect(formatCents('9500', 'en')).toBe('€95.00');
+		expect(formatCents('123456', 'de')).toBe('1.234,56 €');
 	});
 
 	it('shows leave days with two decimals in the language of the user', () => {

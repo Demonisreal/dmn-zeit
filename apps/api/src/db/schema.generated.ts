@@ -27,6 +27,10 @@ export type AppMonthClosingAction = "close" | "reopen";
 
 export type AppNoticeChannel = "email" | "in_app" | "letter";
 
+export type AppProjectEntrySource = "manual" | "seed" | "timer";
+
+export type AppRoundingMode = "down" | "nearest" | "up";
+
 export type AppTenantKind = "live" | "sandbox";
 
 export type AppUserRole = "admin" | "employee" | "hr" | "team_lead";
@@ -90,6 +94,29 @@ export interface AppAbsenceRequests {
   tenant_id: string;
   type: AppAbsenceType;
   updated_at: Generated<string>;
+}
+
+export interface AppClients {
+  archived_at: string | null;
+  buyer_reference: string | null;
+  city: string | null;
+  country_code: Generated<string>;
+  created_at: Generated<string>;
+  email: string | null;
+  id: Generated<string>;
+  invoice_locale: Generated<string>;
+  is_business: Generated<boolean>;
+  name: string;
+  number: string | null;
+  payment_terms_days: number | null;
+  postal_code: string | null;
+  restricted_at: string | null;
+  rounding_increment_min: number | null;
+  rounding_mode: AppRoundingMode | null;
+  street: string | null;
+  tenant_id: string;
+  updated_at: Generated<string>;
+  vat_id: string | null;
 }
 
 export interface AppContracts {
@@ -178,6 +205,73 @@ export interface AppMonthClosings {
   reason: string | null;
   snapshot: Json | null;
   tenant_id: string;
+}
+
+export interface AppProjectEntries {
+  billable: boolean | null;
+  created_at: Generated<string>;
+  created_by: string | null;
+  employee_id: string;
+  ended_at: string | null;
+  id: Generated<string>;
+  invoice_id: string | null;
+  note: string | null;
+  project_id: string;
+  source: AppProjectEntrySource;
+  started_at: Generated<string>;
+  task_id: string | null;
+  tenant_id: string;
+  updated_at: Generated<string>;
+  voided_at: string | null;
+  workday: Generated<string>;
+}
+
+export interface AppProjectMembers {
+  created_at: Generated<string>;
+  employee_id: string;
+  project_id: string;
+  tenant_id: string;
+}
+
+export interface AppProjects {
+  archived_at: string | null;
+  billable: Generated<boolean>;
+  budget_minutes: number | null;
+  client_id: string;
+  code: string | null;
+  created_at: Generated<string>;
+  id: Generated<string>;
+  name: string;
+  open_to_all: Generated<boolean>;
+  rounding_increment_min: number | null;
+  rounding_mode: AppRoundingMode | null;
+  tenant_id: string;
+  updated_at: Generated<string>;
+}
+
+export interface AppRates {
+  client_id: string | null;
+  created_at: Generated<string>;
+  created_by: string | null;
+  employee_id: string | null;
+  id: Generated<string>;
+  project_id: string | null;
+  rate_cents: Int8;
+  task_id: string | null;
+  tenant_id: string;
+  valid_from: string;
+}
+
+export interface AppTasks {
+  archived_at: string | null;
+  billable: boolean | null;
+  client_id: string;
+  created_at: Generated<string>;
+  id: Generated<string>;
+  name: string;
+  project_id: string;
+  tenant_id: string;
+  updated_at: Generated<string>;
 }
 
 export interface AppTeamLeads {
@@ -327,12 +421,18 @@ export interface OpsRateLimits {
 export interface DB {
   "app.absence_days": AppAbsenceDays;
   "app.absence_requests": AppAbsenceRequests;
+  "app.clients": AppClients;
   "app.contracts": AppContracts;
   "app.correction_requests": AppCorrectionRequests;
   "app.employees": AppEmployees;
   "app.finding_acks": AppFindingAcks;
   "app.flex_bookings": AppFlexBookings;
   "app.month_closings": AppMonthClosings;
+  "app.project_entries": AppProjectEntries;
+  "app.project_members": AppProjectMembers;
+  "app.projects": AppProjects;
+  "app.rates": AppRates;
+  "app.tasks": AppTasks;
   "app.team_leads": AppTeamLeads;
   "app.teams": AppTeams;
   "app.tenants": AppTenants;

@@ -73,6 +73,11 @@ export function formatInstant(
 	return dateFormat(lng, { ...options, timeZone: 'Europe/Berlin' }).format(new Date(instant));
 }
 
+// cents arrive as a string, Number stays exact far beyond any invoice total
+export function formatCents(cents: string, lng: string) {
+	return numberFormat(lng, { style: 'currency', currency: 'EUR' }).format(Number(cents) / 100);
+}
+
 export function formatDays(days: string, lng: string) {
 	return numberFormat(lng, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
 		Number(days)

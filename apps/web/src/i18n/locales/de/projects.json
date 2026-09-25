@@ -1,0 +1,173 @@
+{
+	"table": "Projektzeit KW {{week}}",
+	"empty": "Keine Projektzeit in dieser Woche.",
+	"emptyCurrent": "Noch keine Projektzeit in dieser Woche. Mit „Start“ beginnt die Erfassung.",
+	"noEmployee": "Projektzeit gibt es nur für Konten mit Personalnummer. Die Personalverwaltung kann das Konto mit einem Personalstamm verknüpfen.",
+	"noTask": "ohne Aufgabe",
+	"firstRun": {
+		"title": "Noch keine Kunden und Projekte",
+		"text": "Projektzeit wird immer auf ein Projekt gebucht, und jedes Projekt gehört zu einem Kunden. Sobald beides angelegt ist, lässt sich der Timer starten.",
+		"action": "Ersten Kunden anlegen"
+	},
+	"noProjects": {
+		"title": "Noch kein Projekt freigegeben",
+		"text": "Kunden und Projekte legt die Personalverwaltung an. Sobald ein Projekt für dieses Konto buchbar ist, erscheint es hier."
+	},
+	"col": {
+		"project": "Projekt",
+		"total": "Summe",
+		"amount": "Betrag"
+	},
+	"row": {
+		"tasks_one": "{{count}} Aufgabe",
+		"tasks_other": "{{count}} Aufgaben"
+	},
+	"cell": {
+		"toggle": "Herleitung",
+		"running": "Timer läuft",
+		"lock": {
+			"draft": "im Rechnungsentwurf",
+			"issued": "abgerechnet"
+		}
+	},
+	"picker": {
+		"placeholder": "Projekt wählen",
+		"none": "Kein passendes Projekt"
+	},
+	"timer": {
+		"label": "Projekt-Timer",
+		"idle": "Kein Timer läuft",
+		"running": "Läuft seit {{since}}",
+		"otherProject": "Projekt nicht mehr buchbar",
+		"pick": "Projekt",
+		"start": "Start",
+		"stop": "Stopp",
+		"switch": "Wechseln",
+		"longText": "Der Timer läuft seit {{since}}, also mehr als 12 Stunden. Nach dem Stopp lässt sich das tatsächliche Ende eintragen.",
+		"loadFailed": "Timer nicht geladen.",
+		"changed": "Der Timer wurde inzwischen an anderer Stelle gestoppt oder gestartet. Die Anzeige ist wieder aktuell.",
+		"forbidden": "Auf dieses Projekt kann nicht gebucht werden."
+	},
+	"chip": {
+		"label": "Laufender Timer",
+		"running": "läuft",
+		"longTag": "über 12 h",
+		"started": "Timer läuft: {{project}}",
+		"stopped": "Timer gestoppt",
+		"long": "Der Timer läuft seit mehr als 12 Stunden"
+	},
+	"fix": {
+		"title": "Ende korrigieren",
+		"text": "Der Timer lief seit {{since}} und ist jetzt gestoppt. Wann war tatsächlich Schluss?"
+	},
+	"detail": {
+		"entries": "Einträge",
+		"days": "Tage",
+		"weekSum": "Woche",
+		"raw": "Erfasst",
+		"rawHint": "Summe der Einträge. Gerundet wird je Projekt, Aufgabe und Tag.",
+		"rounded": "Gerundet",
+		"rate": "Satz",
+		"amount": "Betrag",
+		"notBillable": "nicht abrechenbar",
+		"lock": {
+			"draft": "Steht in einem Rechnungsentwurf und ist gesperrt, bis der Entwurf die Zeit wieder freigibt.",
+			"issued": "Abgerechnet, die Einträge sind gesperrt."
+		},
+		"edit": "Ändern",
+		"void": "Streichen",
+		"add": "Zeit nachtragen",
+		"done": {
+			"added": "Projektzeit nachgetragen.",
+			"changed": "Eintrag geändert.",
+			"voided": "Eintrag gestrichen."
+		}
+	},
+	"entry": {
+		"open": "Projektzeit nachtragen",
+		"title": "Projektzeit nachtragen",
+		"editTitle": "Eintrag ändern",
+		"project": "Projekt",
+		"date": "Tag",
+		"start": "Beginn",
+		"end": "Ende",
+		"note": "Notiz",
+		"noteHint": "Pflicht beim Nachtrag: Was wurde gemacht? Die Notiz bleibt im Änderungsprotokoll.",
+		"noteHintEdit": "Freiwillig. Die Änderung bleibt im Änderungsprotokoll.",
+		"duration": "Dauer {{minutes}}",
+		"submit": "Nachtragen",
+		"save": "Speichern",
+		"overlap": "Die Zeit überschneidet sich mit einem anderen Eintrag.",
+		"invoiced": "Der Eintrag steht in einer Rechnung oder einem Rechnungsentwurf und ist gesperrt.",
+		"forbidden": "Auf dieses Projekt kann nicht gebucht werden.",
+		"voidTitle": "Eintrag streichen?",
+		"voidText": "{{span}}, {{project}}. Der Eintrag zählt danach nicht mehr, bleibt aber im Änderungsprotokoll.",
+		"voidConfirm": "Streichen"
+	},
+	"coverage": {
+		"worked": "Arbeitszeit",
+		"unassigned": "ohne Projekt",
+		"outside": "außerhalb der Arbeitszeit",
+		"hints": "Abgleich",
+		"tag": {
+			"PROJECT_OVER_WORKED": "mehr als Ist",
+			"PROJECT_OUTSIDE_WORK": "außerhalb"
+		},
+		"hint": {
+			"PROJECT_OVER_WORKED": "Mehr Projektzeit als gestempelte Arbeitszeit",
+			"PROJECT_OUTSIDE_WORK": "Projektzeit außerhalb der gestempelten Arbeitszeit"
+		},
+		"legend": "Abgleich mit der Stempeluhr, nur als Hinweis: kein Befund nach dem Arbeitszeitgesetz und nicht Teil des Monatsabschlusses. Abweichungen bis 5 Minuten zählen nicht."
+	},
+	"unbilled": {
+		"title": "Nicht abgerechnet",
+		"none": "Alles abgerechnet.",
+		"total": "Gesamt",
+		"hint": "Abrechenbare Zeit bis heute, gerundet, Beträge netto."
+	},
+	"budgets": {
+		"title": "Budgets",
+		"none": "Kein Projekt mit Budget.",
+		"loadFailed": "Nicht geladen.",
+		"used": "{{used}} von {{budget}}",
+		"share": "{{share}} %",
+		"state": {
+			"ok": "im Rahmen",
+			"warn": "Warnung ab 80 %",
+			"exceeded": "Budget überschritten"
+		}
+	},
+	"team": {
+		"title": "Team-Projektzeit",
+		"week": "Woche",
+		"table": "Projektzeit im Team KW {{week}}",
+		"projectTime": "Projektzeit",
+		"empty": "In diesem Team gibt es in dieser Woche keine Projektzeit.",
+		"legend": "Minuten ohne Beträge. Der Name öffnet die Woche der Person mit Herleitung.",
+		"matrix": "Projektzeit {{name}} KW {{week}}"
+	},
+	"explain": {
+		"billing": {
+			"rounding": {
+				"up": "Rundungsraster {{increment}} min, aufgerundet: {{raw}} ergibt {{rounded}}",
+				"nearest": "Rundungsraster {{increment}} min, kaufmännisch gerundet: {{raw}} ergibt {{rounded}}",
+				"down": "Rundungsraster {{increment}} min, abgerundet: {{raw}} ergibt {{rounded}}"
+			},
+			"rate": {
+				"task_employee": "Satz der Aufgabe für diese Person, gültig ab {{validFrom}}",
+				"task": "Satz der Aufgabe, gültig ab {{validFrom}}",
+				"project_employee": "Satz des Projekts für diese Person, gültig ab {{validFrom}}",
+				"project": "Satz des Projekts, gültig ab {{validFrom}}",
+				"client_employee": "Satz des Kunden für diese Person, gültig ab {{validFrom}}",
+				"client": "Satz des Kunden, gültig ab {{validFrom}}",
+				"employee": "Persönlicher Satz, gültig ab {{validFrom}}",
+				"default": "Standardsatz, gültig ab {{validFrom}}"
+			},
+			"budget": {
+				"ok": "{{usedMinutes}} von {{budgetMinutes}} verbraucht",
+				"warn": "{{usedMinutes}} von {{budgetMinutes}} verbraucht, Warnung ab 80 %",
+				"exceeded": "{{usedMinutes}} von {{budgetMinutes}} verbraucht, Budget überschritten"
+			}
+		}
+	}
+}

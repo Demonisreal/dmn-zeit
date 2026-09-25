@@ -44,8 +44,8 @@ describe('journals', () => {
 		expect(refused).toMatchObject({ code: '42501' });
 	});
 
-	// "hr books flex time" and "hr manages entries" cover delete, a grant alone would open these
-	it.each(['app.flex_bookings', 'app.time_entries'])(
+	// "hr books flex time" and the "hr manages" policies cover delete, a grant alone would open these
+	it.each(['app.flex_bookings', 'app.time_entries', 'app.project_entries'])(
 		'ignores zeit.purge_tenant from zeit_app even with a delete grant on %s',
 		async (table) => {
 			await superuser.query('begin');
@@ -141,6 +141,8 @@ describe('audit trail', () => {
 			'employees',
 			'finding_acks',
 			'flex_bookings',
+			'project_entries',
+			'project_members',
 			'time_entries',
 			'users',
 			'vacation_ledger',

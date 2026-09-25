@@ -209,6 +209,28 @@ CREATE TYPE app.notice_channel AS ENUM (
 
 
 --
+-- Name: project_entry_source; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.project_entry_source AS ENUM (
+    'timer',
+    'manual',
+    'seed'
+);
+
+
+--
+-- Name: rounding_mode; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.rounding_mode AS ENUM (
+    'up',
+    'nearest',
+    'down'
+);
+
+
+--
 -- Name: tenant_kind; Type: TYPE; Schema: app; Owner: -
 --
 
@@ -337,6 +359,53 @@ $$;
 
 
 --
+-- Name: bookable(uuid); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.bookable(p_project_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select exists (
+    select 1
+      from app.projects p
+     where p.id = p_project_id
+       and p.tenant_id = app.tenant_id()
+       and p.archived_at is null
+       and (p.open_to_all or exists (
+         select 1
+           from app.project_members m
+          where m.project_id = p.id
+            and m.employee_id = app.employee_id()
+       ))
+  )
+$$;
+
+
+--
+-- Name: bookable_projects(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.bookable_projects() RETURNS TABLE(id uuid, project_name text, client_name text, billable boolean, rounding_increment_min smallint, rounding_mode app.rounding_mode, tasks jsonb)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select p.id, p.name, c.name, p.billable, p.rounding_increment_min, p.rounding_mode,
+         coalesce((
+           select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name, 'billable', t.billable) order by t.name)
+             from app.tasks t
+            where t.project_id = p.id
+              and t.archived_at is null
+         ), '[]')
+    from app.projects p
+    join app.clients c on c.id = p.client_id
+   where p.tenant_id = app.tenant_id()
+     and app.bookable(p.id)
+   order by c.name, p.name;
+$$;
+
+
+--
 -- Name: check_contract_start(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -456,6 +525,75 @@ begin
     raise exception 'only display name and locale can be changed on one''s own user'
       using errcode = 'insufficient_privilege';
   end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: guard_project_entry(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_project_entry() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  -- workday is generated and still null in a before trigger
+  bookkeeping constant text[] := array['updated_at', 'workday'];
+  running constant text[] := array['ended_at', 'note', 'voided_at'];
+begin
+  if tg_op = 'DELETE' then
+    -- same rule as app.reject_change
+    if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
+      and current_user in ('zeit_system', 'zeit_owner') then
+      return old;
+    end if;
+    raise exception 'project entries are voided, never deleted' using errcode = 'ZT002';
+  end if;
+
+  -- the timer takes the clock of the database, never a time sent by the client
+  if (tg_op = 'INSERT' and new.source = 'timer' and (new.started_at <> now() or new.ended_at is not null))
+    or (tg_op = 'UPDATE' and old.ended_at is null
+      and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
+  then
+    raise exception 'timer entries start and end at now()' using errcode = 'check_violation';
+  end if;
+
+  -- the release is checked on the way onto a project only, a note on an archived one stays editable
+  if (tg_op = 'INSERT' or new.project_id is distinct from old.project_id)
+    and (app.role() >= 'hr') is not true
+    and not app.bookable(new.project_id)
+  then
+    raise exception 'project % is not open for booking', new.project_id using errcode = 'insufficient_privilege';
+  end if;
+
+  if tg_op = 'INSERT' then
+    return new;
+  end if;
+
+  if new.invoice_id is distinct from old.invoice_id and (app.role() >= 'hr') is not true then
+    raise exception 'only hr puts project entries on an invoice' using errcode = 'insufficient_privilege';
+  end if;
+
+  if old.invoice_id is not null
+    and to_jsonb(new) - bookkeeping - 'invoice_id' <> to_jsonb(old) - bookkeeping - 'invoice_id' then
+    raise exception 'project entry % is invoiced', old.id using errcode = 'ZT004';
+  end if;
+
+  if (new.id, new.tenant_id, new.employee_id, new.source, new.created_by, new.created_at)
+    is distinct from (old.id, old.tenant_id, old.employee_id, old.source, old.created_by, old.created_at) then
+    raise exception 'owner and origin of a project entry stay fixed' using errcode = 'ZT002';
+  end if;
+
+  if old.voided_at is not null and to_jsonb(new) - bookkeeping <> to_jsonb(old) - bookkeeping then
+    raise exception 'a voided project entry stays as it is' using errcode = 'ZT002';
+  end if;
+
+  if old.ended_at is null and to_jsonb(new) - bookkeeping - running <> to_jsonb(old) - bookkeeping - running then
+    raise exception 'a running project entry can only be stopped, noted or voided' using errcode = 'ZT002';
+  end if;
+
   return new;
 end;
 $$;
@@ -664,6 +802,50 @@ begin
 
   return figures;
 end;
+$$;
+
+
+--
+-- Name: project_budget_status(uuid); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.project_budget_status(p_project_id uuid) RETURNS TABLE(budget_minutes integer, used_minutes integer)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select p.budget_minutes,
+         coalesce((
+           select sum(round(extract(epoch from (e.ended_at - e.started_at)) / 60))::integer
+             from app.project_entries e
+             left join app.tasks t on t.id = e.task_id
+            where e.project_id = p.id
+              and e.ended_at is not null
+              and e.voided_at is null
+              and coalesce(e.billable, t.billable, p.billable)
+         ), 0)
+    from app.projects p
+   where p.id = p_project_id
+     and p.tenant_id = app.tenant_id()
+     and app.employee_id() is not null;
+$$;
+
+
+--
+-- Name: project_labels(uuid[]); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.project_labels(p_ids uuid[]) RETURNS TABLE(id uuid, project_name text, client_name text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  -- a restricted client (art. 18 gdpr) keeps the row, old entries would lose their project otherwise
+  select p.id,
+         case when c.restricted_at is null or app.role() >= 'hr' then p.name else 'gesperrt' end,
+         case when c.restricted_at is null or app.role() >= 'hr' then c.name else 'gesperrt' end
+    from app.projects p
+    join app.clients c on c.id = p.client_id
+   where p.id = any (p_ids)
+     and p.tenant_id = app.tenant_id();
 $$;
 
 
@@ -2144,6 +2326,43 @@ ALTER TABLE ONLY app.absence_requests FORCE ROW LEVEL SECURITY;
 
 
 --
+-- Name: clients; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.clients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    number text,
+    name text NOT NULL,
+    street text,
+    postal_code text,
+    city text,
+    country_code character(2) DEFAULT 'DE'::bpchar NOT NULL,
+    is_business boolean DEFAULT true NOT NULL,
+    vat_id text,
+    email public.citext,
+    buyer_reference text,
+    invoice_locale text DEFAULT 'de'::text NOT NULL,
+    payment_terms_days smallint,
+    rounding_increment_min smallint,
+    rounding_mode app.rounding_mode,
+    archived_at timestamp with time zone,
+    restricted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT clients_check CHECK (((restricted_at IS NULL) OR (archived_at IS NOT NULL))),
+    CONSTRAINT clients_country_code_check CHECK ((country_code ~ '^[A-Z]{2}$'::text)),
+    CONSTRAINT clients_invoice_locale_check CHECK ((invoice_locale = ANY (ARRAY['de'::text, 'en'::text]))),
+    CONSTRAINT clients_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT clients_number_check CHECK ((btrim(number) <> ''::text)),
+    CONSTRAINT clients_payment_terms_days_check CHECK (((payment_terms_days >= 0) AND (payment_terms_days <= 120))),
+    CONSTRAINT clients_rounding_increment_min_check CHECK ((rounding_increment_min = ANY (ARRAY[1, 5, 6, 10, 15, 30, 60])))
+);
+
+ALTER TABLE ONLY app.clients FORCE ROW LEVEL SECURITY;
+
+
+--
 -- Name: contracts; Type: TABLE; Schema: app; Owner: -
 --
 
@@ -2303,6 +2522,120 @@ CREATE TABLE app.month_closings (
 );
 
 ALTER TABLE ONLY app.month_closings FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: project_entries; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.project_entries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    employee_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    task_id uuid,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    ended_at timestamp with time zone,
+    workday date GENERATED ALWAYS AS (((started_at AT TIME ZONE 'Europe/Berlin'::text))::date) STORED NOT NULL,
+    note text,
+    billable boolean,
+    source app.project_entry_source NOT NULL,
+    invoice_id uuid,
+    voided_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT project_entries_check CHECK ((ended_at > started_at)),
+    CONSTRAINT project_entries_check1 CHECK (((source <> 'manual'::app.project_entry_source) OR ((ended_at IS NOT NULL) AND (note IS NOT NULL)))),
+    CONSTRAINT project_entries_check2 CHECK (((invoice_id IS NULL) OR ((ended_at IS NOT NULL) AND (voided_at IS NULL)))),
+    CONSTRAINT project_entries_note_check CHECK ((btrim(note) <> ''::text))
+);
+
+ALTER TABLE ONLY app.project_entries FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: project_members; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.project_members (
+    tenant_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    employee_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE ONLY app.project_members FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: projects; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.projects (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    name text NOT NULL,
+    code text,
+    billable boolean DEFAULT true NOT NULL,
+    budget_minutes integer,
+    rounding_increment_min smallint,
+    rounding_mode app.rounding_mode,
+    open_to_all boolean DEFAULT true NOT NULL,
+    archived_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT projects_budget_minutes_check CHECK ((budget_minutes > 0)),
+    CONSTRAINT projects_code_check CHECK ((btrim(code) <> ''::text)),
+    CONSTRAINT projects_name_check CHECK ((btrim(name) <> ''::text)),
+    CONSTRAINT projects_rounding_increment_min_check CHECK ((rounding_increment_min = ANY (ARRAY[1, 5, 6, 10, 15, 30, 60])))
+);
+
+ALTER TABLE ONLY app.projects FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: rates; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    client_id uuid,
+    project_id uuid,
+    task_id uuid,
+    employee_id uuid,
+    valid_from date NOT NULL,
+    rate_cents bigint NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT rates_check CHECK (((task_id IS NULL) OR (project_id IS NOT NULL))),
+    CONSTRAINT rates_check1 CHECK (((project_id IS NULL) OR (client_id IS NOT NULL))),
+    CONSTRAINT rates_rate_cents_check CHECK (((rate_cents >= 0) AND (rate_cents <= 10000000)))
+);
+
+ALTER TABLE ONLY app.rates FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: tasks; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    name text NOT NULL,
+    billable boolean,
+    archived_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tasks_name_check CHECK ((btrim(name) <> ''::text))
+);
+
+ALTER TABLE ONLY app.tasks FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -2792,6 +3125,30 @@ ALTER TABLE ONLY app.absence_requests
 
 
 --
+-- Name: clients clients_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.clients
+    ADD CONSTRAINT clients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: clients clients_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.clients
+    ADD CONSTRAINT clients_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: clients clients_tenant_id_number_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.clients
+    ADD CONSTRAINT clients_tenant_id_number_key UNIQUE (tenant_id, number);
+
+
+--
 -- Name: contracts contracts_pkey; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -2925,6 +3282,118 @@ ALTER TABLE ONLY app.month_closings
 
 ALTER TABLE ONLY app.month_closings
     ADD CONSTRAINT month_closings_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: project_entries project_entries_no_overlap; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_no_overlap EXCLUDE USING gist (employee_id WITH =, tstzrange(started_at, ended_at, '[)'::text) WITH &&) WHERE ((voided_at IS NULL));
+
+
+--
+-- Name: project_entries project_entries_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_entries project_entries_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: project_members project_members_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_members
+    ADD CONSTRAINT project_members_pkey PRIMARY KEY (project_id, employee_id);
+
+
+--
+-- Name: projects projects_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: projects projects_tenant_id_client_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_tenant_id_client_id_id_key UNIQUE (tenant_id, client_id, id);
+
+
+--
+-- Name: projects projects_tenant_id_code_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_tenant_id_code_key UNIQUE (tenant_id, code);
+
+
+--
+-- Name: projects projects_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: rates rates_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rates rates_tenant_id_client_id_project_id_task_id_employee_id_va_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_client_id_project_id_task_id_employee_id_va_key UNIQUE NULLS NOT DISTINCT (tenant_id, client_id, project_id, task_id, employee_id, valid_from);
+
+
+--
+-- Name: rates rates_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: tasks tasks_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.tasks
+    ADD CONSTRAINT tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tasks tasks_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.tasks
+    ADD CONSTRAINT tasks_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: tasks tasks_tenant_id_project_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.tasks
+    ADD CONSTRAINT tasks_tenant_id_project_id_id_key UNIQUE (tenant_id, project_id, id);
 
 
 --
@@ -3302,6 +3771,34 @@ CREATE INDEX month_closings_month_idx ON app.month_closings USING btree (tenant_
 
 
 --
+-- Name: project_entries_employee_day_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX project_entries_employee_day_idx ON app.project_entries USING btree (tenant_id, employee_id, workday);
+
+
+--
+-- Name: project_entries_one_running_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE UNIQUE INDEX project_entries_one_running_idx ON app.project_entries USING btree (employee_id) WHERE ((ended_at IS NULL) AND (voided_at IS NULL));
+
+
+--
+-- Name: project_entries_unbilled_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX project_entries_unbilled_idx ON app.project_entries USING btree (tenant_id, project_id, workday) WHERE ((invoice_id IS NULL) AND (voided_at IS NULL) AND (ended_at IS NOT NULL));
+
+
+--
+-- Name: project_members_employee_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX project_members_employee_idx ON app.project_members USING btree (employee_id);
+
+
+--
 -- Name: team_leads_user_idx; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -3470,6 +3967,13 @@ CREATE TRIGGER audit_absence_requests AFTER INSERT OR DELETE OR UPDATE ON app.ab
 
 
 --
+-- Name: clients audit_clients; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_clients AFTER INSERT OR DELETE OR UPDATE ON app.clients FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
 -- Name: contracts audit_contracts; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -3509,6 +4013,41 @@ CREATE TRIGGER audit_flex_bookings AFTER INSERT OR DELETE OR UPDATE ON app.flex_
 --
 
 CREATE TRIGGER audit_month_closings AFTER INSERT OR DELETE OR UPDATE ON app.month_closings FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: project_entries audit_project_entries; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_project_entries AFTER INSERT OR DELETE OR UPDATE ON app.project_entries FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: project_members audit_project_members; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_project_members AFTER INSERT OR DELETE OR UPDATE ON app.project_members FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: projects audit_projects; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_projects AFTER INSERT OR DELETE OR UPDATE ON app.projects FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: rates audit_rates; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_rates AFTER INSERT OR DELETE OR UPDATE ON app.rates FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: tasks audit_tasks; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_tasks AFTER INSERT OR DELETE OR UPDATE ON app.tasks FOR EACH ROW EXECUTE FUNCTION audit.track();
 
 
 --
@@ -3565,6 +4104,13 @@ CREATE TRIGGER audit_vacation_notices AFTER INSERT OR DELETE OR UPDATE ON app.va
 --
 
 CREATE TRIGGER audit_work_models AFTER INSERT OR DELETE OR UPDATE ON app.work_models FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: clients clients_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER clients_set_updated_at BEFORE UPDATE ON app.clients FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
 
 --
@@ -3691,6 +4237,41 @@ CREATE TRIGGER month_closings_no_truncate BEFORE TRUNCATE ON app.month_closings 
 --
 
 CREATE TRIGGER month_closings_sandbox_quota AFTER INSERT ON app.month_closings REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('60');
+
+
+--
+-- Name: project_entries project_entries_guard; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER project_entries_guard BEFORE INSERT OR DELETE OR UPDATE ON app.project_entries FOR EACH ROW EXECUTE FUNCTION app.guard_project_entry();
+
+
+--
+-- Name: project_entries project_entries_no_truncate; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER project_entries_no_truncate BEFORE TRUNCATE ON app.project_entries FOR EACH STATEMENT EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: project_entries project_entries_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER project_entries_set_updated_at BEFORE UPDATE ON app.project_entries FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+
+--
+-- Name: projects projects_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER projects_set_updated_at BEFORE UPDATE ON app.projects FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+
+--
+-- Name: tasks tasks_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER tasks_set_updated_at BEFORE UPDATE ON app.tasks FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
 
 --
@@ -3912,6 +4493,14 @@ ALTER TABLE ONLY app.absence_requests
 
 
 --
+-- Name: clients clients_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.clients
+    ADD CONSTRAINT clients_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: contracts contracts_tenant_id_employee_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -4061,6 +4650,150 @@ ALTER TABLE ONLY app.month_closings
 
 ALTER TABLE ONLY app.month_closings
     ADD CONSTRAINT month_closings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_entries project_entries_tenant_id_created_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_tenant_id_created_by_fkey FOREIGN KEY (tenant_id, created_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: project_entries project_entries_tenant_id_employee_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_tenant_id_employee_id_fkey FOREIGN KEY (tenant_id, employee_id) REFERENCES app.employees(tenant_id, id);
+
+
+--
+-- Name: project_entries project_entries_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_entries project_entries_tenant_id_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_tenant_id_project_id_fkey FOREIGN KEY (tenant_id, project_id) REFERENCES app.projects(tenant_id, id);
+
+
+--
+-- Name: project_entries project_entries_tenant_id_project_id_task_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_tenant_id_project_id_task_id_fkey FOREIGN KEY (tenant_id, project_id, task_id) REFERENCES app.tasks(tenant_id, project_id, id);
+
+
+--
+-- Name: project_members project_members_tenant_id_employee_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_members
+    ADD CONSTRAINT project_members_tenant_id_employee_id_fkey FOREIGN KEY (tenant_id, employee_id) REFERENCES app.employees(tenant_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_members project_members_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_members
+    ADD CONSTRAINT project_members_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_members project_members_tenant_id_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_members
+    ADD CONSTRAINT project_members_tenant_id_project_id_fkey FOREIGN KEY (tenant_id, project_id) REFERENCES app.projects(tenant_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: projects projects_tenant_id_client_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_tenant_id_client_id_fkey FOREIGN KEY (tenant_id, client_id) REFERENCES app.clients(tenant_id, id);
+
+
+--
+-- Name: projects projects_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rates rates_tenant_id_client_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_client_id_fkey FOREIGN KEY (tenant_id, client_id) REFERENCES app.clients(tenant_id, id);
+
+
+--
+-- Name: rates rates_tenant_id_client_id_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_client_id_project_id_fkey FOREIGN KEY (tenant_id, client_id, project_id) REFERENCES app.projects(tenant_id, client_id, id);
+
+
+--
+-- Name: rates rates_tenant_id_created_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_created_by_fkey FOREIGN KEY (tenant_id, created_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: rates rates_tenant_id_employee_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_employee_id_fkey FOREIGN KEY (tenant_id, employee_id) REFERENCES app.employees(tenant_id, id);
+
+
+--
+-- Name: rates rates_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: rates rates_tenant_id_project_id_task_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.rates
+    ADD CONSTRAINT rates_tenant_id_project_id_task_id_fkey FOREIGN KEY (tenant_id, project_id, task_id) REFERENCES app.tasks(tenant_id, project_id, id);
+
+
+--
+-- Name: tasks tasks_tenant_id_client_id_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.tasks
+    ADD CONSTRAINT tasks_tenant_id_client_id_project_id_fkey FOREIGN KEY (tenant_id, client_id, project_id) REFERENCES app.projects(tenant_id, client_id, id);
+
+
+--
+-- Name: tasks tasks_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.tasks
+    ADD CONSTRAINT tasks_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -4329,6 +5062,19 @@ CREATE POLICY "admins manage users" ON app.users TO zeit_app USING ((( SELECT ap
 
 
 --
+-- Name: project_entries book own project entries; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "book own project entries" ON app.project_entries FOR INSERT TO zeit_app WITH CHECK (((employee_id = ( SELECT app.employee_id() AS employee_id)) AND (invoice_id IS NULL)));
+
+
+--
+-- Name: clients; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.clients ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: absence_days company workspace; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -4432,6 +5178,13 @@ ALTER TABLE app.contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.correction_requests ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: project_entries edit own project entries; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "edit own project entries" ON app.project_entries FOR UPDATE TO zeit_app USING ((employee_id = ( SELECT app.employee_id() AS employee_id))) WITH CHECK ((employee_id = ( SELECT app.employee_id() AS employee_id)));
+
+
+--
 -- Name: employees; Type: ROW SECURITY; Schema: app; Owner: -
 --
 
@@ -4461,6 +5214,13 @@ ALTER TABLE app.flex_bookings ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY "hr adds contracts" ON app.contracts FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: rates hr adds rates; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr adds rates" ON app.rates FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
 
 
 --
@@ -4506,6 +5266,13 @@ CREATE POLICY "hr manages absences" ON app.absence_requests TO zeit_app USING ((
 
 
 --
+-- Name: clients hr manages clients; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages clients" ON app.clients TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
 -- Name: correction_requests hr manages corrections; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -4531,6 +5298,34 @@ CREATE POLICY "hr manages entries" ON app.time_entries TO zeit_app USING ((( SEL
 --
 
 CREATE POLICY "hr manages finding acks" ON app.finding_acks TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: project_entries hr manages project entries; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages project entries" ON app.project_entries TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: project_members hr manages project members; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages project members" ON app.project_members TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: projects hr manages projects; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages projects" ON app.projects TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: tasks hr manages tasks; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages tasks" ON app.tasks TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
 
 
 --
@@ -4576,10 +5371,24 @@ CREATE POLICY "hr reads notices" ON app.vacation_notices FOR SELECT TO zeit_app 
 
 
 --
+-- Name: rates hr reads rates; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr reads rates" ON app.rates FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
 -- Name: contracts hr removes future contracts; Type: POLICY; Schema: app; Owner: -
 --
 
 CREATE POLICY "hr removes future contracts" ON app.contracts FOR DELETE TO zeit_app USING (((( SELECT app.role() AS role) >= 'hr'::app.user_role) AND (valid_from > ((now() AT TIME ZONE 'Europe/Berlin'::text))::date)));
+
+
+--
+-- Name: rates hr removes future rates; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr removes future rates" ON app.rates FOR DELETE TO zeit_app USING (((( SELECT app.role() AS role) >= 'hr'::app.user_role) AND (valid_from > ((now() AT TIME ZONE 'Europe/Berlin'::text))::date)));
 
 
 --
@@ -4674,6 +5483,13 @@ CREATE POLICY "leads read their team's notices" ON app.vacation_notices FOR SELE
 
 
 --
+-- Name: project_entries leads read their team's project entries; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "leads read their team's project entries" ON app.project_entries FOR SELECT TO zeit_app USING (app.leads(employee_id));
+
+
+--
 -- Name: time_entries leads void entries; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -4720,6 +5536,30 @@ CREATE POLICY "members read work models" ON app.work_models FOR SELECT TO zeit_a
 --
 
 ALTER TABLE app.month_closings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_entries; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.project_entries ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_members; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.project_members ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: projects; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.projects ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: rates; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.rates ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: absence_requests read own absences; Type: POLICY; Schema: app; Owner: -
@@ -4785,6 +5625,13 @@ CREATE POLICY "read own notices" ON app.vacation_notices FOR SELECT TO zeit_app 
 
 
 --
+-- Name: project_entries read own project entries; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "read own project entries" ON app.project_entries FOR SELECT TO zeit_app USING ((employee_id = ( SELECT app.employee_id() AS employee_id)));
+
+
+--
 -- Name: users read own user; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -4813,6 +5660,12 @@ CREATE POLICY "stamp own entries" ON app.time_entries FOR INSERT TO zeit_app WIT
 
 
 --
+-- Name: tasks; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.tasks ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: team_leads; Type: ROW SECURITY; Schema: app; Owner: -
 --
 
@@ -4836,6 +5689,13 @@ CREATE POLICY "tenant fence" ON app.absence_days AS RESTRICTIVE TO zeit_app USIN
 --
 
 CREATE POLICY "tenant fence" ON app.absence_requests AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: clients tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.clients AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
 
 
 --
@@ -4878,6 +5738,41 @@ CREATE POLICY "tenant fence" ON app.flex_bookings AS RESTRICTIVE TO zeit_app USI
 --
 
 CREATE POLICY "tenant fence" ON app.month_closings AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: project_entries tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.project_entries AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: project_members tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.project_members AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: projects tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.projects AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: rates tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.rates AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: tasks tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.tasks AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
 
 
 --
@@ -5084,4 +5979,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260925000500'),
     ('20260925000600'),
     ('20260925000700'),
-    ('20260926000000');
+    ('20260926000000'),
+    ('20260926000100'),
+    ('20260926000110');
