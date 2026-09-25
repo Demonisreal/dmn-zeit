@@ -14,7 +14,8 @@ import { Temporal } from 'temporal-polyfill';
 import { Clock } from '../common/clock';
 import type { AuthSession } from '../common/session.guard';
 import { Database, type Trx } from '../db/database';
-import { buildDays, localDate, summarizeFlex, totalsOf } from '../time/day-engine';
+import { buildDays, localDate, totalsOf } from '../time/day-engine';
+import { flexBalance } from '../time/flex-balance';
 import {
 	displayNames,
 	TimeStore,
@@ -239,10 +240,11 @@ export class MonthsService {
 		// the running month counts its balance up to today, like the flex page
 		const asOf = today < range.to ? today : range.to;
 		const counted = { from: `${month.slice(0, 4)}-01-01`, to: range.to };
-		const [{ tenant, sheets }, bookings, leave] = await Promise.all([
+		const [{ tenant, sheets }, bookings, leave, carryovers] = await Promise.all([
 			this.time.sheets(trx, employeeIds, counted),
 			this.time.flexBookings(trx, employeeIds, { from: counted.from, to: asOf }),
-			this.store.leave(trx, employeeIds, range)
+			this.store.leave(trx, employeeIds, range),
+			this.time.checkpoints(trx, employeeIds, Number(month.slice(0, 4)))
 		]);
 
 		const figures = new Map<string, Figures>();
@@ -250,18 +252,13 @@ export class MonthsService {
 			const days = buildDays(sheet, tenant, counted, now);
 			const ofMonth = days.filter((day) => day.date >= range.from);
 			const unacked = ofMonth.flatMap((day) => day.findings.filter((finding) => !finding.ack));
-			const flex = summarizeFlex(
-				days.filter((day) => day.date <= asOf),
-				bookings.filter((booking) => booking.employeeId === id),
-				sheet.employee.closedThrough
-			);
-			const checkpoint = await this.time.checkpoint(trx, id, Number(month.slice(0, 4)));
+			const flex = flexBalance(sheet, days, bookings, carryovers, asOf);
 			figures.set(id, {
 				sheet,
 				days: ofMonth,
 				row: {
 					...totalsOf(ofMonth),
-					flexBalanceMinutes: flex.balanceMinutes + (checkpoint ?? 0),
+					flexBalanceMinutes: flex.balanceMinutes,
 					vacationDays: leave.get(id)?.vacationDays ?? '0.00',
 					sickDays: leave.get(id)?.sickDays ?? '0.00',
 					openFindings: unacked.length

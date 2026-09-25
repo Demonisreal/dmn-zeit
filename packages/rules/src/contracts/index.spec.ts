@@ -56,14 +56,20 @@ describe('targetMinutes', () => {
 	it('takes the minutes of the weekday from the contract', () => {
 		expect(targetMinutes(employment, day('2026-03-18'), null)).toEqual({
 			minutes: 480,
-			explanation: { key: 'target.workday', params: { weekday: 'wed', minutes: 480 } }
+			explanation: {
+				key: 'target.workday',
+				params: { weekday: 'wed', minutes: 480, validFrom: '2024-01-01' }
+			}
 		});
 	});
 
 	it('expects nothing on a sunday without contract minutes', () => {
 		expect(targetMinutes(employment, day('2026-03-22'), null)).toEqual({
 			minutes: 0,
-			explanation: { key: 'target.workday', params: { weekday: 'sun', minutes: 0 } }
+			explanation: {
+				key: 'target.workday',
+				params: { weekday: 'sun', minutes: 0, validFrom: '2024-01-01' }
+			}
 		});
 	});
 
@@ -82,7 +88,10 @@ describe('targetMinutes', () => {
 	it('halves the target on a half holiday and rounds to whole minutes', () => {
 		expect(targetMinutes(employment, day('2026-12-24'), holiday('2026-12-24', 0.5))).toEqual({
 			minutes: 233,
-			explanation: { key: 'target.half_holiday', params: { code: 'christmas_eve', minutes: 233 } }
+			explanation: {
+				key: 'target.half_holiday',
+				params: { code: 'christmas_eve', minutes: 233, validFrom: '2026-04-01' }
+			}
 		});
 	});
 

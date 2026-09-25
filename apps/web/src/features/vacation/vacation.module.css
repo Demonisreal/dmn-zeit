@@ -84,19 +84,7 @@ tr.detailRow > td {
 	display: grid;
 	gap: 1.125rem;
 	max-width: 56rem;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-	.detail {
-		animation: reveal 180ms var(--ease);
-	}
-}
-
-@keyframes reveal {
-	from {
-		opacity: 0;
-		transform: translateY(-3px);
-	}
+	animation: global(reveal) var(--open-panel) var(--ease);
 }
 
 .block {

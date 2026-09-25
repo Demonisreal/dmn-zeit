@@ -5,26 +5,7 @@
 	padding: 1rem 1.125rem 1.25rem 1.75rem;
 	font-size: 0.875rem;
 	overflow-wrap: anywhere;
-	animation: reveal 180ms var(--ease);
-}
-
-@keyframes reveal {
-	from {
-		opacity: 0;
-		transform: translateY(-4px);
-	}
-}
-
-@keyframes fade {
-	from {
-		opacity: 0;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.detail {
-		animation-name: fade;
-	}
+	animation: global(reveal) var(--open-panel) var(--ease);
 }
 
 .block {

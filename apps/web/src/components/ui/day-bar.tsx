@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { formatClock } from '../../i18n/format';
+import { formatClock, listFormat } from '../../i18n/format';
 import styles from './day-bar.module.css';
 
 export type DaySpan = {
@@ -31,7 +31,7 @@ export function DayBar({ spans }: Props) {
 	const label =
 		spans.length === 0
 			? t('dayBar.empty')
-			: t('dayBar.label', { spans: new Intl.ListFormat(i18n.language).format(described) });
+			: t('dayBar.label', { spans: listFormat(i18n.language).format(described) });
 
 	return (
 		<div className={styles.bar} role="img" aria-label={label}>

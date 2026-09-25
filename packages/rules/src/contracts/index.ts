@@ -72,13 +72,20 @@ export const targetMinutes = (
 	// iso dayOfWeek runs from 1 (monday) to 7 (sunday)
 	const weekday = WEEKDAYS[date.dayOfWeek - 1]!;
 	const minutes = contract.minutes[weekday];
+	const validFrom = contract.validFrom.toString();
 
 	if (holiday?.portion === 0.5) {
 		const half = Math.round(minutes / 2);
 		return {
 			minutes: half,
-			explanation: { key: 'target.half_holiday', params: { code: holiday.code, minutes: half } }
+			explanation: {
+				key: 'target.half_holiday',
+				params: { code: holiday.code, minutes: half, validFrom }
+			}
 		};
 	}
-	return { minutes, explanation: { key: 'target.workday', params: { weekday, minutes } } };
+	return {
+		minutes,
+		explanation: { key: 'target.workday', params: { weekday, minutes, validFrom } }
+	};
 };

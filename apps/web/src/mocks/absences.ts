@@ -630,11 +630,16 @@ const flexBalance: Record<string, number> = { [jonas.id]: 1325 };
 // the inbox extras, worked out like forDecision in the api
 function withContext(a: Absence): Absence {
 	const cancelling = a.status === 'cancel_pending';
+	const team = Object.values(members).find((list) => list.some((m) => m.id === a.employee.id));
 	const shown: Absence = {
 		...a,
 		concurrentAbsences: absences
 			.filter(
-				(o) => o.employee.id !== a.employee.id && blocking.includes(o.status) && overlaps(o, a)
+				(o) =>
+					o.employee.id !== a.employee.id &&
+					team?.some((m) => m.id === o.employee.id) &&
+					blocking.includes(o.status) &&
+					overlaps(o, a)
 			)
 			.toSorted((x, y) => x.startDate.localeCompare(y.startDate))
 			.map((o) => ({ employee: o.employee, startDate: o.startDate, endDate: o.endDate }))

@@ -14,18 +14,19 @@ import { Button } from '../../components/ui/button';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Notice } from '../../components/ui/notice';
+import { PeriodNav } from '../../components/ui/period-nav';
 import { SelectField } from '../../components/ui/select-field';
 import { LoadError, Loading } from '../../components/ui/states';
 import { Table } from '../../components/ui/table';
 import { formatDays, formatInstant, formatMinutes } from '../../i18n/format';
 import { hasCode } from '../../lib/api/errors';
+import { todayIso } from '../../lib/dates';
 import { HalfDays, SickNoteTag, StatusTag, TypeTag } from './absence-tags';
 import styles from './absence-list.module.css';
-import { absencesQuery, refreshAbsences, withdrawAbsence } from './api';
+import { ownAbsencesQuery, refreshAbsences, withdrawAbsence } from './api';
 import { CancelDialog } from './cancel-dialog';
-import { formatPeriod, todayIso, yearSpan } from './dates';
+import { formatPeriod } from './dates';
 import page from './ui/page.module.css';
-import { PeriodStepper } from './ui/period-stepper';
 
 const all = 'all';
 
@@ -58,14 +59,7 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 		setWithdrawing(null);
 		withdraw.reset();
 	};
-	const list = useInfiniteQuery(
-		absencesQuery({
-			scope: 'mine',
-			...yearSpan(year),
-			type: type && [type],
-			status: status && [status]
-		})
-	);
+	const list = useInfiniteQuery(ownAbsencesQuery(year, type, status));
 	const absences = list.data?.pages.flatMap((part) => part.items) ?? [];
 	const filtered = type !== undefined || status !== undefined;
 
@@ -147,15 +141,14 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 				{t('list.title')}
 			</h2>
 			<div className={page.filters}>
-				<PeriodStepper
+				<PeriodNav
 					label={t('list.year')}
-					previousLabel={t('list.prevYear')}
-					nextLabel={t('list.nextYear')}
-					onPrevious={() => onFilter({ year: year - 1 })}
-					onNext={() => onFilter({ year: year + 1 })}
+					previous={t('list.prevYear')}
+					next={t('list.nextYear')}
+					onStep={(by) => onFilter({ year: year + by })}
 				>
 					<span className={styles.year}>{year}</span>
-				</PeriodStepper>
+				</PeriodNav>
 				<SelectField
 					label={t('list.type')}
 					options={[

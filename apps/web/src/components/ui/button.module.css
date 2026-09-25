@@ -54,7 +54,7 @@
 }
 
 .secondary {
-	border-color: var(--line);
+	border-color: var(--line-hi);
 }
 
 .secondary[data-hovered] {

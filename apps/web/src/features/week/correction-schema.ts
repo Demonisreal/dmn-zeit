@@ -2,7 +2,8 @@ import { CalendarDateTime, parseDate, toZoned } from '@internationalized/date';
 import { correctionActions, reasonSchema, type CreateCorrectionInput } from '@zeit/shared';
 import { z } from 'zod';
 import { i18n } from '../../i18n';
-import { addDays, zone } from './dates';
+import { zone } from '../../lib/dates';
+import { addDays } from './dates';
 
 export const clockTime = /^([01]\d|2[0-3]):[0-5]\d$/;
 

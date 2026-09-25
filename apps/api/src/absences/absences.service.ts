@@ -44,11 +44,13 @@ import type { AuthSession } from '../common/session.guard';
 import { Database, type Trx } from '../db/database';
 import { MailQueue } from '../mail/mail.queue';
 import { MailTransport } from '../mail/mail.transport';
-import { buildDays, localDate, summarizeFlex } from '../time/day-engine';
+import { buildDays, localDate } from '../time/day-engine';
+import { flexBalance } from '../time/flex-balance';
 import { TimeStore } from '../time/time.store';
 import {
 	berlinToday,
 	bucketsOf,
+	type BucketState,
 	charge,
 	heldPerYear,
 	instantOf,
@@ -136,7 +138,7 @@ export class AbsencesService {
 			let allocations: AbsencePreview['allocations'] = [];
 			let remainingAfter: string | null = null;
 			if (input.type === 'vacation') {
-				const buckets = await this.buckets(trx, input.employeeId, today);
+				const buckets = (await this.buckets(trx, [input.employeeId], today)).get(input.employeeId)!;
 				const plan = allocate(
 					days,
 					buckets.map((bucket) => bucket.payable)
@@ -231,7 +233,7 @@ export class AbsencesService {
 			const more = items.length > query.limit;
 			const page = more ? items.slice(0, query.limit) : items;
 			return {
-				items: query.scope === 'inbox' ? await this.forDecision(trx, page, leadOnly) : page,
+				items: query.scope === 'inbox' ? await this.forDecision(trx, page) : page,
 				nextCursor: more ? encodeCursor(page.at(-1)!) : null
 			};
 		});
@@ -409,27 +411,27 @@ export class AbsencesService {
 	}
 
 	// what the approver weighs a request against, only the inbox asks for it
-	private async forDecision(trx: Trx, page: Absence[], leadOnly: boolean): Promise<Absence[]> {
+	private async forDecision(trx: Trx, page: Absence[]): Promise<Absence[]> {
 		const now = this.clock.now();
 		const today = berlinToday(now);
 		const ofType = (type: AbsenceType) => page.filter((absence) => absence.type === type);
+		const peopleOf = (type: AbsenceType) => [
+			...new Set(ofType(type).map((absence) => absence.employee.id))
+		];
 
 		const concurrent = await this.store.concurrent(
 			trx,
-			page.map((absence) => absence.id),
-			leadOnly
+			page.map((absence) => absence.id)
 		);
+		const onLeave = peopleOf('vacation');
+		// the open request is part of pending already, the preview takes a new one off on top
+		const pending = await this.vacation.pendingByEmployee(trx, onLeave);
 		const left = new Map<string, Fraction>();
-		for (const employeeId of new Set(ofType('vacation').map((absence) => absence.employee.id))) {
-			const buckets = await this.buckets(trx, employeeId, today);
-			// the open request is part of pending already, the preview takes a new one off on top
-			const pending = parseDecimal(await this.vacation.pendingDays(trx, employeeId));
-			left.set(employeeId, subtract(usableDays(buckets), pending));
+		for (const [employeeId, buckets] of await this.buckets(trx, onLeave, today)) {
+			const open = parseDecimal(pending.get(employeeId) ?? '0.00');
+			left.set(employeeId, subtract(usableDays(buckets), open));
 		}
-		const balances = new Map<string, number>();
-		for (const employeeId of new Set(ofType('time_off').map((absence) => absence.employee.id))) {
-			balances.set(employeeId, await this.flexBalance(trx, employeeId, now));
-		}
+		const balances = await this.flexBalances(trx, peopleOf('time_off'), now);
 		const ahead = await this.store.minutesAfter(
 			trx,
 			ofType('time_off').map((absence) => absence.id),
@@ -456,20 +458,28 @@ export class AbsencesService {
 	}
 
 	// counted like GET /employees/:id/flex for the running year
-	private async flexBalance(trx: Trx, employeeId: string, now: Date): Promise<number> {
+	private async flexBalances(
+		trx: Trx,
+		employeeIds: readonly string[],
+		now: Date
+	): Promise<Map<string, number>> {
+		if (employeeIds.length === 0) return new Map();
 		const today = localDate(now);
 		const year = Number(today.slice(0, 4));
 		const counted = { from: `${year}-01-01`, to: today };
-		const { tenant, sheets } = await this.time.sheets(trx, [employeeId], counted);
-		const sheet = sheets.get(employeeId)!;
-		const bookings = await this.time.flexBookings(trx, [employeeId], counted);
-		const checkpoint = await this.time.checkpoint(trx, employeeId, year);
-		const flex = summarizeFlex(
-			buildDays(sheet, tenant, counted, now),
-			bookings,
-			sheet.employee.closedThrough
-		);
-		return flex.balanceMinutes + (checkpoint ?? 0);
+		const { tenant, sheets } = await this.time.sheets(trx, employeeIds, counted);
+		const bookings = await this.time.flexBookings(trx, employeeIds, counted);
+		const carryovers = await this.time.checkpoints(trx, [...sheets.keys()], year);
+
+		const balances = new Map<string, number>();
+		for (const [employeeId, sheet] of sheets) {
+			const days = buildDays(sheet, tenant, counted, now);
+			balances.set(
+				employeeId,
+				flexBalance(sheet, days, bookings, carryovers, today).balanceMinutes
+			);
+		}
+		return balances;
 	}
 
 	private async costs(trx: Trx, range: Range): Promise<DayCost[]> {
@@ -513,13 +523,25 @@ export class AbsencesService {
 		);
 	}
 
-	private async buckets(trx: Trx, employeeId: string, today: Temporal.PlainDate) {
+	private async buckets(
+		trx: Trx,
+		employeeIds: readonly string[],
+		today: Temporal.PlainDate
+	): Promise<Map<string, BucketState[]>> {
+		if (employeeIds.length === 0) return new Map();
 		const { carryoverUntil } = await this.vacation.calendar(trx);
-		return bucketsOf(
-			await this.vacation.ledger(trx, employeeId),
-			await this.vacation.notices(trx, employeeId),
-			carryoverUntil,
-			today
+		const ledgers = await this.vacation.ledgerByEmployee(trx, employeeIds);
+		const notices = await this.vacation.noticesByEmployee(trx, employeeIds);
+		return new Map(
+			employeeIds.map((employeeId) => [
+				employeeId,
+				bucketsOf(
+					ledgers.get(employeeId) ?? [],
+					notices.get(employeeId) ?? [],
+					carryoverUntil,
+					today
+				)
+			])
 		);
 	}
 
@@ -545,8 +567,9 @@ export class AbsencesService {
 		absence: Absence,
 		today: Temporal.PlainDate
 	): Promise<void> {
+		const employeeId = absence.employee.id;
 		const days = (await this.store.activeDays(trx, absence.id)).map(takenDay);
-		const buckets = await this.buckets(trx, absence.employee.id, today);
+		const buckets = (await this.buckets(trx, [employeeId], today)).get(employeeId)!;
 		const costs = charge(
 			days,
 			buckets.map((bucket) => bucket.payable)
@@ -554,7 +577,7 @@ export class AbsencesService {
 		await this.vacation.book(
 			trx,
 			[...costs].map(([bucketYear, drawn]) => ({
-				employeeId: absence.employee.id,
+				employeeId,
 				bucketYear,
 				entryType: 'taken' as const,
 				days: toDecimal(negate(drawn), 2),

@@ -3,7 +3,7 @@ import { isoDateSchema, uuidSchema } from '@zeit/shared';
 import { z } from 'zod';
 import { requireRole } from '../../../app/require-role';
 import { AuditPage } from '../../../features/hr/audit/audit-page';
-import { todayIso } from '../../../features/hr/dates';
+import { todayIso } from '../../../lib/dates';
 
 const searchSchema = z.object({
 	from: isoDateSchema.optional().catch(undefined),

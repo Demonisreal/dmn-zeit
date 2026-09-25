@@ -76,6 +76,10 @@ HSTS gehört an den zentralen Caddy, nicht ins Web-Image: `header >Strict-Transp
 (das `>` ergänzt statt zu ersetzen). Setzt eine andere Config-Datei des zentralen Caddy den Header
 schon global, hier keinen zweiten `header`-Block dafür anlegen, sonst kommt der Header doppelt an.
 
+Komprimieren muss der zentrale Caddy nicht, das erledigt das Web-Image selbst (zstd/gzip, alles
+außer `/api/*`). Für diese Domains also kein `encode` eintragen: `/api/*` bleibt absichtlich
+unkomprimiert, weil dort CSRF-Token und Recovery-Codes in den Antworten stehen (BREACH).
+
 Domains zeigen aktuell direkt auf den Server. Ein Schutz gegen DDoS über den Hoster oder
 einen vorgeschalteten Proxy ist vor dem eigentlichen Livegang noch zu entscheiden.
 

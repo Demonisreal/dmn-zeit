@@ -1,13 +1,13 @@
-import { parseDate } from '@internationalized/date';
 import { useQuery } from '@tanstack/react-query';
 import { hasRole, type Session } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../components/ui/empty-state';
+import { Page, PageHead } from '../../components/ui/page-shell';
+import { PeriodNav } from '../../components/ui/period-nav';
 import { SelectField } from '../../components/ui/select-field';
 import { LoadError, Loading } from '../../components/ui/states';
 import { formatMonth } from '../../i18n/format';
-import page from '../absences/ui/page.module.css';
-import { PeriodStepper } from '../absences/ui/period-stepper';
+import { shiftMonth } from '../../lib/dates';
 import { teamsQuery } from '../hr/api';
 import { teamCalendarQuery } from './api';
 import styles from './team-calendar.module.css';
@@ -24,9 +24,6 @@ type Props = {
 	team: string | undefined;
 	onSearch: (next: TeamCalendarSearch) => void;
 };
-
-const shift = (month: string, by: number) =>
-	parseDate(`${month}-01`).add({ months: by }).toString().slice(0, 7);
 
 export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 	const { t, i18n } = useTranslation('team');
@@ -64,8 +61,8 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 	};
 
 	return (
-		<div className={page.page}>
-			<header className={page.head}>
+		<Page>
+			<PageHead>
 				<h1 id="team-calendar-title">{t('title')}</h1>
 				<div className={styles.controls}>
 					{options.length > 1 && (
@@ -76,21 +73,20 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 							onChange={(key) => key !== null && onSearch({ team: String(key) })}
 						/>
 					)}
-					<PeriodStepper
+					<PeriodNav
 						label={t('month')}
-						previousLabel={t('prevMonth')}
-						nextLabel={t('nextMonth')}
-						onPrevious={() => onSearch({ month: shift(month, -1) })}
-						onNext={() => onSearch({ month: shift(month, 1) })}
+						previous={t('prevMonth')}
+						next={t('nextMonth')}
+						onStep={(by) => onSearch({ month: shiftMonth(month, by) })}
 					>
 						<span id="team-calendar-month" className={styles.month}>
 							{formatMonth(month, i18n.language)}
 						</span>
-					</PeriodStepper>
+					</PeriodNav>
 				</div>
-			</header>
+			</PageHead>
 			{options.length === 1 && <p className={styles.team}>{options[0]?.name}</p>}
 			{body()}
-		</div>
+		</Page>
 	);
 }

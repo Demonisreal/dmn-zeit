@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { yearSchema } from '@zeit/shared';
 import { z } from 'zod';
-import { currentYear } from '../../features/absences/dates';
+import { vacationQuery } from '../../features/vacation/api';
 import { VacationPage } from '../../features/vacation/vacation-page';
+import { currentYear } from '../../lib/dates';
 
 const searchSchema = z.object({
 	year: yearSchema.optional().catch(undefined)
@@ -10,6 +11,16 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/_app/vacation')({
 	validateSearch: searchSchema,
+	loaderDeps: ({ search }) => ({ year: search.year }),
+	loader: ({ context, deps, cause }) => {
+		const { employeeId } = context.session.user;
+		if (!employeeId) return;
+		const account = context.queryClient.prefetchQuery(
+			vacationQuery(employeeId, deps.year ?? currentYear())
+		);
+		// stepping through the years must not wait for the answer
+		return cause === 'stay' ? undefined : account;
+	},
 	staticData: { title: 'vacation' },
 	component: VacationRoute
 });

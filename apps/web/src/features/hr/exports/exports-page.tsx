@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { SelectField } from '../../../components/ui/select-field';
 import { LoadError } from '../../../components/ui/states';
 import { formatMonth } from '../../../i18n/format';
+import { currentMonth } from '../../../lib/dates';
 import { employeesQuery, withSearch } from '../api';
-import { currentMonth, monthsBack } from '../dates';
+import { monthsBack } from '../dates';
 import { HrNav } from '../hr-nav';
 import { employeeOptions } from '../people/employee-options';
 import styles from '../ui/page.module.css';
@@ -28,8 +30,8 @@ export function ExportsPage({ month, employeeId, onChange }: Props) {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('exports.title')}</h1>
 						<p className={styles.lead}>{t('exports.lead')}</p>
@@ -37,7 +39,7 @@ export function ExportsPage({ month, employeeId, onChange }: Props) {
 							{t('exports.csvHint')}
 						</p>
 					</div>
-				</header>
+				</PageHead>
 				<div className={styles.filters}>
 					<SelectField
 						label={t('exports.month')}
@@ -99,7 +101,7 @@ export function ExportsPage({ month, employeeId, onChange }: Props) {
 					</div>
 					<MonthOverview month={month} />
 				</section>
-			</div>
+			</Page>
 		</>
 	);
 }

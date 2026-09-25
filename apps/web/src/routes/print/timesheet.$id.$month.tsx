@@ -21,6 +21,7 @@ export const Route = createFileRoute('/print/timesheet/$id/$month')({
 		if (!monthSchema.safeParse(params.month).success) throw notFound();
 		if (!uuidSchema.safeParse(params.id).success) throw notFound();
 	},
+	loader: () => i18n.loadNamespaces('hr'),
 	component: PrintRoute
 });
 

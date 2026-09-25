@@ -6,6 +6,8 @@
 	--edge: #25272d;
 	/* brand grey from the lockup, readable on the dark ground only as a hairline, never as text */
 	--line: #3f4249;
+	/* --line stays under 2:1, a control's outline needs 3:1: 3.6 on --dark, 3.4 on --card */
+	--line-hi: color-mix(in srgb, var(--line), var(--muted));
 
 	--white: #ffffff;
 	--text: #b9bcc4;
@@ -26,4 +28,13 @@
 	--mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace;
 
 	--ease: cubic-bezier(0.23, 1, 0.32, 1);
+
+	/* the keyframes pop, rise and reveal live in base.css */
+	--open-pop: 150ms;
+	--open-panel: 180ms;
+	--open-modal: 200ms;
+	--open-scale: 0.98;
+
+	--shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 0.7);
+	--shadow-modal: 0 24px 48px -16px rgb(0 0 0 / 0.8);
 }

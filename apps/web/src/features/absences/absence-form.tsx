@@ -1,11 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { absenceTypes, isoDateSchema, noteSchema, type AbsenceType } from '@zeit/shared';
+import { Label, Radio, RadioGroup } from 'react-aria-components';
 import { useController, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { errorKey } from '../../app/error-key';
 import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
 import { FormTextArea } from '../../components/ui/field';
 import field from '../../components/ui/field.module.css';
 import { Notice } from '../../components/ui/notice';
@@ -15,7 +17,13 @@ import { AbsencePreview } from './absence-preview';
 import { createAbsence, refreshAbsences, type PreviewInput } from './api';
 import { DateRangeField } from './date-range-field';
 import { formatPeriod } from './dates';
-import styles from './absence-form.module.css';
+import css from './absence-form.module.css';
+
+const fieldStyles = field as Record<'label' | 'description', string>;
+const styles = css as Record<
+	'panel' | 'layout' | 'form' | 'group' | 'segments' | 'segment' | 'checks' | 'actions',
+	string
+>;
 
 const formSchema = z.object({
 	type: z.enum(absenceTypes),
@@ -46,7 +54,7 @@ type Props = {
 export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 	const { t, i18n } = useTranslation(['absences', 'common']);
 	const queryClient = useQueryClient();
-	const { control, register, handleSubmit, setValue, setError } = useForm<
+	const { control, handleSubmit, setValue, setError } = useForm<
 		z.input<typeof formSchema>,
 		unknown,
 		z.output<typeof formSchema>
@@ -62,8 +70,11 @@ export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 		}
 	});
 	const draft = useWatch({ control });
+	const type = useController({ control, name: 'type' });
 	const startDate = useController({ control, name: 'startDate' });
 	const endDate = useController({ control, name: 'endDate' });
+	const halfDayStart = useController({ control, name: 'halfDayStart' });
+	const halfDayEnd = useController({ control, name: 'halfDayEnd' });
 
 	const create = useMutation({
 		mutationFn: createAbsence,
@@ -113,24 +124,33 @@ export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 					className={styles.form}
 					onSubmit={handleSubmit((values) => create.mutate({ employeeId, ...values }))}
 				>
-					<fieldset className={styles.group}>
-						<legend className={field.label}>{t('form.type')}</legend>
+					{/* react-aria looks for a description slot only on mount, this hint comes and goes with the type */}
+					<RadioGroup
+						value={type.field.value}
+						onChange={type.field.onChange}
+						orientation="horizontal"
+						{...(draft.type === 'sick' && { 'aria-describedby': 'absence-sick-hint' })}
+						className={styles.group}
+					>
+						<Label className={fieldStyles.label}>{t('form.type')}</Label>
 						<div className={styles.segments}>
-							{typeOrder.map((type) => (
-								<label key={type} className={styles.segment}>
-									<input
-										type="radio"
-										value={type}
-										className={styles.radio}
-										autoFocus={type === 'vacation'}
-										{...register('type')}
-									/>
-									{t(`type.${type}`)}
-								</label>
+							{typeOrder.map((option) => (
+								<Radio
+									key={option}
+									value={option}
+									autoFocus={option === 'vacation'}
+									className={styles.segment}
+								>
+									{t(`type.${option}`)}
+								</Radio>
 							))}
 						</div>
-						{draft.type === 'sick' && <p className={field.description}>{t('form.sickHint')}</p>}
-					</fieldset>
+						{draft.type === 'sick' && (
+							<p id="absence-sick-hint" className={fieldStyles.description}>
+								{t('form.sickHint')}
+							</p>
+						)}
+					</RadioGroup>
 
 					<DateRangeField
 						label={t('form.period')}
@@ -146,17 +166,18 @@ export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 					/>
 
 					<fieldset className={styles.group}>
-						<legend className={field.label}>{t('form.halfDays')}</legend>
+						<legend className={fieldStyles.label}>{t('form.halfDays')}</legend>
 						<div className={styles.checks}>
-							<label className={styles.check}>
-								<input type="checkbox" {...register('halfDayStart')} />
+							<Checkbox
+								isSelected={halfDayStart.field.value}
+								onChange={halfDayStart.field.onChange}
+							>
 								{t(single ? 'form.halfDay' : 'form.halfDayStart')}
-							</label>
+							</Checkbox>
 							{!single && (
-								<label className={styles.check}>
-									<input type="checkbox" {...register('halfDayEnd')} />
+								<Checkbox isSelected={halfDayEnd.field.value} onChange={halfDayEnd.field.onChange}>
 									{t('form.halfDayEnd')}
-								</label>
+								</Checkbox>
 							)}
 						</div>
 					</fieldset>

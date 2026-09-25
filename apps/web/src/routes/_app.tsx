@@ -25,6 +25,9 @@ export const Route = createFileRoute('/_app')({
 		}
 		return { session };
 	},
+	// the start page already explains its numbers with the hr texts, so they come with the shell
+	loader: ({ context }) =>
+		i18n.loadNamespaces(context.session.mode === 'demo' ? ['hr', 'demo'] : 'hr'),
 	component: AppLayout
 });
 

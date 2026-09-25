@@ -90,21 +90,12 @@
 	border: 1px solid var(--edge);
 	border-radius: 8px;
 	background: var(--card);
-	box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.7);
+	box-shadow: var(--shadow-pop);
 	transform-origin: top left;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-	.popover[data-entering] {
-		animation: open 160ms var(--ease);
-	}
-}
-
-@keyframes open {
-	from {
-		opacity: 0;
-		transform: translateY(-4px) scale(0.98);
-	}
+.popover[data-entering] {
+	animation: global(pop) var(--open-pop) var(--ease);
 }
 
 .popover [role='dialog'] {
@@ -140,20 +131,6 @@
 	background: none;
 	color: var(--text);
 	cursor: default;
-}
-
-.step > span {
-	width: 0.4375rem;
-	height: 0.4375rem;
-	margin-right: 0.1875rem;
-	border-top: 1.5px solid currentColor;
-	border-right: 1.5px solid currentColor;
-	transform: rotate(45deg);
-}
-
-.step > .back {
-	margin: 0 0 0 0.1875rem;
-	transform: rotate(-135deg);
 }
 
 .step[data-hovered] {
@@ -206,7 +183,7 @@
 }
 
 .cell[data-selected] {
-	background: rgb(225 29 46 / 0.2);
+	background: color-mix(in srgb, var(--red) 20%, transparent);
 	color: var(--white);
 }
 
@@ -234,9 +211,11 @@
 	outline-offset: -2px;
 }
 
+/* struck through as well, a paler grey alone would be the only hint that a day is locked */
 .cell[data-disabled],
 .cell[data-unavailable] {
-	color: var(--edge);
+	color: var(--muted);
+	text-decoration: line-through;
 }
 
 @media (pointer: coarse) {

@@ -51,7 +51,9 @@
 	gap: 0.5rem;
 }
 
+/* the hidden actions header is absolute, left outside the scroll it pushes the page sideways */
 .scroll {
+	position: relative;
 	overflow-x: auto;
 }
 

@@ -138,22 +138,22 @@ export class AbsencesStore {
 		return rows.map((row) => row.id);
 	}
 
-	// who else is away over the same days; the type is never read here, sick leave stays private
-	async concurrent(
-		trx: Trx,
-		absenceIds: readonly string[],
-		leadOnly: boolean
-	): Promise<Map<string, Concurrent[]>> {
+	// who else of the team is away over the same days; the type is never read, sick leave stays private
+	async concurrent(trx: Trx, absenceIds: readonly string[]): Promise<Map<string, Concurrent[]>> {
 		if (absenceIds.length === 0) return new Map();
-		let query = trx
+		const rows = await trx
 			.selectFrom('app.absence_requests as a')
+			.innerJoin('app.employees as p', 'p.id', 'a.employee_id')
 			.innerJoin('app.absence_requests as o', (join) =>
 				join
 					.onRef('o.employee_id', '!=', 'a.employee_id')
 					.onRef('o.start_date', '<=', 'a.end_date')
 					.onRef('o.end_date', '>=', 'a.start_date')
 			)
-			.innerJoin('app.employees as e', 'e.id', 'o.employee_id')
+			// the team as the team calendar draws it, so hr does not get the whole tenant
+			.innerJoin('app.employees as e', (join) =>
+				join.onRef('e.id', '=', 'o.employee_id').onRef('e.team_id', '=', 'p.team_id')
+			)
 			.select([
 				'a.id',
 				'o.employee_id',
@@ -162,10 +162,7 @@ export class AbsencesStore {
 				'o.end_date'
 			])
 			.where('a.id', 'in', absenceIds)
-			.where('o.status', 'in', ['pending', 'approved', 'cancel_pending']);
-		// rls would still show a lead their own requests, even without being in the team they lead
-		if (leadOnly) query = query.where((eb) => sql<boolean>`app.leads(${eb.ref('o.employee_id')})`);
-		const rows = await query
+			.where('o.status', 'in', ['pending', 'approved', 'cancel_pending'])
 			.orderBy('o.start_date')
 			.orderBy('e.last_name')
 			.orderBy('e.first_name')

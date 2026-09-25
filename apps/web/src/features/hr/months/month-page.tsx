@@ -6,12 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { Notice } from '../../../components/ui/notice';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Tag } from '../../../components/ui/tag';
 import { formatDate, formatMinutes, formatMonth } from '../../../i18n/format';
 import { hasCode } from '../../../lib/api/errors';
+import { lastOfMonth } from '../../../lib/dates';
 import { checklistQuery, closeMonth } from '../api';
-import { lastDayOf } from '../dates';
 import { useErrorText } from '../error-text';
 import { HrNav } from '../hr-nav';
 import styles from '../ui/page.module.css';
@@ -31,7 +32,7 @@ export function MonthPage({ month, role }: Props) {
 	const [reopening, setReopening] = useState(false);
 	const checklist = useQuery(checklistQuery(month));
 	const name = formatMonth(month, i18n.language);
-	const lastDay = formatDate(lastDayOf(month), i18n.language);
+	const lastDay = formatDate(lastOfMonth(month), i18n.language);
 
 	const capList = (caps: MonthChecklist['capPreview']) =>
 		new Intl.ListFormat(i18n.language).format(
@@ -124,11 +125,11 @@ export function MonthPage({ month, role }: Props) {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
+			<Page>
 				<p className={styles.small}>
 					<Link to="/hr/months">{t('months.back')}</Link>
 				</p>
-				<header className={styles.head}>
+				<PageHead>
 					<div>
 						<h1>{t('months.detailTitle', { month: name })}</h1>
 						{checklist.data && (
@@ -141,9 +142,9 @@ export function MonthPage({ month, role }: Props) {
 							</p>
 						)}
 					</div>
-				</header>
+				</PageHead>
 				{body}
-			</div>
+			</Page>
 			<ConfirmDialog
 				isOpen={closing}
 				onClose={() => {

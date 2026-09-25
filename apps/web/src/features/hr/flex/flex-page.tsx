@@ -3,11 +3,12 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { SelectField } from '../../../components/ui/select-field';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { formatDate, formatMinutes } from '../../../i18n/format';
+import { currentYear } from '../../../lib/dates';
 import { employeesQuery, flexQuery } from '../api';
-import { currentYear } from '../dates';
 import { HrNav } from '../hr-nav';
 import { employeeOptions } from '../people/employee-options';
 import styles from '../ui/page.module.css';
@@ -107,13 +108,13 @@ export function FlexPage({ employeeId, year, onChange }: Props) {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('flex.title')}</h1>
 						<p className={styles.lead}>{t('flex.lead')}</p>
 					</div>
-				</header>
+				</PageHead>
 				<div className={styles.filters}>
 					<SelectField
 						label={t('flex.employee')}
@@ -136,7 +137,7 @@ export function FlexPage({ employeeId, year, onChange }: Props) {
 					<LoadError error={employees.error} onRetry={() => void employees.refetch()} />
 				)}
 				{body}
-			</div>
+			</Page>
 		</>
 	);
 }

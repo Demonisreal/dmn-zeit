@@ -5,18 +5,20 @@ import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
+import { Page, PageHead } from '../../components/ui/page-shell';
+import { PeriodNav } from '../../components/ui/period-nav';
 import { Skeleton } from '../../components/ui/skeleton';
 import { LoadError, Loading } from '../../components/ui/states';
 import { formatDate, formatMinutes } from '../../i18n/format';
+import { todayIso } from '../../lib/dates';
 import { FlexBookings, FlexMonths } from '../hr/flex/flex-tables';
 import { Accounts } from './accounts';
 import { daysQuery, flexQuery } from './api';
 import { ClockPanel } from './clock-panel';
-import { addDays, isoWeek, mondayOf, shortDate, todayIso } from './dates';
+import { addDays, isoWeek, mondayOf, shortDate } from './dates';
 import detail from './day-detail.module.css';
 import { DayTable } from './day-table';
 import styles from './page.module.css';
-import { PeriodNav } from './period-nav';
 
 type Props = {
 	session: Session;
@@ -29,31 +31,39 @@ export function WeekPage({ session, week }: Props) {
 	const today = todayIso();
 	const monday = mondayOf(week ?? today);
 	const number = isoWeek(monday);
+	const label = t('label', { week: number });
 	const { employeeId } = session.user;
 
 	return (
-		<div className={styles.page}>
-			<header className={styles.head}>
+		<Page>
+			<PageHead className={styles.head}>
 				<VisuallyHidden elementType="h1">{t('nav:week')}</VisuallyHidden>
 				<PeriodNav
-					label={t('label', { week: number })}
+					variant="title"
+					label={label}
 					range={t('range', {
 						from: shortDate(monday, i18n.language),
 						to: formatDate(addDays(monday, 6), i18n.language)
 					})}
 					previous={t('previous')}
 					next={t('next')}
-					current={t('current')}
-					isCurrent={monday === mondayOf(today)}
 					onStep={(by) => void navigate({ to: '/', search: { week: addDays(monday, by * 7) } })}
-					onReset={() => void navigate({ to: '/', search: {} })}
-				/>
+					action={
+						monday !== mondayOf(today) && (
+							<Button variant="secondary" onPress={() => void navigate({ to: '/', search: {} })}>
+								{t('current')}
+							</Button>
+						)
+					}
+				>
+					{label}
+				</PeriodNav>
 				{employeeId && (
 					<div className={styles.clock}>
 						<ClockPanel />
 					</div>
 				)}
-			</header>
+			</PageHead>
 			{employeeId ? (
 				<Week
 					employeeId={employeeId}
@@ -64,7 +74,7 @@ export function WeekPage({ session, week }: Props) {
 			) : (
 				<EmptyState title={t('noEmployee.title')}>{t('noEmployee.text')}</EmptyState>
 			)}
-		</div>
+		</Page>
 	);
 }
 

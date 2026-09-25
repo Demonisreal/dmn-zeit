@@ -11,8 +11,8 @@ import {
 	formatMonth,
 	formatTime
 } from '../../../i18n/format';
+import { lastOfMonth } from '../../../lib/dates';
 import { timesheetQuery } from '../api';
-import { lastDayOf } from '../dates';
 import styles from './timesheet-sheet.module.css';
 
 type Props = {
@@ -73,7 +73,7 @@ export function TimesheetSheet({ employeeId, month }: Props) {
 						<dd>{employee.personnelNo}</dd>
 						<dt>{t('print.period')}</dt>
 						<dd>
-							{formatDate(`${month}-01`, lng)} – {formatDate(lastDayOf(month), lng)}
+							{formatDate(`${month}-01`, lng)} – {formatDate(lastOfMonth(month), lng)}
 						</dd>
 						<dt>{t('print.state')}</dt>
 						<dd>{closed ? t('print.closed') : t('print.provisional')}</dd>

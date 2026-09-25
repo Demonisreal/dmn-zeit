@@ -4,7 +4,7 @@ import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Tag } from '../../../components/ui/tag';
 import { formatMinutes } from '../../../i18n/format';
-import { lastDayOf } from '../dates';
+import { lastOfMonth } from '../../../lib/dates';
 import styles from '../ui/page.module.css';
 import css from './checklist.module.css';
 
@@ -49,7 +49,7 @@ export function Checklist({ checklist }: Props) {
 						employee: employee.id,
 						state: 'open',
 						from: `${month}-01`,
-						to: lastDayOf(month)
+						to: lastOfMonth(month)
 					}}
 				>
 					{t('months.toFindings')}

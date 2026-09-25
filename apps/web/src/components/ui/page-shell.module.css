@@ -1,0 +1,17 @@
+/* as wide as the week needs for all nine columns, every other page lines up with it */
+.page {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 1.5rem;
+	max-width: 84rem;
+}
+
+/* as tall as a button, so a head without one does not move the page up */
+.head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem 1.5rem;
+	min-height: 2.5rem;
+}

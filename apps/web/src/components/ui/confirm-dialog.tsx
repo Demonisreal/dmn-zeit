@@ -38,7 +38,7 @@ export function ConfirmDialog({
 			className={styles.overlay}
 		>
 			<Modal className={styles.modal}>
-				<Dialog role="alertdialog" className={styles.dialog}>
+				<Dialog role="alertdialog" aria-modal="true" className={styles.dialog}>
 					<Heading slot="title">{title}</Heading>
 					<div className={styles.body}>{children}</div>
 					{error}

@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Notice } from '../../components/ui/notice';
+import { Page, PageHead } from '../../components/ui/page-shell';
+import { PeriodNav } from '../../components/ui/period-nav';
 import { LoadError, Loading } from '../../components/ui/states';
 import page from '../absences/ui/page.module.css';
-import { PeriodStepper } from '../absences/ui/period-stepper';
 import { vacationQuery } from './api';
 import { BucketTable } from './bucket-table';
 import { ForfeitureNotice } from './forfeiture-notice';
@@ -57,22 +58,21 @@ export function VacationPage({ employeeId, year, onYear }: Props) {
 	};
 
 	return (
-		<div className={page.page}>
-			<header className={page.head}>
+		<Page>
+			<PageHead>
 				<h1>{t('title')}</h1>
 				{employeeId && (
-					<PeriodStepper
+					<PeriodNav
 						label={t('year')}
-						previousLabel={t('prevYear')}
-						nextLabel={t('nextYear')}
-						onPrevious={() => onYear(year - 1)}
-						onNext={() => onYear(year + 1)}
+						previous={t('prevYear')}
+						next={t('nextYear')}
+						onStep={(by) => onYear(year + by)}
 					>
 						<span className={styles.stepYear}>{year}</span>
-					</PeriodStepper>
+					</PeriodNav>
 				)}
-			</header>
+			</PageHead>
 			{body()}
-		</div>
+		</Page>
 	);
 }

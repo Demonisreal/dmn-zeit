@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { tagFor } from '../../i18n/format';
-import { todayIso } from '../absences/dates';
+import { todayIso } from '../../lib/dates';
 import { useHolidayName } from '../vacation/explain';
 import styles from './team-grid.module.css';
 

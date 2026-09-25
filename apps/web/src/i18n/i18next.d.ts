@@ -1,9 +1,9 @@
 import 'i18next';
-import type { resources } from '.';
+import type { Resources } from '.';
 
 declare module 'i18next' {
 	interface CustomTypeOptions {
 		defaultNS: 'common';
-		resources: (typeof resources)['de'];
+		resources: Resources;
 	}
 }

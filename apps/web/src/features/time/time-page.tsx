@@ -5,14 +5,15 @@ import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
+import { Page, PageHead } from '../../components/ui/page-shell';
+import { PeriodNav } from '../../components/ui/period-nav';
 import { Skeleton } from '../../components/ui/skeleton';
 import { LoadError, Loading } from '../../components/ui/states';
 import { formatDate, formatMinutes, formatMonth } from '../../i18n/format';
+import { lastOfMonth, shiftMonth, todayIso } from '../../lib/dates';
 import { daysQuery, flexQuery } from '../week/api';
-import { lastOfMonth, shiftMonth, todayIso } from '../week/dates';
 import { DayTable } from '../week/day-table';
 import styles from '../week/page.module.css';
-import { PeriodNav } from '../week/period-nav';
 import { FlexDerivation } from '../week/week-page';
 import { AckForm } from './ack-form';
 
@@ -29,28 +30,39 @@ export function TimePage({ session, month, employee, day }: Props) {
 	const current = todayIso().slice(0, 7);
 	const shown = month ?? day?.slice(0, 7) ?? current;
 	const employeeId = employee ?? session.user.employeeId;
+	const label = formatMonth(shown, i18n.language);
 
 	return (
-		<div className={styles.page}>
-			<header className={styles.head}>
+		<Page>
+			<PageHead className={styles.head}>
 				<VisuallyHidden elementType="h1">{t('nav:time')}</VisuallyHidden>
 				<PeriodNav
-					label={formatMonth(shown, i18n.language)}
+					variant="title"
+					label={label}
 					previous={t('previous')}
 					next={t('next')}
-					current={t('current')}
-					isCurrent={shown === current}
 					onStep={(by) =>
 						void navigate({
 							to: '/time',
 							search: (prev) => ({ ...prev, month: shiftMonth(shown, by), day: undefined })
 						})
 					}
-					onReset={() =>
-						void navigate({ to: '/time', search: (prev) => ({ employee: prev.employee }) })
+					action={
+						shown !== current && (
+							<Button
+								variant="secondary"
+								onPress={() =>
+									void navigate({ to: '/time', search: (prev) => ({ employee: prev.employee }) })
+								}
+							>
+								{t('current')}
+							</Button>
+						)
 					}
-				/>
-			</header>
+				>
+					{label}
+				</PeriodNav>
+			</PageHead>
 			{employeeId ? (
 				<Month
 					employeeId={employeeId}
@@ -63,7 +75,7 @@ export function TimePage({ session, month, employee, day }: Props) {
 			) : (
 				<EmptyState title={t('week:noEmployee.title')}>{t('week:noEmployee.text')}</EmptyState>
 			)}
-		</div>
+		</Page>
 	);
 }
 

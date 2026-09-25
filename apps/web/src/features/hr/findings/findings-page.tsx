@@ -5,6 +5,7 @@ import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { SelectField } from '../../../components/ui/select-field';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
@@ -18,8 +19,7 @@ import styles from '../ui/page.module.css';
 import { AckForm } from './ack-form';
 import { factParams, findingKey, paragraphOf } from './finding-text';
 import { RuleVersions, versionYear } from './rule-versions';
-
-export const stateFilters = ['open', 'acknowledged', 'all'] as const;
+import { stateFilters } from './state-filters';
 
 export type FindingsFilter = {
 	state: (typeof stateFilters)[number];
@@ -78,7 +78,7 @@ export function FindingsPage({ filter, onFilter }: Props) {
 							<th scope="col">{t('findings.date')}</th>
 							<th scope="col">{t('findings.employee')}</th>
 							<th scope="col">{t('findings.rule')}</th>
-							<th scope="col" className={styles.colWide}>
+							<th scope="col" data-priority="wide">
 								{t('findings.ruleVersion')}
 							</th>
 							<th scope="col">{t('findings.status')}</th>
@@ -111,11 +111,11 @@ export function FindingsPage({ filter, onFilter }: Props) {
 											<VisuallyHidden>
 												, {t(`findings.states.${finding.ack ? 'acknowledged' : 'open'}`)}
 											</VisuallyHidden>{' '}
-											<span className={styles.colMid}>
+											<span data-priority="mid">
 												{t(`findings.text.${finding.code}`, factParams(finding.facts))}
 											</span>
 										</td>
-										<td className={styles.colWide}>
+										<td data-priority="wide">
 											{t('rules.versionLabel', { year: versionYear(finding.ruleVersion) })}
 										</td>
 										<td>
@@ -167,16 +167,16 @@ export function FindingsPage({ filter, onFilter }: Props) {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1 ref={heading} tabIndex={-1} className={styles.anchor}>
 							{t('findings.title')}
 						</h1>
 						<p className={styles.lead}>{t('findings.lead')}</p>
 					</div>
-				</header>
-				<section className={styles.section} aria-label={t('findings.title')}>
+				</PageHead>
+				<section className={styles.section}>
 					<div className={styles.filters}>
 						<SelectField
 							label={t('findings.status')}
@@ -210,7 +210,7 @@ export function FindingsPage({ filter, onFilter }: Props) {
 					{body}
 				</section>
 				<RuleVersions />
-			</div>
+			</Page>
 		</>
 	);
 }

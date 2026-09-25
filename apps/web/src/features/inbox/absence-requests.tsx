@@ -5,9 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { Tag } from '../../components/ui/tag';
 import { formatDays, formatInstant, formatMinutes } from '../../i18n/format';
 import { HalfDays, TypeTag } from '../absences/absence-tags';
-import { absencesQuery, refreshAbsences } from '../absences/api';
+import { refreshAbsences } from '../absences/api';
 import { formatPeriod } from '../absences/dates';
-import { approveAbsence, rejectAbsence } from './api';
+import { approveAbsence, pendingAbsencesQuery, rejectAbsence } from './api';
 import { Decision } from './decision';
 import styles from './inbox.module.css';
 import { InboxSection } from './inbox-section';
@@ -18,9 +18,7 @@ type Props = {
 
 export function AbsenceRequests({ onDone }: Props) {
 	const { t } = useTranslation('inbox');
-	const list = useInfiniteQuery(
-		absencesQuery({ scope: 'inbox', status: ['pending', 'cancel_pending'] })
-	);
+	const list = useInfiniteQuery(pendingAbsencesQuery());
 	return (
 		<InboxSection
 			id="inbox-absences"

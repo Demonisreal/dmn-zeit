@@ -2,9 +2,9 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Notice } from '../../components/ui/notice';
+import { Page, PageHead } from '../../components/ui/page-shell';
 import { AbsenceForm } from './absence-form';
 import { AbsenceList, type AbsenceListFilter } from './absence-list';
-import page from './ui/page.module.css';
 
 export type AbsencesSearch = Partial<AbsenceListFilter> & { start?: string | undefined };
 
@@ -28,18 +28,18 @@ export function AbsencesPage({ employeeId, start, year, type, status, onSearch }
 
 	if (!employeeId) {
 		return (
-			<div className={page.page}>
-				<header className={page.head}>
+			<Page>
+				<PageHead>
 					<h1>{t('title')}</h1>
-				</header>
+				</PageHead>
 				<Notice>{t('errors.noEmployee')}</Notice>
-			</div>
+			</Page>
 		);
 	}
 
 	return (
-		<div className={page.page}>
-			<header className={page.head}>
+		<Page>
+			<PageHead>
 				<h1>{t('title')}</h1>
 				<Button
 					ref={toggle}
@@ -54,7 +54,7 @@ export function AbsencesPage({ employeeId, start, year, type, status, onSearch }
 				>
 					{t('new')}
 				</Button>
-			</header>
+			</PageHead>
 			{done && <Notice tone="success">{done}</Notice>}
 			{open && (
 				<AbsenceForm
@@ -68,6 +68,6 @@ export function AbsencesPage({ employeeId, start, year, type, status, onSearch }
 				/>
 			)}
 			<AbsenceList year={year} type={type} status={status} onFilter={onSearch} />
-		</div>
+		</Page>
 	);
 }

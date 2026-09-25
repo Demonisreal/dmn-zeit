@@ -14,6 +14,7 @@ import {
 	Popover,
 	RangeCalendar
 } from 'react-aria-components';
+import { Chevron } from '../../components/ui/chevron';
 import field from '../../components/ui/field.module.css';
 import css from './date-range-field.module.css';
 
@@ -29,7 +30,6 @@ const styles = css as Record<
 	| 'calendar'
 	| 'calendarHead'
 	| 'step'
-	| 'back'
 	| 'heading'
 	| 'grid'
 	| 'cell',
@@ -75,11 +75,11 @@ export function DateRangeField({ label, start, end, onChange, error }: Props) {
 					<RangeCalendar className={styles.calendar}>
 						<header className={styles.calendarHead}>
 							<Button slot="previous" className={styles.step}>
-								<span className={styles.back} aria-hidden="true" />
+								<Chevron direction="left" />
 							</Button>
 							<Heading className={styles.heading} />
 							<Button slot="next" className={styles.step}>
-								<span aria-hidden="true" />
+								<Chevron direction="right" />
 							</Button>
 						</header>
 						<CalendarGrid className={styles.grid} weekdayStyle="short">

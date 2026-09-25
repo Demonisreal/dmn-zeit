@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Notice } from '../../../components/ui/notice';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { formatDate, formatInstant } from '../../../i18n/format';
-import { currentYear } from '../../hr/dates';
+import { currentYear } from '../../../lib/dates';
 import styles from '../../hr/ui/page.module.css';
 import { AdminNav } from '../admin-nav';
 import { holidaysQuery, tenantQuery } from '../api';
@@ -70,13 +71,13 @@ export function TenantPage() {
 	return (
 		<>
 			<AdminNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('tenant.title')}</h1>
 						<p className={styles.lead}>{t('tenant.lead')}</p>
 					</div>
-				</header>
+				</PageHead>
 				<div className={css.layout}>
 					<div className={styles.section}>{form}</div>
 					<section className={styles.section} aria-labelledby="holidays">
@@ -87,7 +88,7 @@ export function TenantPage() {
 						{list}
 					</section>
 				</div>
-			</div>
+			</Page>
 		</>
 	);
 }

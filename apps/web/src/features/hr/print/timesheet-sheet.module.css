@@ -19,15 +19,21 @@
 	background: var(--dark);
 }
 
+/* paper has its own palette, the screen tokens are made for the dark ground */
 .sheet {
+	--paper: #fff;
+	--paper-text: #1b1c1f;
+	--paper-muted: #55585f;
+	--paper-rule: #c9cbd0;
+
 	display: grid;
 	gap: 5mm;
 	width: min(100%, 210mm);
 	min-height: 297mm;
 	padding: 14mm 12mm;
 	border-radius: 2px;
-	background: #fff;
-	color: #1b1c1f;
+	background: var(--paper);
+	color: var(--paper-text);
 	font-size: 9.5pt;
 	line-height: 1.35;
 	box-shadow: 0 16px 40px -20px rgb(0 0 0 / 0.9);
@@ -45,7 +51,7 @@
 }
 
 .tenant {
-	color: #55585f;
+	color: var(--paper-muted);
 }
 
 .meta {
@@ -56,7 +62,7 @@
 }
 
 .meta dt {
-	color: #55585f;
+	color: var(--paper-muted);
 }
 
 .meta dd {
@@ -73,21 +79,21 @@
 .table th,
 .table td {
 	padding: 1mm 1.5mm;
-	border-bottom: 0.5pt solid #c9cbd0;
+	border-bottom: 0.5pt solid var(--paper-rule);
 	text-align: start;
 	vertical-align: top;
 }
 
 .table thead th {
-	border-bottom: 1pt solid #1b1c1f;
-	color: #55585f;
+	border-bottom: 1pt solid var(--paper-text);
+	color: var(--paper-muted);
 	font-weight: 500;
 	white-space: nowrap;
 }
 
 .table tfoot th,
 .table tfoot td {
-	border-top: 1pt solid #1b1c1f;
+	border-top: 1pt solid var(--paper-text);
 	border-bottom: 0;
 	font-weight: 600;
 }
@@ -109,7 +115,7 @@
 .weekday {
 	display: inline-block;
 	min-width: 2.2em;
-	color: #55585f;
+	color: var(--paper-muted);
 }
 
 .signatures {
@@ -121,14 +127,14 @@
 
 .signatures p {
 	padding-top: 1.5mm;
-	border-top: 0.5pt solid #1b1c1f;
-	color: #55585f;
+	border-top: 0.5pt solid var(--paper-text);
+	color: var(--paper-muted);
 	font-size: 8.5pt;
 }
 
 .foot {
 	align-self: end;
-	color: #55585f;
+	color: var(--paper-muted);
 	font-size: 8pt;
 }
 

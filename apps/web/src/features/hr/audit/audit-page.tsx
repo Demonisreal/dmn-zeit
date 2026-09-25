@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { SelectField } from '../../../components/ui/select-field';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
@@ -101,7 +102,7 @@ export function AuditPage({ filter, onFilter }: Props) {
 	} else {
 		body = (
 			<>
-				<div className={styles.scroll} role="region" aria-label={t('audit.title')} tabIndex={0}>
+				<div className={styles.scroll} role="group" aria-label={t('audit.title')} tabIndex={0}>
 					<Table label={t('audit.title')}>
 						<thead>
 							<tr>
@@ -198,13 +199,13 @@ export function AuditPage({ filter, onFilter }: Props) {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('audit.title')}</h1>
 						<p className={styles.lead}>{t('audit.lead')}</p>
 					</div>
-				</header>
+				</PageHead>
 				<section className={styles.section} aria-label={t('audit.title')}>
 					<div className={styles.filters}>
 						<DateInputField
@@ -239,7 +240,7 @@ export function AuditPage({ filter, onFilter }: Props) {
 					</div>
 					{body}
 				</section>
-			</div>
+			</Page>
 		</>
 	);
 }

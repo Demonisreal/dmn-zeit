@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { formatDays } from '../../i18n/format';
+import { todayIso } from '../../lib/dates';
 import { vacationQuery } from '../vacation/api';
 import { openAbsencesQuery, openCorrectionsQuery } from './api';
 import styles from './accounts.module.css';
-import { addDays, todayIso } from './dates';
+import { addDays } from './dates';
 
 // only counts and one figure, the full lists live on the requests and leave pages
 export function Accounts({ employeeId }: { employeeId: string }) {

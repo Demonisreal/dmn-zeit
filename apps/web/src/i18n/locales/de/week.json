@@ -137,8 +137,8 @@
 	},
 	"explain": {
 		"target": {
-			"workday": "{{weekday}}: {{minutes}} laut Vertrag",
-			"half_holiday": "{{code}}, halber Tag: {{minutes}} Soll",
+			"workday": "{{weekday}}: {{minutes}} laut Vertrag, gültig ab {{validFrom}}",
+			"half_holiday": "{{code}}, halber Tag: {{minutes}} Soll laut Vertrag, gültig ab {{validFrom}}",
 			"holiday": "{{code}}: Feiertag, kein Soll",
 			"no_contract": "Für diesen Tag ist kein Vertrag hinterlegt, kein Soll",
 			"outside_employment": "Außerhalb des Beschäftigungszeitraums, kein Soll"

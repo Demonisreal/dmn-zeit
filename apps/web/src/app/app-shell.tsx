@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import type { Session } from '@zeit/shared';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,8 +21,18 @@ export function AppShell({ session, children }: Props) {
 	const { t } = useTranslation(['common', 'nav']);
 	const [open, setOpen] = useState(false);
 	const toggle = useRef<HTMLButtonElement>(null);
+	const main = useRef<HTMLElement>(null);
 	const signOut = useSignOut();
 	const close = () => setOpen(false);
+	const pathname = useRouterState({ select: (state) => state.location.pathname });
+	const shownPath = useRef(pathname);
+
+	// only the path matters here, a `?week=` change on the same page must not steal focus
+	useEffect(() => {
+		if (shownPath.current === pathname) return;
+		shownPath.current = pathname;
+		main.current?.focus();
+	}, [pathname]);
 
 	// on the document, safari does not focus a button on click, so the key may come from body
 	useEffect(() => {
@@ -95,8 +105,8 @@ export function AppShell({ session, children }: Props) {
 					</Button>
 				</div>
 			</nav>
-			<main id="main" tabIndex={-1} className={styles.main}>
-				<DemoBanner session={session} />
+			<main id="main" ref={main} tabIndex={-1} className={styles.main}>
+				{session.mode === 'demo' && <DemoBanner session={session} />}
 				{children}
 			</main>
 		</div>

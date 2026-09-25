@@ -1,4 +1,6 @@
+/* the hidden day labels are absolute and would escape the scroll box without a containing block */
 .scroll {
+	position: relative;
 	overflow-x: auto;
 	border-top: 1px solid var(--edge);
 }

@@ -343,10 +343,20 @@ export class TimeStore {
 		}));
 	}
 
-	// the closings are hr only, the definer function hands out the one balance
-	async checkpoint(trx: Trx, employeeId: string, year: number): Promise<number | null> {
-		const { rows } = await sql<{ minutes: number | null }>`
-			select app.flex_checkpoint(${employeeId}, ${year}) as minutes`.execute(trx);
-		return rows[0]?.minutes ?? null;
+	// the closings are hr only, the definer function hands out one balance per person
+	async checkpoints(
+		trx: Trx,
+		employeeIds: readonly string[],
+		year: number
+	): Promise<Map<string, number>> {
+		if (employeeIds.length === 0) return new Map();
+		const { rows } = await sql<{ id: string; minutes: number | null }>`
+			select e.id, app.flex_checkpoint(e.id, ${year}) as minutes
+			  from unnest(${[...employeeIds]}::uuid[]) as e(id)`.execute(trx);
+		const carryovers = new Map<string, number>();
+		for (const row of rows) {
+			if (row.minutes !== null) carryovers.set(row.id, row.minutes);
+		}
+		return carryovers;
 	}
 }

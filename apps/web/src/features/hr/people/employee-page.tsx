@@ -3,10 +3,11 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { formatDate } from '../../../i18n/format';
+import { currentMonth, todayIso } from '../../../lib/dates';
 import { contractsQuery, employeeQuery, teamsQuery, workModelsQuery } from '../api';
-import { currentMonth, todayIso } from '../dates';
 import { HrNav } from '../hr-nav';
 import styles from '../ui/page.module.css';
 import { ContractForm } from './contract-form';
@@ -44,7 +45,7 @@ export function EmployeePage({ id }: Props) {
 		const team = teams.data.find((candidate) => candidate.id === person.teamId);
 		body = (
 			<>
-				<header className={styles.head}>
+				<PageHead>
 					<div>
 						<h1>{fullName(person)}</h1>
 						<p className={styles.lead}>
@@ -56,7 +57,7 @@ export function EmployeePage({ id }: Props) {
 							{t('people.edit')}
 						</Button>
 					)}
-				</header>
+				</PageHead>
 
 				{editing ? (
 					<MasterDataForm
@@ -143,12 +144,12 @@ export function EmployeePage({ id }: Props) {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
+			<Page>
 				<p className={styles.small}>
 					<Link to="/hr">{t('people.back')}</Link>
 				</p>
 				{body}
-			</div>
+			</Page>
 		</>
 	);
 }

@@ -149,43 +149,80 @@ export class VacationStore {
 		};
 	}
 
-	ledger(trx: Trx, employeeId: string): Promise<LedgerEntry[]> {
-		return trx
+	async ledger(trx: Trx, employeeId: string): Promise<LedgerEntry[]> {
+		return (await this.ledgerByEmployee(trx, [employeeId])).get(employeeId) ?? [];
+	}
+
+	async ledgerByEmployee(
+		trx: Trx,
+		employeeIds: readonly string[]
+	): Promise<Map<string, LedgerEntry[]>> {
+		if (employeeIds.length === 0) return new Map();
+		const rows = await trx
 			.selectFrom('app.vacation_ledger')
-			.select(ledgerColumns)
-			.where('employee_id', '=', employeeId)
+			.select(['employee_id', ...ledgerColumns])
+			.where('employee_id', 'in', employeeIds)
 			.orderBy('effective_date')
 			.orderBy('created_at')
 			.execute();
+		const ledgers = new Map<string, LedgerEntry[]>();
+		for (const { employee_id, ...entry } of rows) {
+			const own = ledgers.get(employee_id) ?? [];
+			own.push(entry);
+			ledgers.set(employee_id, own);
+		}
+		return ledgers;
 	}
 
-	notices(trx: Trx, employeeId: string): Promise<NoticeRow[]> {
-		return trx
+	async notices(trx: Trx, employeeId: string): Promise<NoticeRow[]> {
+		return (await this.noticesByEmployee(trx, [employeeId])).get(employeeId) ?? [];
+	}
+
+	async noticesByEmployee(
+		trx: Trx,
+		employeeIds: readonly string[]
+	): Promise<Map<string, NoticeRow[]>> {
+		if (employeeIds.length === 0) return new Map();
+		const rows = await trx
 			.selectFrom('app.vacation_notices')
 			.select([
+				'employee_id',
 				'id',
 				'bucket_year as bucketYear',
 				'sent_at as sentAt',
 				'deadline',
 				'acknowledged_at as acknowledgedAt'
 			])
-			.where('employee_id', '=', employeeId)
+			.where('employee_id', 'in', employeeIds)
 			.orderBy('sent_at')
 			.execute();
+		const notices = new Map<string, NoticeRow[]>();
+		for (const { employee_id, ...notice } of rows) {
+			const own = notices.get(employee_id) ?? [];
+			own.push(notice);
+			notices.set(employee_id, own);
+		}
+		return notices;
+	}
+
+	async pendingDays(trx: Trx, employeeId: string): Promise<string> {
+		return (await this.pendingByEmployee(trx, [employeeId])).get(employeeId) ?? '0.00';
 	}
 
 	// open requests are not in the ledger yet, approving books them
-	async pendingDays(trx: Trx, employeeId: string): Promise<string> {
-		const row = await trx
+	async pendingByEmployee(trx: Trx, employeeIds: readonly string[]): Promise<Map<string, string>> {
+		if (employeeIds.length === 0) return new Map();
+		const rows = await trx
 			.selectFrom('app.absence_days as d')
 			.innerJoin('app.absence_requests as r', 'r.id', 'd.absence_id')
-			.select(sql<string>`coalesce(sum(d.vacation_days), 0)::numeric(5, 2)`.as('days'))
-			.where('d.employee_id', '=', employeeId)
+			.select(['d.employee_id', sql<string>`sum(d.vacation_days)::numeric(5, 2)`.as('days')])
+			.where('d.employee_id', 'in', employeeIds)
 			.where('d.superseded_at', 'is', null)
 			.where('r.type', '=', 'vacation')
 			.where('r.status', '=', 'pending')
-			.executeTakeFirstOrThrow();
-		return row.days;
+			.groupBy('d.employee_id')
+			.execute();
+		return new Map(rows.map((row) => [row.employee_id, row.days]));
 	}
 
 	async book(trx: Trx, entries: NewLedgerEntry[]): Promise<LedgerEntry[]> {

@@ -5,7 +5,7 @@
 	display: grid;
 	place-items: center;
 	padding: 1rem;
-	background: rgb(11 11 13 / 0.72);
+	background: color-mix(in srgb, var(--dark) 72%, transparent);
 }
 
 .modal {
@@ -15,33 +15,24 @@
 	border: 1px solid var(--edge);
 	border-radius: 8px;
 	background: var(--card);
-	box-shadow: 0 24px 48px -16px rgb(0 0 0 / 0.8);
+	box-shadow: var(--shadow-modal);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-	.overlay[data-entering] {
-		animation: fade 180ms ease-out;
-	}
+.overlay[data-entering] {
+	animation: fade var(--open-modal) ease-out;
+}
 
-	.modal[data-entering] {
-		animation: rise 200ms var(--ease);
-	}
+.modal[data-entering] {
+	animation: global(rise) var(--open-modal) var(--ease);
+}
 
-	.overlay[data-exiting] {
-		animation: fade 120ms ease-out reverse;
-	}
+.overlay[data-exiting] {
+	animation: fade 120ms ease-out reverse;
 }
 
 @keyframes fade {
 	from {
 		opacity: 0;
-	}
-}
-
-@keyframes rise {
-	from {
-		opacity: 0;
-		transform: translateY(6px) scale(0.98);
 	}
 }
 

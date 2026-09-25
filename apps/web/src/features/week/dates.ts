@@ -1,20 +1,14 @@
 import {
 	CalendarDate,
-	endOfMonth,
 	getDayOfWeek,
 	parseAbsolute,
 	parseDate,
 	startOfWeek,
-	toCalendarDate,
-	today
+	toCalendarDate
 } from '@internationalized/date';
 import { weekdays } from '@zeit/shared';
 import { formatDate } from '../../i18n/format';
-
-// the company's day, someone abroad still sees the German workday
-export const zone = 'Europe/Berlin';
-
-export const todayIso = () => today(zone).toString();
+import { zone } from '../../lib/dates';
 
 export const addDays = (iso: string, days: number) => parseDate(iso).add({ days }).toString();
 
@@ -27,11 +21,6 @@ export function isoWeek(monday: string) {
 	const thursday = parseDate(monday).add({ days: 3 });
 	return Math.floor(thursday.compare(new CalendarDate(thursday.year, 1, 1)) / 7) + 1;
 }
-
-export const shiftMonth = (month: string, by: number) =>
-	parseDate(`${month}-01`).add({ months: by }).toString().slice(0, 7);
-
-export const lastOfMonth = (month: string) => endOfMonth(parseDate(`${month}-01`)).toString();
 
 // minutes after the local midnight of date, a shift over midnight ends past 1440
 export function minuteOn(instant: string, date: string) {

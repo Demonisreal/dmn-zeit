@@ -1,0 +1,51 @@
+.title {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+}
+
+.steps {
+	display: flex;
+	margin-inline-start: -0.625rem;
+}
+
+.text {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.125rem 0.75rem;
+}
+
+.label {
+	color: var(--white);
+	font-size: 1.375rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1.25;
+}
+
+.range {
+	color: var(--muted);
+	font-size: 0.875rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.field {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	align-self: flex-end;
+	border: 1px solid var(--edge);
+	border-radius: 6px;
+}
+
+.current {
+	min-width: 4.5rem;
+	padding-inline: 0.25rem;
+	color: var(--white);
+	font-weight: 600;
+	text-align: center;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}

@@ -13,6 +13,7 @@ import {
 	type RequestScope
 } from '@zeit/shared';
 import { request } from '../../lib/api/client';
+import { yearSpan } from './dates';
 
 export type AbsenceFilter = {
 	scope: RequestScope;
@@ -41,6 +42,15 @@ export const absencesQuery = (filter: AbsenceFilter) =>
 			request(absencesPath(filter, pageParam), { schema: absencePageSchema }),
 		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (page) => page.nextCursor ?? undefined
+	});
+
+// the list on the requests page, its route loader has to hit the same key
+export const ownAbsencesQuery = (year: number, type?: AbsenceType, status?: AbsenceStatus) =>
+	absencesQuery({
+		scope: 'mine',
+		...yearSpan(year),
+		type: type && [type],
+		status: status && [status]
 	});
 
 // a POST, but it only calculates; as a query it follows the form and refreshes after new requests

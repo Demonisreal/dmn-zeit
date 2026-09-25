@@ -22,21 +22,21 @@ export function MonthOverview({ month }: { month: string }) {
 	return (
 		<>
 			{!overview.data.closed && <Notice tone="warning">{t('exports.notClosed')}</Notice>}
-			<div className={styles.scroll} role="region" aria-label={t('exports.overview')} tabIndex={0}>
+			<div className={styles.scroll} role="group" aria-label={t('exports.overview')} tabIndex={0}>
 				<Table label={t('exports.overview')}>
 					<thead>
 						<tr>
-							<th scope="col" className={styles.colWide}>
+							<th scope="col" data-priority="wide">
 								{t('people.personnelNo')}
 							</th>
 							<th scope="col">{t('people.name')}</th>
-							<th scope="col" data-numeric className={styles.colMid}>
+							<th scope="col" data-numeric data-priority="mid">
 								{t('flex.target')}
 							</th>
-							<th scope="col" data-numeric className={styles.colMid}>
+							<th scope="col" data-numeric data-priority="mid">
 								{t('flex.worked')}
 							</th>
-							<th scope="col" data-numeric className={styles.colWide}>
+							<th scope="col" data-numeric data-priority="wide">
 								{t('flex.credited')}
 							</th>
 							<th scope="col" data-numeric>
@@ -45,13 +45,13 @@ export function MonthOverview({ month }: { month: string }) {
 							<th scope="col" data-numeric>
 								{t('flex.balance')}
 							</th>
-							<th scope="col" data-numeric className={styles.colWide}>
+							<th scope="col" data-numeric data-priority="wide">
 								{t('exports.vacationDays')}
 							</th>
-							<th scope="col" data-numeric className={styles.colWide}>
+							<th scope="col" data-numeric data-priority="wide">
 								{t('exports.sickDays')}
 							</th>
-							<th scope="col" data-numeric className={styles.colMid}>
+							<th scope="col" data-numeric data-priority="mid">
 								{t('exports.openFindings')}
 							</th>
 						</tr>
@@ -59,30 +59,32 @@ export function MonthOverview({ month }: { month: string }) {
 					<tbody>
 						{overview.data.rows.map((row) => (
 							<tr key={row.employee.id}>
-								<td className={`${styles.mono} ${styles.colWide}`}>{row.employee.personnelNo}</td>
+								<td className={styles.mono} data-priority="wide">
+									{row.employee.personnelNo}
+								</td>
 								<td>
 									<Link to="/time" search={{ employee: row.employee.id, month }}>
 										{row.employee.name}
 									</Link>
 								</td>
-								<td data-numeric className={styles.colMid}>
+								<td data-numeric data-priority="mid">
 									{formatMinutes(row.targetMinutes)}
 								</td>
-								<td data-numeric className={styles.colMid}>
+								<td data-numeric data-priority="mid">
 									{formatMinutes(row.workedMinutes)}
 								</td>
-								<td data-numeric className={styles.colWide}>
+								<td data-numeric data-priority="wide">
 									{formatMinutes(row.creditedMinutes)}
 								</td>
 								<td data-numeric>{formatMinutes(row.diffMinutes, { signed: true })}</td>
 								<td data-numeric>{formatMinutes(row.flexBalanceMinutes, { signed: true })}</td>
-								<td data-numeric className={styles.colWide}>
+								<td data-numeric data-priority="wide">
 									{formatDays(row.vacationDays, i18n.language)}
 								</td>
-								<td data-numeric className={styles.colWide}>
+								<td data-numeric data-priority="wide">
 									{formatDays(row.sickDays, i18n.language)}
 								</td>
-								<td data-numeric className={styles.colMid}>
+								<td data-numeric data-priority="mid">
 									{row.openFindings}
 								</td>
 							</tr>

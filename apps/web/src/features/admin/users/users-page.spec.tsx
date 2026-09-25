@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { signedInAs } from '../../../mocks/hr';
 import { server } from '../../../mocks/server';
 import { renderApp } from '../../../test/render-app';
-import styles from './users-page.module.css';
 
 const openUsers = async () => {
 	renderApp('/admin');
@@ -15,15 +14,14 @@ beforeEach(() => {
 	server.use(signedInAs('admin'));
 });
 
-// jsdom evaluates no container queries, so only the classes that hide on narrow screens are checked
+// jsdom evaluates no container queries, so only the data-priority marks are checked
 describe('users', () => {
 	it('keeps name, status and the edit button on narrow screens', async () => {
 		const row = await openUsers();
 		const [name, , status, , , actions] = within(row).getAllByRole('cell');
 
 		for (const cell of [name!, status!, actions!]) {
-			expect(cell).not.toHaveClass(styles.wide!);
-			expect(cell).not.toHaveClass(styles.mid!);
+			expect(cell).not.toHaveAttribute('data-priority');
 		}
 		expect(
 			within(actions!).getByRole('button', { name: 'Jonas Brandt bearbeiten' })
@@ -34,8 +32,8 @@ describe('users', () => {
 		const row = await openUsers();
 		const [, role, , employee, lastLogin] = within(row).getAllByRole('cell');
 
-		expect(employee).toHaveClass(styles.wide!);
-		expect(lastLogin).toHaveClass(styles.wide!);
-		expect(role).toHaveClass(styles.mid!);
+		expect(employee).toHaveAttribute('data-priority', 'wide');
+		expect(lastLogin).toHaveAttribute('data-priority', 'wide');
+		expect(role).toHaveAttribute('data-priority', 'mid');
 	});
 });

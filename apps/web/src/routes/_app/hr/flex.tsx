@@ -2,8 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { uuidSchema, yearSchema } from '@zeit/shared';
 import { z } from 'zod';
 import { requireRole } from '../../../app/require-role';
-import { currentYear } from '../../../features/hr/dates';
 import { FlexPage } from '../../../features/hr/flex/flex-page';
+import { currentYear } from '../../../lib/dates';
 
 const searchSchema = z.object({
 	employee: uuidSchema.optional().catch(undefined),

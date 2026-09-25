@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Field } from '../../../components/ui/field';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { formatDate } from '../../../i18n/format';
@@ -110,8 +111,8 @@ export function PeoplePage() {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('people.title')}</h1>
 						<p className={styles.lead}>{t('people.lead')}</p>
@@ -121,7 +122,7 @@ export function PeoplePage() {
 							{t('people.new')}
 						</Button>
 					)}
-				</header>
+				</PageHead>
 
 				{form}
 
@@ -134,7 +135,7 @@ export function PeoplePage() {
 					</div>
 					{list}
 				</section>
-			</div>
+			</Page>
 		</>
 	);
 }

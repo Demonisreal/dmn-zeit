@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
@@ -53,24 +54,19 @@ export function UsersPage({ selfId }: Props) {
 		const people = employees.data;
 		const names = new Map(people.map((employee) => [employee.id, fullName(employee)]));
 		list = (
-			<div
-				className={`${page.scroll} ${styles.frame}`}
-				role="region"
-				aria-label={t('users.title')}
-				tabIndex={0}
-			>
+			<div className={page.scroll} role="region" aria-label={t('users.title')} tabIndex={0}>
 				<Table label={t('users.title')}>
 					<thead>
 						<tr>
 							<th scope="col">{t('users.name')}</th>
-							<th scope="col" className={styles.mid}>
+							<th scope="col" data-priority="mid">
 								{t('users.role')}
 							</th>
 							<th scope="col">{t('users.status')}</th>
-							<th scope="col" className={styles.wide}>
+							<th scope="col" data-priority="wide">
 								{t('users.employee')}
 							</th>
-							<th scope="col" data-numeric className={styles.wide}>
+							<th scope="col" data-numeric data-priority="wide">
 								{t('users.lastLogin')}
 							</th>
 							<th scope="col">
@@ -94,18 +90,18 @@ export function UsersPage({ selfId }: Props) {
 												{t(`common:roles.${user.role}`)}
 											</span>
 										</td>
-										<td className={styles.mid}>{t(`common:roles.${user.role}`)}</td>
+										<td data-priority="mid">{t(`common:roles.${user.role}`)}</td>
 										<td>
 											<Tag tone={statusTone[user.status]}>{t(`users.statuses.${user.status}`)}</Tag>
 										</td>
-										<td className={styles.wide}>
+										<td data-priority="wide">
 											{user.employeeId ? (
 												(names.get(user.employeeId) ?? '–')
 											) : (
 												<span className={page.muted}>{t('users.noEmployee')}</span>
 											)}
 										</td>
-										<td data-numeric className={styles.wide}>
+										<td data-numeric data-priority="wide">
 											{user.lastLoginAt ? formatInstant(user.lastLoginAt, i18n.language) : '–'}
 										</td>
 										<td>
@@ -152,8 +148,8 @@ export function UsersPage({ selfId }: Props) {
 	return (
 		<>
 			<AdminNav />
-			<div className={page.page}>
-				<header className={page.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('users.title')}</h1>
 						<p className={page.lead}>{t('users.lead')}</p>
@@ -170,7 +166,7 @@ export function UsersPage({ selfId }: Props) {
 							{t('users.invite')}
 						</Button>
 					)}
-				</header>
+				</PageHead>
 				{inviting && employees.data && (
 					<InviteForm
 						employees={employees.data}
@@ -182,10 +178,8 @@ export function UsersPage({ selfId }: Props) {
 					/>
 				)}
 				{invited && <Notice tone="success">{t('users.invited', { email: invited })}</Notice>}
-				<section className={page.section} aria-label={t('users.title')}>
-					{list}
-				</section>
-			</div>
+				<section className={page.section}>{list}</section>
+			</Page>
 		</>
 	);
 }

@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { absenceStatuses, absenceTypes, isoDateSchema, yearSchema } from '@zeit/shared';
 import { z } from 'zod';
 import { AbsencesPage } from '../../features/absences/absences-page';
-import { currentYear } from '../../features/absences/dates';
+import { ownAbsencesQuery } from '../../features/absences/api';
+import { currentYear } from '../../lib/dates';
 
 const searchSchema = z.object({
 	year: yearSchema.optional().catch(undefined),
@@ -14,6 +15,15 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/_app/absences')({
 	validateSearch: searchSchema,
+	loaderDeps: ({ search }) => ({ year: search.year, type: search.type, status: search.status }),
+	loader: ({ context, deps, cause }) => {
+		if (!context.session.user.employeeId) return;
+		const list = context.queryClient.prefetchInfiniteQuery(
+			ownAbsencesQuery(deps.year ?? currentYear(), deps.type, deps.status)
+		);
+		// a new filter keeps the page responsive, the list shows its own loading state
+		return cause === 'stay' ? undefined : list;
+	},
 	staticData: { title: 'requests' },
 	component: AbsencesRoute
 });

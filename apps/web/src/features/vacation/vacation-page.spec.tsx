@@ -139,17 +139,19 @@ describe('leave account', () => {
 	});
 
 	it('offers a retry when the account cannot be loaded', async () => {
+		// the route loader asks before the page does, so the failure has to last until the retry
+		let failing = true;
 		server.use(
-			http.get(
-				'/api/employees/:id/vacation',
-				() =>
-					HttpResponse.json({ code: 'FORBIDDEN', message: 'No', details: null }, { status: 403 }),
-				{ once: true }
+			http.get('/api/employees/:id/vacation', () =>
+				failing
+					? HttpResponse.json({ code: 'FORBIDDEN', message: 'No', details: null }, { status: 403 })
+					: undefined
 			)
 		);
 		renderApp('/vacation');
 
 		expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt.');
+		failing = false;
 		await userEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
 
 		expect(await screen.findByRole('table', { name: 'Urlaubskonto 2026' })).toBeInTheDocument();

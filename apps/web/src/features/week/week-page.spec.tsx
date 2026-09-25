@@ -66,7 +66,9 @@ describe('week', () => {
 		const detail = document.getElementById('day-2026-09-22')!;
 		expect(within(detail).getByText('07:30 bis 12:00')).toBeInTheDocument();
 		expect(within(detail).getByText('12:00 bis 12:30')).toBeInTheDocument();
-		expect(within(detail).getByText('Dienstag: 7:48 h laut Vertrag')).toBeInTheDocument();
+		expect(
+			within(detail).getByText('Dienstag: 7:48 h laut Vertrag, gültig ab 01.02.2021')
+		).toBeInTheDocument();
 		expect(within(detail).getByText('+1:42 h')).toBeInTheDocument();
 		expect(
 			within(detail).getByText('Pause zu kurz: 0:45 h vorgeschrieben, 0:30 h gemacht.', {
@@ -157,7 +159,8 @@ describe('week', () => {
 	it('spells out the flextime balance when it is opened', async () => {
 		renderApp('/');
 		const table = await weekTable(39);
-		const toggle = within(table).getByRole('button', { name: 'Gleitzeitsaldo' });
+		// the loader brings the week, the balance follows once the page asks for it
+		const toggle = await within(table).findByRole('button', { name: 'Gleitzeitsaldo' });
 		expect(toggle).toHaveAttribute('aria-expanded', 'false');
 		expect(document.getElementById('flex-detail')).toBeNull();
 
@@ -196,21 +199,23 @@ describe('week', () => {
 	});
 
 	it('offers a retry when the week does not load', async () => {
+		// the route loader asks before the page does, so the failure has to last until the retry
+		let failing = true;
 		server.use(
-			http.get(
-				'/api/employees/:id/days',
-				() =>
-					HttpResponse.json(
-						{ code: 'NOT_FOUND', message: 'Employee not found', details: null },
-						{ status: 404 }
-					),
-				{ once: true }
+			http.get('/api/employees/:id/days', () =>
+				failing
+					? HttpResponse.json(
+							{ code: 'NOT_FOUND', message: 'Employee not found', details: null },
+							{ status: 404 }
+						)
+					: undefined
 			)
 		);
 		renderApp('/');
 
 		expect(await screen.findByRole('alert')).toHaveTextContent('Das hat nicht geklappt.');
 
+		failing = false;
 		await userEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
 
 		expect(await weekTable(39)).toBeInTheDocument();

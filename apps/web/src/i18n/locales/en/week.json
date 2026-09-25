@@ -137,8 +137,8 @@
 	},
 	"explain": {
 		"target": {
-			"workday": "{{weekday}}: {{minutes}} per contract",
-			"half_holiday": "{{code}}, half day: {{minutes}} target time",
+			"workday": "{{weekday}}: {{minutes}} per contract, valid from {{validFrom}}",
+			"half_holiday": "{{code}}, half day: {{minutes}} target time per contract, valid from {{validFrom}}",
 			"holiday": "{{code}}: public holiday, no target time",
 			"no_contract": "No contract on file for this day, no target time",
 			"outside_employment": "Outside the period of employment, no target time"

@@ -1,11 +1,11 @@
 import type { DayRange } from '@zeit/shared';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
+import { Chevron } from '../../components/ui/chevron';
 import { Table } from '../../components/ui/table';
 import { formatMinutes } from '../../i18n/format';
-import { Chevron } from './chevron';
-import { todayIso } from './dates';
+import { todayIso } from '../../lib/dates';
 import { DayDetail, type FindingAction } from './day-detail';
 import { DayRow } from './day-row';
 import styles from './day-table.module.css';
@@ -39,13 +39,13 @@ export function DayTable({
 	isDemo = false
 }: Props) {
 	const { t } = useTranslation('week');
-	const now = useNow();
 	const frame = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(() => new Set(openDay ? [openDay] : []));
 	const [flexOpen, setFlexOpen] = useState(false);
 	const today = todayIso();
 	// placeholder data from the previous period has no fetchedAt yet, extra would run into millions of minutes
 	const running = !isStale && range.days.some((day) => day.running);
+	const now = useNow(running);
 	const extra = running ? minutesSince(fetchedAt, now) : 0;
 	const explained = Boolean(balanceDetail);
 	const { totals } = range;
@@ -56,13 +56,17 @@ export function DayTable({
 		frame.current?.querySelector<HTMLElement>(`[aria-controls="day-${openDay}"]`)?.focus();
 	}, [openDay]);
 
-	const toggle = (date: string) =>
-		setOpen((prev) => {
-			const next = new Set(prev);
-			if (next.has(date)) next.delete(date);
-			else next.add(date);
-			return next;
-		});
+	// stable, so the memoized rows that stay closed can skip the render
+	const toggle = useCallback(
+		(date: string) =>
+			setOpen((prev) => {
+				const next = new Set(prev);
+				if (next.has(date)) next.delete(date);
+				else next.add(date);
+				return next;
+			}),
+		[]
+	);
 	const toggleFlex = () => setFlexOpen(!flexOpen);
 
 	return (
@@ -85,25 +89,25 @@ export function DayTable({
 							</span>
 							<VisuallyHidden>{t('col.bar')}</VisuallyHidden>
 						</th>
-						<th scope="col" data-numeric className={styles.wide}>
+						<th scope="col" data-numeric data-priority="wide">
 							{t('col.in')}
 						</th>
-						<th scope="col" data-numeric className={styles.wide}>
+						<th scope="col" data-numeric data-priority="wide">
 							{t('col.out')}
 						</th>
-						<th scope="col" data-numeric className={styles.wide}>
+						<th scope="col" data-numeric data-priority="wide">
 							{t('col.break')}
 						</th>
 						<th scope="col" data-numeric>
 							{t('col.worked')}
 						</th>
-						<th scope="col" data-numeric className={styles.mid}>
+						<th scope="col" data-numeric data-priority="mid">
 							{t('col.target')}
 						</th>
 						<th scope="col" data-numeric>
 							{t('col.diff')}
 						</th>
-						<th scope="col" className={styles.mid}>
+						<th scope="col" data-priority="mid">
 							{t('col.notice')}
 						</th>
 					</tr>
@@ -111,22 +115,24 @@ export function DayTable({
 				<tbody>
 					{range.days.map((day) => {
 						const dayExtra = day.running ? extra : 0;
+						// only the running day draws up to now, the others keep a fixed value and skip the tick
+						const dayNow = day.running ? now : fetchedAt;
 						return (
 							<DayRow
 								key={day.date}
 								day={day}
 								extra={dayExtra}
-								now={now}
+								now={dayNow}
 								isToday={day.date === today}
 								isFuture={day.date > today}
 								isOpen={open.has(day.date)}
-								onToggle={() => toggle(day.date)}
+								onToggle={toggle}
 							>
 								<DayDetail
 									day={day}
 									employeeId={range.employeeId}
 									extra={dayExtra}
-									now={now}
+									now={dayNow}
 									isToday={day.date === today}
 									isFuture={day.date > today}
 									own={own}
@@ -143,11 +149,11 @@ export function DayTable({
 							{totalLabel}
 						</th>
 						<td className={styles.barCol} />
-						<td className={styles.wide} />
-						<td className={styles.wide} />
-						<td className={styles.wide} />
+						<td data-priority="wide" />
+						<td data-priority="wide" />
+						<td data-priority="wide" />
 						<td data-numeric>{formatMinutes(totals.workedMinutes + extra)}</td>
-						<td data-numeric className={styles.mid}>
+						<td data-numeric data-priority="mid">
 							{formatMinutes(totals.targetMinutes)}
 						</td>
 						<td data-numeric>
@@ -156,7 +162,7 @@ export function DayTable({
 								<span className={styles.note}>{t(running ? 'untilNow' : 'untilToday')}</span>
 							)}
 						</td>
-						<td className={styles.mid} />
+						<td data-priority="mid" />
 					</tr>
 					{balance && (
 						<tr className={styles.row}>
@@ -177,11 +183,11 @@ export function DayTable({
 								)}
 							</th>
 							<td className={styles.barCol} />
-							<td className={styles.wide} />
-							<td className={styles.wide} />
-							<td className={styles.wide} />
+							<td data-priority="wide" />
+							<td data-priority="wide" />
+							<td data-priority="wide" />
 							<td />
-							<td className={styles.mid} />
+							<td data-priority="mid" />
 							<td
 								data-numeric
 								data-toggle={explained || undefined}
@@ -189,7 +195,7 @@ export function DayTable({
 							>
 								{balance}
 							</td>
-							<td className={styles.mid} />
+							<td data-priority="mid" />
 						</tr>
 					)}
 				</tfoot>

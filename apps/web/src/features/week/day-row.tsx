@@ -1,10 +1,10 @@
 import type { Day } from '@zeit/shared';
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
+import { Chevron } from '../../components/ui/chevron';
 import { Tag } from '../../components/ui/tag';
 import { formatMinutes, formatTime } from '../../i18n/format';
-import { Chevron } from './chevron';
 import { DayBarCell } from './day-bar-cell';
 import styles from './day-table.module.css';
 import { minuteOn, shortDate, weekdayShort } from './dates';
@@ -18,11 +18,28 @@ type Props = {
 	isToday: boolean;
 	isFuture: boolean;
 	isOpen: boolean;
-	onToggle: () => void;
+	onToggle: (date: string) => void;
 	children: ReactNode;
 };
 
-export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, children }: Props) {
+// the detail is a new element on every render of the table, a closed row never shows it though
+const sameRow = (prev: Props, next: Props) =>
+	!prev.isOpen &&
+	!next.isOpen &&
+	(Object.keys(next) as (keyof Props)[]).every(
+		(key) => key === 'children' || prev[key] === next[key]
+	);
+
+export const DayRow = memo(function DayRow({
+	day,
+	extra,
+	now,
+	isToday,
+	isFuture,
+	isOpen,
+	onToggle,
+	children
+}: Props) {
 	const { t, i18n } = useTranslation('week');
 	const lng = i18n.language;
 	const first = day.entries[0];
@@ -33,6 +50,7 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 	const flagged = day.findings.some((finding) => finding.severity === 'warning' && !finding.ack);
 	// until the day is over a shortfall is time still to come, not yet a minus
 	const remaining = isToday ? Math.max(0, -(day.diffMinutes + extra)) : 0;
+	const toggle = () => onToggle(day.date);
 
 	return (
 		<>
@@ -44,7 +62,7 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 						aria-expanded={isOpen}
 						aria-controls={isOpen ? detailId : undefined}
 						aria-current={isToday ? 'date' : undefined}
-						onClick={onToggle}
+						onClick={toggle}
 					>
 						<Chevron direction={isOpen ? 'down' : 'right'} />
 						<span className={styles.dayName}>{weekdayShort(day.date, lng)}</span>
@@ -61,10 +79,10 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 				<td className={styles.barCol}>
 					<DayBarCell day={day} now={now} />
 				</td>
-				<td data-numeric className={styles.wide}>
+				<td data-numeric data-priority="wide">
 					{first && formatTime(first.startedAt, lng)}
 				</td>
-				<td data-numeric className={styles.wide}>
+				<td data-numeric data-priority="wide">
 					{last &&
 						(last.endedAt ? (
 							<>
@@ -80,16 +98,16 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 							<span className={styles.running}>{t('row.running')}</span>
 						))}
 				</td>
-				<td data-numeric className={styles.wide}>
+				<td data-numeric data-priority="wide">
 					{day.entries.length > 0 && formatMinutes(day.breakMinutes)}
 				</td>
-				<td data-numeric data-toggle onClick={onToggle}>
+				<td data-numeric data-toggle onClick={toggle}>
 					{counted && formatMinutes(day.workedMinutes + extra)}
 				</td>
-				<td data-numeric className={styles.mid}>
+				<td data-numeric data-priority="mid">
 					{day.target.minutes > 0 && formatMinutes(day.target.minutes)}
 				</td>
-				<td data-numeric data-toggle onClick={onToggle}>
+				<td data-numeric data-toggle onClick={toggle}>
 					{counted &&
 						(remaining > 0 ? (
 							<span className={styles.remaining}>
@@ -99,7 +117,7 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 							formatMinutes(day.diffMinutes + extra, { signed: true })
 						))}
 				</td>
-				<td className={styles.mid} data-toggle onClick={onToggle}>
+				<td data-priority="mid" data-toggle onClick={toggle}>
 					<Notices day={day} />
 				</td>
 			</tr>
@@ -112,7 +130,7 @@ export function DayRow({ day, extra, now, isToday, isFuture, isOpen, onToggle, c
 			)}
 		</>
 	);
-}
+}, sameRow);
 
 function Notices({ day }: { day: Day }) {
 	const { t } = useTranslation(['week', 'hr']);

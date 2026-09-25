@@ -5,6 +5,7 @@ import { LoginForm } from '../app/auth/login-form';
 import { nextPath } from '../app/auth/next-path';
 import { PublicLayout } from '../app/public-layout';
 import { DemoStart } from '../features/demo/demo-start';
+import { i18n } from '../i18n';
 import { sessionQuery } from '../lib/api/auth';
 import { configQuery } from '../lib/api/demo';
 
@@ -19,7 +20,12 @@ export const Route = createFileRoute('/login')({
 		if (await context.queryClient.ensureQueryData(sessionQuery)) throw redirect({ to: '/' });
 	},
 	// prefetch never throws, without an answer the normal login shows
-	loader: ({ context }) => context.queryClient.prefetchQuery(configQuery),
+	loader: async ({ context }) => {
+		await context.queryClient.prefetchQuery(configQuery);
+		const demo = context.queryClient.getQueryData(configQuery.queryKey)?.mode === 'demo';
+		// a failed passkey on the normal form speaks with the security texts
+		await i18n.loadNamespaces(demo ? 'demo' : 'security');
+	},
 	staticData: { title: 'login' },
 	component: LoginPage
 });

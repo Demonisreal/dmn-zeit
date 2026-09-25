@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
@@ -106,8 +107,8 @@ export function WorkModelsPage() {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('workModels.title')}</h1>
 						<p className={styles.lead}>{t('workModels.lead')}</p>
@@ -117,7 +118,7 @@ export function WorkModelsPage() {
 							{t('workModels.new')}
 						</Button>
 					)}
-				</header>
+				</PageHead>
 
 				{editing !== undefined && (
 					<WorkModelForm
@@ -139,7 +140,7 @@ export function WorkModelsPage() {
 					{archive.error && <Notice tone="error">{errorText(archive.error)}</Notice>}
 					{list}
 				</section>
-			</div>
+			</Page>
 		</>
 	);
 }

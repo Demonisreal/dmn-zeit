@@ -19,6 +19,9 @@ configure({ asyncUtilTimeout: 3000 });
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 
+// the routes load these on the way in, the specs also render pages without a router
+beforeAll(() => i18n.loadNamespaces(['hr', 'admin', 'security', 'demo']));
+
 // jsdom reports en-US, the assertions are written against the German texts
 beforeEach(() => i18n.changeLanguage('de'));
 

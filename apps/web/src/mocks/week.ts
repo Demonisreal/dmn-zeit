@@ -36,6 +36,8 @@ const sabine = { id: '5b004527-423c-4b82-89ae-323b702a9c62', displayName: 'Sabin
 const zone = 'Europe/Berlin';
 // 39 hours over five days
 const TARGET = 468;
+// Mara's contract in hr.ts, it starts with her entry
+const CONTRACT_FROM = '2021-02-01';
 const RULES = 'arbzg-1994';
 
 const holidays: Record<string, [HolidayCode, 0.5 | 1]> = {
@@ -239,14 +241,20 @@ function dayOf(date: string, employeeId = employee.id): Day {
 	const weekday = weekdayOf(date);
 	const minutes = ['sat', 'sun'].includes(weekday) ? 0 : TARGET;
 	const target = !holiday
-		? { minutes, explanation: { key: 'target.workday', params: { weekday, minutes } } }
+		? {
+				minutes,
+				explanation: {
+					key: 'target.workday',
+					params: { weekday, minutes, validFrom: CONTRACT_FROM }
+				}
+			}
 		: holiday[1] === 1
 			? { minutes: 0, explanation: { key: 'target.holiday', params: { code: holiday[0] } } }
 			: {
 					minutes: minutes / 2,
 					explanation: {
 						key: 'target.half_holiday',
-						params: { code: holiday[0], minutes: minutes / 2 }
+						params: { code: holiday[0], minutes: minutes / 2, validFrom: CONTRACT_FROM }
 					}
 				};
 	const plan = special(date);

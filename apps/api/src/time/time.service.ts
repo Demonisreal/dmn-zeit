@@ -5,7 +5,8 @@ import { assertCanSee } from '../common/scope';
 import type { AuthSession } from '../common/session.guard';
 import { Database } from '../db/database';
 import { decodeCursor, encodeCursor } from './cursor';
-import { buildDays, localDate, summarizeFlex, totalsOf } from './day-engine';
+import { buildDays, localDate, totalsOf } from './day-engine';
+import { flexBalance } from './flex-balance';
 import { TimeStore } from './time.store';
 
 @Injectable()
@@ -63,30 +64,22 @@ export class TimeService {
 			const sheet = sheets.get(employeeId);
 			if (!sheet) throw new NotFoundException('Employee not found');
 			const bookings = await this.store.flexBookings(trx, [employeeId], calendarYear);
-			// shown on top, never booked, so a reopened december takes its carry-over back by itself
-			const checkpoint = await this.store.checkpoint(trx, employeeId, year);
+			const carryovers = await this.store.checkpoints(trx, [employeeId], year);
+			const carryover = carryovers.get(employeeId);
 
 			const days = buildDays(sheet, tenant, counted, now);
-			const flex = summarizeFlex(
-				days,
-				bookings.filter((booking) => booking.effectiveDate <= asOf),
-				sheet.employee.closedThrough
-			);
-			const carried = checkpoint ?? 0;
+			const flex = flexBalance(sheet, days, bookings, carryovers, asOf);
 			const contract = sheet.contracts.findLast((c) => c.validFrom <= asOf);
 			return {
 				employeeId,
 				year,
 				openingMinutes: flex.openingMinutes,
 				openingExplanation:
-					checkpoint === null
+					carryover === undefined
 						? { key: 'flex.opening.none', params: {} }
-						: { key: 'flex.opening.carryover', params: { minutes: checkpoint } },
-				balanceMinutes: flex.balanceMinutes + carried,
-				months: flex.months.map((month) => ({
-					...month,
-					balanceMinutes: month.balanceMinutes + carried
-				})),
+						: { key: 'flex.opening.carryover', params: { minutes: carryover } },
+				balanceMinutes: flex.balanceMinutes,
+				months: flex.months,
 				asOf,
 				cap: { ...(contract?.flexCap ?? tenant.flexCap), mode: tenant.flexCapMode },
 				bookings

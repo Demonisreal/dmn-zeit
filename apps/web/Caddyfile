@@ -21,6 +21,8 @@
 	@api path /api/*
 	@assets path /assets/*
 	@noindex not vars {env.ROBOTS_NOINDEX} ""
+	# api stays uncompressed: session, demo switch and security responses carry csrf tokens and recovery codes (BREACH)
+	@static not path /api/*
 
 	header {
 		X-Content-Type-Options nosniff
@@ -39,6 +41,9 @@
 	header @assets Cache-Control "public, max-age=31536000, immutable"
 	# compose sets ROBOTS_NOINDEX=noindex for the demo instance, live sends no X-Robots-Tag at all
 	header @noindex X-Robots-Tag {env.ROBOTS_NOINDEX}
+
+	# the stock caddy build has no brotli encoder, br would only work with precompressed files
+	encode @static zstd gzip
 
 	handle @api {
 		request_body {

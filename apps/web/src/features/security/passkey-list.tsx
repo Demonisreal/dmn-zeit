@@ -81,7 +81,7 @@ export function PasskeyList({ passkeys, onCodes }: Props) {
 			{passkeys.length === 0 ? (
 				<p className={styles.text}>{t('passkey.empty')}</p>
 			) : (
-				<div className={styles.scroll} role="region" aria-label={t('passkey.list')} tabIndex={0}>
+				<div className={styles.scroll} role="group" aria-label={t('passkey.list')} tabIndex={0}>
 					<Table label={t('passkey.list')}>
 						<thead>
 							<tr>

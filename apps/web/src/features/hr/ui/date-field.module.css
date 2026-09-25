@@ -36,6 +36,14 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.segment:not([data-type='literal']) {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.5rem;
+	min-height: 1.5rem;
+}
+
 .segment[data-type='literal'] {
 	color: var(--muted);
 }

@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { monthSchema, uuidSchema } from '@zeit/shared';
 import { z } from 'zod';
-import { todayIso } from '../../../features/absences/dates';
 import { TeamCalendarPage } from '../../../features/team/team-calendar-page';
+import { todayIso } from '../../../lib/dates';
 
 const searchSchema = z.object({
 	month: monthSchema.optional().catch(undefined),

@@ -44,3 +44,21 @@
 	color: var(--white);
 	font-weight: 600;
 }
+
+/* the box around the table is the container, data-priority columns leave in two steps as it narrows */
+@container (max-width: 58rem) {
+	.table [data-priority='wide'] {
+		display: none;
+	}
+}
+
+@container (max-width: 38rem) {
+	.table [data-priority='mid'] {
+		display: none;
+	}
+
+	.table th,
+	.table td {
+		padding-inline: 0.375rem;
+	}
+}

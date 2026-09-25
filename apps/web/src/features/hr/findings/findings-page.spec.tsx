@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { hrHandlers, mockEmployees, resetMockHr, signedInAs } from '../../../mocks/hr';
 import { server } from '../../../mocks/server';
 import { renderApp } from '../../../test/render-app';
-import page from '../ui/page.module.css';
 
 const jonas = mockEmployees.find((employee) => employee.lastName === 'Brandt')!;
 const range = 'from=2026-01-01&to=2026-09-30';
@@ -79,7 +78,7 @@ describe('findings', () => {
 		);
 	});
 
-	// jsdom evaluates no container queries, so only the classes that hide on narrow screens are checked
+	// jsdom evaluates no container queries, so only the data-priority marks are checked
 	it('keeps date, person, rule and state on narrow screens', async () => {
 		renderApp(`/hr/findings?${range}`);
 		const table = await screen.findByRole('table', { name: 'Befunde nach ArbZG' });
@@ -87,8 +86,7 @@ describe('findings', () => {
 		const [date, name, rule, , state] = within(row).getAllByRole('cell');
 
 		for (const cell of [date!, name!, rule!, state!]) {
-			expect(cell).not.toHaveClass(page.colWide!);
-			expect(cell).not.toHaveClass(page.colMid!);
+			expect(cell).not.toHaveAttribute('data-priority');
 		}
 	});
 
@@ -98,8 +96,8 @@ describe('findings', () => {
 		const row = within(table).getByText('Jonas Brandt').closest('tr')!;
 		const [, , rule, version] = within(row).getAllByRole('cell');
 
-		expect(version).toHaveClass(page.colWide!);
-		expect(within(rule!).getByText(/10:40 h gearbeitet/)).toHaveClass(page.colMid!);
+		expect(version).toHaveAttribute('data-priority', 'wide');
+		expect(within(rule!).getByText(/10:40 h gearbeitet/)).toHaveAttribute('data-priority', 'mid');
 	});
 
 	it('lists the limits of each rule version', async () => {

@@ -2,6 +2,7 @@ import { hasRole, type Role } from '@zeit/shared';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Notice } from '../../components/ui/notice';
+import { Page, PageHead } from '../../components/ui/page-shell';
 import page from '../absences/ui/page.module.css';
 import { AbsenceRequests } from './absence-requests';
 import { CorrectionRequests } from './correction-requests';
@@ -22,17 +23,17 @@ export function InboxPage({ role, employeeId }: Props) {
 		heading.current?.focus();
 	};
 	return (
-		<div className={page.page}>
-			<header className={page.head}>
+		<Page>
+			<PageHead>
 				<h1 ref={heading} tabIndex={-1} className={page.anchor}>
 					{t('title')}
 				</h1>
-			</header>
+			</PageHead>
 			{done && <Notice tone="success">{done}</Notice>}
 			<AbsenceRequests onDone={decided} />
 			<CorrectionRequests onDone={decided} />
 			{/* confirming a medical certificate books leave back, only hr may do that */}
 			{hasRole(role, 'hr') && <SickNotes employeeId={employeeId} onDone={decided} />}
-		</div>
+		</Page>
 	);
 }

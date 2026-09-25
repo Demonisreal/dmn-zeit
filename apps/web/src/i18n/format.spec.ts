@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	dateFormat,
 	formatClock,
 	formatDate,
 	formatDays,
@@ -38,5 +39,11 @@ describe('format', () => {
 	it('shows leave days with two decimals in the language of the user', () => {
 		expect(formatDays('12.50', 'de')).toBe('12,50');
 		expect(formatDays('12.50', 'en')).toBe('12.50');
+	});
+
+	it('builds a formatter once per language and options', () => {
+		const options = { weekday: 'short', timeZone: 'UTC' } as const;
+		expect(dateFormat('de', options)).toBe(dateFormat('de', { ...options }));
+		expect(dateFormat('en', options)).not.toBe(dateFormat('de', options));
 	});
 });

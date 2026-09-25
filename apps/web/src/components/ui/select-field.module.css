@@ -63,21 +63,12 @@
 	border: 1px solid var(--edge);
 	border-radius: 8px;
 	background: var(--card);
-	box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.7);
+	box-shadow: var(--shadow-pop);
 	transform-origin: top;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-	.popover[data-entering] {
-		animation: open 150ms var(--ease);
-	}
-}
-
-@keyframes open {
-	from {
-		opacity: 0;
-		transform: translateY(-4px) scale(0.98);
-	}
+.popover[data-entering] {
+	animation: global(pop) var(--open-pop) var(--ease);
 }
 
 .list {

@@ -6,13 +6,14 @@ import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Notice } from '../../../components/ui/notice';
+import { Page, PageHead } from '../../../components/ui/page-shell';
 import { SelectField } from '../../../components/ui/select-field';
 import { Loading, LoadError } from '../../../components/ui/states';
 import { Table } from '../../../components/ui/table';
 import { Tag } from '../../../components/ui/tag';
 import { formatDate, formatDays, formatInstant } from '../../../i18n/format';
+import { currentYear } from '../../../lib/dates';
 import { employeesQuery, noticesQuery, sendNotices } from '../api';
-import { currentYear } from '../dates';
 import { useErrorText } from '../error-text';
 import { HrNav } from '../hr-nav';
 import { byLastName, fullName } from '../people/employee-options';
@@ -175,13 +176,13 @@ export function NoticesPage() {
 	return (
 		<>
 			<HrNav />
-			<div className={styles.page}>
-				<header className={styles.head}>
+			<Page>
+				<PageHead>
 					<div>
 						<h1>{t('notices.title')}</h1>
 						<p className={styles.lead}>{t('notices.lead')}</p>
 					</div>
-				</header>
+				</PageHead>
 				<section className={styles.section} aria-label={t('notices.title')}>
 					<div className={styles.filters}>
 						<SelectField
@@ -198,7 +199,7 @@ export function NoticesPage() {
 					</div>
 					{body}
 				</section>
-			</div>
+			</Page>
 		</>
 	);
 }

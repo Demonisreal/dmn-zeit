@@ -31,7 +31,7 @@ body::after {
 }
 
 ::selection {
-	background: rgb(225 29 46 / 0.35);
+	background: color-mix(in srgb, var(--red) 35%, transparent);
 	color: var(--white);
 }
 
@@ -95,4 +95,46 @@ code,
 kbd,
 samp {
 	font-family: var(--mono);
+}
+
+@keyframes pop {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(var(--open-scale));
+	}
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(var(--open-scale));
+	}
+}
+
+@keyframes reveal {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+/* the same names again without movement, so every opening still fades in */
+@media (prefers-reduced-motion: reduce) {
+	@keyframes pop {
+		from {
+			opacity: 0;
+		}
+	}
+
+	@keyframes rise {
+		from {
+			opacity: 0;
+		}
+	}
+
+	@keyframes reveal {
+		from {
+			opacity: 0;
+		}
+	}
 }

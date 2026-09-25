@@ -34,7 +34,7 @@ export function ClockPanel() {
 	const { t, i18n } = useTranslation(['week', 'common']);
 	const queryClient = useQueryClient();
 	const clock = useQuery(clockQuery);
-	const now = useNow();
+	const now = useNow(clock.data?.state === 'working');
 	const [refused, setRefused] = useState<unknown>(null);
 
 	const press = useMutation({

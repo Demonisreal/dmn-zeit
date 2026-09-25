@@ -1,17 +1,3 @@
-.page {
-	display: grid;
-	gap: 1.5rem;
-	max-width: 80rem;
-}
-
-.head {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	justify-content: space-between;
-	gap: 0.75rem 1.5rem;
-}
-
 .lead {
 	max-width: 70ch;
 	margin-top: 0.3125rem;
@@ -21,6 +7,7 @@
 
 .section {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 0.75rem;
 	min-width: 0;
 }
@@ -67,7 +54,7 @@
 
 .fields {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
 	gap: 0.875rem 1rem;
 	align-items: start;
 }
@@ -76,27 +63,11 @@
 	grid-column: 1 / -1;
 }
 
+/* visually hidden cell labels are absolute, without a positioned box here they widen the page */
 .scroll {
+	position: relative;
 	overflow-x: auto;
 	container-type: inline-size;
-}
-
-/* same steps as the week: minor columns leave first, the row keeps who, what and the action */
-@container (max-width: 58rem) {
-	.colWide {
-		display: none;
-	}
-}
-
-@container (max-width: 38rem) {
-	.colMid {
-		display: none;
-	}
-
-	.scroll table th,
-	.scroll table td {
-		padding-inline: 0.375rem;
-	}
 }
 
 .muted {

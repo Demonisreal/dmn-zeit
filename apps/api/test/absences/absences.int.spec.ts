@@ -568,27 +568,79 @@ describe('GET /api/absences?scope=inbox, what the approver weighs', () => {
 		expect(items.get(july)!.concurrentAbsences).toEqual([]);
 	});
 
-	it('shows hr the whole tenant, but never the person asking', async () => {
+	it('keeps hr to the team of the person asking as well, never the person asking', async () => {
 		const items = await inbox(w.hr);
 		expect(items.get(june)!.concurrentAbsences).toEqual([
 			{
 				employee: { id: w.colleague.employeeId, name: 'Clara Kolleg' },
 				startDate: '2026-06-09',
 				endDate: '2026-06-09'
-			},
-			{
-				employee: { id: w.outsider.employeeId, name: 'Otto Aussen' },
-				startDate: '2026-06-10',
-				endDate: '2026-06-10'
 			}
 		]);
-		expect(items.get(outside)!.concurrentAbsences).toEqual([
-			{
-				employee: { id: w.worker.employeeId, name: 'Wim Werner' },
+		expect(items.get(outside)!.concurrentAbsences).toEqual([]);
+	});
+
+	describe('with the lead away at the same time', () => {
+		let t: Office;
+		let asked: string;
+		let leave: string;
+		let other: string;
+
+		beforeAll(async () => {
+			t = await office(api);
+			// she leads the other team as well
+			await api.superuser.query(
+				'insert into app.team_leads (tenant_id, team_id, user_id) values ($1, $2, $3)',
+				[t.tenantId, t.otherTeam, t.lead.userId]
+			);
+			asked = await filed(t.worker, {
+				type: 'vacation',
 				startDate: '2026-06-08',
 				endDate: '2026-06-10'
-			}
-		]);
+			});
+			leave = await filed(t.lead, {
+				type: 'vacation',
+				startDate: '2026-06-09',
+				endDate: '2026-06-12'
+			});
+			other = await filed(t.outsider, {
+				type: 'vacation',
+				startDate: '2026-06-10',
+				endDate: '2026-06-10'
+			});
+		});
+
+		it('shows hr the lead as part of the team, and the team for her own request', async () => {
+			const items = await inbox(t.hr);
+			expect(items.get(asked)!.concurrentAbsences).toEqual([
+				{
+					employee: { id: t.lead.employeeId, name: 'Lena Leitung' },
+					startDate: '2026-06-09',
+					endDate: '2026-06-12'
+				}
+			]);
+			expect(items.get(leave)!.concurrentAbsences).toEqual([
+				{
+					employee: { id: t.worker.employeeId, name: 'Wim Werner' },
+					startDate: '2026-06-08',
+					endDate: '2026-06-10'
+				}
+			]);
+			expect(items.get(other)!.concurrentAbsences).toEqual([]);
+		});
+
+		it('keeps a lead of two teams to the team of the person asking', async () => {
+			const items = await inbox(t.lead);
+			expect(items.has(leave)).toBe(false);
+			expect(items.get(asked)!.concurrentAbsences).toEqual([
+				{
+					employee: { id: t.lead.employeeId, name: 'Lena Leitung' },
+					startDate: '2026-06-09',
+					endDate: '2026-06-12'
+				}
+			]);
+			expect(items.get(other)!.concurrentAbsences).toEqual([]);
+		});
 	});
 
 	it('never says why a colleague is away, not even for sick leave', async () => {
