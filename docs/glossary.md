@@ -96,10 +96,78 @@ Leave Act).
 | Administration        | administration            | Navigation "Verwaltung" → "Administration" |
 | Personalnummer        | personnel number          |                                            |
 | Eintritt / Austritt   | start date / leaving date |                                            |
-| Betrieb, Mandant      | company                   | "tenant" nur im Code                       |
+| Betrieb, Mandant      | company                   | "tenant" nur im Code, nie für Kunden       |
 | Musterbetrieb         | sample company            | Demo, immer als erfunden gekennzeichnet    |
 | Anmelden / Abmelden   | sign in / sign out        | nie "log in"                               |
 | Sitzung               | session                   |                                            |
 | Einladung             | invitation                |                                            |
 | Passwort festlegen    | set password              |                                            |
 | Passwort zurücksetzen | reset password            |                                            |
+
+## Projekte
+
+| Deutsch                   | Englisch             | Hinweis                                                       |
+| ------------------------- | -------------------- | ------------------------------------------------------------- |
+| Kunde                     | client               | Auftraggeber, nie "Mandant" (auch im Steuerbüro nicht)        |
+| Kundennummer              | client number        |                                                               |
+| Projekt                   | project              |                                                               |
+| Aufgabe                   | task                 | Unterteilung eines Projekts                                   |
+| Projektzeit               | project time         | getrennt von den Buchungen der Stempeluhr                     |
+| Nachtrag (Projektzeit)    | manual entry         | ohne Antrag, mit Pflichtnotiz; nicht "missed entry"           |
+| Timer, Projekt-Timer      | timer, project timer | ergänzt die Stempeluhr; Knöpfe "Start"/"Stop", nie "clock in" |
+| läuft                     | running              | laufender Timer                                               |
+| abrechenbar               | billable             |                                                               |
+| Stundensatz, Satz         | hourly rate, rate    |                                                               |
+| Standardsatz              | default rate         | gilt, wenn kein speziellerer Satz passt                       |
+| Rundung                   | rounding             | je Projekt, Aufgabe und Tag, nie je Eintrag                   |
+| Rundungsraster            | rounding increment   | "15 min"                                                      |
+| aufrunden                 | round up             |                                                               |
+| kaufmännisch runden       | round to nearest     |                                                               |
+| abrunden                  | round down           |                                                               |
+| Budget                    | budget               | Stunden je Projekt, Warnung ab 80 %                           |
+| Budget überschritten      | over budget          |                                                               |
+| Abgleich                  | reconciliation       | Arbeitszeit gegen Projektzeit, nur Hinweis, kein Befund       |
+| ohne Projekt              | unassigned           | Arbeitszeit ohne Projektzeit                                  |
+| außerhalb der Arbeitszeit | outside working time | Projektzeit ohne gestempelte Zeit                             |
+| Solo-Bereich              | solo workspace       | Mandant für eine Person, nur auf Einladung                    |
+| Freelancer                | freelancer           |                                                               |
+
+## Rechnungen
+
+Eine Rechnung erscheint in der Sprache ihres Kunden, nicht in der Sprache der angemeldeten Person.
+Die Rechnungstexte stehen in `apps/api/src/invoices/texts.ts` und folgen diesem Glossar.
+
+| Deutsch              | Englisch             | Hinweis                                                     |
+| -------------------- | -------------------- | ----------------------------------------------------------- |
+| Abrechnung           | billing              | Navigation                                                  |
+| nicht abgerechnet    | unbilled             |                                                             |
+| Rechnung             | invoice              |                                                             |
+| Entwurf              | draft                | vor dem Ausstellen, ohne Nummer, änderbar                   |
+| ausstellen           | issue                | vergibt Nummer und Datum, danach unveränderbar              |
+| ausgestellt          | issued               |                                                             |
+| bezahlt              | paid                 |                                                             |
+| überfällig           | overdue              |                                                             |
+| stornieren           | cancel               | ausgestellte Rechnung, nur über eine Stornorechnung         |
+| Storno               | cancellation         |                                                             |
+| Stornorechnung       | cancellation invoice | nie "Gutschrift" (§ 14 Abs. 2 S. 2 UStG), nie "credit note" |
+| Position             | line item            |                                                             |
+| freie Position       | custom line item     | nicht aus erfassten Zeiten                                  |
+| Rechnungsnummer      | invoice number       |                                                             |
+| Nummernkreis         | number sequence      | je Jahr, auch für Stornorechnungen: `RE-2026-0007`          |
+| Präfix               | prefix               |                                                             |
+| Rechnungsdatum       | issue date           |                                                             |
+| Leistungszeitraum    | service period       |                                                             |
+| Fälligkeit           | due date             |                                                             |
+| Zahlungsziel         | payment terms        |                                                             |
+| Rechnungssprache     | invoice language     | je Kunde, Deutsch oder Englisch                             |
+| Steuernummer         | tax number           |                                                             |
+| USt-IdNr.            | VAT ID               |                                                             |
+| Regelbesteuerung     | regular taxation     |                                                             |
+| Kleinunternehmer     | small business       | "small business (§ 19 UStG)"                                |
+| Reverse Charge       | reverse charge       | Rechnungshinweis zweisprachig, Wortlaut gegen UStAE prüfen  |
+| Kleinbetragsrechnung | small-amount invoice | bis 250 € brutto (§ 33 UStDV), nicht bei Reverse Charge     |
+| E-Rechnung           | e-invoice            |                                                             |
+| XRechnung, ZUGFeRD   | XRechnung, ZUGFeRD   | Formatnamen, nicht übersetzen                               |
+| Käuferreferenz       | buyer reference      | BT-10, bei öffentlichen Auftraggebern die Leitweg-ID        |
+| Stundennachweis      | time report          | Projektzeiten je Kunde, nicht "timesheet"                   |
+| Musterrechnung       | sample invoice       | Demo, keine Rechnung im Sinne des § 14 UStG                 |
