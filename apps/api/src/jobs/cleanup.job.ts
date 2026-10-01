@@ -12,6 +12,7 @@ export class CleanupJob {
 	async purgeExpired() {
 		await withAdvisoryLock(this.db, 'zeit:cleanup', async (conn) => {
 			await sql`select auth.purge_expired()`.execute(conn);
+			await sql`select ops.audit_ip_retention()`.execute(conn);
 		});
 	}
 }

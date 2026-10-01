@@ -34,6 +34,7 @@ import { AuthStore } from './auth.store';
 import { FactorStore, type Factors } from './factor.store';
 import { newRecoveryCodes } from './recovery-codes';
 import { KEY_VERSION, seal, unseal } from './secrets';
+import { hashToken, newToken } from './tokens';
 import { newTotpSecret, stepOf, totpSetup } from './totp';
 import { WebAuthn } from './webauthn';
 
@@ -42,6 +43,8 @@ type Notice = (locale: Locale, params: { name: string }) => { subject: string; t
 @Injectable()
 export class SecurityService {
 	private readonly dataKey: Buffer;
+	private readonly pepper: Buffer;
+	private readonly origin: string;
 	private readonly demo: boolean;
 
 	constructor(
@@ -55,6 +58,8 @@ export class SecurityService {
 		config: ConfigService<Config, true>
 	) {
 		this.dataKey = config.get('DATA_ENCRYPTION_KEY', { infer: true });
+		this.pepper = config.get('PASSWORD_PEPPER', { infer: true });
+		this.origin = config.get('APP_ORIGIN', { infer: true });
 		this.demo = config.get('APP_MODE', { infer: true }) === 'demo';
 	}
 
@@ -110,7 +115,9 @@ export class SecurityService {
 			} satisfies ApiError);
 		}
 
-		const codes = (await this.isFirstFactor(session.userId)) ? newRecoveryCodes() : undefined;
+		const codes = (await this.isFirstFactor(session.userId))
+			? newRecoveryCodes(this.pepper)
+			: undefined;
 		if (!(await this.factors.confirmTotp(session.userId, step, codes?.hashes ?? null))) {
 			throw new ConflictException({
 				code: 'INVALID_STATE',
@@ -128,7 +135,8 @@ export class SecurityService {
 		if (!factors.hasTotp) throw new NotFoundException('No authenticator app is set up');
 
 		this.keepOneFactor(factors);
-		await this.factors.removeTotp(session.userId);
+		// a stolen session elsewhere must not outlive the factor change, this one stays
+		await this.factors.removeTotp(session);
 		await this.afterChange(session, 'totp.removed', client, totpRemovedMail);
 	}
 
@@ -147,10 +155,10 @@ export class SecurityService {
 	): Promise<PasskeyCreated> {
 		const passkey = await this.webauthn.register(session.userId, input.response, input.name);
 		const first = await this.isFirstFactor(session.userId);
-		const id = await this.factors.addPasskey(session.userId, passkey);
+		const id = await this.factors.addPasskey(session, passkey);
 
-		const codes = first ? newRecoveryCodes() : undefined;
-		if (codes) await this.factors.replaceRecoveryCodes(session.userId, codes.hashes);
+		const codes = first ? newRecoveryCodes(this.pepper) : undefined;
+		if (codes) await this.factors.replaceRecoveryCodes(session, codes.hashes);
 
 		await this.afterChange(session, 'passkey.added', client, (locale, { name }) =>
 			passkeyAddedMail(locale, { name, passkey: input.name })
@@ -181,7 +189,7 @@ export class SecurityService {
 		if (!passkey) throw new NotFoundException('Passkey not found');
 
 		this.keepOneFactor(await this.factors.factors(session.userId));
-		await this.factors.removePasskey(session.userId, passkeyId);
+		await this.factors.removePasskey(session, passkeyId);
 		await this.afterChange(session, 'passkey.removed', client, (locale, { name }) =>
 			passkeyRemovedMail(locale, { name, passkey: passkey.name })
 		);
@@ -195,8 +203,8 @@ export class SecurityService {
 				details: null
 			} satisfies ApiError);
 		}
-		const { codes, hashes } = newRecoveryCodes();
-		await this.factors.replaceRecoveryCodes(session.userId, hashes);
+		const { codes, hashes } = newRecoveryCodes(this.pepper);
+		await this.factors.renewRecoveryCodes(session, hashes);
 		await this.afterChange(session, 'recovery_codes.renewed', client, recoveryCodesRenewedMail);
 		return { recoveryCodes: codes };
 	}
@@ -206,7 +214,8 @@ export class SecurityService {
 		const person = await this.store.person(admin, userId);
 		if (!person) throw new NotFoundException('User not found');
 
-		await this.factors.resetFactors(admin, userId);
+		const token = newToken();
+		await this.factors.resetFactors(admin, userId, hashToken(token));
 		await this.audit.record({
 			tenantId: admin.tenantId,
 			userId,
@@ -219,7 +228,10 @@ export class SecurityService {
 			this.mail.send({
 				tenantId: admin.tenantId,
 				to: person.email,
-				...mfaResetMail(person.locale, { name: person.displayName })
+				...mfaResetMail(person.locale, {
+					name: person.displayName,
+					link: `${this.origin}/reset#t=${token}`
+				})
 			})
 		);
 	}

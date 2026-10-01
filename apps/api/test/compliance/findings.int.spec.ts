@@ -110,6 +110,19 @@ describe('GET /api/compliance/findings', () => {
 		expect((await findings(lead.browser, 'from=2026-09-22&to=2026-09-20')).status).toBe(400);
 		expect((await findings(lead.browser, 'from=2025-01-01&to=2026-09-20')).status).toBe(400);
 	});
+
+	it('works out thirty lists a minute per session, other sessions go on', async () => {
+		const busy = await signedIn(api, await createUser(tenant, { role: 'hr' }));
+		for (let i = 0; i < 30; i++) {
+			expect((await findings(busy.browser, 'from=2026-09-20&to=2026-09-20')).status).toBe(200);
+		}
+
+		const blocked = await findings(busy.browser, 'from=2026-09-20&to=2026-09-20');
+		expect(blocked.status).toBe(429);
+		expect(blocked.headers['retry-after']).toMatch(/^\d+$/);
+		expect(blocked.body).toMatchObject({ code: 'RATE_LIMITED', details: null });
+		expect((await findings(hr.browser, 'from=2026-09-20&to=2026-09-20')).status).toBe(200);
+	});
 });
 
 describe('POST /api/compliance/findings/ack', () => {

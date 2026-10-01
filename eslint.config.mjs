@@ -3,7 +3,7 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 const rawSql =
-	'Raw SQL skips parameter binding. Use the sql template tag, sql.ref or sql.table instead.';
+	'This writes the string into the query instead of binding it. Use the sql template tag or the query builder.';
 const rawHtml = 'Writing HTML strings into the DOM opens the door to XSS. Render through React.';
 
 export default defineConfig(
@@ -16,6 +16,10 @@ export default defineConfig(
 			'no-restricted-properties': [
 				'error',
 				{ object: 'sql', property: 'raw', message: rawSql },
+				{ object: 'sql', property: 'lit', message: rawSql },
+				{ object: 'sql', property: 'id', message: rawSql },
+				{ object: 'sql', property: 'ref', message: rawSql },
+				{ object: 'sql', property: 'table', message: rawSql },
 				{ object: 'CompiledQuery', property: 'raw', message: rawSql },
 				{ object: 'document', property: 'write', message: rawHtml }
 			],

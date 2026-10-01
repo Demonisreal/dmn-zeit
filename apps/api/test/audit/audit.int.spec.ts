@@ -1,5 +1,5 @@
 import { auditPageSchema } from '@zeit/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { startApi, type Api } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
 import {
@@ -218,7 +218,12 @@ describe('GET /api/audit', () => {
 		await api.browser().post('/auth/login', { email, password: 'nicht das passwort' });
 		const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
 
-		const answer = await hr.get(`/audit?from=${today}&to=${today}&table=users&row=${userId}`);
+		// the failed login is filed after the 401 went out
+		const answer = await vi.waitFor(async () => {
+			const page = await hr.get(`/audit?from=${today}&to=${today}&table=users&row=${userId}`);
+			expect(page.body.items).toHaveLength(2);
+			return page;
+		});
 		expect(auditPageSchema.safeParse(answer.body).success).toBe(true);
 		expect(answer.body.items).toEqual([
 			expect.objectContaining({

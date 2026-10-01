@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Locale, MonthOverview, Timesheet } from '@zeit/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isBillable } from '@zeit/rules';
+import type { Locale, MonthOverview, Timesheet, TimeReportQuery } from '@zeit/shared';
 import { Temporal } from 'temporal-polyfill';
 import { Clock } from '../common/clock';
 import { assertCanSee } from '../common/scope';
 import type { AuthSession } from '../common/session.guard';
 import { Database, type Trx } from '../db/database';
+import { DocumentsService } from '../documents/documents.service';
+import type { TimeReport, TimeReportEntry } from '../documents/time-report';
 import { isClosed, monthRange, MonthsService } from '../months/months.service';
 import { MonthsStore, type Staff } from '../months/months.store';
 import type { SnapshotRow } from '../months/snapshot';
@@ -13,6 +16,10 @@ import { toCsv, type Cell } from './csv';
 import { ExportsStore } from './exports.store';
 
 export type Download = { filename: string; body: string };
+
+function minutesOf(startedAt: string, endedAt: string): number {
+	return Math.round(Temporal.Instant.from(startedAt).until(Temporal.Instant.from(endedAt)).total('minutes'));
+}
 
 type OverviewRow = MonthOverview['rows'][number];
 
@@ -127,8 +134,63 @@ export class ExportsService {
 		private readonly store: ExportsStore,
 		private readonly months: MonthsService,
 		private readonly closings: MonthsStore,
-		private readonly clock: Clock
+		private readonly clock: Clock,
+		private readonly documents: DocumentsService
 	) {}
+
+	async timeReport(session: AuthSession, query: TimeReportQuery): Promise<TimeReport | Buffer | Download> {
+		if (!query.client) throw new BadRequestException('client is required for the time report');
+		const clientId = query.client;
+		// csv goes to the requesting person in their own language, pdf goes to the client in theirs
+		const report = await this.db.withTenant(session, (trx) =>
+			this.timeReportOf(trx, session, clientId, query)
+		);
+		if (query.format === 'json') return report;
+		if (query.format === 'pdf') return this.documents.renderTimeReportPdf(report);
+		return this.documents.renderTimeReportCsv(report);
+	}
+
+	private async timeReportOf(
+		trx: Trx,
+		session: AuthSession,
+		clientId: string,
+		query: TimeReportQuery
+	): Promise<TimeReport> {
+		const client = await this.store.client(trx, clientId);
+		if (!client) throw new NotFoundException('Client not found');
+		const [rows, ownLocale] = await Promise.all([
+			this.store.timeReportEntries(trx, clientId, query.from, query.to),
+			this.store.locale(trx, session.userId)
+		]);
+		const [first] = rows;
+		const projectIds = new Set(rows.map((row) => row.projectId));
+
+		const entries: TimeReportEntry[] = rows.map((row) => ({
+			date: row.workday,
+			projectName: row.projectName,
+			taskName: row.taskName,
+			note: row.note,
+			minutes: minutesOf(row.startedAt, row.endedAt!),
+			billable: isBillable(
+				{ billable: row.entryBillable },
+				row.taskId === null ? null : { billable: row.taskBillable },
+				{ billable: row.projectBillable }
+			)
+		}));
+
+		return {
+			locale: query.format === 'pdf' ? (client.invoiceLocale as Locale) : ownLocale,
+			client: { name: client.name, number: client.number },
+			project: projectIds.size === 1 && first ? { name: first.projectName, code: first.projectCode ?? '' } : null,
+			period: { from: query.from, to: query.to },
+			generatedAt: new Date().toISOString(),
+			entries,
+			totals: {
+				minutes: entries.reduce((sum, entry) => sum + entry.minutes, 0),
+				billableMinutes: entries.filter((entry) => entry.billable).reduce((sum, entry) => sum + entry.minutes, 0)
+			}
+		};
+	}
 
 	timesheet(session: AuthSession, employeeId: string, month: string): Promise<Timesheet> {
 		return this.db.withTenant(session, (trx) => this.sheet(trx, session, employeeId, month));

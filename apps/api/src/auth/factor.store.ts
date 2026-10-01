@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Role } from '@zeit/shared';
 import { sql } from 'kysely';
+import type { AuthSession } from '../common/session.guard';
 import { Database, type TenantContext } from '../db/database';
 
 export type ChallengePurpose = 'register' | 'login' | 'reauth';
@@ -75,16 +76,27 @@ export class FactorStore {
 		return rows[0]!.used;
 	}
 
-	async removeTotp(userId: string): Promise<boolean> {
-		const { rows } = await sql<{ removed: boolean }>`
-			select auth.totp_remove(${userId}) as removed`.execute(this.db);
-		return rows[0]!.removed;
+	// the person comes from app.user_id of the session; every other session of theirs ends with it
+	removeTotp(session: AuthSession): Promise<boolean> {
+		return this.db.withTenant(session, async (trx) => {
+			const { rows } = await sql<{ removed: boolean }>`
+				select auth.totp_remove() as removed`.execute(trx);
+			await sql`select auth.session_revoke_others(${session.userId}, ${session.id})`.execute(trx);
+			return rows[0]!.removed;
+		});
 	}
 
-	async replaceRecoveryCodes(userId: string, codeHashes: Buffer[]): Promise<void> {
-		await sql`select auth.recovery_codes_replace(${userId}, ${codeHashes}::bytea[])`.execute(
-			this.db
-		);
+	replaceRecoveryCodes(ctx: TenantContext, codeHashes: Buffer[]): Promise<void> {
+		return this.db.withTenant(ctx, async (trx) => {
+			await sql`select auth.recovery_codes_replace(${codeHashes}::bytea[])`.execute(trx);
+		});
+	}
+
+	renewRecoveryCodes(session: AuthSession, codeHashes: Buffer[]): Promise<void> {
+		return this.db.withTenant(session, async (trx) => {
+			await sql`select auth.recovery_codes_replace(${codeHashes}::bytea[])`.execute(trx);
+			await sql`select auth.session_revoke_others(${session.userId}, ${session.id})`.execute(trx);
+		});
 	}
 
 	async useRecoveryCode(userId: string, codeHash: Buffer): Promise<boolean> {
@@ -101,12 +113,14 @@ export class FactorStore {
 		return rows;
 	}
 
-	async addPasskey(userId: string, passkey: NewPasskey): Promise<string> {
-		const { rows } = await sql<{ id: string }>`
-			select auth.passkey_add(${userId}, ${passkey.credentialId}, ${passkey.publicKey},
-				${passkey.counter}, ${passkey.transports}::text[], ${passkey.aaguid}::uuid,
-				${passkey.backedUp}, ${passkey.name}) as id`.execute(this.db);
-		return rows[0]!.id;
+	addPasskey(ctx: TenantContext, passkey: NewPasskey): Promise<string> {
+		return this.db.withTenant(ctx, async (trx) => {
+			const { rows } = await sql<{ id: string }>`
+				select auth.passkey_add(${passkey.credentialId}, ${passkey.publicKey},
+					${passkey.counter}, ${passkey.transports}::text[], ${passkey.aaguid}::uuid,
+					${passkey.backedUp}, ${passkey.name}) as id`.execute(trx);
+			return rows[0]!.id;
+		});
 	}
 
 	async renamePasskey(userId: string, passkeyId: string, name: string): Promise<boolean> {
@@ -115,10 +129,13 @@ export class FactorStore {
 		return rows[0]!.renamed;
 	}
 
-	async removePasskey(userId: string, passkeyId: string): Promise<boolean> {
-		const { rows } = await sql<{ removed: boolean }>`
-			select auth.passkey_remove(${userId}, ${passkeyId}) as removed`.execute(this.db);
-		return rows[0]!.removed;
+	removePasskey(session: AuthSession, passkeyId: string): Promise<boolean> {
+		return this.db.withTenant(session, async (trx) => {
+			const { rows } = await sql<{ removed: boolean }>`
+				select auth.passkey_remove(${session.userId}, ${passkeyId}) as removed`.execute(trx);
+			await sql`select auth.session_revoke_others(${session.userId}, ${session.id})`.execute(trx);
+			return rows[0]!.removed;
+		});
 	}
 
 	async findPasskey(credentialId: Buffer): Promise<StoredPasskey | undefined> {
@@ -186,9 +203,11 @@ export class FactorStore {
 	}
 
 	// the function itself checks for an admin of the same tenant and refuses one's own account
-	resetFactors(admin: TenantContext, userId: string): Promise<void> {
+	resetFactors(admin: TenantContext, userId: string, resetHash: Buffer): Promise<void> {
 		return this.db.withTenant(admin, async (trx) => {
 			await sql`select auth.mfa_reset(${userId})`.execute(trx);
+			// the password went too, without the link the person could not get back in
+			await sql`select auth.token_issue(${userId}, 'password_reset', ${resetHash})`.execute(trx);
 		});
 	}
 }

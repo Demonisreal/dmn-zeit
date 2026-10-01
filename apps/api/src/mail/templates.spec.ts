@@ -32,6 +32,11 @@ describe('mail templates', () => {
 		expect(passkeyAddedMail('de', { name: 'Anna', passkey: 'Laptop\nPhishing' }).text).toContain(
 			'„Laptop Phishing“'
 		);
-		expect(mfaResetMail('en', { name: 'Ben' }).text).toMatch(/^Hello Ben,/);
+		expect(mfaResetMail('en', { name: 'Ben', link: 'x' }).text).toMatch(/^Hello Ben,/);
+	});
+
+	it('puts the reset link on a line of its own after a factor reset', () => {
+		const link = 'https://zeit.example.test/reset#t=abc';
+		expect(mfaResetMail('de', { name: 'Anna', link }).text).toContain(`\n\n${link}\n\n`);
 	});
 });

@@ -1,10 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { resetMfa } from '../../src/cli/mfa-reset';
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
+import { resetLink, resetMfa } from '../../src/cli/mfa-reset';
 import { archiveTenant } from '../../src/cli/tenant-archive';
 import { createTenant as tenantCreate, type NewTenant } from '../../src/cli/tenant-create';
 import { Database } from '../../src/db/database';
+import { startApi } from '../auth/api';
 import { connectAs, createPerson, createTenant, createUser, databaseUrl } from '../helpers/pg';
 
 // the cli connects as zeit_owner, like CLI_DATABASE_URL in production
@@ -120,7 +121,8 @@ describe('user:mfa-reset', () => {
 			Array.from({ length: 10 }, () => randomBytes(32))
 		]);
 		await superuser.query(
-			`select auth.passkey_add($1, $2, $3, 0, '{internal}', null, false, 'Laptop')`,
+			`insert into auth.passkeys (user_id, credential_id, public_key, counter, transports, backed_up, name)
+			 values ($1, $2, $3, 0, '{internal}', false, 'Laptop')`,
 			[person.userId, randomBytes(32), randomBytes(77)]
 		);
 		await openSession(person.userId);
@@ -147,6 +149,42 @@ describe('user:mfa-reset', () => {
 			recovery_left: 0
 		});
 		expect(await count('auth.sessions where user_id = $1', [person.userId])).toBe(0);
+	});
+
+	it('takes the password along and leaves a reset link for 30 minutes', async () => {
+		const person = await enrolled();
+		const reset = await resetMfa(db, person.email);
+		const link = await resetLink(db, reset!, 'http://localhost:5173');
+
+		expect(link).toMatch(/^http:\/\/localhost:5173\/reset#t=[\w-]{43}$/);
+		expect(await count('auth.credentials where user_id = $1', [person.userId])).toBe(0);
+		expect(
+			await count(
+				`auth.tokens where user_id = $1 and kind = 'password_reset' and used_at is null
+				   and expires_at between now() + interval '29 minutes' and now() + interval '30 minutes'`,
+				[person.userId]
+			)
+		).toBe(1);
+	});
+
+	it('leads back in through the link with a new password, the old one stays out', async () => {
+		const api = await startApi();
+		onTestFinished(() => api.app.close());
+		const person = await api.member();
+		expect((await api.browser().signIn(person.email)).status).toBe(200);
+
+		const link = await resetLink(db, (await resetMfa(db, person.email))!, 'http://localhost:5173');
+		expect((await api.browser().signIn(person.email)).status).toBe(401);
+
+		const token = new URL(link).hash.replace('#t=', '');
+		const reset = await api
+			.browser()
+			.post('/auth/password/reset', { token, password: 'ein ganz neues passwort' });
+		expect(reset.status).toBe(204);
+		expect((await api.browser().signIn(person.email)).status).toBe(401);
+		const back = await api.browser().signIn(person.email, 'ein ganz neues passwort');
+		expect(back.status).toBe(200);
+		expect(back.body.security.enrollmentPending).toBe(true);
 	});
 
 	it('files the reset in the trail as the cli', async () => {

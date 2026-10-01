@@ -41,4 +41,41 @@ export class ExportsStore {
 			select app.month_snapshot(${employeeId}, ${`${month}-01`}) as row`.execute(trx);
 		return rows[0]?.row ?? null;
 	}
+
+	client(trx: Trx, clientId: string) {
+		return trx
+			.selectFrom('app.clients')
+			.select(['name', 'number', 'invoice_locale as invoiceLocale'])
+			.where('id', '=', clientId)
+			.executeTakeFirst();
+	}
+
+	// live bookings, not the frozen assignment of an issued invoice (that one lives in invoices.store.ts)
+	timeReportEntries(trx: Trx, clientId: string, from: string, to: string) {
+		return trx
+			.selectFrom('app.project_entries as e')
+			.innerJoin('app.projects as p', 'p.id', 'e.project_id')
+			.leftJoin('app.tasks as t', 't.id', 'e.task_id')
+			.select([
+				'e.workday',
+				'e.started_at as startedAt',
+				'e.ended_at as endedAt',
+				'e.note',
+				'e.billable as entryBillable',
+				't.billable as taskBillable',
+				'p.billable as projectBillable',
+				'p.id as projectId',
+				'p.name as projectName',
+				'p.code as projectCode',
+				't.id as taskId',
+				't.name as taskName'
+			])
+			.where('p.client_id', '=', clientId)
+			.where('e.workday', '>=', from)
+			.where('e.workday', '<=', to)
+			.where('e.ended_at', 'is not', null)
+			.where('e.voided_at', 'is', null)
+			.orderBy('e.started_at')
+			.execute();
+	}
 }

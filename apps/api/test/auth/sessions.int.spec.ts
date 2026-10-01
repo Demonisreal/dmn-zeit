@@ -92,6 +92,31 @@ describe('POST /api/auth/password/change', () => {
 		);
 	});
 
+	it('voids a reset link that was mailed before the change', async () => {
+		const { person, laptop } = await twoDevices();
+		await api.browser().post('/auth/password/forgot', { email: person.email });
+		await vi.waitFor(() =>
+			expect(api.mails.some((mail) => mail.to === person.email && /reset#t=/.test(mail.text))).toBe(
+				true
+			)
+		);
+		const mail = api.mails.findLast((sent) => sent.to === person.email)!;
+		const token = mail.text.match(/\/reset#t=([\w-]{43})/)![1]!;
+
+		await laptop.reauth();
+		const changed = await laptop.post('/auth/password/change', {
+			currentPassword: 'kaffee ohne milch bitte',
+			newPassword: 'ein ganz neues passwort'
+		});
+		expect(changed.status).toBe(200);
+
+		const late = await api
+			.browser()
+			.post('/auth/password/reset', { token, password: 'noch ein neues passwort' });
+		expect(late.body.code).toBe('TOKEN_INVALID');
+		expect((await api.browser().signIn(person.email, 'ein ganz neues passwort')).status).toBe(200);
+	});
+
 	it('refuses a wrong current password without logging anyone out', async () => {
 		const { laptop, phone } = await twoDevices();
 		await laptop.reauth();

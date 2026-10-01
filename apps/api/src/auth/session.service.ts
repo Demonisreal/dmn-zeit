@@ -41,14 +41,23 @@ export class SessionService {
 		response.clearCookie(this.mfaCookieName, this.cookie);
 	}
 
-	async open(response: Response, userId: string, client: Client): Promise<Session> {
+	async open(
+		response: Response,
+		userId: string,
+		client: Client,
+		bypassLock = false
+	): Promise<Session> {
 		const token = newToken();
-		await this.store.createSession(userId, {
-			tokenHash: hashToken(token),
-			csrfHash: hashToken(csrfTokenFor(token)),
-			ip: client.ip,
-			userAgent: client.userAgent
-		});
+		await this.store.createSession(
+			userId,
+			{
+				tokenHash: hashToken(token),
+				csrfHash: hashToken(csrfTokenFor(token)),
+				ip: client.ip,
+				userAgent: client.userAgent
+			},
+			bypassLock
+		);
 		this.setCookie(response, token);
 
 		const session = await this.store.resolveSession(hashToken(token));

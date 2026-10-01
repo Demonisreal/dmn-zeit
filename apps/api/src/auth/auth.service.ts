@@ -88,13 +88,18 @@ export class AuthService {
 	async login(input: LoginInput, client: Client): Promise<string> {
 		const checked = await this.check(input.email, input.password);
 		if (checked && !checked.matched) {
-			await this.audit.record({
-				tenantId: checked.credential.tenantId,
-				userId: checked.credential.userId,
-				actor: null,
-				action: 'login.failed',
-				details: { method: 'password' },
-				client
+			const { tenantId, userId } = checked.credential;
+			// after the answer, a known address must not take longer than an unknown or locked one
+			this.queue.later(async () => {
+				await this.store.loginFailed(userId);
+				await this.audit.record({
+					tenantId,
+					userId,
+					actor: null,
+					action: 'login.failed',
+					details: { method: 'password' },
+					client
+				});
 			});
 		}
 		if (!checked?.matched) throw new UnauthorizedException(invalidCredentials);
@@ -117,6 +122,7 @@ export class AuthService {
 		if (checked?.matched) return profile;
 
 		if (checked) {
+			await this.store.loginFailed(session.userId);
 			await this.audit.record({
 				tenantId: session.tenantId,
 				userId: session.userId,
@@ -150,7 +156,7 @@ export class AuthService {
 
 	async sendReset(email: string, requestId: string): Promise<void> {
 		const credential = await this.store.credential(email);
-		if (!credential?.passwordHash) return;
+		if (!credential) return;
 
 		const token = newToken();
 		await this.store.issueToken(credential.userId, 'password_reset', hashToken(token));
@@ -202,7 +208,7 @@ export class AuthService {
 		return userId;
 	}
 
-	// undefined for unknown, locked and password-less alike; only a wrong guess counts towards the lock
+	// undefined for unknown, locked and password-less alike; the caller counts a wrong guess towards the lock
 	private async check(email: string, password: string): Promise<Checked | undefined> {
 		const credential = await this.store.credential(email);
 		const locked =
@@ -216,7 +222,6 @@ export class AuthService {
 		if (await verifyPassword(credential.passwordHash, password, this.pepper)) {
 			return { credential: known, matched: true };
 		}
-		await this.store.loginFailed(credential.userId);
 		return { credential: known, matched: false };
 	}
 

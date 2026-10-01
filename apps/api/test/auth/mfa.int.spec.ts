@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
 	mfaChallengeSchema,
 	passkeyCreatedSchema,
@@ -215,6 +216,30 @@ describe('setting up the second factor', () => {
 				.status
 		).toBe(401);
 	});
+
+	it('lets a passkey past a lock that guessed passwords ran up, and leaves the lock', async () => {
+		const { authenticator, email, userId } = await api.member();
+		await api.superuser.query(
+			`update auth.credentials set failed_count = 5, locked_until = now() + interval '1 minute'
+			  where user_id = $1`,
+			[userId]
+		);
+		expect((await api.browser().signIn(email)).status).toBe(401);
+
+		const browser = api.browser();
+		const options = await browser.post('/auth/passkey/options');
+		const session = await browser.post('/auth/passkey/verify', {
+			response: authenticator.assert(options.body)
+		});
+		expect(session.status).toBe(200);
+		expect(session.body.user.id).toBe(userId);
+
+		const { rows } = await api.superuser.query(
+			'select failed_count, locked_until > now() as locked from auth.credentials where user_id = $1',
+			[userId]
+		);
+		expect(rows[0]).toEqual({ failed_count: 5, locked: true });
+	});
 });
 
 describe('the second step of a password login', () => {
@@ -265,19 +290,67 @@ describe('the second step of a password login', () => {
 		expect((await second.browser.post('/auth/mfa/recovery', { code })).status).toBe(401);
 	});
 
+	it('mails the person about a sign-in with a recovery code', async () => {
+		const { email, recoveryCodes } = await enrolWithTotp();
+		const { browser } = await passwordStep(email);
+
+		expect((await browser.post('/auth/mfa/recovery', { code: recoveryCodes[0] })).status).toBe(200);
+		await vi.waitFor(() =>
+			expect(
+				api.mails.some((mail) => mail.to === email && /Wiederherstellungscode/.test(mail.subject))
+			).toBe(true)
+		);
+	});
+
+	it('no longer takes a code stored as plain sha-256, only the hmac ones', async () => {
+		const { email, userId, recoveryCodes } = await enrolWithTotp();
+		// a row as the api wrote it before 20260926000970, in case one survived the migration
+		await api.superuser.query(
+			'insert into auth.recovery_codes (user_id, code_hash) values ($1, $2)',
+			[userId, createHash('sha256').update('ABCDEFGH23').digest()]
+		);
+
+		const legacy = await passwordStep(email);
+		expect((await legacy.browser.post('/auth/mfa/recovery', { code: 'ABCDE-FGH23' })).status).toBe(
+			401
+		);
+
+		const current = await passwordStep(email);
+		expect(
+			(await current.browser.post('/auth/mfa/recovery', { code: recoveryCodes[0] })).status
+		).toBe(200);
+	});
+
 	it('answers without a pending step as expired', async () => {
 		const answer = await api.browser().post('/auth/mfa/totp', { code: '123456' });
 		expect(answer.status).toBe(401);
 		expect(answer.body.code).toBe('UNAUTHENTICATED');
 	});
 
-	it('allows ten tries a minute from one address', async () => {
+	it('allows 60 tries a minute from one address', async () => {
 		const browser = api.browser();
-		for (let i = 0; i < 10; i++) {
+		for (let i = 0; i < 60; i++) {
 			expect((await browser.post('/auth/mfa/totp', { code: '123456' })).status).toBe(401);
 		}
 		const blocked = await browser.post('/auth/mfa/totp', { code: '123456' });
 		expect(blocked.status).toBe(429);
 		expect(blocked.headers['retry-after']).toMatch(/^\d+$/);
+	});
+
+	it('stops a whole /24 after 200 tries in a quarter hour, the next network goes on', async () => {
+		await Promise.all(
+			Array.from({ length: 20 }, async (_, host) => {
+				const browser = api.browser(`198.51.100.${host + 1}`);
+				for (let i = 0; i < 10; i++) {
+					expect((await browser.post('/auth/mfa/totp', { code: '123456' })).status).toBe(401);
+				}
+			})
+		);
+
+		const code = { code: '123456' };
+		const blocked = await api.browser('198.51.100.21').post('/auth/mfa/totp', code);
+		expect(blocked.status).toBe(429);
+		expect(blocked.headers['retry-after']).toMatch(/^\d+$/);
+		expect((await api.browser('198.51.101.1').post('/auth/mfa/totp', code)).status).toBe(401);
 	});
 });

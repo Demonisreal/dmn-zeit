@@ -164,6 +164,20 @@ describe('passwords', () => {
 		expect(await sessionCount(bystander)).toBe(1);
 	});
 
+	it('voids a reset link that was sent before the password changed', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		const token = hash();
+		await app.query(`select auth.token_issue($1, 'password_reset', $2)`, [user.userId, token]);
+
+		await withContext(app, user.context);
+		await app.query('select auth.password_change($1)', [newHash]);
+
+		const { rows } = await app.query('select auth.password_reset($1, $2) as id', [token, oldHash]);
+		expect(rows[0].id).toBeNull();
+		expect((await credentials(user)).password_hash).toBe(newHash);
+	});
+
 	it('needs a signed-in person to change a password', async () => {
 		const bare = await connectAs('app');
 		await expect(bare.query('select auth.password_change($1)', [newHash])).rejects.toMatchObject({
@@ -232,6 +246,32 @@ describe('login', () => {
 		expect(await credentials(user)).toMatchObject({ failed_count: 5, locked: true });
 	});
 
+	it('lets a passkey past the lock without lifting it', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		await superuser.query(
+			`update auth.credentials set failed_count = 5, locked_until = now() + interval '1 minute'
+			  where user_id = $1`,
+			[user.userId]
+		);
+		const { rows } = await app.query(
+			`select auth.session_create($1, $2, $3, '203.0.113.7', 'vitest', true) as id`,
+			[user.userId, hash(), hash()]
+		);
+		expect(rows[0].id).toEqual(expect.any(String));
+		expect(await credentials(user)).toMatchObject({ failed_count: 5, locked: true });
+	});
+
+	it('clears the misses after a login outside a lock', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		await superuser.query('update auth.credentials set failed_count = 3 where user_id = $1', [
+			user.userId
+		]);
+		await signIn(user);
+		expect((await credentials(user)).failed_count).toBe(0);
+	});
+
 	it('locks from the fifth miss in a row', async () => {
 		const user = await createUser(tenant);
 		await withPassword(user);
@@ -244,6 +284,47 @@ describe('login', () => {
 			[user.userId]
 		);
 		expect(rows[0].seconds).toBe(60);
+	});
+
+	// a stranger guessing at the address must not shut the person out for an hour
+	it('never locks for longer than 15 minutes', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		const lengths = [];
+		for (let miss = 1; miss <= 12; miss++) {
+			const { rows } = await app.query(
+				`select extract(epoch from auth.login_failed($1) - now())::int as seconds`,
+				[user.userId]
+			);
+			if (rows[0].seconds !== null) lengths.push(rows[0].seconds / 60);
+		}
+		expect(lengths).toEqual([1, 2, 4, 8, 15, 15, 15, 15]);
+	});
+
+	it('counts two misses that arrive at the same time', async () => {
+		const user = await createUser(tenant);
+		await withPassword(user);
+		const first = await connectAs('app');
+		const second = await connectAs('app');
+		const { rows } = await second.query('select pg_backend_pid() as pid');
+
+		await first.query('begin');
+		await first.query('select auth.login_failed($1)', [user.userId]);
+		const queued = second.query('select auth.login_failed($1)', [user.userId]);
+		// commit only once the second call really waits on the row, or the two just run one after the other
+		await expect
+			.poll(async () => {
+				const blocked = await superuser.query(
+					'select cardinality(pg_blocking_pids($1)) > 0 as waits',
+					[rows[0].pid]
+				);
+				return blocked.rows[0].waits;
+			})
+			.toBe(true);
+		await first.query('commit');
+		await queued;
+
+		expect((await credentials(user)).failed_count).toBe(2);
 	});
 
 	it('starts a new streak after a day without misses', async () => {

@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ackFindingSchema, findingsQuerySchema } from '@zeit/shared';
 import type { AckFindingInput, Finding, FindingsQuery, RuleSetInfo } from '@zeit/shared';
 import { CurrentSession } from '../common/current-session.decorator';
 import { Roles } from '../common/roles.guard';
+import { SessionThrottleGuard } from '../common/session-throttle.guard';
 import type { AuthSession } from '../common/session.guard';
 import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
@@ -15,6 +16,7 @@ export class ComplianceController {
 
 	@Get('findings')
 	@Roles('team_lead')
+	@UseGuards(SessionThrottleGuard)
 	findings(
 		@CurrentSession() session: AuthSession,
 		@Query(new ZodPipe(findingsQuerySchema)) query: FindingsQuery

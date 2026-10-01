@@ -1,0 +1,6 @@
+# Testdaten: erfundene WebAuthn-Antworten, ein absichtlich schwaches Passwort, ein Beispiel-Einladungstoken
+5c7a9b03c14ed8582a9237fb35ead6b86a5abb54:apps/web/src/mocks/security.ts:generic-api-key:51
+9e4bb64a2cecbc0bd54c1a215d5c4dee5faefeb9:apps/api/src/auth/auth.service.spec.ts:generic-api-key:431
+845acc7e1a1674d2bb408349f4f1b91ba9f381c7:packages/shared/src/security.spec.ts:generic-api-key:37
+040cc5032ae08a7451c3bcf3a543008e325c394e:apps/api/src/auth/auth.service.spec.ts:generic-api-key:397
+040cc5032ae08a7451c3bcf3a543008e325c394e:apps/web/src/app/auth/invite-form.spec.tsx:generic-api-key:9

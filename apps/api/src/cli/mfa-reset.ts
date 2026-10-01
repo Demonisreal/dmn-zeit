@@ -1,5 +1,6 @@
 import type { Locale } from '@zeit/shared';
 import { sql } from 'kysely';
+import { hashToken, newToken } from '../auth/tokens';
 import type { Config } from '../config';
 import type { Database } from '../db/database';
 import { ResendTransport } from '../mail/resend.transport';
@@ -21,14 +22,27 @@ export async function resetMfa(db: Database, email: string): Promise<ResetPerson
 	return rows[0];
 }
 
+// mfa_reset took the password along, the person gets back in through this link
+export async function resetLink(db: Database, person: ResetPerson, origin: string) {
+	const token = newToken();
+	await sql`select auth.token_issue(${person.userId}, 'password_reset', ${hashToken(token)})`.execute(
+		db
+	);
+	return `${origin}/reset#t=${token}`;
+}
+
 // no queue in the cli, and the demo outbox belongs to the sandboxes, so only live mode mails
-export async function mailReset(config: Config, person: ResetPerson): Promise<boolean> {
+export async function mailReset(
+	config: Config,
+	person: ResetPerson,
+	link: string
+): Promise<boolean> {
 	if (config.APP_MODE !== 'live') return false;
 
 	await new ResendTransport(config.RESEND_API_KEY!, config.MAIL_FROM!).send({
 		tenantId: person.tenantId,
 		to: person.email,
-		...mfaResetMail(person.locale, { name: person.displayName })
+		...mfaResetMail(person.locale, { name: person.displayName, link })
 	});
 	return true;
 }

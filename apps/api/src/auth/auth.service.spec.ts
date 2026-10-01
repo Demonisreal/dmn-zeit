@@ -216,9 +216,19 @@ describe('AuthService.login', () => {
 		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, client));
 		await failure(auth.login({ email: 'ben@muster.test', password: 'kaffee mit milch' }, client));
 
-		expect(anna.failures).toBe(1);
+		await vi.waitFor(() => expect(anna.failures).toBe(1));
 		expect(ben.failures).toBe(0);
 		expect(store.loginFailed).toHaveBeenCalledTimes(1);
+	});
+
+	it('answers a wrong password before it counts and files it', async () => {
+		const { auth, store, audit } = setup();
+		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, client));
+
+		expect(store.loginFailed).not.toHaveBeenCalled();
+		expect(audit.record).not.toHaveBeenCalled();
+		await vi.waitFor(() => expect(audit.record).toHaveBeenCalledTimes(1));
+		expect(store.loginFailed).toHaveBeenCalledWith('u-anna');
 	});
 
 	it('turns away even the right password while the account is locked, without adding to it', async () => {
@@ -261,7 +271,7 @@ describe('AuthService.login', () => {
 		await failure(auth.login({ email: 'anna@muster.test', password: 'kaffee mit milch' }, client));
 		await failure(auth.login({ email: 'nobody@muster.test', password: PASSWORD }, client));
 
-		expect(audit.record).toHaveBeenCalledTimes(1);
+		await vi.waitFor(() => expect(audit.record).toHaveBeenCalledTimes(1));
 		expect(audit.record).toHaveBeenCalledWith(
 			expect.objectContaining({ userId: 'u-anna', actor: null, action: 'login.failed' })
 		);

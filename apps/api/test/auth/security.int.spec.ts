@@ -109,6 +109,45 @@ describe('step-up', () => {
 	});
 });
 
+describe('other sessions after a change of factors', () => {
+	// the laptop makes the change, the phone stands for a session someone else might hold
+	async function twoDevicesWithTotp() {
+		const { browser: laptop, email } = await signedIn();
+		const phone = api.browser();
+		await phone.signIn(email);
+		await laptop.reauth();
+		const setup = await laptop.post('/security/totp/setup');
+		await laptop.post('/security/totp/confirm', { code: appCode(setup.body.secret, 0) });
+		expect((await phone.get('/auth/session')).status).toBe(200);
+		return { laptop, phone };
+	}
+
+	it('ends them when a passkey goes, the current one stays', async () => {
+		const { laptop, phone } = await twoDevicesWithTotp();
+		const passkeyId = (await laptop.get('/security')).body.passkeys[0].id as string;
+
+		expect((await laptop.delete(`/security/passkeys/${passkeyId}`)).status).toBe(204);
+		expect((await phone.get('/auth/session')).status).toBe(401);
+		expect((await laptop.get('/auth/session')).status).toBe(200);
+	});
+
+	it('ends them when the authenticator app goes, the current one stays', async () => {
+		const { laptop, phone } = await twoDevicesWithTotp();
+
+		expect((await laptop.delete('/security/totp')).status).toBe(204);
+		expect((await phone.get('/auth/session')).status).toBe(401);
+		expect((await laptop.get('/auth/session')).status).toBe(200);
+	});
+
+	it('ends them when the recovery codes are renewed, the current one stays', async () => {
+		const { laptop, phone } = await twoDevicesWithTotp();
+
+		expect((await laptop.post('/security/recovery-codes')).status).toBe(200);
+		expect((await phone.get('/auth/session')).status).toBe(401);
+		expect((await laptop.get('/auth/session')).status).toBe(200);
+	});
+});
+
 describe('passkeys', () => {
 	it('renames one of the own passkeys only', async () => {
 		const { browser } = await signedIn();
@@ -137,10 +176,11 @@ describe('POST /api/users/:id/mfa/reset', () => {
 		expect((await admin.browser.post(`/users/${worker.userId}/mfa/reset`)).status).toBe(204);
 
 		expect((await worker.browser.get('/auth/session')).status).toBe(401);
-		const fresh = await api
+		// the password went with the factors, the way back in is a reset link to the mailbox
+		const stale = await api
 			.browser()
 			.post('/auth/login', { email: worker.email, password: PASSWORD });
-		expect(fresh.body.security.enrollmentPending).toBe(true);
+		expect(stale.status).toBe(401);
 
 		const { rows } = await api.superuser.query(
 			`select actor_user_id from audit.log where action = 'mfa.reset' and row_id = $1`,
@@ -152,6 +192,31 @@ describe('POST /api/users/:id/mfa/reset', () => {
 				api.mails.some((mail) => mail.to === worker.email && /zurückgesetzt/.test(mail.subject))
 			).toBe(true)
 		);
+	});
+
+	it('leads the person back in through the link in the mail, with the new password only', async () => {
+		const tenantId = await createTenant();
+		const admin = await signedIn({ tenantId, role: 'admin' });
+		const worker = await api.member({ tenantId });
+		await admin.browser.reauth();
+		expect((await admin.browser.post(`/users/${worker.userId}/mfa/reset`)).status).toBe(204);
+
+		await vi.waitFor(() =>
+			expect(api.mails.some((mail) => mail.to === worker.email && /reset#t=/.test(mail.text))).toBe(
+				true
+			)
+		);
+		const mail = api.mails.findLast((sent) => sent.to === worker.email)!;
+		const token = mail.text.match(/\/reset#t=([\w-]{43})/)![1]!;
+		const reset = await api
+			.browser()
+			.post('/auth/password/reset', { token, password: 'ein ganz neues passwort' });
+		expect(reset.status).toBe(204);
+
+		expect((await api.browser().signIn(worker.email)).status).toBe(401);
+		const back = await api.browser().signIn(worker.email, 'ein ganz neues passwort');
+		expect(back.status).toBe(200);
+		expect(back.body.security.enrollmentPending).toBe(true);
 	});
 
 	it('does not reach other tenants, the own account or non-admins', async () => {

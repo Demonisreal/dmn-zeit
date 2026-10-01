@@ -6,6 +6,7 @@ import type { MfaRecoveryInput, MfaTotpInput, PasskeyAssertionInput, Session } f
 import type { Request, Response } from 'express';
 import { CurrentClient, type Client } from '../common/client.decorator';
 import { Public } from '../common/session.guard';
+import { ThrottlePerNetwork } from '../common/throttle';
 import { ZodPipe } from '../common/zod.pipe';
 import { MfaService } from './mfa.service';
 import { NotInDemoGuard } from './not-in-demo.guard';
@@ -14,7 +15,9 @@ import { WebAuthn } from './webauthn';
 // the second step after the password and the login with a passkey alone
 @Public()
 @UseGuards(NotInDemoGuard)
-@Throttle({ default: { limit: 10, ttl: minutes(1) } })
+// same office-nat headroom as the login limit
+@Throttle({ default: { limit: 60, ttl: minutes(1) } })
+@ThrottlePerNetwork()
 @Controller('auth')
 export class MfaController {
 	constructor(

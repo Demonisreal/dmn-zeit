@@ -20,7 +20,7 @@ import type {
 import type { Response } from 'express';
 import { CurrentClient, type Client } from '../common/client.decorator';
 import { Public } from '../common/session.guard';
-import { ThrottlePerEmail } from '../common/throttle';
+import { ThrottlePerEmail, ThrottlePerNetwork } from '../common/throttle';
 import { ZodPipe } from '../common/zod.pipe';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
@@ -39,7 +39,10 @@ export class AuthController {
 
 	@Post('login')
 	@HttpCode(200)
-	@Throttle({ default: { limit: 10, ttl: minutes(1) } })
+	@ThrottlePerEmail()
+	@ThrottlePerNetwork()
+	// 50 people behind one office nat plus typos need more than the old 10/min
+	@Throttle({ default: { limit: 60, ttl: minutes(1) }, email: { limit: 10, ttl: minutes(15) } })
 	async login(
 		@Body(new ZodPipe(loginSchema)) body: LoginInput,
 		@CurrentClient() client: Client,

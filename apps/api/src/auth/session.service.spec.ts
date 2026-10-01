@@ -97,12 +97,16 @@ describe('SessionService', () => {
 		const opened = await sessions.open(asResponse, 'u1', client);
 		const token = response.cookie.mock.calls[0]?.[1] as string;
 
-		expect(store.createSession).toHaveBeenCalledWith('u1', {
-			tokenHash: hashToken(token),
-			csrfHash: hashToken(csrfTokenFor(token)),
-			ip: '203.0.113.7',
-			userAgent: 'Firefox'
-		});
+		expect(store.createSession).toHaveBeenCalledWith(
+			'u1',
+			{
+				tokenHash: hashToken(token),
+				csrfHash: hashToken(csrfTokenFor(token)),
+				ip: '203.0.113.7',
+				userAgent: 'Firefox'
+			},
+			false
+		);
 		expect(opened).toEqual({
 			...profile,
 			mode: 'live',

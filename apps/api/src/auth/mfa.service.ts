@@ -15,6 +15,9 @@ import type { Client } from '../common/client.decorator';
 import { Clock } from '../common/clock';
 import type { AuthSession } from '../common/session.guard';
 import type { Config } from '../config';
+import { MailQueue } from '../mail/mail.queue';
+import { MailTransport } from '../mail/mail.transport';
+import { recoveryCodeUsedMail } from '../mail/templates';
 import { AuthService } from './auth.service';
 import { AuthStore } from './auth.store';
 import { FactorStore, type Scope } from './factor.store';
@@ -42,6 +45,7 @@ const wrongFactor = {
 @Injectable()
 export class MfaService {
 	private readonly dataKey: Buffer;
+	private readonly pepper: Buffer;
 
 	constructor(
 		private readonly factors: FactorStore,
@@ -49,11 +53,14 @@ export class MfaService {
 		private readonly auth: AuthService,
 		private readonly sessions: SessionService,
 		private readonly webauthn: WebAuthn,
+		private readonly mail: MailTransport,
+		private readonly queue: MailQueue,
 		private readonly audit: Audit,
 		private readonly clock: Clock,
 		config: ConfigService<Config, true>
 	) {
 		this.dataKey = config.get('DATA_ENCRYPTION_KEY', { infer: true });
+		this.pepper = config.get('PASSWORD_PEPPER', { infer: true });
 	}
 
 	// empty for someone without any second factor, their session then only reaches the setup
@@ -73,8 +80,14 @@ export class MfaService {
 		return { mfaRequired: true, methods };
 	}
 
-	async signIn(response: Response, userId: string, client: Client, method: string) {
-		const session = await this.sessions.open(response, userId, client);
+	async signIn(
+		response: Response,
+		userId: string,
+		client: Client,
+		method: string,
+		bypassLock = false
+	) {
+		const session = await this.sessions.open(response, userId, client, bypassLock);
 		await this.audit.record({
 			tenantId: session.tenant.id,
 			userId,
@@ -93,10 +106,24 @@ export class MfaService {
 		);
 	}
 
-	recovery(request: Request, response: Response, code: string, client: Client): Promise<Session> {
-		return this.secondStep(request, response, client, 'recovery', ({ userId }) =>
-			this.factors.useRecoveryCode(userId, hashRecoveryCode(code))
+	async recovery(
+		request: Request,
+		response: Response,
+		code: string,
+		client: Client
+	): Promise<Session> {
+		const session = await this.secondStep(request, response, client, 'recovery', ({ userId }) =>
+			this.factors.useRecoveryCode(userId, hashRecoveryCode(code, this.pepper))
 		);
+		// a code in the wrong hands looks just like this, so the person hears about every use
+		this.queue.later(() =>
+			this.mail.send({
+				tenantId: session.tenant.id,
+				to: session.user.email,
+				...recoveryCodeUsedMail(session.user.locale, { name: session.user.displayName })
+			})
+		);
+		return session;
 	}
 
 	passkey(
@@ -121,7 +148,8 @@ export class MfaService {
 			if (found && !found.verified) await this.loginFailed(found, 'passkey', client);
 			throw new UnauthorizedException(wrongFactor);
 		}
-		return this.signIn(response, found.userId, client, 'passkey');
+		// the lock counts guessed passwords and codes, none of which this login takes
+		return this.signIn(response, found.userId, client, 'passkey', true);
 	}
 
 	async reauth(session: AuthSession, input: ReauthInput, client: Client): Promise<ReauthResult> {

@@ -67,6 +67,24 @@ describe('session functions', () => {
 		expect(own.rows[0].gone).toBe(true);
 	});
 
+	it('ends every other session of a person and keeps the current one', async () => {
+		const tenant = await createTenant();
+		const owner = await createUser(tenant);
+		const bystander = await createUser(tenant);
+		const current = await signIn(owner);
+		await signIn(owner);
+		await signIn(owner);
+		const theirs = await signIn(bystander);
+
+		await app.query('select auth.session_revoke_others($1, $2)', [owner.userId, current.id]);
+
+		const { rows } = await superuser.query(
+			'select id from auth.sessions where user_id = any ($1)',
+			[[owner.userId, bystander.userId]]
+		);
+		expect(rows.map((row) => row.id).sort()).toEqual([current.id, theirs.id].sort());
+	});
+
 	it('inspects only open and unexpired tokens', async () => {
 		const tenant = await createTenant();
 		const invited = await createUser(tenant);

@@ -10,7 +10,7 @@ import {
 } from '@zeit/shared';
 import { DatabaseError } from 'pg';
 import { z } from 'zod';
-import { mailReset, resetMfa } from './cli/mfa-reset';
+import { mailReset, resetLink, resetMfa } from './cli/mfa-reset';
 import { archiveTenant } from './cli/tenant-archive';
 import { createTenant } from './cli/tenant-create';
 import { loadConfig, type Config } from './config';
@@ -131,13 +131,15 @@ async function mfaReset(rest: string[]) {
 		const person = await resetMfa(db, args.email);
 		if (!person) return fail('No user with that email');
 
-		console.log(`Second factors of ${person.email} removed, all sessions ended.`);
+		const link = await resetLink(db, person, config.APP_ORIGIN);
+		console.log(`Second factors and password of ${person.email} removed, all sessions ended.`);
+		const handOver = `Hand the person this link, valid for 30 minutes:\n${link}`;
 		try {
-			if (await mailReset(config, person)) console.log('Notice mailed.');
-			else console.log(`APP_MODE is ${config.APP_MODE}, no mail sent. Tell the person yourself.`);
+			if (await mailReset(config, person, link)) console.log('Notice with the reset link mailed.');
+			else console.log(`APP_MODE is ${config.APP_MODE}, no mail sent. ${handOver}`);
 		} catch (error) {
 			// the reset is committed at this point, only the notice went missing
-			fail(`Notice not mailed (${(error as Error).message}). Tell the person yourself.`);
+			fail(`Notice not mailed (${(error as Error).message}). ${handOver}`);
 		}
 	});
 }

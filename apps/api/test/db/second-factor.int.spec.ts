@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { connectAs, createTenant, createUser, type Account, withContext } from '../helpers/pg';
@@ -43,10 +44,12 @@ async function withTotp(account: Account, step = 1000) {
 	await call('select auth.totp_confirm($1, $2, $3) as result', [account.userId, step, codes()]);
 }
 
+// passkey_add, totp_remove and recovery_codes_replace take the person from app.user_id
 async function addPasskey(account: Account, credential = bytes()) {
+	await withContext(app, account.context);
 	return call<string>(
-		`select auth.passkey_add($1, $2, $3, 0, '{internal}', null, false, 'Laptop') as result`,
-		[account.userId, credential, bytes(77)]
+		`select auth.passkey_add($1, $2, 0, '{internal}', null, false, 'Laptop') as result`,
+		[credential, bytes(77)]
 	);
 }
 
@@ -138,9 +141,21 @@ describe('totp', () => {
 	it('removes the secret', async () => {
 		const user = await createUser(tenant);
 		await withTotp(user);
-		expect(await call('select auth.totp_remove($1) as result', [user.userId])).toBe(true);
+		await withContext(app, user.context);
+		expect(await call('select auth.totp_remove() as result', [])).toBe(true);
 		const { rows } = await app.query('select * from auth.totp_secret($1)', [user.userId]);
 		expect(rows).toEqual([]);
+	});
+
+	it('removes only the secret of whoever is signed in', async () => {
+		const user = await createUser(tenant);
+		const other = await createUser(tenant);
+		await withTotp(user);
+		await withContext(app, other.context);
+		expect(await call('select auth.totp_remove() as result', [])).toBe(false);
+
+		const { rows } = await app.query('select confirmed from auth.totp_secret($1)', [user.userId]);
+		expect(rows).toEqual([{ confirmed: true }]);
 	});
 });
 
@@ -149,7 +164,8 @@ describe('recovery codes', () => {
 		const user = await createUser(tenant);
 		const other = await createUser(tenant);
 		const own = codes();
-		await app.query('select auth.recovery_codes_replace($1, $2)', [user.userId, own]);
+		await withContext(app, user.context);
+		await app.query('select auth.recovery_codes_replace($1)', [own]);
 
 		const use = (account: Account, code: Buffer) =>
 			call('select auth.recovery_code_use($1, $2) as result', [account.userId, code]);
@@ -157,10 +173,45 @@ describe('recovery codes', () => {
 		expect(await use(user, own[0]!)).toBe(true);
 		expect(await use(user, own[0]!)).toBe(false);
 
-		await app.query('select auth.recovery_codes_replace($1, $2)', [user.userId, codes()]);
+		await app.query('select auth.recovery_codes_replace($1)', [codes()]);
 		expect(await use(user, own[1]!)).toBe(false);
 		const { rows } = await app.query('select recovery_left from auth.factors($1)', [user.userId]);
 		expect(rows[0].recovery_left).toBe(10);
+	});
+
+	it('replaces only the codes of whoever is signed in, and none without a session', async () => {
+		const user = await createUser(tenant);
+		const other = await createUser(tenant);
+		const own = codes();
+		await withContext(app, user.context);
+		await app.query('select auth.recovery_codes_replace($1)', [own]);
+
+		await withContext(app, other.context);
+		await app.query('select auth.recovery_codes_replace($1)', [codes()]);
+		const bare = await connectAs('app');
+		await expect(
+			bare.query('select auth.recovery_codes_replace($1)', [codes()])
+		).rejects.toMatchObject({ code: '23502' });
+
+		expect(
+			await call('select auth.recovery_code_use($1, $2) as result', [user.userId, own[0]!])
+		).toBe(true);
+	});
+
+	it('drops every code hashed before the switch to hmac', async () => {
+		const user = await createUser(tenant);
+		await withContext(app, user.context);
+		await app.query('select auth.recovery_codes_replace($1)', [codes()]);
+
+		const migration = await readFile(
+			new URL('../../../../db/migrations/20260926000970_recovery_codes_hmac.sql', import.meta.url),
+			'utf8'
+		);
+		const owner = await connectAs('owner');
+		await owner.query(migration.split('-- migrate:down')[0]!);
+
+		const { rows } = await app.query('select recovery_left from auth.factors($1)', [user.userId]);
+		expect(rows[0].recovery_left).toBe(0);
 	});
 });
 
@@ -177,6 +228,16 @@ describe('passkeys', () => {
 
 		await superuser.query(`update app.users set status = 'disabled' where id = $1`, [user.userId]);
 		expect((await find()).rows).toEqual([]);
+	});
+
+	it('adds a passkey only for a signed-in person', async () => {
+		await withContext(app, { tenantId: tenant });
+		await expect(
+			app.query(`select auth.passkey_add($1, $2, 0, '{internal}', null, false, 'Laptop')`, [
+				bytes(),
+				bytes(77)
+			])
+		).rejects.toMatchObject({ code: '23502' });
 	});
 
 	it('registers a credential only once', async () => {
@@ -373,6 +434,34 @@ describe('second factor reset', () => {
 		expect(rows[0].n).toBe(0);
 	});
 
+	it('takes the password along, only a reset link from the mailbox leads back in', async () => {
+		const admin = await createUser(tenant, { role: 'admin' });
+		const user = await createUser(tenant);
+		await superuser.query(`select auth.password_set($1, '$argon2id$v=19$m=19456,t=2,p=1$eA$eQ')`, [
+			user.userId
+		]);
+		await withTotp(user);
+
+		await withContext(app, admin.context);
+		await app.query('select auth.mfa_reset($1)', [user.userId]);
+		const passwords = () =>
+			superuser.query('select password_hash from auth.credentials where user_id = $1', [
+				user.userId
+			]);
+		expect((await passwords()).rows).toEqual([]);
+
+		const token = bytes();
+		await app.query(`select auth.token_issue($1, 'password_reset', $2)`, [user.userId, token]);
+		const reset = await call(
+			`select auth.password_reset($1, '$argon2id$v=19$m=19456,t=2,p=1$bmV1$bmV1') as result`,
+			[token]
+		);
+		expect(reset).toBe(user.userId);
+		expect((await passwords()).rows).toEqual([
+			{ password_hash: '$argon2id$v=19$m=19456,t=2,p=1$bmV1$bmV1' }
+		]);
+	});
+
 	it('refuses hr, admins of another tenant and admins on themselves', async () => {
 		const user = await createUser(tenant);
 		await withTotp(user);
@@ -391,6 +480,23 @@ describe('second factor reset', () => {
 			});
 		}
 		expect((await factorsOf(user)).has_totp).toBe(true);
+	});
+});
+
+describe('functions that take the person from the session', () => {
+	// the signatures before 20260926000920 let any zeit_app caller name someone else
+	it('no longer accept a user id from zeit_app', async () => {
+		const victim = await createUser(tenant);
+		for (const [text, values] of [
+			[
+				`select auth.passkey_add($1::uuid, $2, $3, 0, '{internal}', null, false, 'Laptop')`,
+				[victim.userId, bytes(), bytes(77)]
+			],
+			['select auth.totp_remove($1::uuid)', [victim.userId]],
+			['select auth.recovery_codes_replace($1::uuid, $2)', [victim.userId, codes()]]
+		] as const) {
+			await expect(app.query(text, [...values])).rejects.toMatchObject({ code: '42883' });
+		}
 	});
 });
 

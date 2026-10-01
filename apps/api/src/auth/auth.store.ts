@@ -90,9 +90,9 @@ export class AuthStore {
 		);
 	}
 
-	async createSession(userId: string, session: NewSession): Promise<void> {
+	async createSession(userId: string, session: NewSession, bypassLock = false): Promise<void> {
 		await sql`select auth.session_create(${userId}, ${session.tokenHash}, ${session.csrfHash},
-			${session.ip}::inet, ${session.userAgent})`.execute(this.db);
+			${session.ip}::inet, ${session.userAgent}, ${bypassLock})`.execute(this.db);
 	}
 
 	async resolveSession(tokenHash: Buffer): Promise<SessionRow | undefined> {

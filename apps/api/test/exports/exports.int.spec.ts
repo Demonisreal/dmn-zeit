@@ -127,7 +127,7 @@ describe('GET /api/exports/timesheet', () => {
 		expect(answer.status).toBe(200);
 		expect(answer.headers['content-type']).toBe('text/csv; charset=utf-8');
 		expect(answer.headers['content-disposition']).toBe(
-			'attachment; filename="timesheet-2026-04-P-100.csv"'
+			`attachment; filename="timesheet-2026-04-P-100.csv"; filename*=UTF-8''timesheet-2026-04-P-100.csv`
 		);
 		const expected = await golden('timesheet-2026-04.csv');
 		expect(answer.body.toString('utf8')).toBe(expected.toString('utf8'));
@@ -137,7 +137,7 @@ describe('GET /api/exports/timesheet', () => {
 	it('keeps the personnel number from bending the file name', async () => {
 		const answer = await raw(timesheet(hr.desk, clara.employeeId, 'csv'));
 		expect(answer.headers['content-disposition']).toBe(
-			'attachment; filename="timesheet-2026-04-_P-200.csv"'
+			`attachment; filename="timesheet-2026-04-_P-200.csv"; filename*=UTF-8''timesheet-2026-04-_P-200.csv`
 		);
 		expect(answer.body.toString('utf8').split('\r\n')[1]).toBe('2026-04-01;;0;480;0;0;-480;;;;');
 	});
@@ -209,7 +209,7 @@ describe('GET /api/exports/month-overview', () => {
 		expect(answer.status).toBe(200);
 		expect(answer.headers['content-type']).toBe('text/csv; charset=utf-8');
 		expect(answer.headers['content-disposition']).toBe(
-			'attachment; filename="month-overview-2026-04.csv"'
+			`attachment; filename="month-overview-2026-04.csv"; filename*=UTF-8''month-overview-2026-04.csv`
 		);
 		const expected = await golden('month-overview-2026-04.csv');
 		expect(answer.body.toString('utf8')).toBe(expected.toString('utf8'));

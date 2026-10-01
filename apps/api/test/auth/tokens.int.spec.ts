@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTenant } from '../../src/cli/tenant-create';
 import { Database } from '../../src/db/database';
 import { databaseUrl } from '../helpers/pg';
-import { expectContract, startApi, type Api } from './api';
+import { cookieFrom, expectContract, startApi, type Api } from './api';
 
 let api: Api;
 
@@ -175,6 +175,21 @@ describe('password reset', () => {
 		expect(again.body.code).toBe('TOKEN_INVALID');
 	});
 
+	it('still asks for the second factor after a reset', async () => {
+		const { email } = await api.member();
+		await api.browser().post('/auth/password/forgot', { email });
+		const token = await resetToken(email);
+		await api
+			.browser()
+			.post('/auth/password/reset', { token, password: 'ein ganz neues passwort' });
+
+		const answer = await api
+			.browser()
+			.post('/auth/login', { email, password: 'ein ganz neues passwort' });
+		expect(answer.body).toMatchObject({ mfaRequired: true });
+		expect(cookieFrom(answer, 'zeit_sid')).toBeUndefined();
+	});
+
 	it('sends at most three reset mails an hour to one address, from whatever address asked', async () => {
 		const { email } = await api.member();
 		for (let i = 0; i < 3; i++) {
@@ -184,6 +199,7 @@ describe('password reset', () => {
 			.browser()
 			.post('/auth/password/forgot', { email: email.toUpperCase() });
 		expect(fourth.status).toBe(429);
+		expect(fourth.headers['retry-after']).toMatch(/^\d+$/);
 		expect(fourth.body.code).toBe('RATE_LIMITED');
 	});
 });

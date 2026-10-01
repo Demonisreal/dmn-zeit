@@ -49,8 +49,10 @@ export async function startApi(origin = 'http://localhost:5173') {
 		]);
 
 		const authenticator = new SoftAuthenticator(origin, userId);
+		// straight into the table, auth.passkey_add wants the person as app.user_id of a session
 		await superuser.query(
-			`select auth.passkey_add($1, $2, $3, 0, '{internal}', null, false, 'Testschlüssel')`,
+			`insert into auth.passkeys (user_id, credential_id, public_key, counter, transports, backed_up, name)
+			 values ($1, $2, $3, 0, '{internal}', false, 'Testschlüssel')`,
 			[userId, authenticator.credentialId, authenticator.publicKey]
 		);
 		const email = await emailOf(superuser, userId);
@@ -74,7 +76,8 @@ export async function startApi(origin = 'http://localhost:5173') {
 		mails,
 		member,
 		invited,
-		browser: () => new Browser(app.getHttpServer(), origin, authenticators)
+		// all default addresses share 203.0.113.0/24, tests of the network limit bring their own
+		browser: (address?: string) => new Browser(app.getHttpServer(), origin, authenticators, address)
 	};
 }
 
@@ -99,7 +102,6 @@ export function cookieFrom(response: request.Response, name: string) {
 
 // what the spa does: same-origin json writes, the cookies it was given, the csrf token from the answer
 export class Browser {
-	readonly address = nextAddress();
 	cookie: string | undefined;
 	mfaCookie: string | undefined;
 	csrf: string | undefined;
@@ -108,7 +110,8 @@ export class Browser {
 	constructor(
 		private readonly http: ReturnType<NestExpressApplication['getHttpServer']>,
 		private readonly origin: string,
-		private readonly authenticators: Map<string, SoftAuthenticator>
+		private readonly authenticators: Map<string, SoftAuthenticator>,
+		readonly address = nextAddress()
 	) {}
 
 	get(path: string) {

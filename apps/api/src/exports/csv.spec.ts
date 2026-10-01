@@ -25,12 +25,24 @@ describe('toCsv', () => {
 	it.each([
 		['=1+1', "'=1+1"],
 		['+1', "'+1"],
-		['-1', "'-1"],
 		['@SUM(A1:A2)', "'@SUM(A1:A2)"],
 		['\t=1+1', "'\t=1+1"],
 		['=HYPERLINK("http://example.test")', `"'=HYPERLINK(""http://example.test"")"`]
 	])('turns %j into text', (raw, written) => {
 		expect(line([raw])).toBe(written);
+	});
+
+	// B7: a negative amount written as text (german locale, comma decimal) stays a number for the sheet
+	it.each([
+		['-1', '-1'],
+		['-120,00', '-120,00'],
+		['-120.00', '-120.00']
+	])('leaves the signed decimal %j alone', (raw, written) => {
+		expect(line([raw])).toBe(written);
+	});
+
+	it('still defuses a leading minus followed by more than a plain number', () => {
+		expect(line(['-1+1'])).toBe("'-1+1");
 	});
 
 	it('quotes a cell starting with a carriage return after defusing it', () => {

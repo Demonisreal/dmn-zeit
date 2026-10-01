@@ -218,12 +218,65 @@ export function recoveryCodesRenewedMail(locale: Locale, { name }: { name: strin
 	});
 }
 
-export function mfaResetMail(locale: Locale, { name }: { name: string }): MailText {
+export function recoveryCodeUsedMail(locale: Locale, { name }: { name: string }): MailText {
+	return notice(locale, name, {
+		de: {
+			subject: 'Anmeldung mit Wiederherstellungscode bei DMN Zeit',
+			lines: [
+				'bei Ihrem Zugang zu DMN Zeit hat sich soeben jemand mit einem Wiederherstellungscode angemeldet. Dieser Code gilt jetzt nicht mehr.',
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'Sign-in with a recovery code at DMN Zeit',
+			lines: [
+				'someone just signed in to your DMN Zeit account with a recovery code. That code no longer works.',
+				'',
+				notYou.en
+			]
+		}
+	});
+}
+
+export function billingIbanChangedMail(
+	locale: Locale,
+	{ name, lastFour }: { name: string; lastFour: string | null }
+): MailText {
+	const account = lastFour ? `…${lastFour}` : (locale === 'en' ? 'removed' : 'entfernt');
+	return notice(locale, name, {
+		de: {
+			subject: 'Bankverbindung für Rechnungen geändert',
+			lines: [
+				`die Bankverbindung Ihres Betriebs für Rechnungen wurde geändert (IBAN endet auf ${account}).`,
+				'',
+				notYou.de
+			]
+		},
+		en: {
+			subject: 'Bank account for invoices changed',
+			lines: [
+				`the bank account of your business for invoices was changed (IBAN ends in ${account}).`,
+				'',
+				notYou.en
+			]
+		}
+	});
+}
+
+export function mfaResetMail(
+	locale: Locale,
+	{ name, link }: { name: string; link: string }
+): MailText {
 	return notice(locale, name, {
 		de: {
 			subject: 'Zwei-Faktor-Anmeldung für DMN Zeit zurückgesetzt',
 			lines: [
-				'Ihre Administration hat die Zwei-Faktor-Anmeldung Ihres Zugangs zu DMN Zeit zurückgesetzt und alle Sitzungen beendet. Beim nächsten Anmelden richten Sie eine Authenticator-App oder einen Passkey neu ein.',
+				'Ihre Administration hat die Zwei-Faktor-Anmeldung und das Passwort Ihres Zugangs zu DMN Zeit zurückgesetzt und alle Sitzungen beendet. Über diesen Link legen Sie ein neues Passwort fest:',
+				'',
+				link,
+				'',
+				'Der Link gilt 30 Minuten und nur einmal, danach fordern Sie über „Passwort vergessen“ einen neuen an. Beim nächsten Anmelden richten Sie eine Authenticator-App oder einen Passkey neu ein.',
 				'',
 				'Haben Sie das nicht veranlasst, fragen Sie bitte bei Ihrer Administration nach.'
 			]
@@ -231,7 +284,11 @@ export function mfaResetMail(locale: Locale, { name }: { name: string }): MailTe
 		en: {
 			subject: 'Two-factor sign-in for DMN Zeit was reset',
 			lines: [
-				'your administrator reset the two-factor sign-in of your DMN Zeit account and ended all sessions. At your next sign-in you set up an authenticator app or a passkey again.',
+				'your administrator reset the two-factor sign-in and the password of your DMN Zeit account and ended all sessions. Use this link to choose a new password:',
+				'',
+				link,
+				'',
+				'The link works once and for 30 minutes, after that request a new one via "Forgot password". At your next sign-in you set up an authenticator app or a passkey again.',
 				'',
 				'If you did not ask for this, please check with your administrator.'
 			]
