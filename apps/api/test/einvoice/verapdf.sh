@@ -12,6 +12,7 @@ trap 'rm -rf "$pdfs"' EXIT
 
 cd "$here/../.."
 VERAPDF_PDF_DIR="$pdfs" pnpm exec vitest run test/einvoice/zugferd-pdf.spec.ts
+chmod -R a+rX "$pdfs"
 
 status=0
 report=$(MSYS_NO_PATHCONV=1 docker run --rm --network none -v "$pdfs:/pdfs:ro" "$verapdf" \
