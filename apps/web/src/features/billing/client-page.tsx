@@ -111,6 +111,8 @@ function ClientFacts({ client }: { client: Client }) {
 			<dd>{client.isBusiness ? t('client.business') : t('client.private')}</dd>
 			<dt>{t('client.vatId')}</dt>
 			<dd className={styles.mono}>{client.vatId ?? '–'}</dd>
+			<dt>{t('client.buyerReference')}</dt>
+			<dd className={styles.mono}>{client.buyerReference ?? '–'}</dd>
 			<dt>{t('client.email')}</dt>
 			<dd>{client.email ?? '–'}</dd>
 			<dt>{t('client.invoiceLocale')}</dt>

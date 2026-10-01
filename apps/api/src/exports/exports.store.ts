@@ -26,6 +26,11 @@ export class ExportsStore {
 		return trx.selectFrom('app.tenants').select(['name', 'state']).executeTakeFirstOrThrow();
 	}
 
+	async sandbox(trx: Trx): Promise<boolean> {
+		const tenant = await trx.selectFrom('app.tenants').select('kind').executeTakeFirstOrThrow();
+		return tenant.kind === 'sandbox';
+	}
+
 	async locale(trx: Trx, userId: string): Promise<Locale> {
 		const user = await trx
 			.selectFrom('app.users')

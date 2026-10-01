@@ -52,7 +52,7 @@
 			</ram:SpecifiedLineTradeSettlement>
 		</ram:IncludedSupplyChainTradeLineItem>
 		<ram:ApplicableHeaderTradeAgreement>
-			<ram:BuyerReference>14713000-DIGI01-45</ram:BuyerReference>
+			<ram:BuyerReference>14713000-DIGI01-62</ram:BuyerReference>
 			<ram:SellerTradeParty>
 				<ram:Name>Mira Beispiel Softwareentwicklung</ram:Name>
 				<ram:DefinedTradeContact>
@@ -89,7 +89,7 @@
 					<ram:CountryID>DE</ram:CountryID>
 				</ram:PostalTradeAddress>
 				<ram:URIUniversalCommunication>
-					<ram:URIID schemeID="0204">14713000-DIGI01-45</ram:URIID>
+					<ram:URIID schemeID="0204">14713000-DIGI01-62</ram:URIID>
 				</ram:URIUniversalCommunication>
 			</ram:BuyerTradeParty>
 		</ram:ApplicableHeaderTradeAgreement>

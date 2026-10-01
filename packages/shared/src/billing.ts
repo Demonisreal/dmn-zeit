@@ -88,7 +88,8 @@ export const invoicePrefixSchema = z.string().regex(/^[A-Z0-9-]{0,10}$/);
 
 // quantity_milli is bigint too, same string encoding kysely gives cents
 const quantityMilliSchema = z.string().regex(/^-?\d{1,15}$/);
-const positiveQuantityMilliSchema = z.string().regex(/^[1-9]\d{0,14}$/);
+const positiveQuantityMilliSchema = z.string().regex(/^[1-9]\d{0,8}$/);
+const unitPriceCentsSchema = z.string().regex(/^-?\d{1,9}$/, 'format.cents');
 
 export const billingProfileSchema = z.object({
 	legalName: z.string(),
@@ -195,7 +196,8 @@ export const invoiceSummarySchema = z.object({
 	issueDate: isoDateSchema.nullable(),
 	dueDate: isoDateSchema.nullable(),
 	grossCents: centsSchema,
-	overdue: z.boolean()
+	overdue: z.boolean(),
+	format: z.enum(invoiceFormats)
 });
 
 export const invoicePageSchema = pageOf(invoiceSummarySchema);
@@ -255,6 +257,7 @@ export const invoiceLineSchema = z.object({
 	netCents: centsSchema,
 	taxCategory: z.enum(taxCategories),
 	taxRateBp: z.int(),
+	exemptionReason: z.string().nullable(),
 	derivation: invoiceLineDerivationSchema
 });
 
@@ -274,7 +277,11 @@ export const invoiceTotalsSchema = z.object({
 });
 
 // the id of the counterpart: the original on a cancellation, the cancellation on a cancelled invoice
-const invoiceRefSchema = z.object({ id: uuidSchema, number: z.string().nullable() });
+const invoiceRefSchema = z.object({
+	id: uuidSchema,
+	number: z.string().nullable(),
+	issueDate: isoDateSchema.nullable()
+});
 
 export const invoiceSchema = z.object({
 	id: uuidSchema,
@@ -318,11 +325,22 @@ export const invoiceSchema = z.object({
 });
 
 // aggregation period has no fixed limit in the plan, 366 days keeps a fat-fingered range from stalling
-const invoicePeriod = (range: { from: string; to: string }, ctx: z.RefinementCtx) => {
+export const invoicePeriodIssue = (range: {
+	from: string;
+	to: string;
+}): 'range.unordered' | 'invoice.rangeTooLong' | null => {
 	if (range.from > range.to) {
-		ctx.addIssue({ code: 'custom', message: 'range.unordered', path: ['to'] });
-	} else if ((Date.parse(range.to) - Date.parse(range.from)) / 86_400_000 + 1 > 366) {
-		ctx.addIssue({ code: 'custom', message: 'invoice.rangeTooLong', path: ['to'] });
+		return 'range.unordered';
+	}
+	return (Date.parse(range.to) - Date.parse(range.from)) / 86_400_000 + 1 > 366
+		? 'invoice.rangeTooLong'
+		: null;
+};
+
+const invoicePeriod = (range: { from: string; to: string }, ctx: z.RefinementCtx) => {
+	const issue = invoicePeriodIssue(range);
+	if (issue !== null) {
+		ctx.addIssue({ code: 'custom', message: issue, path: ['to'] });
 	}
 };
 
@@ -357,8 +375,9 @@ export const invoiceLineInputSchema = z.strictObject({
 	description: invoiceMultilineText(1000),
 	quantityMilli: positiveQuantityMilliSchema,
 	unit: z.enum(invoiceLineUnits),
-	unitPriceCents: centsSchema,
-	taxCategory: z.enum(taxCategories)
+	unitPriceCents: unitPriceCentsSchema,
+	taxCategory: z.enum(taxCategories),
+	exemptionReason: invoicePlainText(200).optional()
 });
 
 export const issueInvoiceSchema = z.strictObject({ format: z.enum(invoiceFormats) });

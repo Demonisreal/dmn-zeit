@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type {
 	InvoiceFormat,
@@ -49,7 +48,8 @@ function entryRowQuery(trx: Trx) {
 			'p.rounding_increment_min as projectIncrement',
 			'p.rounding_mode as projectMode',
 			'c.rounding_increment_min as clientIncrement',
-			'c.rounding_mode as clientMode'
+			'c.rounding_mode as clientMode',
+			'e.source'
 		]);
 }
 
@@ -78,6 +78,7 @@ function baseInvoiceQuery(trx: Trx) {
 			'i.locale',
 			'i.format',
 			'i.tax_profile',
+			'i.tax_treatment',
 			'i.seller',
 			'i.buyer',
 			'i.intro_text',
@@ -95,7 +96,8 @@ function baseInvoiceQuery(trx: Trx) {
 			'issuer.display_name as issuedByName',
 			'canceller.id as cancelledById',
 			'canceller.display_name as cancelledByName',
-			'ref.number as refersToNumber'
+			'ref.number as refersToNumber',
+			'ref.issue_date as refersToIssueDate'
 		]);
 }
 
@@ -116,7 +118,11 @@ export class InvoicesStore {
 		trx: Trx,
 		id: string
 	): Promise<
-		| { invoice: InvoiceRowDb; lines: InvoiceLineRowDb[]; refersTo: { id: string; number: string | null } | null }
+		| {
+				invoice: InvoiceRowDb;
+				lines: InvoiceLineRowDb[];
+				refersTo: { id: string; number: string | null; issueDate: string | null } | null;
+		  }
 		| undefined
 	> {
 		const row = await baseInvoiceQuery(trx).where('i.id', '=', id).executeTakeFirst();
@@ -129,16 +135,19 @@ export class InvoicesStore {
 		return {
 			invoice: toInvoiceRow(row),
 			lines,
-			refersTo: row.refers_to_id ? { id: row.refers_to_id, number: row.refersToNumber } : null
+			refersTo: row.refers_to_id
+				? { id: row.refers_to_id, number: row.refersToNumber, issueDate: row.refersToIssueDate }
+				: null
 		};
 	}
 
 	// the essentials an operation on an existing invoice needs before it touches its lines
-	essentials(trx: Trx, id: string) {
+	essentials(trx: Trx, id: string, options: { lock?: boolean } = {}) {
 		return trx
 			.selectFrom('app.invoices')
 			.select([
 				'id',
+				'kind',
 				'status',
 				'number',
 				'client_id as clientId',
@@ -147,9 +156,11 @@ export class InvoicesStore {
 				'locale',
 				'format',
 				'tax_profile as taxProfile',
+				'tax_treatment as taxTreatment',
 				'payment_terms_days as paymentTermsDays'
 			])
 			.where('id', '=', id)
+			.$if(options.lock === true, (qb) => qb.forUpdate())
 			.executeTakeFirst();
 	}
 
@@ -172,10 +183,10 @@ export class InvoicesStore {
 				'i.issue_date as issueDate',
 				'i.due_date as dueDate',
 				'i.gross_cents as grossCents',
+				'i.format',
 				'i.created_at as createdAt',
-				sql<boolean>`i.due_date < (now() at time zone 'Europe/Berlin')::date and i.status = 'issued'`.as(
-					'overdue'
-				)
+				sql<boolean>`i.due_date < (now() at time zone 'Europe/Berlin')::date
+					and i.status = 'issued' and i.kind = 'invoice'`.as('overdue')
 			])
 			.$if(filter.status !== undefined, (qb) => qb.where('i.status', 'in', filter.status! as never[]))
 			.$if(filter.client !== undefined, (qb) => qb.where('i.client_id', '=', filter.client!))
@@ -273,6 +284,7 @@ export class InvoicesStore {
 			format: AppInvoiceFormat;
 			locale: string;
 			taxProfile: AppTaxProfile;
+			taxTreatment: SharedTaxCategory;
 			paymentTermsDays: number;
 			introText: string | null;
 			closingText: string | null;
@@ -289,6 +301,7 @@ export class InvoicesStore {
 				locale: input.locale,
 				format: input.format,
 				tax_profile: input.taxProfile,
+				tax_treatment: input.taxTreatment,
 				intro_text: input.introText,
 				closing_text: input.closingText,
 				created_by: ctx.userId
@@ -422,7 +435,8 @@ export class InvoicesStore {
 				unit_price_cents: input.unitPriceCents,
 				net_cents: input.netCents,
 				tax_category: input.taxCategory,
-				tax_rate_bp: input.taxRateBp
+				tax_rate_bp: input.taxRateBp,
+				exemption_reason: input.exemptionReason ?? null
 			})
 			.returningAll()
 			.executeTakeFirstOrThrow();
@@ -448,6 +462,7 @@ export class InvoicesStore {
 			net_cents: bigint;
 			tax_category: SharedTaxCategory;
 			tax_rate_bp: number;
+			exemption_reason: string | null;
 		}
 	) {
 		return trx
@@ -504,6 +519,7 @@ export class InvoicesStore {
 			intro_text: string | null;
 			closing_text: string | null;
 			payment_terms_days: number;
+			tax_treatment: SharedTaxCategory;
 		}>
 	) {
 		return trx
@@ -514,6 +530,15 @@ export class InvoicesStore {
 			.executeTakeFirst();
 	}
 
+	async setDraftFormat(trx: Trx, id: string, format: AppInvoiceFormat): Promise<void> {
+		await trx
+			.updateTable('app.invoices')
+			.set({ format })
+			.where('id', '=', id)
+			.where('status', '=', 'draft')
+			.execute();
+	}
+
 	async deleteDraft(trx: Trx, id: string): Promise<boolean> {
 		// the fk on project_entries frees them (on delete set null), lines cascade with the invoice
 		const deleted = await trx.deleteFrom('app.invoices').where('id', '=', id).executeTakeFirst();
@@ -521,16 +546,16 @@ export class InvoicesStore {
 	}
 
 	// the caller re-reads the full model afterwards, this only confirms which row it landed on
-	async issue(trx: Trx, id: string): Promise<{ id: string }> {
+	async issue(trx: Trx, id: string): Promise<{ id: string } | undefined> {
 		const { rows } = await sql<{ id: string }>`select id from app.issue_invoice(${id}::uuid)`.execute(trx);
-		return rows[0]!;
+		return rows[0];
 	}
 
-	async cancel(trx: Trx, id: string, reason: string): Promise<{ id: string }> {
+	async cancel(trx: Trx, id: string, reason: string): Promise<{ id: string } | undefined> {
 		const { rows } = await sql<{
 			id: string;
 		}>`select id from app.invoice_cancel(${id}::uuid, ${reason})`.execute(trx);
-		return rows[0]!;
+		return rows[0];
 	}
 
 	setPaid(trx: Trx, id: string, paidOn: string) {
@@ -562,20 +587,8 @@ export class InvoicesStore {
 			.executeTakeFirst();
 	}
 
-	// the guard_invoice_document trigger recomputes sha256 itself (R-07), this is only to satisfy the not-null column
-	saveDocument(trx: Trx, tenantId: string, invoiceId: string, format: string, content: Buffer, createdBy: string | null) {
-		return trx
-			.insertInto('app.invoice_documents')
-			.values({
-				tenant_id: tenantId,
-				invoice_id: invoiceId,
-				format,
-				content,
-				sha256: createHash('sha256').update(content).digest(),
-				created_by: createdBy
-			})
-			.returning(['content', 'sha256'])
-			.executeTakeFirst();
+	saveDocument(trx: Trx, invoiceId: string, format: string, content: Buffer) {
+		return sql`select app.store_invoice_document(${invoiceId}::uuid, ${format}, ${content})`.execute(trx);
 	}
 
 	// the frozen assignment of an issued invoice, never re-derived from project_entries afterwards
@@ -601,6 +614,15 @@ export class InvoicesStore {
 			])
 			.where('le.invoice_id', '=', invoiceId)
 			.orderBy('e.started_at')
+			.execute();
+	}
+
+	lineEntrySpans(trx: Trx, invoiceId: string) {
+		return trx
+			.selectFrom('app.invoice_line_entries as le')
+			.innerJoin('app.project_entries as e', 'e.id', 'le.entry_id')
+			.select(['e.id', 'e.source', 'e.started_at as startedAt', 'e.ended_at as endedAt'])
+			.where('le.invoice_id', '=', invoiceId)
 			.execute();
 	}
 

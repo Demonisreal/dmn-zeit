@@ -32,6 +32,14 @@ const BERLIN = 'Europe/Berlin';
 const date = (iso: string) => Temporal.PlainDate.from(iso);
 const local = (text: string) => Temporal.ZonedDateTime.from(`${text}[${BERLIN}]`).toInstant();
 
+const hamburg = { street: 'Hafenstraße 12', postalCode: '20359', city: 'Hamburg' };
+const paperInvoice = {
+	kind: 'invoice',
+	format: 'pdf',
+	seller: hamburg,
+	buyer: { ...hamburg, leitwegId: false }
+} as const;
+
 describe('roundMinutes', () => {
 	it('rounds a cell up to the next increment', () => {
 		expect(roundMinutes(47, { increment: 15, mode: 'up' })).toEqual({
@@ -724,6 +732,7 @@ describe('invoiceForm', () => {
 	const complete = { hasVatId: true, hasTaxNumber: true };
 	const form = (overrides: Partial<Parameters<typeof invoiceForm>[0]> = {}) =>
 		invoiceForm({
+			...paperInvoice,
 			grossCents: 100_000n,
 			treatment: 'standard',
 			isBusiness: true,
@@ -1241,6 +1250,7 @@ describe('invoice check properties', () => {
 		'reverse charge always carries its note and deadline and is never a small amount invoice',
 		(grossCents, isBusiness, hasVatId, hasTaxNumber) => {
 			const form = invoiceForm({
+				...paperInvoice,
 				grossCents,
 				treatment: 'reverse_charge',
 				isBusiness,
@@ -1264,6 +1274,7 @@ describe('invoice check properties', () => {
 		'an invoice up to 250 euros never asks for a tax number',
 		(grossCents, treatment, isBusiness) => {
 			const form = invoiceForm({
+				...paperInvoice,
 				grossCents,
 				treatment,
 				isBusiness,

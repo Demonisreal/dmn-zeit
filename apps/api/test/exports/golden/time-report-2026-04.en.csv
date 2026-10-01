@@ -1,0 +1,9 @@
+﻿date,project,task,note,minutes,billable
+2026-04-01,Website,Umsetzung,"Startseite; Header ""neu""",150,x
+2026-04-01,Website,Abstimmung,"Abstimmung mit Frau Korn
+Rückruf am Freitag",48,x
+2026-04-02,Kassensystem,,'=SUMME(A1:A3),105,x
+2026-04-15,Website,Umsetzung,"'+49 221 4710-318 zurückgerufen, Termin steht",120,x
+2026-04-30,Kassensystem,,Kassenumstellung über Nacht,90,x
+,,,total,513,
+,,,billable,513,

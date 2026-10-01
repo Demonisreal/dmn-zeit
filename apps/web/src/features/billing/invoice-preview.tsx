@@ -23,7 +23,7 @@ export function InvoicePreview({ invoiceId, variant, refreshKey }: Props) {
 	const src =
 		variant === 'draft'
 			? `/api/invoices/${invoiceId}/preview.pdf`
-			: `/api/invoices/${invoiceId}/document?format=pdf`;
+			: `/api/invoices/${invoiceId}/document`;
 	const frameKey = `${refreshKey ?? ''}-${reloadNonce}`;
 
 	useEffect(() => {

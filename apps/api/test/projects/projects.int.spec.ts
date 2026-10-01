@@ -84,12 +84,59 @@ describe('clients', () => {
 		expect((await hr.get(`/projects/${project.id}`)).body.archivedAt).toEqual(expect.any(String));
 	});
 
-	it('wants a fresh confirmation before an admin deletes', async () => {
+	it('checks the vat id against the stored country when a patch brings only one of the two', async () => {
+		const client = await newClient('Voisin SARL');
+		const french = await hr.patch(`/clients/${client.id}`, {
+			countryCode: 'FR',
+			vatId: 'FR12345678901'
+		});
+		expect(french.status).toBe(200);
+
+		for (const half of [{ countryCode: 'DE' }, { vatId: 'NL853746291B01' }]) {
+			const refused = await hr.patch(`/clients/${client.id}`, half);
+			expect(refused.status).toBe(400);
+			expect(refused.body).toMatchObject({
+				code: 'VALIDATION',
+				details: [{ field: 'vatId', message: 'format.vatId' }]
+			});
+		}
+		expect((await hr.get(`/clients/${client.id}`)).body).toMatchObject({
+			countryCode: 'FR',
+			vatId: 'FR12345678901'
+		});
+
+		expect((await hr.patch(`/clients/${client.id}`, { vatId: 'FR98765432109' })).status).toBe(200);
+		expect((await hr.patch(`/clients/${client.id}`, { vatId: null })).status).toBe(200);
+		expect((await hr.patch(`/clients/${client.id}`, { countryCode: 'CH' })).status).toBe(200);
+		expect((await hr.patch(`/clients/${client.id}`, { vatId: 'CHE123456789' })).status).toBe(200);
+	});
+
+	it('checks the check digits of a leitweg-id on a patch as well', async () => {
+		const client = await newClient('Stadt Lindental');
+		const wrong = await hr.patch(`/clients/${client.id}`, { buyerReference: '04011000-12345-34' });
+		expect(wrong.status).toBe(400);
+		expect(wrong.body.details).toEqual([
+			expect.objectContaining({ field: 'buyerReference', message: 'format.leitwegId' })
+		]);
+		expect((await hr.get(`/clients/${client.id}`)).body.buyerReference).toBeNull();
+
+		const right = await hr.patch(`/clients/${client.id}`, { buyerReference: '04011000-12345-03' });
+		expect(right.status).toBe(200);
+		expect(right.body.buyerReference).toBe('04011000-12345-03');
+		expect(
+			(await hr.patch(`/clients/${client.id}`, { buyerReference: 'PO-2026-118' })).status
+		).toBe(200);
+	});
+
+	it('wants a fresh confirmation before an admin deletes and keeps the client', async () => {
 		const client = await newClient('Bestätigt GmbH');
 		const unconfirmed = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId);
 		const answer = await unconfirmed.delete(`/clients/${client.id}`);
 		expect(answer.status).toBe(403);
 		expect(answer.body.code).toBe('REAUTH_REQUIRED');
+		const kept = await hr.get(`/clients/${client.id}`);
+		expect(kept.status).toBe(200);
+		expect(kept.body).toMatchObject({ archivedAt: null, restrictedAt: null });
 	});
 });
 

@@ -33,6 +33,13 @@ ab Gesamtbetrag ≤ 250 Euro, sofern kein Ausschlussfall (Reverse Charge, innerg
 vorliegt. Leistungszeitraum wird aus den zugrunde liegenden Zeitbuchungen als Zeitraum
 (von–bis, mindestens Kalendermonat) übernommen, nicht als Einzeldatum je Buchung.
 
+Entschieden am 01.10.2026: Das PDF druckt auch die Kleinbetragsrechnung mit der vollen
+Positionstabelle (Menge, Einzelpreis, Steuersatz, Netto) und den Steuerzeilen. § 33 UStDV lässt
+weniger zu, verlangt es aber nicht; eine verkürzte Tabelle hatte Nettobeträge als "Gesamtbetrag"
+beschriftet. Reduziert sind nur die Pflichtfelder: Anschrift des Empfängers und Steuernummer werden
+nicht erzwungen, die vollständige Anschrift des Rechnungsstellers schon. Die Grenze gilt für den
+Betrag, eine Stornorechnung über mehr als 250 Euro ist also keine Kleinbetragsrechnung.
+
 **Quelle:** § 14 Abs. 4 UStG (https://www.gesetze-im-internet.de/ustg_1980/__14.html),
 § 31 Abs. 4 UStDV und § 33 UStDV
 (https://www.gesetze-im-internet.de/ustdv_1980/__33.html).
@@ -169,6 +176,15 @@ In-Place-Edit einer versendeten Rechnung, auch nicht für Tippfehler in Adresse 
 — dafür ist immer Weg (a) zu nutzen. Der Begriff "Gutschrift" wird in der Oberfläche nicht für
 Rechnungskorrekturen verwendet.
 
+**Darstellung in PDF und E-Rechnung:** Das PDF der Stornorechnung zeigt die Beträge negativ, so wie
+sie gespeichert sind, und nennt unter dem Titel das Original mit Nummer und Datum ("storniert
+Rechnung 2026-0012 vom 04.09.2026"). Zahlungsziel, Bankverbindung und der Verzugshinweis nach § 286
+Abs. 3 BGB entfallen, weil die Stornorechnung keine Zahlung anfordert. Die E-Rechnung trägt
+dieselben Beträge als Belegart 381 mit positiven Vorzeichen und Verweis auf das Original (BG-3),
+der Satz zum Original steht als Bemerkung (BT-22) im XML (Begründung in ADR 0004). Beträge im PDF
+negativ, im XML positiv ist damit eine bewusste Abweichung zwischen den beiden Darstellungen
+derselben Stornorechnung; ob das so bleiben kann, ist ein offener Punkt für die Steuerberatung.
+
 **Quelle:** § 31 Abs. 5 UStDV; § 14 Abs. 2 Satz 2 UStG
 (https://www.gesetze-im-internet.de/ustg_1980/__14.html); GoBD-Grundsatz der Unveränderbarkeit,
 BMF-Schreiben v. 11.03.2024 (Az. IV D 2 – S 0316/21/10001:002),
@@ -226,6 +242,17 @@ in Kraft getreten. Übergangsregel: Sie gilt erstmals für Unterlagen, deren bis
 Zehn-Jahres-Frist zu diesem Stichtag noch nicht abgelaufen war — bereits abgelaufene Fristen leben
 dadurch nicht wieder auf.
 
+Für Rechnungen regelt § 14b UStG die Aufbewahrung umsatzsteuerlich eigens: Der Unternehmer bewahrt
+ein Doppel jeder ausgestellten Rechnung und alle erhaltenen Rechnungen auf, die Frist beginnt mit
+dem Schluss des Kalenderjahrs der Ausstellung. Auch hier hat das Vierte Bürokratieentlastungsgesetz
+die Frist von zehn auf **acht Jahre** verkürzt, mit demselben Stichtag 01.01.2025 wie bei HGB und
+AO (Stand dieser Datei, 24.09.2026). Die Rechnungen müssen für den gesamten Zeitraum die
+Anforderungen aus § 14 Abs. 1 Satz 2 UStG erfüllen: Echtheit der Herkunft, Unversehrtheit des
+Inhalts und Lesbarkeit. Lesbar heißt für ein PDF, dass es über die ganze Frist ohne Änderung
+angezeigt und ausgedruckt werden kann (deshalb PDF/A-3b mit eingebetteter Schrift), für eine
+E-Rechnung, dass der strukturierte Datensatz selbst maschinell auswertbar bleibt; eine bildliche
+Kopie ersetzt ihn nicht.
+
 Nach dem BMF-Schreiben vom 14.07.2025 zur GoBD (Az. IV D 2 – 0316/00128/005/088) müssen
 aufbewahrungspflichtige Belege, die als strukturierter Datensatz (z. B. E-Rechnung) empfangen
 wurden, nicht zusätzlich bildlich (PDF/Papier) aufbewahrt werden — der strukturierte Datensatz
@@ -240,12 +267,15 @@ ZUGFeRD-Container) archiviert, nicht nur als Ausdruck oder Screenshot; eine zus�
 ist zulässig, aber nicht Ersatz für das Original. Löschroutinen (siehe Abschnitt 10) dürfen die
 Acht-Jahres-Frist nicht unterschreiten.
 
-**Quelle:** § 257 Abs. 1 Nr. 4 HGB, § 147 Abs. 3 AO; Viertes Bürokratieentlastungsgesetz
+**Quelle:** § 257 Abs. 1 Nr. 4 HGB, § 147 Abs. 3 AO, § 14b Abs. 1 UStG
+(https://www.gesetze-im-internet.de/ustg_1980/__14b.html), § 14 Abs. 1 Satz 2 UStG; Viertes
+Bürokratieentlastungsgesetz
 (Verkündung 18.10.2024, BGBl. 2024 I Nr. 323); BMF-Schreiben v. 11.03.2024 und v. 14.07.2025 zur
 GoBD
 (https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Weitere_Steuerthemen/Abgabenordnung/2025-07-14-GoBD-2-aenderung.pdf).
 **Gegenprüfen:** exakter Wortlaut der Übergangsvorschrift im EGHGB/EGAO am Gesetzestext selbst
-verifizieren, hier nur aus Sekundärquellen (Haufe, Lexware) referenziert.
+verifizieren, hier nur aus Sekundärquellen (Haufe, Lexware) referenziert. Gleiches gilt für die
+Übergangsregel zur Acht-Jahres-Frist in § 14b UStG.
 
 ## 9. Zahlungsziel, Verzugszinsen-Hinweis, Geschäftsbrief-Pflichtangaben
 
@@ -361,3 +391,36 @@ Löschroutine für Zeitbuchungen gebaut wird.
 6. Ob und wie die Kleinunternehmer-Umsatzgrenze (25.000/100.000 Euro) auf Basis von Ist- oder
    Soll-Versteuerung und auf Brutto- oder Nettobasis zu ermitteln ist, wenn der Mandant unterjährig
    von Kleinunternehmer- in Regelbesteuerung wechselt (Abschnitt 3).
+
+## Offene Punkte für die Steuerberatung
+
+Aus der Prüfung von Rechnungs-PDF und E-Rechnung am 01.10.2026. PDF und XML nehmen ihre Hinweistexte
+aus derselben Quelle (`apps/api/src/einvoice/texts.ts`), eine Änderung am Wortlaut trifft also
+beide.
+
+7. **Texte für EU-B2B und Drittland.** Bei sonstigen Leistungen an Unternehmer im übrigen
+   Gemeinschaftsgebiet (Leistungsort nach § 3a Abs. 2 UStG im anderen Mitgliedstaat) steht nur
+   "Steuerschuldnerschaft des Leistungsempfängers", auf englischen Rechnungen zusätzlich "/ Reverse
+   charge". Der frühere Verweis auf § 13b UStG ist entfallen, weil § 13b die Steuerschuld für
+   Umsätze im Inland regelt. Zu klären: ob eine Normangabe (§ 3a Abs. 2 UStG, Art. 196
+   MwStSystRL) auf die Rechnung gehört. Für das Drittland lautet der Hinweis "Nicht im Inland
+   steuerbare Leistung, Leistungsort nach § 3a Abs. 2 UStG im Ausland."; die eigene USt-IdNr.
+   entfällt dort wie im XML (EN 16931 BR-O-2), es bleibt die Steuernummer. Zu klären: ob Wortlaut
+   und Weglassen der USt-IdNr. so tragen und ob eine Kleinbetragsrechnung ins Drittland zulässig
+   ist (docs/rules.md, Grenzen).
+8. **Befreiungsnormen je Leistungsart.** Eine steuerfreie Position bekommt bisher den allgemeinen
+   Hinweis "Diese Position ist von der Umsatzsteuer befreit (§ 4 UStG)." § 14 Abs. 4 Nr. 8 UStG
+   verlangt einen Hinweis auf die Steuerbefreiung; üblich ist die konkrete Vorschrift (etwa § 4
+   Nr. 21 UStG für Bildungsleistungen). Geplant ist ein Eingabefeld je Position. Zu klären: welche
+   Befreiungen für die Zielgruppe vorkommen und welche Norm je Leistungsart anzugeben ist.
+9. **Nicht unterstützte Fälle.** Die Software kennt die Steuerschuld des Leistungsempfängers nur
+   für Unternehmer im übrigen Gemeinschaftsgebiet. Inländische Fälle nach § 13b Abs. 2 UStG (etwa
+   Bauleistungen, Gebäudereinigung) und Leistungen an Verbraucher in anderen Mitgliedstaaten, die
+   über das OSS-Verfahren (§ 18j UStG) zu versteuern wären, behandelt sie als regulär in
+   Deutschland steuerpflichtig. Zu klären: ob die Zielgruppe solche Umsätze hat und ob die Software
+   sie dann sperren muss.
+10. **Darstellung der Stornorechnung.** PDF mit negativen Beträgen, E-Rechnung als Belegart 381 mit
+    positiven Beträgen, Zahlungsart 97 und der Bemerkung "Wird mit der Rechnung … verrechnet."
+    (Abschnitt 6, ADR 0004). Zu klären: ob die unterschiedlichen Vorzeichen für die
+    Vorsteuerberichtigung des Empfängers unschädlich sind und ob der Verrechnungssatz passt, wenn das
+    Original schon bezahlt ist und Geld zurückfließt.

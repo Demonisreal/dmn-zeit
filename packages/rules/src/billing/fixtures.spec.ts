@@ -68,6 +68,14 @@ const groupsOf = (totals: Totals) =>
 
 const german = { countryCode: 'DE', isBusiness: true, vatId: 'DE123456789' };
 
+const leipzig = { street: 'Lindenweg 4', postalCode: '04109', city: 'Leipzig' };
+const paperInvoice = {
+	kind: 'invoice',
+	format: 'pdf',
+	seller: leipzig,
+	buyer: { ...leipzig, leitwegId: false }
+} as const;
+
 describe('invoices end to end', () => {
 	it('bills a german business at 19 percent, the tax taken from the group sum', () => {
 		const treatment = taxTreatment({ taxProfile: 'regular' }, german);
@@ -110,6 +118,7 @@ describe('invoices end to end', () => {
 		expect(isSmallAmountInvoice(totals.grossCents, treatment)).toBe(false);
 		expect(
 			invoiceForm({
+				...paperInvoice,
 				grossCents: totals.grossCents,
 				treatment,
 				isBusiness: true,
@@ -118,6 +127,7 @@ describe('invoices end to end', () => {
 		).toEqual({ legalNotes: [], blockers: [], hints: [] });
 		expect(
 			invoiceForm({
+				...paperInvoice,
 				grossCents: totals.grossCents,
 				treatment,
 				isBusiness: true,
@@ -144,6 +154,7 @@ describe('invoices end to end', () => {
 		expect(isSmallAmountInvoice(totals.grossCents, 'reduced')).toBe(true);
 		expect(
 			invoiceForm({
+				...paperInvoice,
 				grossCents: totals.grossCents,
 				treatment: 'reduced',
 				isBusiness: false,
@@ -192,6 +203,7 @@ describe('invoices end to end', () => {
 		expect(isSmallAmountInvoice(totals.grossCents, treatment)).toBe(false);
 		expect(
 			invoiceForm({
+				...paperInvoice,
 				grossCents: totals.grossCents,
 				treatment,
 				isBusiness: true,
@@ -223,6 +235,7 @@ describe('invoices end to end', () => {
 		expect(isSmallAmountInvoice(totals.grossCents, treatment)).toBe(false);
 		expect(
 			invoiceForm({
+				...paperInvoice,
 				grossCents: totals.grossCents,
 				treatment,
 				isBusiness: false,
@@ -265,6 +278,7 @@ describe('invoices end to end', () => {
 		);
 		const form = (hasVatId: boolean) =>
 			invoiceForm({
+				...paperInvoice,
 				grossCents: totals.grossCents,
 				treatment,
 				isBusiness: true,

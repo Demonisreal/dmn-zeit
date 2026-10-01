@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+	BadRequestException,
+	ConflictException,
+	Injectable,
+	NotFoundException
+} from '@nestjs/common';
+import { buyerVatIdValid } from '@zeit/shared';
 import type {
 	ApiError,
 	BookableProject,
@@ -57,11 +63,31 @@ export class ProjectsService {
 
 	updateClient(session: AuthSession, id: string, input: UpdateClientInput): Promise<Client> {
 		return this.db.withTenant(session, async (trx) => {
-			const client =
+			const client = found(
 				Object.keys(input).length === 0
 					? await this.store.client(trx, id)
-					: await this.store.updateClient(trx, id, input);
-			return found(client, 'Client');
+					: await this.store.updateClient(trx, id, input),
+				'Client'
+			);
+			if (
+				(input.countryCode !== undefined || input.vatId !== undefined) &&
+				client.vatId !== null &&
+				!buyerVatIdValid(client.countryCode, client.vatId)
+			) {
+				throw new BadRequestException({
+					code: 'VALIDATION',
+					message: 'Invalid input',
+					details: [
+						{
+							field: 'vatId',
+							code: 'custom',
+							message: 'format.vatId',
+							params: { countryCode: client.countryCode }
+						}
+					]
+				} satisfies ApiError);
+			}
+			return client;
 		});
 	}
 

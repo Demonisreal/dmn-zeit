@@ -15,6 +15,7 @@ describe('fromDatabase', () => {
 		['ZT002', 409, 'APPEND_ONLY'],
 		['ZT003', 409, 'INVALID_STATE'],
 		['ZT005', 409, 'SANDBOX_QUOTA'],
+		['ZT006', 409, 'INVALID_STATE'],
 		['23505', 409, 'ALREADY_EXISTS'],
 		['23503', 409, 'INVALID_STATE'],
 		['42501', 403, 'FORBIDDEN'],
@@ -31,6 +32,16 @@ describe('fromDatabase', () => {
 		expect(mapped?.getResponse()).toEqual({
 			code: 'VALIDATION',
 			message: 'Invalid input',
+			details: []
+		});
+	});
+
+	it('answers an overflowing number (22003) as a validation error, not a 500', () => {
+		const mapped = fromDatabase(pgError('22003'));
+		expect(mapped?.getStatus()).toBe(400);
+		expect(mapped?.getResponse()).toEqual({
+			code: 'VALIDATION',
+			message: 'Number out of range',
 			details: []
 		});
 	});

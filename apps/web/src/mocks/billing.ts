@@ -383,7 +383,7 @@ function soloWorld(): World {
 			postalCode: '48153',
 			city: 'Münster',
 			email: 'rechnung@stadtwerke.example',
-			buyerReference: '05515000-00012-34',
+			buyerReference: '05515000-00012-69',
 			paymentTermsDays: 30
 		}),
 		client(12, 'Agentur Nordlicht GmbH (Beispiel)', {
@@ -948,7 +948,8 @@ export const billingHandlers = [
 				issueDate: inv.issueDate,
 				dueDate: inv.dueDate,
 				grossCents: inv.totals.grossCents,
-				overdue: inv.status === 'issued' && inv.dueDate !== null && inv.dueDate < todayIso()
+				overdue: inv.status === 'issued' && inv.dueDate !== null && inv.dueDate < todayIso(),
+				format: inv.format
 			}));
 		return HttpResponse.json({ items, nextCursor: null });
 	}),
@@ -1027,6 +1028,7 @@ export const billingHandlers = [
 			netCents: netOf(input.quantityMilli, input.unitPriceCents),
 			taxCategory: input.taxCategory,
 			taxRateBp,
+			exemptionReason: input.exemptionReason ?? null,
 			derivation: { entries: [], rounding: null, rate: null }
 		};
 		replaceInvoice(recalcTotals({ ...found, lines: [...found.lines, line] }));
@@ -1061,7 +1063,9 @@ export const billingHandlers = [
 							unitPriceCents,
 							taxCategory,
 							netCents: netOf(quantityMilli, unitPriceCents),
-							taxRateBp: rateBpFor(taxCategory)
+							taxRateBp: rateBpFor(taxCategory),
+							exemptionReason:
+								patch.exemptionReason ?? (taxCategory === 'exempt' ? line.exemptionReason : null)
 						};
 					})();
 		replaceInvoice(
@@ -1126,7 +1130,7 @@ export const billingHandlers = [
 			...found,
 			id: crypto.randomUUID(),
 			kind: 'cancellation',
-			refersTo: { id: found.id, number: found.number },
+			refersTo: { id: found.id, number: found.number, issueDate: found.issueDate },
 			number,
 			numberYear: year,
 			numberSeq: seq,
@@ -1164,7 +1168,11 @@ export const billingHandlers = [
 		replaceInvoice({
 			...found,
 			status: 'cancelled',
-			refersTo: { id: cancellation.id, number: cancellation.number },
+			refersTo: {
+				id: cancellation.id,
+				number: cancellation.number,
+				issueDate: cancellation.issueDate
+			},
 			cancelReason: parsed.data.reason,
 			cancelledAt: stamp,
 			cancelledBy: who,

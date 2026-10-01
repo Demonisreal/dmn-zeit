@@ -23,6 +23,16 @@ type MetaProps = {
 
 const derivationId = (lineId: string) => `invoice-line-derivation-${lineId}`;
 
+export function LineExemption({ line }: { line: InvoiceLine }) {
+	const { t } = useTranslation('billing');
+	if (line.exemptionReason === null) return null;
+	return (
+		<p className={css.reason}>
+			{t('invoiceEditor.exemptionReasonLine', { reason: line.exemptionReason })}
+		</p>
+	);
+}
+
 // the figures under a position, time ones can open their derivation
 export function LineMeta({ line, open, onToggle, children }: MetaProps) {
 	const { t, i18n } = useTranslation('billing');

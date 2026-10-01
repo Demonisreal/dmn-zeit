@@ -160,9 +160,10 @@ export class ExportsService {
 	): Promise<TimeReport> {
 		const client = await this.store.client(trx, clientId);
 		if (!client) throw new NotFoundException('Client not found');
-		const [rows, ownLocale] = await Promise.all([
+		const [rows, ownLocale, sandbox] = await Promise.all([
 			this.store.timeReportEntries(trx, clientId, query.from, query.to),
-			this.store.locale(trx, session.userId)
+			this.store.locale(trx, session.userId),
+			this.store.sandbox(trx)
 		]);
 		const [first] = rows;
 		const projectIds = new Set(rows.map((row) => row.projectId));
@@ -182,6 +183,7 @@ export class ExportsService {
 
 		return {
 			locale: query.format === 'pdf' ? (client.invoiceLocale as Locale) : ownLocale,
+			specimen: sandbox,
 			client: { name: client.name, number: client.number },
 			project:
 				projectIds.size === 1 && first

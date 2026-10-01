@@ -43,6 +43,9 @@ const functions = [
 	'smallBusinessCheck',
 	'invoiceForm',
 	'budgetStatus',
+	'totalBlockers',
+	'longTimerEntries',
+	'taxMismatches',
 	'projectCoverage',
 	'timerHint'
 ] as const;

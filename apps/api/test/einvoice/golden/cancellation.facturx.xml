@@ -15,7 +15,7 @@
 			<udt:DateTimeString format="102">20260511</udt:DateTimeString>
 		</ram:IssueDateTime>
 		<ram:IncludedNote>
-			<ram:Content>Stornorechnung zur Rechnung RE-2026-0012 vom 04.05.2026.</ram:Content>
+			<ram:Content>storniert Rechnung RE-2026-0012 vom 04.05.2026</ram:Content>
 		</ram:IncludedNote>
 	</rsm:ExchangedDocument>
 	<rsm:SupplyChainTradeTransaction>

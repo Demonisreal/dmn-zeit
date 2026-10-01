@@ -2,7 +2,7 @@
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { describe, expect, it } from 'vitest';
 import { legalNoteTexts } from '../invoices/texts';
-import { invoiceFixture, invoiceLineFixture } from './invoice.fixture';
+import { invoiceFixture, invoiceLineFixture, taxGroupFixture } from './invoice.fixture';
 import { buildInvoicePdf } from './pdf';
 
 // pdfkit wraps long cells onto several lines, pdf-parse then hands them back with real line
@@ -56,7 +56,7 @@ describe('buildInvoicePdf', () => {
 			invoiceFixture({
 				kind: 'cancellation',
 				number: 'RE-2026-0009',
-				refersTo: { id: 'x', number: 'RE-2026-0007' }
+				refersTo: { id: 'x', number: 'RE-2026-0007', issueDate: '2026-09-01' }
 			})
 		);
 		const { text } = await pdfParse(buffer);
@@ -178,5 +178,151 @@ describe('buildInvoicePdf', () => {
 		const { text, numpages } = await pdfParse(buffer);
 		expect(numpages).toBeGreaterThan(1);
 		expect(text).toContain('Seite 1 von');
+	});
+});
+
+describe('mandatory fields per case', () => {
+	it('prints everything § 14 Abs. 4 UStG asks of a regularly taxed invoice', async () => {
+		const { text } = await pdfParse(await buildInvoicePdf(invoiceFixture()));
+		const page = flat(text);
+		for (const field of [
+			'Lena Vogt – Softwareentwicklung',
+			'Musterweg 1',
+			'40210 Düsseldorf',
+			'Agentur Nordlicht GmbH',
+			'Hafenstraße 12',
+			'20359 Hamburg',
+			'Steuernummer: 123/4567/8901',
+			'Rechnungsnummer RE-2026-0007',
+			'Rechnungsdatum 01.09.2026',
+			'Leistungszeitraum 01.08.2026 – 31.08.2026',
+			'Relaunch Website, Umsetzung Startseite',
+			'760,00 €',
+			'Umsatzsteuer 19 %',
+			'144,40 €',
+			'904,40 €',
+			'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
+			'Fällig am 15.09.2026.',
+			'IBAN DE79000000001234567890'
+		]) {
+			expect(page, field).toContain(field);
+		}
+		expect(page).toMatch(/Menge.*Startseite.*(\d+:\d{2} Std\.|\d+ Min\.)/);
+	});
+
+	it('shows no tax on a small-business invoice and prints the § 19 note instead', async () => {
+		const exemptLine = { taxCategory: 'small_business' as const, taxRateBp: 0 };
+		const { text } = await pdfParse(
+			await buildInvoicePdf(
+				invoiceFixture({
+					taxProfile: 'small_business',
+					lines: [invoiceLineFixture(exemptLine)],
+					taxGroups: [taxGroupFixture({ ...exemptLine, taxCents: '0' })],
+					totals: {
+						netCents: '76000',
+						taxCents: '0',
+						grossCents: '76000',
+						explanation: { key: 'billing.totals', params: {} }
+					},
+					legalNotes: [legalNoteTexts.de.small_business_19!]
+				})
+			)
+		);
+		const page = flat(text);
+		expect(page).toContain('kein Steuerausweis gemäß § 19 UStG');
+		expect(page).toContain('760,00 €');
+		expect(page).not.toContain('Umsatzsteuer');
+		expect(page).not.toContain('19 %');
+	});
+
+	it('warns a consumer about the 30-day default under § 286 BGB', async () => {
+		const { text } = await pdfParse(
+			await buildInvoicePdf(
+				invoiceFixture({
+					buyer: {
+						...invoiceFixture().buyer,
+						name: 'Jana Privat',
+						isBusiness: false,
+						vatId: null
+					},
+					legalNotes: [legalNoteTexts.de.late_payment_286_consumer!]
+				})
+			)
+		);
+		const page = flat(text);
+		expect(page).toContain('Jana Privat');
+		expect(page).toContain('§ 286 Abs. 3 BGB');
+		expect(page).not.toContain('USt-IdNr. Kunde');
+	});
+
+	it('names the reason next to a tax-exempt position', async () => {
+		const exempt = invoiceLineFixture({
+			id: 'line-exempt',
+			position: 2,
+			kind: 'item',
+			projectId: null,
+			description: 'Prüfungsgebühr',
+			minutes: null,
+			quantityMilli: '1000',
+			unit: 'C62',
+			unitPriceCents: '5000',
+			netCents: '5000',
+			taxCategory: 'exempt',
+			taxRateBp: 0,
+			derivation: { entries: [], rounding: null, rate: null }
+		});
+		const { text } = await pdfParse(
+			await buildInvoicePdf(
+				invoiceFixture({
+					lines: [invoiceLineFixture(), exempt],
+					taxGroups: [
+						taxGroupFixture(),
+						taxGroupFixture({
+							taxCategory: 'exempt',
+							taxRateBp: 0,
+							netCents: '5000',
+							taxCents: '0'
+						})
+					],
+					totals: {
+						netCents: '81000',
+						taxCents: '14440',
+						grossCents: '95440',
+						explanation: { key: 'billing.totals', params: {} }
+					},
+					legalNotes: [legalNoteTexts.de.exempt_reason!]
+				})
+			)
+		);
+		const page = flat(text);
+		expect(page).toContain('Prüfungsgebühr');
+		expect(page).toContain('0 %');
+		expect(page).toContain('von der Umsatzsteuer befreit (§ 4 UStG)');
+		expect(page).toContain('Umsatzsteuer 19 % 144,40 €');
+		expect(page).toContain('954,40 €');
+	});
+
+	it('prints an english invoice with english labels and the same mandatory fields', async () => {
+		const { text } = await pdfParse(
+			await buildInvoicePdf(
+				invoiceFixture({ locale: 'en', closingText: 'Thank you for working with us.' })
+			)
+		);
+		const page = flat(text);
+		for (const field of [
+			'Invoice number RE-2026-0007',
+			'Tax number: 123/4567/8901',
+			'VAT 19 %',
+			'904.40 €',
+			'Payable within 14 days, no deductions.',
+			'Bank details'
+		]) {
+			expect(page, field).toContain(field);
+		}
+		expect(page).toMatch(/Invoice date [^–]*2026/);
+		expect(page).toMatch(/Service period [^–]*2026 – [^–]*2026/);
+		expect(page).toMatch(/Due on [^–]*2026\./);
+		expect(page).not.toContain('Rechnungsnummer');
+		expect(page).not.toContain('Zahlbar');
 	});
 });

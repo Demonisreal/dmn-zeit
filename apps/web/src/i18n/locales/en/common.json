@@ -26,6 +26,8 @@
 		"network": "Server unreachable. Check the connection and try again.",
 		"rateLimited": "Too many attempts. Please try again later.",
 		"sandboxQuota": "The demo has reached its limit for this kind of entry.",
+		"renderBusy": "Too many documents are being created right now. Try again in a few seconds.",
+		"pageLimit": "The document would get too long. Include fewer line items or shorten the period.",
 		"unexpected": "That did not work. Please try again."
 	},
 	"validation": {
@@ -44,7 +46,8 @@
 			"totp": "Six digits from the authenticator app",
 			"recoveryCode": "Ten characters, like ABCDE-FGH23",
 			"iban": "Not a valid IBAN",
-			"vatId": "Not a valid VAT ID, e.g. DE123456789"
+			"vatId": "Not a valid VAT ID. It starts with the country code, e.g. DE123456789 or NL123456789B01",
+			"leitwegId": "Not a valid Leitweg-ID, the check digits at the end do not match. For an order number, put a word in front, e.g. “PO 2026-118-07”"
 		},
 		"range": {
 			"required": "The date range is missing",
@@ -78,7 +81,13 @@
 		"invoice": {
 			"rangeTooLong": "At most 366 days",
 			"tooManyLines": "At most {{max}} lines",
-			"taxCategoryMismatch": "This tax category does not match this invoice"
+			"taxCategoryMismatch": "This tax category does not match this invoice",
+			"paidOnFuture": "The payment date is in the future",
+			"exemptionReasonRequired": "Tax-exempt line items need the reason for the exemption",
+			"exemptionReasonUnexpected": "No exemption reason is allowed for this tax category"
+		},
+		"report": {
+			"tooManyEntries": "At most {{max}} entries in a PDF, shorten the period or choose CSV for more"
 		},
 		"text": {
 			"empty": "This field cannot be empty",

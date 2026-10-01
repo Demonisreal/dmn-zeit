@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { centsSchema } from './common';
 import {
+	buyerVatIdValid,
 	createClientSchema,
 	createProjectEntrySchema,
+	leitwegIdValid,
 	updateClientSchema,
-	updateProjectEntrySchema
+	updateProjectEntrySchema,
+	vatIdFormats
 } from './projects';
 
 const projectId = '3d2c1b0a-9e8f-4a7b-b6c5-d4e3f2a1b0c9';
@@ -51,6 +54,136 @@ describe('updateClientSchema', () => {
 			false
 		);
 	});
+
+	it('checks the vat id against the country that comes along', () => {
+		expect(
+			updateClientSchema.safeParse({ countryCode: 'AT', vatId: 'DE123456789' }).error?.issues
+		).toMatchObject([{ message: 'format.vatId', path: ['vatId'], params: { countryCode: 'AT' } }]);
+		expect(updateClientSchema.safeParse({ countryCode: 'NL', vatId: null }).success).toBe(true);
+	});
+
+	it('leaves the pair to the service when only one half comes along', () => {
+		expect(updateClientSchema.safeParse({ vatId: 'DE12' }).success).toBe(true);
+		expect(updateClientSchema.safeParse({ countryCode: 'NL' }).success).toBe(true);
+	});
+});
+
+const valid: [string, string][] = [
+	['AT', 'ATU12345678'],
+	['BE', 'BE0123456789'],
+	['BG', 'BG1234567890'],
+	['CY', 'CY12345678L'],
+	['CZ', 'CZ123456789'],
+	['DE', 'DE123456789'],
+	['DK', 'DK12345678'],
+	['EE', 'EE123456789'],
+	['ES', 'ESB12345678'],
+	['ES', 'ES12345678Z'],
+	['FI', 'FI12345678'],
+	['FR', 'FR12345678901'],
+	['FR', 'FRAB123456789'],
+	['GR', 'EL123456789'],
+	['HR', 'HR12345678901'],
+	['HU', 'HU12345678'],
+	['IE', 'IE1234567T'],
+	['IE', 'IE1234567WA'],
+	['IE', 'IE8Z49289F'],
+	['IT', 'IT12345678901'],
+	['LT', 'LT123456789012'],
+	['LU', 'LU12345678'],
+	['LV', 'LV12345678901'],
+	['MT', 'MT12345678'],
+	['NL', 'NL853746291B01'],
+	['PL', 'PL1234567890'],
+	['PT', 'PT123456789'],
+	['RO', 'RO18547290'],
+	['SE', 'SE123456789001'],
+	['SI', 'SI12345678'],
+	['SK', 'SK1234567890']
+];
+
+const invalid: [string, string][] = [
+	['NL', 'DE123456789'],
+	['NL', 'NL853746291'],
+	['NL', 'nl853746291b01'],
+	['NL', 'NL 853746291 B01'],
+	['GR', 'GR123456789'],
+	['AT', 'AT12345678'],
+	['FR', 'FRIO123456789'],
+	['ES', 'ES123456789'],
+	['RO', 'RO0123'],
+	['SE', 'SE123456789012'],
+	['DE', 'DE12345678']
+];
+
+describe('buyer vat id', () => {
+	it('knows a format for every member state', () => {
+		expect(Object.keys(vatIdFormats)).toHaveLength(27);
+	});
+
+	it.each(valid)('takes the format of %s: %s', (countryCode, vatId) => {
+		expect(buyerVatIdValid(countryCode, vatId)).toBe(true);
+		expect(createClientSchema.safeParse({ name: 'Acme', countryCode, vatId }).success).toBe(true);
+	});
+
+	it.each(invalid)('refuses for %s: %s', (countryCode, vatId) => {
+		expect(buyerVatIdValid(countryCode, vatId)).toBe(false);
+		expect(
+			createClientSchema.safeParse({ name: 'Acme', countryCode, vatId }).error?.issues
+		).toMatchObject([{ message: 'format.vatId', path: ['vatId'], params: { countryCode } }]);
+	});
+
+	it('holds a german client to the german format by default', () => {
+		expect(
+			createClientSchema.safeParse({ name: 'Acme', vatId: 'NL853746291B01' }).error?.issues
+		).toMatchObject([{ message: 'format.vatId', params: { countryCode: 'DE' } }]);
+	});
+
+	it('takes a third country tax number as it is', () => {
+		const swiss = { name: 'Acme AG', countryCode: 'CH', vatId: 'CHE-123.456.789 MWST' };
+		expect(createClientSchema.parse(swiss)).toMatchObject(swiss);
+		expect(buyerVatIdValid('US', '12-3456789')).toBe(true);
+	});
+});
+
+describe('leitweg id', () => {
+	it.each([
+		'04011000-1234512345-06',
+		'991-33333TEST-33',
+		'04011000-12345-03',
+		'05999-STADTWERKE-09'
+	])('takes %s with its check digits', (buyerReference) => {
+		expect(leitwegIdValid(buyerReference)).toBe(true);
+		expect(createClientSchema.parse({ name: 'Stadt Kassel', buyerReference })).toMatchObject({
+			buyerReference
+		});
+	});
+
+	it.each(['04011000-1234512345-07', '04011000-12345-34', '14713000-DIGI01-45', '2026-118-07'])(
+		'wants the check digits once %s looks like a leitweg id',
+		(buyerReference) => {
+			expect(leitwegIdValid(buyerReference)).toBe(false);
+			expect(
+				createClientSchema.safeParse({ name: 'Stadt Kassel', buyerReference }).error?.issues
+			).toMatchObject([{ message: 'format.leitwegId', path: ['buyerReference'] }]);
+		}
+	);
+
+	it.each([
+		'PO-2026-118',
+		'Bestellung 4711',
+		'4711',
+		'14713000-digi01-45',
+		'04011000-123-4',
+		'Best. 2026-118-07',
+		'PO 2026-118-07'
+	])(
+		'takes the order number %s as free text',
+		(buyerReference) => {
+			expect(leitwegIdValid(buyerReference)).toBe(false);
+			expect(updateClientSchema.parse({ buyerReference })).toEqual({ buyerReference });
+		}
+	);
 });
 
 describe('createProjectEntrySchema', () => {

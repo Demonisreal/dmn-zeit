@@ -15,7 +15,7 @@ import { createCorrectionSchema } from './corrections';
 import { apiErrorSchema, validationKeys, type ValidationKey } from './errors';
 import { createFlexBookingSchema } from './flex';
 import { createContractSchema, teamLeadsSchema } from './org';
-import { createProjectEntrySchema } from './projects';
+import { createClientSchema, createProjectEntrySchema } from './projects';
 import { recoveryCodeSchema, totpCodeSchema } from './security';
 import { updateTenantSchema } from './tenant';
 import { daysQuerySchema } from './time';
@@ -154,6 +154,11 @@ const failures: [ValidationKey, ZodType, unknown][] = [
 	['format.iban', ibanSchema, 'DE00123456789012345678'],
 	['format.vatId', vatIdSchema, 'DE12345'],
 	[
+		'format.leitwegId',
+		createClientSchema,
+		{ name: 'Stadtwerke Kassel', buyerReference: '04011000-1234512345-07' }
+	],
+	[
 		'text.invoiceCharset',
 		invoiceLineInputSchema,
 		{
@@ -178,7 +183,11 @@ const raisedByApi: ValidationKey[] = [
 	'password.common',
 	'rate.futureOnly',
 	'invoice.tooManyLines',
-	'invoice.taxCategoryMismatch'
+	'invoice.taxCategoryMismatch',
+	'invoice.paidOnFuture',
+	'invoice.exemptionReasonRequired',
+	'invoice.exemptionReasonUnexpected',
+	'report.tooManyEntries'
 ];
 
 describe('validation keys', () => {

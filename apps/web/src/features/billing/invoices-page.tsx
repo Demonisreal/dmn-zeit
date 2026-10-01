@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { invoiceStatuses, type InvoiceStatus, type Role } from '@zeit/shared';
+import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Page, PageHead } from '../../components/ui/page-shell';
@@ -71,6 +72,9 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 								{t('invoicesList.amount')}
 							</th>
 							<th scope="col">{t('invoicesList.status')}</th>
+							<th scope="col" data-priority="mid">
+								<VisuallyHidden>{t('actions')}</VisuallyHidden>
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -85,17 +89,39 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 								<td className={styles.mono} data-priority="mid">
 									{invoice.issueDate ? formatDate(invoice.issueDate, i18n.language) : '–'}
 								</td>
-								<td className={css.due} data-priority="mid">
-									<span className={styles.mono}>
-										{invoice.dueDate ? formatDate(invoice.dueDate, i18n.language) : '–'}
+								<td data-priority="mid">
+									<span className={css.due}>
+										<span className={styles.mono}>
+											{invoice.dueDate ? formatDate(invoice.dueDate, i18n.language) : '–'}
+										</span>
+										{invoice.overdue && <Tag tone="warning">{t('invoicesList.overdue')}</Tag>}
 									</span>
-									{invoice.overdue && <Tag tone="warning">{t('invoicesList.overdue')}</Tag>}
 								</td>
 								<td className={styles.mono} data-numeric>
 									{formatCents(invoice.grossCents, i18n.language)}
 								</td>
 								<td>
 									<Tag tone={tones[invoice.status]}>{t(`invoicesList.statuses.${invoice.status}`)}</Tag>
+								</td>
+								<td className={css.documents} data-priority="mid">
+									{invoice.number && (
+										<a
+											href={`/api/invoices/${invoice.id}/document`}
+											download
+											aria-label={t('invoicesList.pdfLabel', { number: invoice.number })}
+										>
+											{t('invoicesList.pdf')}
+										</a>
+									)}
+									{invoice.number && invoice.format === 'xrechnung' && (
+										<a
+											href={`/api/invoices/${invoice.id}/xml`}
+											download
+											aria-label={t('invoicesList.xmlLabel', { number: invoice.number })}
+										>
+											{t('invoicesList.xml')}
+										</a>
+									)}
 								</td>
 							</tr>
 						))}

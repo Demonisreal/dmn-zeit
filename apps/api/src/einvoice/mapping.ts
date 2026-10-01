@@ -1,5 +1,6 @@
 import type { Invoice } from '@e-invoice-eu/core';
 import type { TaxCategory } from '@zeit/rules';
+import { leitwegIdValid } from '@zeit/shared';
 import type { EInvoice, EInvoiceBuyer, EInvoiceLine } from './einvoice';
 import { TEXTS } from './texts';
 
@@ -23,12 +24,12 @@ const VAT_CODES: Record<TaxCategory, VatCategory['cbc:ID']> = {
 	outside_scope: 'O'
 };
 
-// Leitweg-ID format spec 2.0.2: coarse-fine-check digits
-const LEITWEG_ID = /^[0-9]{2,12}(-[0-9A-Z]{1,30})?-[0-9]{2}$/;
+export const isLeitwegId = (buyer: Pick<EInvoiceBuyer, 'buyerReference'>) =>
+	buyer.buyerReference !== null && leitwegIdValid(buyer.buyerReference);
 
-export const buyerEndpoint = (buyer: EInvoiceBuyer) => {
-	if (buyer.buyerReference && LEITWEG_ID.test(buyer.buyerReference)) {
-		return { id: buyer.buyerReference, scheme: '0204' as const };
+export const buyerEndpoint = (buyer: Pick<EInvoiceBuyer, 'buyerReference' | 'email'>) => {
+	if (isLeitwegId(buyer)) {
+		return { id: buyer.buyerReference!, scheme: '0204' as const };
 	}
 	return buyer.email ? { id: buyer.email, scheme: 'EM' as const } : null;
 };
@@ -76,6 +77,9 @@ function exemption(category: TaxCategory, invoice: EInvoice) {
 function notes(invoice: EInvoice): string[] {
 	const texts = TEXTS[invoice.locale];
 	const notes: string[] = [];
+	if (invoice.specimen) {
+		notes.push(texts.specimen);
+	}
 	if (invoice.kind === 'cancellation') {
 		notes.push(texts.cancels(invoice.cancels.number, texts.date(invoice.cancels.issueDate)));
 	}
@@ -247,7 +251,7 @@ export function toUbl(invoice: EInvoice): Invoice {
 			'cbc:IssueDate': invoice.issueDate.toString(),
 			'cbc:DueDate': invoice.dueDate.toString(),
 			'cbc:InvoiceTypeCode': invoice.kind === 'cancellation' ? '381' : '380',
-			...(notesText.length > 0 && { 'cbc:Note': notesText }),
+			...(notesText.length > 0 && { 'cbc:Note': [notesText.join('\n')] }),
 			'cbc:DocumentCurrencyCode': EUR,
 			...(buyer.buyerReference !== null && { 'cbc:BuyerReference': buyer.buyerReference }),
 			'cac:InvoicePeriod': {

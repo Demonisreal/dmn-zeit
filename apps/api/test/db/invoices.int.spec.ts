@@ -43,6 +43,18 @@ function seedDraft(tenantId: string, clientId: string, taxProfile = 'regular') {
 	);
 }
 
+async function seedIssuable(tenantId: string, clientId: string) {
+	const draftId = await seedDraft(tenantId, clientId);
+	await superuser.query(
+		`insert into app.invoice_lines (
+			tenant_id, invoice_id, client_id, position, kind, description, quantity_milli, unit,
+			unit_price_cents, net_cents, tax_category, tax_rate_bp
+		 ) values ($1, $2, $3, 1, 'item', 'Beratung', 1000, 'HUR', 5000, 5000, 'standard', 1900)`,
+		[tenantId, draftId, clientId]
+	);
+	return draftId;
+}
+
 describe('immutability of an issued invoice', () => {
 	let tenant: string;
 	let hr: Account;
@@ -53,7 +65,7 @@ describe('immutability of an issued invoice', () => {
 		hr = await createUser(tenant, { role: 'hr' });
 		await seedBillingProfile(tenant);
 		const clientId = await seedClient(tenant);
-		const draftId = await seedDraft(tenant, clientId);
+		const draftId = await seedIssuable(tenant, clientId);
 		await withContext(app, hr.context);
 		const { rows } = await app.query('select (app.issue_invoice($1)).id as id', [draftId]);
 		invoiceId = rows[0].id;
@@ -105,7 +117,7 @@ describe('numbering under concurrency', () => {
 		await seedBillingProfile(tenant);
 		const clientId = await seedClient(tenant);
 		const drafts = await Promise.all(
-			Array.from({ length: 20 }, () => seedDraft(tenant, clientId))
+			Array.from({ length: 20 }, () => seedIssuable(tenant, clientId))
 		);
 
 		const connections = await Promise.all(Array.from({ length: 20 }, () => connectAs('app')));
@@ -125,8 +137,8 @@ describe('numbering under concurrency', () => {
 		const hr = await createUser(tenant, { role: 'hr' });
 		await seedBillingProfile(tenant);
 		const clientId = await seedClient(tenant);
-		const first = await seedDraft(tenant, clientId);
-		const second = await seedDraft(tenant, clientId);
+		const first = await seedIssuable(tenant, clientId);
+		const second = await seedIssuable(tenant, clientId);
 		await withContext(app, hr.context);
 
 		await app.query('begin');
@@ -163,7 +175,7 @@ describe('billing lock on project entries', () => {
 			[tenant, worker.employeeId, project]
 		);
 
-		const draftId = await seedDraft(tenant, clientId);
+		const draftId = await seedIssuable(tenant, clientId);
 		await withContext(app, hr.context);
 		await app.query('update app.project_entries set invoice_id = $1 where id = $2', [
 			draftId,
@@ -199,7 +211,7 @@ describe('tenant retention', () => {
 		const hr = await createUser(tenant, { role: 'hr' });
 		await seedBillingProfile(tenant);
 		const clientId = await seedClient(tenant);
-		const draftId = await seedDraft(tenant, clientId);
+		const draftId = await seedIssuable(tenant, clientId);
 		await withContext(app, hr.context);
 		await app.query('select app.issue_invoice($1)', [draftId]);
 

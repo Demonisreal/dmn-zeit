@@ -3,19 +3,28 @@ import {
 	aggregate,
 	budgetStatus,
 	fraction,
+	invoiceForm,
+	invoiceTotals,
+	linesFromCells,
 	parseDecimal,
 	projectCoverage,
+	roundDiv,
+	roundingFor,
 	taxTreatment,
 	timerHint,
 	toDecimal,
+	vatRateFor,
 	type EntrySpan,
 	type ProjectEntry,
 	type RoundingRule
 } from '@zeit/rules';
+import { invoiceLineSchema } from '@zeit/shared';
 import { Temporal } from 'temporal-polyfill';
 import { describe, expect, it } from 'vitest';
-import { dateOf, TZ } from './calendar';
+import { calendarFor, dateOf, TZ } from './calendar';
 import { generateDemo, type DemoPlan, type PlanRow, type ProjectBook } from './index';
+import { Random } from './random';
+import { soloWorld } from './solo';
 
 const today = Temporal.PlainDate.from('2026-09-24');
 const plan = generateDemo({ today, seed: 7 });
@@ -524,6 +533,526 @@ describe('generateDemo projects on other days', () => {
 			expect(budgetStates(demo.solo, quarters).sort()).toEqual(['exceeded', 'warn']);
 			expect(demo.projectEntries.filter((entry) => entry.endedAt === null)).toHaveLength(2);
 			expect(demo.solo.projectEntries.filter((entry) => entry.endedAt === null)).toHaveLength(1);
+		},
+		30_000
+	);
+});
+
+type Invoice = PlanRow<'invoices'>;
+
+const apiRounding: RoundingRule = { incrementMinutes: 1, mode: 'nearest' };
+
+function rebuilt(book: ProjectBook, invoice: Invoice) {
+	const client = book.clients.find((candidate) => candidate.id === invoice.clientId)!;
+	const booked = new Set(invoice.lines.flatMap((line) => line.entryIds));
+	const cells = aggregate(
+		book.projectEntries.flatMap((entry): ProjectEntry[] =>
+			booked.has(entry.id)
+				? [
+						{
+							id: entry.id,
+							employeeId: entry.employeeId,
+							clientId: client.id,
+							projectId: entry.projectId,
+							taskId: entry.taskId,
+							workday: Temporal.PlainDate.from(localDay(entry.startedAt)),
+							billable: true,
+							start: Temporal.Instant.from(entry.startedAt),
+							end: Temporal.Instant.from(entry.endedAt!)
+						}
+					]
+				: []
+		),
+		{
+			rates: book.rates
+				.filter((rate) => rate.clientId === null || rate.clientId === client.id)
+				.map((rate) => ({
+					...rate,
+					validFrom: Temporal.PlainDate.from(rate.validFrom),
+					cents: BigInt(rate.rateCents)
+				})),
+			rounding: () =>
+				roundingFor(
+					apiRounding,
+					{ incrementMinutes: client.roundingIncrementMin, mode: client.roundingMode },
+					{ incrementMinutes: null, mode: null }
+				).rule
+		}
+	);
+	return linesFromCells(cells, taxTreatment(book.billingProfile, client));
+}
+
+const totalsOf = (invoice: Invoice) =>
+	invoiceTotals(
+		invoice.lines.map((line) => ({
+			netCents: BigInt(line.netCents),
+			taxCategory: line.taxCategory,
+			taxRateBp: line.taxRateBp
+		}))
+	);
+
+function formOf(book: ProjectBook, invoice: Invoice) {
+	const profile = book.billingProfile;
+	const client = book.clients.find((candidate) => candidate.id === invoice.clientId)!;
+	return invoiceForm({
+		kind: invoice.kind,
+		format: invoice.format,
+		grossCents: totalsOf(invoice).grossCents,
+		treatment: taxTreatment(profile, client),
+		isBusiness: client.isBusiness,
+		profile: { hasVatId: profile.vatId !== null, hasTaxNumber: profile.taxNumber !== null },
+		seller: profile,
+		buyer: { ...client, leitwegId: client.buyerReference !== null }
+	});
+}
+
+const vatDigitHolds = (vatId: string) => {
+	let product = 10;
+	for (const digit of vatId.slice(2, 10)) {
+		product = (2 * ((Number(digit) + product) % 10 || 10)) % 11;
+	}
+	return (11 - product) % 10 === Number(vatId[10]);
+};
+
+const ibanHolds = (iban: string) =>
+	BigInt(
+		(iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, (letter) =>
+			String(letter.charCodeAt(0) - 55)
+		)
+	) %
+		97n ===
+	1n;
+
+describe.each([
+	{ workspace: 'company', book: plan as ProjectBook },
+	{ workspace: 'solo', book: plan.solo as ProjectBook }
+])('generateDemo invoices of the $workspace workspace', ({ book }) => {
+	const clientOf = (invoice: Invoice) =>
+		book.clients.find((client) => client.id === invoice.clientId)!;
+
+	it('builds every time line the way linesFromCells does with the rounding of the api', () => {
+		for (const invoice of book.invoices.filter((candidate) => candidate.kind === 'invoice')) {
+			expect(
+				invoice.lines.flatMap((line) =>
+					line.kind === 'time'
+						? [
+								{
+									projectId: line.projectId,
+									taskId: line.taskId,
+									serviceFrom: line.serviceFrom,
+									serviceTo: line.serviceTo,
+									minutes: line.minutes,
+									rateCents: line.unitPriceCents,
+									netCents: line.netCents,
+									taxCategory: line.taxCategory,
+									taxRateBp: line.taxRateBp,
+									entryIds: line.entryIds
+								}
+							]
+						: []
+				)
+			).toEqual(
+				rebuilt(book, invoice).map((line) => ({
+					...line,
+					serviceFrom: line.serviceFrom.toString(),
+					serviceTo: line.serviceTo.toString(),
+					rateCents: Number(line.rateCents),
+					netCents: Number(line.netCents)
+				}))
+			);
+		}
+	});
+
+	it('adds up net, tax per rate and gross the way invoiceTotals does, a draft keeps zero like the api', () => {
+		expect(
+			book.invoices.filter((invoice) => {
+				const totals = totalsOf(invoice);
+				const sums =
+					invoice.status === 'draft'
+						? [0n, 0n, 0n]
+						: [totals.netCents, totals.taxCents, totals.grossCents];
+				return [invoice.netCents, invoice.taxCents, invoice.grossCents].join() !== sums.join();
+			})
+		).toEqual([]);
+	});
+
+	it('writes each line so that the invoice schema of the api takes it with its derivation', () => {
+		const entries = new Map(book.projectEntries.map((entry) => [entry.id, entry]));
+		expect(
+			book.invoices
+				.flatMap((invoice) => invoice.lines)
+				.filter(
+					(line) =>
+						!invoiceLineSchema.safeParse({
+							...line,
+							quantityMilli: line.quantityMilli === null ? null : String(line.quantityMilli),
+							unitPriceCents: String(line.unitPriceCents),
+							netCents: String(line.netCents),
+							derivation: line.derivation ?? { entries: [], rounding: null, rate: null }
+						}).success ||
+						(line.kind === 'time' &&
+							(line.derivation?.entries.map((entry) => entry.id).join() !== line.entryIds.join() ||
+								line.derivation.entries.some(
+									(entry) =>
+										entries.get(entry.id)?.startedAt !== entry.startedAt ||
+										entries.get(entry.id)?.endedAt !== entry.endedAt
+								) ||
+								line.derivation.rate?.cents !== String(line.unitPriceCents) ||
+								!line.derivation.rounding?.key.startsWith('billing.rounding.')))
+				)
+		).toEqual([]);
+	});
+
+	it('locks exactly the entries a draft or an uncancelled invoice was built from', () => {
+		const held = book.invoices
+			.filter((invoice) => invoice.kind === 'invoice' && invoice.status !== 'cancelled')
+			.flatMap((invoice) =>
+				invoice.lines.flatMap((line) => line.entryIds.map((id) => [id, invoice.id] as const))
+			);
+		expect(held.length).toBeGreaterThan(0);
+		expect(new Set(held.map(([id]) => id)).size).toBe(held.length);
+		const holders = new Map(held);
+		expect(
+			book.projectEntries.filter((entry) => entry.invoiceId !== (holders.get(entry.id) ?? null))
+		).toEqual([]);
+	});
+
+	it('freezes the seller from the billing profile and the buyer from the client', () => {
+		for (const invoice of book.invoices.filter((candidate) => candidate.status !== 'draft')) {
+			expect(book.billingProfile).toMatchObject(invoice.seller!);
+			expect(clientOf(invoice)).toMatchObject(invoice.buyer!);
+		}
+		expect(
+			book.invoices.filter(
+				(invoice) =>
+					invoice.status === 'draft' && (invoice.seller !== null || invoice.buyer !== null)
+			)
+		).toEqual([]);
+	});
+
+	it('keeps the tax treatment of its client on every invoice, the cancellation included', () => {
+		expect(
+			book.invoices.filter(
+				(invoice) => invoice.taxTreatment !== taxTreatment(book.billingProfile, clientOf(invoice))
+			)
+		).toEqual([]);
+	});
+
+	it('leaves none of the blockers the api checks before it issues', () => {
+		expect(book.invoices.filter((invoice) => formOf(book, invoice).blockers.length > 0)).toEqual(
+			[]
+		);
+	});
+
+	it('carries everything xrechnung and zugferd need, with a vat id and iban no office or bank acts on', () => {
+		const profile = book.billingProfile;
+		expect(
+			Object.entries(profile).filter(
+				([key, value]) => value === null && !key.startsWith('register')
+			)
+		).toEqual([]);
+		expect(profile.invoicePrefix).toBe('MUSTER-');
+		expect(profile.contactEmail).toMatch(/\.example\.test$/);
+		expect(ibanHolds(profile.iban!)).toBe(true);
+		expect(profile.iban!.slice(4, 12)).toBe('00000000');
+		expect(vatDigitHolds(profile.vatId!)).toBe(false);
+	});
+});
+
+describe('generateDemo invoices of the solo workspace', () => {
+	const { solo } = plan;
+	const day = today.toString();
+	const numbered = solo.invoices.filter((invoice) => invoice.number !== null);
+	const nth = (seq: number) => numbered.find((invoice) => invoice.numberSeq === seq)!;
+	const clientOf = (invoice: Invoice) =>
+		solo.clients.find((client) => client.id === invoice.clientId)!;
+
+	it('numbers MUSTER-2026-0001 to 0009 in the order of issue and stops the counter at 9', () => {
+		expect(numbered.map((invoice) => invoice.number)).toEqual(
+			Array.from({ length: 9 }, (_, i) => `MUSTER-2026-000${i + 1}`)
+		);
+		const dates = numbered.map((invoice) => invoice.issueDate!);
+		expect(dates).toEqual(dates.toSorted());
+		expect(solo.invoiceCounters).toEqual([{ year: 2026, lastSeq: 9 }]);
+	});
+
+	it('runs through every status and gets paid more than twice', () => {
+		expect(new Set(solo.invoices.map((invoice) => invoice.status))).toEqual(
+			new Set(['draft', 'issued', 'paid', 'cancelled'])
+		);
+		expect(numbered.filter((invoice) => invoice.status === 'paid').length).toBeGreaterThan(2);
+	});
+
+	it('cancels 0004 with 0005 to the cent and issues 0006 for the period it really covered', () => {
+		const [wrong, cancellation, replacement] = [nth(4), nth(5), nth(6)];
+		expect(wrong.status).toBe('cancelled');
+		expect(wrong.cancelledAt).toBe(cancellation.issuedAt);
+		expect(cancellation).toMatchObject({
+			kind: 'cancellation',
+			status: 'issued',
+			refersToId: wrong.id,
+			netCents: 0 - wrong.netCents,
+			taxCents: 0 - wrong.taxCents,
+			grossCents: 0 - wrong.grossCents
+		});
+		expect(
+			cancellation.lines.map(({ minutes, unitPriceCents, netCents, entryIds }) => ({
+				minutes,
+				unitPriceCents,
+				netCents,
+				entryIds
+			}))
+		).toEqual(
+			wrong.lines.map((line) => ({
+				minutes: 0 - line.minutes!,
+				unitPriceCents: line.unitPriceCents,
+				netCents: 0 - line.netCents,
+				entryIds: line.entryIds
+			}))
+		);
+		expect(replacement.clientId).toBe(wrong.clientId);
+		expect(replacement.lines.map((line) => line.entryIds)).toEqual(
+			wrong.lines.map((line) => line.entryIds)
+		);
+		expect(replacement.grossCents).toBe(wrong.grossCents);
+		const lastDay = wrong.lines
+			.map((line) => line.serviceTo!)
+			.toSorted()
+			.at(-1)!;
+		expect(wrong.serviceTo < lastDay).toBe(true);
+		expect(replacement.serviceTo >= lastDay).toBe(true);
+	});
+
+	it('bills Studio Brandt in English under reverse charge, both vat ids on it and no tax', () => {
+		const abroad = numbered.filter((invoice) => clientOf(invoice).countryCode !== 'DE');
+		expect(abroad).toHaveLength(1);
+		const studio = abroad[0]!;
+		expect(studio.locale).toBe('en');
+		expect(studio.introText).toMatch(/^thank you/);
+		expect(
+			studio.lines.filter((line) => line.taxCategory !== 'reverse_charge' || line.taxRateBp !== 0)
+		).toEqual([]);
+		expect([studio.taxCents, studio.grossCents]).toEqual([0, studio.netCents]);
+		expect(studio.seller!.vatId).toMatch(/^DE\d{9}$/);
+		expect(studio.buyer!.vatId).toMatch(/^NL\d{9}B\d{2}$/);
+	});
+
+	it('reaches all four clients, each in the format the app picks for it', () => {
+		expect(
+			new Set(numbered.map((invoice) => `${clientOf(invoice).name}: ${invoice.format}`))
+		).toEqual(
+			new Set([
+				'Stadtwerke Lindental AöR (Beispiel): xrechnung',
+				'Agentur Nordlicht GmbH (Beispiel): zugferd',
+				'Studio Brandt B.V. (Beispiel): zugferd',
+				'Martina Seidel (Beispiel): pdf'
+			])
+		);
+		const consumer = numbered.find((invoice) => !clientOf(invoice).isBusiness)!;
+		expect(formOf(solo, consumer).legalNotes).toContain('late_payment_286_consumer');
+	});
+
+	it('keeps the private invoice overdue and the one of the public client not yet due', () => {
+		const open = numbered.filter(
+			(invoice) => invoice.kind === 'invoice' && invoice.status === 'issued'
+		);
+		expect(
+			open
+				.filter((invoice) => invoice.dueDate! < day)
+				.map((invoice) => clientOf(invoice).isBusiness)
+		).toEqual([false]);
+		expect(
+			open.filter((invoice) => invoice.dueDate! > day).map((invoice) => invoice.format)
+		).toEqual(['xrechnung']);
+	});
+
+	it('drafts the previous month of the agency, its time next to a hosting flat fee', () => {
+		const drafts = solo.invoices.filter((invoice) => invoice.status === 'draft');
+		expect(drafts).toHaveLength(1);
+		const open = drafts[0]!;
+		expect(clientOf(open).name).toMatch(/^Agentur/);
+		expect([open.serviceFrom, open.serviceTo]).toEqual(['2026-08-01', '2026-08-31']);
+		expect(open.lines.length).toBeGreaterThan(1);
+		expect(open.lines.slice(0, -1).filter((line) => line.kind !== 'time')).toEqual([]);
+		const fee = open.lines.at(-1)!;
+		expect(fee).toMatchObject({
+			kind: 'item',
+			description: 'Hosting-Pauschale',
+			position: open.lines.length,
+			derivation: null,
+			entryIds: []
+		});
+		expect(fee.netCents).toBe(
+			Number(roundDiv(BigInt(fee.quantityMilli!) * BigInt(fee.unitPriceCents), 1000n))
+		);
+		expect(fee.taxRateBp).toBe(vatRateFor('standard', Temporal.PlainDate.from(open.serviceTo)));
+	});
+});
+
+describe('generateDemo invoices of the office', () => {
+	const hr = plan.users.find((user) => user.role === 'hr')!;
+
+	it('bills two clients per half hour begun as Zeitgebühr, both paid', () => {
+		expect(
+			plan.invoices
+				.filter((invoice) => invoice.number !== null)
+				.map((invoice) => [invoice.number, invoice.status])
+		).toEqual([
+			['MUSTER-2026-0001', 'paid'],
+			['MUSTER-2026-0002', 'paid']
+		]);
+		expect(plan.invoiceCounters).toEqual([{ year: 2026, lastSeq: 2 }]);
+		expect(
+			plan.invoices
+				.flatMap((invoice) => invoice.lines)
+				.filter(
+					(line) =>
+						!line.description.startsWith('Zeitgebühr nach § 13 StBVV: ') || line.minutes! % 30 !== 0
+				)
+		).toEqual([]);
+		expect(new Set(plan.invoices.map((invoice) => invoice.clientId)).size).toBe(3);
+	});
+
+	it('leaves the hr persona a draft of last month to issue', () => {
+		expect(
+			plan.invoices
+				.filter((invoice) => invoice.status === 'draft')
+				.map((invoice) => [invoice.serviceFrom, invoice.serviceTo])
+		).toEqual([['2026-08-01', '2026-08-31']]);
+		expect(
+			plan.invoices.filter(
+				(invoice) =>
+					invoice.createdBy !== hr.id || (invoice.issuedBy !== null && invoice.issuedBy !== hr.id)
+			)
+		).toEqual([]);
+	});
+
+	it('keeps the invoices of both workspaces to a few hundred rows', () => {
+		const rows = [plan, plan.solo].flatMap((book) =>
+			book.invoices.flatMap((invoice) => [
+				invoice.id,
+				...invoice.lines.flatMap((line) => [line.id, ...line.entryIds])
+			])
+		);
+		expect(rows.length).toBeLessThan(800);
+	});
+});
+
+describe('generateDemo invoices on other days', () => {
+	const days = [
+		...Array.from({ length: 12 }, (_, i) =>
+			Temporal.PlainYearMonth.from({ year: 2026, month: i + 1 })
+		).flatMap((month) => [
+			month.toPlainDate({ day: 1 }).toString(),
+			month.toPlainDate({ day: month.daysInMonth }).toString()
+		]),
+		'2026-01-02',
+		'2026-01-15',
+		'2026-01-16',
+		'2028-02-29'
+	];
+
+	it.each(days)(
+		'numbers, dates and dues the solo invoices inside the year of %s',
+		(day) => {
+			const date = Temporal.PlainDate.from(day);
+			const { invoices, invoiceCounters } = soloWorld(new Random(7), calendarFor(date));
+			const numbered = invoices.filter((invoice) => invoice.number !== null);
+			expect(numbered.map((invoice) => invoice.number)).toEqual(
+				Array.from({ length: 9 }, (_, i) => `MUSTER-${date.year}-000${i + 1}`)
+			);
+			expect(invoiceCounters).toEqual([{ year: date.year, lastSeq: 9 }]);
+			const dates = numbered.map((invoice) => invoice.issueDate!);
+			expect(dates).toEqual(dates.toSorted());
+			const created = numbered.map(
+				(invoice) => Temporal.Instant.from(invoice.createdAt).epochMilliseconds
+			);
+			expect(created).toEqual(created.toSorted((a, b) => a - b));
+			expect(
+				numbered.filter((invoice) => {
+					const lastDay = invoice.lines
+						.map((line) => line.serviceTo!)
+						.toSorted()
+						.at(-1)!;
+					return (
+						invoice.issueDate!.slice(0, 4) !== String(date.year) ||
+						invoice.issueDate! > day ||
+						lastDay >= invoice.issueDate! ||
+						(invoice.paidOn !== null &&
+							(invoice.paidOn < invoice.issueDate! || invoice.paidOn > day))
+					);
+				})
+			).toEqual([]);
+			expect(invoices.filter((invoice) => invoice.lines.length === 0)).toEqual([]);
+			const open = numbered.filter(
+				(invoice) => invoice.kind === 'invoice' && invoice.status === 'issued'
+			);
+			expect(open.filter((invoice) => invoice.dueDate! > day)).toHaveLength(1);
+			expect(open.filter((invoice) => invoice.dueDate! < day)).toHaveLength(
+				day.endsWith('-01-01') ? 0 : 1
+			);
+		},
+		30_000
+	);
+
+	it.each([
+		{ day: '2026-01-01', terms: 0 },
+		{ day: '2026-01-02', terms: 0 },
+		{ day: '2026-01-10', terms: 8 },
+		{ day: '2026-01-16', terms: 14 }
+	])(
+		'issues the invoice meant to be overdue on 1 january with $terms days to pay on $day',
+		({ day, terms }) => {
+			const { invoices } = soloWorld(new Random(7), calendarFor(Temporal.PlainDate.from(day)));
+			const unpaid = invoices.find((invoice) => invoice.numberSeq === 8)!;
+			expect([unpaid.issueDate, unpaid.paymentTermsDays]).toEqual([
+				`${day.slice(0, 4)}-01-01`,
+				terms
+			]);
+		}
+	);
+
+	it('bills the city up to yesterday when its project has no time in the previous month', () => {
+		const { invoices } = soloWorld(
+			new Random(11),
+			calendarFor(Temporal.PlainDate.from('2027-12-31'))
+		);
+		const city = invoices.find((invoice) => invoice.format === 'xrechnung')!;
+		expect([city.serviceFrom, city.serviceTo, city.issueDate]).toEqual([
+			'2027-11-01',
+			'2027-12-30',
+			'2027-12-31'
+		]);
+		expect(city.lines.filter((line) => line.serviceFrom! < '2027-12-01')).toEqual([]);
+	});
+
+	it('draws the same invoices from the same day and seed', () => {
+		const calendar = calendarFor(today);
+		expect(soloWorld(new Random(3), calendar).invoices).toEqual(
+			soloWorld(new Random(3), calendar).invoices
+		);
+	});
+
+	it.each(['2026-01-01', '2026-12-31'])(
+		'bills the office inside the year of %s',
+		(day) => {
+			const demo = generateDemo({ today: Temporal.PlainDate.from(day), seed: 5 });
+			const numbered = demo.invoices.filter((invoice) => invoice.number !== null);
+			expect(numbered.map((invoice) => invoice.number)).toEqual([
+				`MUSTER-${day.slice(0, 4)}-0001`,
+				`MUSTER-${day.slice(0, 4)}-0002`
+			]);
+			expect(
+				numbered.filter(
+					(invoice) =>
+						invoice.issueDate!.slice(0, 4) !== day.slice(0, 4) ||
+						invoice.issueDate! > day ||
+						invoice.serviceTo >= invoice.issueDate! ||
+						invoice.paidOn! < invoice.issueDate! ||
+						invoice.paidOn! > day
+				)
+			).toEqual([]);
+			expect(demo.invoices.filter((invoice) => invoice.lines.length === 0)).toEqual([]);
 		},
 		30_000
 	);

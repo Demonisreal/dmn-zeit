@@ -37,6 +37,7 @@ const schema = z.object({
 	isBusiness: z.enum(['b2b', 'b2c']).transform((kind) => kind === 'b2b'),
 	vatId: blankToNull.pipe(fields.vatId),
 	email: blankToNull.pipe(fields.email),
+	buyerReference: blankToNull.pipe(fields.buyerReference),
 	invoiceLocale: fields.invoiceLocale,
 	paymentTermsDays: blankToNull.pipe(
 		z.string().transform(Number).pipe(z.int(days).min(0, days).max(120, days)).nullable()
@@ -55,6 +56,7 @@ const defaults = (client: Client | undefined): z.input<typeof schema> => ({
 	isBusiness: client?.isBusiness === false ? 'b2c' : 'b2b',
 	vatId: client?.vatId ?? '',
 	email: client?.email ?? '',
+	buyerReference: client?.buyerReference ?? '',
 	invoiceLocale: client?.invoiceLocale ?? 'de',
 	paymentTermsDays: client?.paymentTermsDays?.toString() ?? '',
 	...roundingDefaults(client)
@@ -153,6 +155,16 @@ export function ClientForm({ client, onDone }: Props) {
 						description={t('client.paymentTermsHint')}
 						inputMode="numeric"
 					/>
+					<div className={styles.wide}>
+						<div className={css.name}>
+							<FormField
+								control={control}
+								name="buyerReference"
+								label={t('client.buyerReference')}
+								description={t('client.buyerReferenceHint')}
+							/>
+						</div>
+					</div>
 				</div>
 			</fieldset>
 

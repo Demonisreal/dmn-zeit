@@ -1,8 +1,8 @@
 import { InvoiceService } from '@e-invoice-eu/core';
-import { Logger } from '@nestjs/common';
 import type { TaxedAmount, TaxGroup } from '@zeit/rules';
 import type { Temporal } from 'temporal-polyfill';
-import { buyerEndpoint, toUbl } from './mapping';
+import { einvoiceBlockers } from './blockers';
+import { toUbl } from './mapping';
 import type { Locale } from './texts';
 
 export type Treatment =
@@ -63,6 +63,7 @@ export type EInvoice = {
 	serviceFrom: Temporal.PlainDate;
 	serviceTo: Temporal.PlainDate;
 	locale: Locale;
+	specimen: boolean;
 	treatment: Treatment;
 	exemptionReason: string | null;
 	seller: EInvoiceSeller;
@@ -74,58 +75,9 @@ export type EInvoice = {
 	| { kind: 'cancellation'; cancels: { number: string; issueDate: Temporal.PlainDate } }
 );
 
-// XML 1.0 has no place for these, the builder would write a broken document (B8)
-const NOT_XML = /(?![\t\n\r])\p{Cc}|[\uD800-\uDFFF￾￿]/u;
+export { einvoiceBlockers };
 
-const texts = (invoice: EInvoice) => [
-	invoice.number,
-	invoice.exemptionReason,
-	invoice.kind === 'cancellation' ? invoice.cancels.number : null,
-	...Object.values(invoice.seller),
-	...Object.values(invoice.buyer),
-	...invoice.lines.map((line) => line.description)
-];
-
-// checked before the number is taken, rendering happens later in the worker and must not fail there
-export function einvoiceBlockers(invoice: EInvoice, format: EInvoiceFormat): string[] {
-	const { seller, buyer } = invoice;
-	const blockers: string[] = [];
-	if (texts(invoice).some((text) => text !== null && NOT_XML.test(text))) {
-		blockers.push('text_not_xml');
-	}
-	if (!seller.postalCode || !seller.city) {
-		blockers.push('seller_address_incomplete');
-	}
-	// BR-O-2 bans the vat id next to "not subject to VAT", only the tax number is left
-	if (
-		invoice.treatment === 'outside_scope' ? !seller.taxNumber : !seller.vatId && !seller.taxNumber
-	) {
-		blockers.push('seller_tax_id_missing');
-	}
-	if (invoice.lines.some((line) => line.taxCategory === 'exempt') && !invoice.exemptionReason) {
-		blockers.push('exemption_reason_missing');
-	}
-	if (format === 'xrechnung') {
-		if (!seller.contactName || !seller.contactPhone || !seller.contactEmail) {
-			blockers.push('seller_contact_missing');
-		}
-		if (invoice.kind === 'invoice' && !seller.iban) {
-			blockers.push('iban_missing');
-		}
-		if (!buyer.buyerReference) {
-			blockers.push('buyer_reference_missing');
-		}
-		if (!buyerEndpoint(buyer)) {
-			blockers.push('buyer_endpoint_missing');
-		}
-		if (!buyer.postalCode || !buyer.city) {
-			blockers.push('buyer_address_incomplete');
-		}
-	}
-	return blockers;
-}
-
-const service = new InvoiceService(new Logger('EInvoice'));
+const service = new InvoiceService(console);
 
 function assertRenderable(invoice: EInvoice, format: EInvoiceFormat) {
 	const blockers = einvoiceBlockers(invoice, format);

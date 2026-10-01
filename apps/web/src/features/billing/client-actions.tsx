@@ -5,10 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
 import { Notice } from '../../components/ui/notice';
+import { hasCode } from '../../lib/api/errors';
 import { useErrorText } from '../hr/error-text';
 import styles from '../hr/ui/page.module.css';
 import { useReauth } from '../security/reauth-dialog';
 import { archiveClient, removeClient } from './api';
+
+const draftOpen = (err: unknown) =>
+	hasCode(err, 'INVALID_STATE') &&
+	!Array.isArray(err.details) &&
+	err.details?.message === 'client.openDraft';
 
 type Props = {
 	client: Client;
@@ -72,7 +78,13 @@ export function ClientActions({ client, canDelete }: Props) {
 						: archive.mutate()
 				}
 				isPending={pending.isPending}
-				error={pending.error && <Notice tone="error">{errorText(pending.error)}</Notice>}
+				error={
+					pending.error && (
+						<Notice tone="error">
+							{draftOpen(pending.error) ? t('clients.openDraft') : errorText(pending.error)}
+						</Notice>
+					)
+				}
 			>
 				<p>{asking === 'delete' ? t('clients.deleteText') : t('clients.archiveText')}</p>
 			</ConfirmDialog>

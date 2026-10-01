@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
 import {
 	revenueQuerySchema,
 	unbilledQuerySchema,
@@ -18,6 +18,7 @@ import { RequireReauth } from '../common/reauth.guard';
 import { Roles } from '../common/roles.guard';
 import type { AuthSession } from '../common/session.guard';
 import { ZodPipe } from '../common/zod.pipe';
+import { UserRateLimit, UserRateLimitGuard } from '../invoices/user-rate-limit.guard';
 import { BillingService } from './billing.service';
 
 @Controller('billing')
@@ -33,6 +34,8 @@ export class BillingController {
 	@Patch('profile')
 	@Roles('admin')
 	@RequireReauth()
+	@UseGuards(UserRateLimitGuard)
+	@UserRateLimit('billing-profile', 10, 60)
 	updateProfile(
 		@CurrentSession() session: AuthSession,
 		@Body(new ZodPipe(updateBillingProfileSchema)) body: UpdateBillingProfileInput,

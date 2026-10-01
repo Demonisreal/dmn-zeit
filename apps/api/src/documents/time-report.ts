@@ -19,4 +19,5 @@ export type TimeReport = {
 	generatedAt: string;
 	entries: TimeReportEntry[];
 	totals: { minutes: number; billableMinutes: number };
+	specimen?: boolean;
 };

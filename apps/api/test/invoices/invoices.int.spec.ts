@@ -21,7 +21,7 @@ beforeAll(async () => {
 afterAll(() => api.app.close());
 
 async function newClient(name: string) {
-	const answer = await hr.post('/clients', { name });
+	const answer = await hr.post('/clients', { name, street: 'Hafenstraße 12', postalCode: '20359', city: 'Hamburg' });
 	expect(answer.status).toBe(201);
 	return answer.body;
 }
@@ -172,6 +172,91 @@ describe('drafts', () => {
 		expect(again.status).toBe(201);
 	});
 
+	it('wants a reason on a tax exempt position and on no other', async () => {
+		const client = await newClient('Prüfstelle KG');
+		const project = await billedProject(client.id, '6000');
+		await bookTime('2026-09-14T09:00:00+02:00', '2026-09-14T10:00:00+02:00', project.id);
+		const draft = (
+			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-14', to: '2026-09-14' })
+		).body;
+		const fee = { description: 'Prüfungsgebühr', quantityMilli: '1000', unit: 'LS', unitPriceCents: '15000' };
+		const add = (fields: object) => hr.post(`/invoices/${draft.id}/lines`, { ...fee, ...fields });
+		const refused = (message: string) =>
+			expect.objectContaining({
+				status: 400,
+				body: expect.objectContaining({ details: [{ field: 'exemptionReason', code: 'custom', message }] })
+			});
+
+		expect(await add({ taxCategory: 'exempt' })).toEqual(refused('invoice.exemptionReasonRequired'));
+		expect(await add({ taxCategory: 'standard', exemptionReason: '§ 4 Nr. 21 UStG' })).toEqual(
+			refused('invoice.exemptionReasonUnexpected')
+		);
+		expect((await add({ taxCategory: 'exempt', exemptionReason: ' ' })).status).toBe(400);
+
+		const exempt = await add({ taxCategory: 'exempt', exemptionReason: '§ 4 Nr. 21 UStG' });
+		expect(exempt.status).toBe(201);
+		expectContract(invoiceLineSchema, exempt.body);
+		expect(exempt.body).toMatchObject({ taxCategory: 'exempt', taxRateBp: 0, exemptionReason: '§ 4 Nr. 21 UStG' });
+		expect((await hr.get(`/invoices/${draft.id}`)).body.legalNotes).toContain(
+			'Umsatzsteuerbefreiung: § 4 Nr. 21 UStG'
+		);
+
+		const edit = (fields: object) => hr.patch(`/invoices/${draft.id}/lines/${exempt.body.id}`, fields);
+		expect((await edit({ taxCategory: 'standard' })).body).toMatchObject({
+			taxCategory: 'standard',
+			taxRateBp: 1900,
+			exemptionReason: null
+		});
+		expect(await edit({ taxCategory: 'exempt' })).toEqual(refused('invoice.exemptionReasonRequired'));
+		expect((await edit({ taxCategory: 'exempt', exemptionReason: '§ 4 Nr. 22a UStG' })).body).toMatchObject({
+			taxCategory: 'exempt',
+			exemptionReason: '§ 4 Nr. 22a UStG'
+		});
+		expect((await edit({ description: 'Kursgebühr' })).body.exemptionReason).toBe('§ 4 Nr. 22a UStG');
+	});
+
+	it('takes the tax treatment of the new client when an emptied draft changes hands', async () => {
+		const client = await newClient('Umzug KG');
+		const project = await billedProject(client.id, '6000');
+		await bookTime('2026-09-15T09:00:00+02:00', '2026-09-15T10:00:00+02:00', project.id);
+		const draft = (
+			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-15', to: '2026-09-15' })
+		).body;
+		const abroad = await newClient('Brandt Umzug B.V.');
+		await hr.patch(`/clients/${abroad.id}`, { countryCode: 'NL', isBusiness: true, vatId: 'NL123456789B01' });
+
+		await hr.delete(`/invoices/${draft.id}/lines/${draft.lines[0].id}`);
+		expect((await hr.patch(`/invoices/${draft.id}`, { clientId: abroad.id })).status).toBe(200);
+
+		const line = { description: 'Anfahrt', quantityMilli: '1000', unit: 'DAY', unitPriceCents: '5000' };
+		const standard = await hr.post(`/invoices/${draft.id}/lines`, { ...line, taxCategory: 'standard' });
+		expect(standard.status).toBe(400);
+		expect(standard.body.details[0].message).toBe('invoice.taxCategoryMismatch');
+		const reverse = await hr.post(`/invoices/${draft.id}/lines`, { ...line, taxCategory: 'reverse_charge' });
+		expect(reverse.status).toBe(201);
+	});
+
+	it('checks the period against the stored end when only one end changes', async () => {
+		const client = await newClient('Zeitraum KG');
+		const project = await billedProject(client.id, '6000');
+		await bookTime('2026-09-13T09:00:00+02:00', '2026-09-13T10:00:00+02:00', project.id);
+		const draft = (
+			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-13', to: '2026-09-13' })
+		).body;
+
+		const tooLong = await hr.patch(`/invoices/${draft.id}`, { from: '2025-09-12' });
+		expect(tooLong.status).toBe(400);
+		expect(tooLong.body.details).toEqual([{ field: 'to', code: 'custom', message: 'invoice.rangeTooLong' }]);
+
+		const unordered = await hr.patch(`/invoices/${draft.id}`, { from: '2026-09-14' });
+		expect(unordered.status).toBe(400);
+		expect(unordered.body.details).toEqual([{ field: 'to', code: 'custom', message: 'range.unordered' }]);
+
+		const longest = await hr.patch(`/invoices/${draft.id}`, { from: '2025-09-13' });
+		expect(longest.status).toBe(200);
+		expect(longest.body.serviceFrom).toBe('2025-09-13');
+	});
+
 	it('refuses a 501st position on a draft that already carries 500', async () => {
 		const client = await newClient('Positionen KG');
 		const project = await billedProject(client.id, '6000');
@@ -211,9 +296,9 @@ describe('issuing', () => {
 		// § 33 UStDV drops the tax number only under 250 €, everything issued here is well above that
 		await admin.patch('/billing/profile', {
 			legalName: 'Mira Beispiel',
-			street: null,
-			postalCode: null,
-			city: null,
+			street: 'Lindenweg 4',
+			postalCode: '04109',
+			city: 'Leipzig',
 			taxNumber: '133/815/08150',
 			vatId: null,
 			previousYearRevenueCents: null,
@@ -242,10 +327,9 @@ describe('issuing', () => {
 		expect(issued.body.number).toEqual(expect.any(String));
 		expect(issued.body.totals.grossCents).toBe('38080');
 
-		// append-only from here, the database itself refuses a change to the frozen fields
 		const blocked = await hr.patch(`/invoices/${draft.id}`, { paymentTermsDays: 30 });
 		expect(blocked.status).toBe(409);
-		expect(blocked.body.code).toBe('APPEND_ONLY');
+		expect(blocked.body.code).toBe('INVALID_STATE');
 
 		const withoutReauth = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId);
 		expect((await withoutReauth.post(`/invoices/${draft.id}/issue`, { format: 'pdf' })).status).toBe(403);
@@ -267,6 +351,7 @@ describe('issuing', () => {
 		// § 14a Abs. 1 UStG: reverse charge needs both vat ids, the seller's billing profile has none here
 		const client = await newClient('Voisin SARL');
 		await hr.patch(`/clients/${client.id}`, { countryCode: 'FR', isBusiness: true, vatId: 'FR12345678901' });
+		await api.superuser.query(`update app.clients set invoice_format = 'pdf' where id = $1`, [client.id]);
 		const project = await billedProject(client.id, '9000');
 		await bookTime('2026-09-05T09:00:00+02:00', '2026-09-05T10:00:00+02:00', project.id);
 		const draft = (

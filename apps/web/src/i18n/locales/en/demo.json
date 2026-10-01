@@ -26,12 +26,14 @@
 			"request": "Request leave",
 			"approve": "Approve a request",
 			"restFinding": "Find the § 5 rest period in the week",
-			"close": "Close a month"
+			"close": "Close a month",
+			"invoice": "Issue an invoice"
 		},
 		"as": {
 			"employee": "as an employee",
 			"team_lead": "as team lead",
-			"hr": "as HR"
+			"hr": "as HR",
+			"freelancer": "as the freelancer"
 		}
 	},
 	"switch": {

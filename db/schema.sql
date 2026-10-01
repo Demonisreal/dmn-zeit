@@ -569,6 +569,41 @@ $$;
 
 
 --
+-- Name: guard_billing_profile(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_billing_profile() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  movable constant text[] := array['tax_profile', 'previous_year_revenue_cents', 'updated_at'];
+begin
+  if not exists (
+    select 1 from app.tenants t where t.id in (new.tenant_id, old.tenant_id) and t.kind = 'sandbox'
+  ) then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if exists (select 1 from app.billing_profiles p where p.tenant_id = new.tenant_id) then
+      return new;
+    end if;
+    raise exception 'sandbox % only has the billing profile of its seed', new.tenant_id
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if to_jsonb(new) - movable <> to_jsonb(old) - movable then
+    raise exception 'a sandbox only switches tax profile and previous year revenue of its billing profile'
+      using errcode = 'ZT002';
+  end if;
+
+  return new;
+end;
+$$;
+
+
+--
 -- Name: guard_invoice(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -577,14 +612,11 @@ CREATE FUNCTION app.guard_invoice() RETURNS trigger
     SET search_path TO ''
     AS $$
 declare
-  -- retain_until is generated from number_year, itself frozen below; postgres recomputes it only
-  -- after before-row triggers run, so it still reads stale inside this one and needs the same pass
   movable constant text[] := array[
     'status', 'paid_on', 'cancelled_at', 'cancelled_by', 'cancel_reason', 'updated_at', 'retain_until'
   ];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -618,6 +650,22 @@ begin
     raise exception 'invoice % has no issued cancellation yet', new.id using errcode = 'ZT003';
   end if;
 
+  if (new.cancelled_at, new.cancelled_by, new.cancel_reason)
+    is distinct from (old.cancelled_at, old.cancelled_by, old.cancel_reason)
+    and (new.status <> 'cancelled' or old.status = 'cancelled')
+  then
+    raise exception 'invoice % gets its cancellation details from app.invoice_cancel only', old.id using errcode = 'ZT002';
+  end if;
+
+  if new.paid_on is distinct from old.paid_on then
+    if old.status::text || '>' || new.status::text not in ('issued>paid', 'paid>issued') then
+      raise exception 'paid_on of invoice % only moves with its payment status', old.id using errcode = 'ZT002';
+    end if;
+    if new.paid_on > (now() at time zone 'Europe/Berlin')::date then
+      raise exception 'invoice % cannot be paid in the future', old.id using errcode = 'check_violation';
+    end if;
+  end if;
+
   return new;
 end;
 $$;
@@ -632,31 +680,54 @@ CREATE FUNCTION app.guard_invoice_child() RETURNS trigger
     SET search_path TO ''
     AS $$
 declare
+  held app.invoice_status;
   target record;
 begin
-  select i.status, i.tax_profile into target
-    from app.invoices i
-   where i.tenant_id = coalesce(new.tenant_id, old.tenant_id)
-     and i.id = coalesce(new.invoice_id, old.invoice_id);
-
-  -- not found means the invoice is gone too, which only happens cascading from a deleted draft
-  if found and target.status <> 'draft' then
-    raise exception '% belongs to an issued invoice', tg_table_name using errcode = 'ZT002';
-  end if;
-
-  -- a line's category has to match the invoice's tax treatment (planung-projekte.md, risk 17):
-  -- a small-business invoice never carries a taxed or reverse-charge line and vice versa
-  if tg_table_name = 'invoice_lines' and tg_op <> 'DELETE' then
-    if target.tax_profile = 'small_business' and new.tax_category <> 'small_business' then
-      raise exception 'a small-business invoice only takes small_business lines' using errcode = 'check_violation';
-    elsif target.tax_profile = 'regular' and new.tax_category = 'small_business' then
-      raise exception 'a regular invoice cannot take a small_business line' using errcode = 'check_violation';
+  if tg_op <> 'INSERT' then
+    select i.status into held
+      from app.invoices i
+     where i.tenant_id = old.tenant_id and i.id = old.invoice_id
+       for share;
+    if held <> 'draft' then
+      raise exception '% belongs to an issued invoice', tg_table_name using errcode = 'ZT002';
     end if;
   end if;
 
   if tg_op = 'DELETE' then
     return old;
   end if;
+
+  select i.status, i.kind, i.tax_profile, i.tax_treatment into target
+    from app.invoices i
+   where i.tenant_id = new.tenant_id and i.id = new.invoice_id
+     for share;
+
+  if found and target.status <> 'draft' then
+    raise exception '% belongs to an issued invoice', tg_table_name using errcode = 'ZT002';
+  end if;
+
+  if tg_table_name = 'invoice_lines' then
+    if target.tax_profile = 'small_business' and new.tax_category <> 'small_business' then
+      raise exception 'a small-business invoice only takes small_business lines' using errcode = 'check_violation';
+    elsif target.tax_profile = 'regular' and new.tax_category = 'small_business' then
+      raise exception 'a regular invoice cannot take a small_business line' using errcode = 'check_violation';
+    end if;
+
+    if target.tax_treatment is not null and new.tax_category <> all (
+      case when target.tax_treatment = 'standard'
+        then array['standard', 'reduced', 'exempt']::app.tax_category[]
+        else array[target.tax_treatment]
+      end
+    ) then
+      raise exception 'a % invoice cannot take a % line', target.tax_treatment, new.tax_category
+        using errcode = 'check_violation';
+    end if;
+
+    if target.kind = 'invoice' and new.tax_category = 'exempt' and new.exemption_reason is null then
+      raise exception 'an exempt line needs an exemption reason' using errcode = 'check_violation';
+    end if;
+  end if;
+
   return new;
 end;
 $$;
@@ -814,6 +885,54 @@ $$;
 
 
 --
+-- Name: guard_project_entry_invoice(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_project_entry_invoice() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  held app.invoice_status;
+  target record;
+begin
+  if tg_op = 'UPDATE' and new.invoice_id is not distinct from old.invoice_id then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' and old.invoice_id is not null then
+    select i.status into held
+      from app.invoices i
+     where i.tenant_id = old.tenant_id and i.id = old.invoice_id
+       for share;
+    if held in ('issued', 'paid') then
+      raise exception 'project entry % is invoiced', old.id using errcode = 'ZT004';
+    end if;
+  end if;
+
+  if new.invoice_id is not null then
+    select i.status, i.client_id into target
+      from app.invoices i
+     where i.tenant_id = new.tenant_id and i.id = new.invoice_id
+       for share;
+    if target.status is distinct from 'draft' then
+      raise exception 'invoice % is not an open draft', new.invoice_id using errcode = 'ZT003';
+    end if;
+    if not exists (
+      select 1 from app.projects p
+       where p.tenant_id = new.tenant_id and p.id = new.project_id and p.client_id = target.client_id
+    ) then
+      raise exception 'project entry % is not for the client of invoice %', new.id, new.invoice_id
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+
+--
 -- Name: guard_request_status(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -910,7 +1029,7 @@ $$;
 --
 
 CREATE FUNCTION app.guard_tenant_retention() RETURNS trigger
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
 begin
@@ -1036,6 +1155,9 @@ CREATE TABLE app.invoices (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     retain_until date GENERATED ALWAYS AS (make_date(((number_year)::integer + 8), 12, 31)) STORED,
+    tax_treatment app.tax_category,
+    CONSTRAINT invoices_cancellation_unpaid CHECK (((kind = 'invoice'::app.invoice_kind) OR (status <> 'paid'::app.invoice_status))),
+    CONSTRAINT invoices_cancelled_at_status CHECK (((status = 'cancelled'::app.invoice_status) = (cancelled_at IS NOT NULL))),
     CONSTRAINT invoices_check CHECK (((status = 'draft'::app.invoice_status) = (number IS NULL))),
     CONSTRAINT invoices_check1 CHECK (((status = 'draft'::app.invoice_status) = (issue_date IS NULL))),
     CONSTRAINT invoices_check2 CHECK (((status = 'draft'::app.invoice_status) = (due_date IS NULL))),
@@ -1046,7 +1168,9 @@ CREATE TABLE app.invoices (
     CONSTRAINT invoices_check7 CHECK (((kind <> 'cancellation'::app.invoice_kind) OR (status <> 'cancelled'::app.invoice_status))),
     CONSTRAINT invoices_check8 CHECK (((cancelled_at IS NULL) = (cancelled_by IS NULL))),
     CONSTRAINT invoices_check9 CHECK (((cancelled_at IS NULL) OR (cancel_reason IS NOT NULL))),
-    CONSTRAINT invoices_locale_check CHECK ((locale = ANY (ARRAY['de'::text, 'en'::text])))
+    CONSTRAINT invoices_locale_check CHECK ((locale = ANY (ARRAY['de'::text, 'en'::text]))),
+    CONSTRAINT invoices_paid_on_status CHECK (((paid_on IS NULL) OR (status = ANY (ARRAY['paid'::app.invoice_status, 'cancelled'::app.invoice_status])))),
+    CONSTRAINT invoices_tax_treatment CHECK (((tax_treatment = ANY (ARRAY['standard'::app.tax_category, 'reverse_charge'::app.tax_category, 'outside_scope'::app.tax_category, 'small_business'::app.tax_category])) AND ((tax_treatment = 'small_business'::app.tax_category) = (tax_profile = 'small_business'::app.tax_profile))))
 );
 
 ALTER TABLE ONLY app.invoices FORCE ROW LEVEL SECURITY;
@@ -1074,11 +1198,10 @@ begin
     raise exception 'a cancellation needs a reason of at least 10 characters' using errcode = 'check_violation';
   end if;
 
-  select * into original from app.invoices i where i.id = p_invoice_id and i.tenant_id = app.tenant_id();
+  select * into original from app.invoices i where i.id = p_invoice_id and i.tenant_id = app.tenant_id() for update;
   if not found then
     raise exception 'invoice % not found', p_invoice_id using errcode = 'ZT003';
   end if;
-  -- neither a cancellation of a cancellation nor a second one for the same invoice (R-08)
   if original.kind = 'cancellation' then
     raise exception 'a cancellation cannot itself be cancelled' using errcode = 'ZT003';
   end if;
@@ -1091,26 +1214,26 @@ begin
 
   insert into app.invoices (
     tenant_id, kind, client_id, refers_to_id, service_from, service_to, payment_terms_days,
-    locale, format, tax_profile, intro_text, closing_text, created_by
+    locale, format, tax_profile, tax_treatment, created_by
   ) values (
     original.tenant_id, 'cancellation', original.client_id, original.id, original.service_from,
     original.service_to, original.payment_terms_days, original.locale, original.format,
-    original.tax_profile, original.intro_text, original.closing_text, app.user_id()
+    original.tax_profile, original.tax_treatment, app.user_id()
   ) returning id into cancellation_id;
 
-  -- negated snapshots of the original's positions (0 - x, never -x, so a zero line stays zero)
   for src in select * from app.invoice_lines where tenant_id = original.tenant_id and invoice_id = original.id
   loop
     insert into app.invoice_lines (
       tenant_id, invoice_id, client_id, position, kind, project_id, task_id, description,
       service_from, service_to, minutes, quantity_milli, unit, unit_price_cents, net_cents,
-      tax_category, tax_rate_bp, derivation
+      tax_category, tax_rate_bp, exemption_reason, derivation
     ) values (
       src.tenant_id, cancellation_id, src.client_id, src.position, src.kind, src.project_id,
       src.task_id, src.description, src.service_from, src.service_to,
       case when src.minutes is null then null else 0 - src.minutes end,
       case when src.quantity_milli is null then null else 0 - src.quantity_milli end,
-      src.unit, src.unit_price_cents, 0 - src.net_cents, src.tax_category, src.tax_rate_bp, src.derivation
+      src.unit, src.unit_price_cents, 0 - src.net_cents, src.tax_category, src.tax_rate_bp,
+      src.exemption_reason, src.derivation
     ) returning id into new_line_id;
 
     insert into app.invoice_line_entries (tenant_id, invoice_id, line_id, entry_id)
@@ -1124,7 +1247,6 @@ begin
   update app.invoices set status = 'cancelled', cancelled_at = now(), cancelled_by = app.user_id(), cancel_reason = p_reason
    where id = original.id and tenant_id = original.tenant_id;
 
-  -- the abrechnungssperre lifts, the entries can be picked up by a new draft (R-09)
   update app.project_entries set invoice_id = null
    where tenant_id = original.tenant_id and invoice_id = original.id;
 
@@ -1152,7 +1274,7 @@ declare
   seq integer;
   net_total bigint;
   tax_total bigint;
-  -- named v_ to avoid "column reference is ambiguous" against invoices.seller/buyer in the update below
+  reverse_charge boolean;
   v_seller jsonb;
   v_buyer jsonb;
 begin
@@ -1160,66 +1282,103 @@ begin
     raise exception 'only hr and admins issue invoices' using errcode = 'insufficient_privilege';
   end if;
 
-  select * into draft from app.invoices i where i.id = p_invoice_id and i.tenant_id = app.tenant_id();
+  select * into draft from app.invoices i where i.id = p_invoice_id and i.tenant_id = app.tenant_id() for update;
   if not found or draft.status <> 'draft' then
     raise exception 'invoice % is not an open draft', p_invoice_id using errcode = 'ZT003';
   end if;
 
   select t.kind into tenant_kind from app.tenants t where t.id = app.tenant_id();
 
-  -- X-03: a sandbox demo never accumulates more issued invoices than fit a walkthrough
-  if tenant_kind = 'sandbox' and (
+  if tenant_kind = 'sandbox' and draft.kind = 'invoice' and (
     select count(*) from app.invoices i where i.tenant_id = app.tenant_id() and i.status <> 'draft'
   ) >= 30 then
     raise exception 'sandbox % has issued enough invoices for a demo', app.tenant_id() using errcode = 'ZT005';
   end if;
 
-  select * into client from app.clients c where c.tenant_id = app.tenant_id() and c.id = draft.client_id;
-
-  -- BR-CO-17: tax per rate group from the summed, already-rounded net amounts, never per line
-  select coalesce(sum(g.net_cents), 0), coalesce(sum(app.percent_of(g.net_cents::bigint, g.tax_rate_bp::integer)), 0)
-    into net_total, tax_total
+  select coalesce(sum(g.net_cents), 0), coalesce(sum(app.percent_of(g.net_cents::bigint, g.tax_rate_bp::integer)), 0),
+         coalesce(bool_or(g.reverse_charge), false)
+    into net_total, tax_total, reverse_charge
     from (
-      select tax_rate_bp, sum(net_cents) as net_cents
+      select tax_rate_bp, sum(net_cents) as net_cents, bool_or(tax_category = 'reverse_charge') as reverse_charge
         from app.invoice_lines
        where tenant_id = app.tenant_id() and invoice_id = draft.id
        group by tax_rate_bp
     ) g;
 
-  if tenant_kind = 'sandbox' then
-    -- x-01: an invalid vat id and iban, so neither a tax office nor a bank ever acts on this
-    prefix := 'MUSTER-';
-    v_seller := jsonb_build_object(
-      'legalName', 'Musterbetrieb Mira Beispiel', 'street', 'Musterstraße 1', 'postalCode', '10115',
-      'city', 'Berlin', 'countryCode', 'DE', 'taxNumber', '000/000/00000', 'vatId', 'DE000000000',
-      'taxProfile', 'regular', 'iban', 'DE00500105170648489890', 'bic', 'MUSTERDEXXX',
-      'bankName', 'Musterbank', 'contactName', 'Mira Beispiel', 'contactEmail', null,
-      'contactPhone', null, 'registerCourt', null, 'registerNumber', null
-    );
-  else
-    select * into profile from app.billing_profiles p where p.tenant_id = app.tenant_id();
-    if not found then
-      raise exception 'tenant % has no billing profile yet', app.tenant_id() using errcode = 'ZT003';
-    end if;
-    prefix := profile.invoice_prefix;
-    v_seller := jsonb_build_object(
-      'legalName', profile.legal_name, 'street', profile.street, 'postalCode', profile.postal_code,
-      'city', profile.city, 'countryCode', profile.country_code, 'taxNumber', profile.tax_number,
-      'vatId', profile.vat_id, 'taxProfile', profile.tax_profile, 'iban', profile.iban,
-      'bic', profile.bic, 'bankName', profile.bank_name, 'contactName', profile.contact_name,
-      'contactEmail', profile.contact_email, 'contactPhone', profile.contact_phone,
-      'registerCourt', profile.register_court, 'registerNumber', profile.register_number
-    );
+  if draft.kind = 'invoice' and net_total + tax_total <= 0 then
+    raise exception 'invoice % has no positive total', p_invoice_id using errcode = 'ZT003';
   end if;
 
-  v_buyer := jsonb_build_object(
-    'name', client.name, 'street', client.street, 'postalCode', client.postal_code,
-    'city', client.city, 'countryCode', client.country_code, 'isBusiness', client.is_business,
-    'vatId', client.vat_id, 'email', client.email, 'buyerReference', client.buyer_reference,
-    'number', client.number
-  );
+  if draft.tax_treatment is not null and exists (
+    select 1 from app.invoice_lines l
+     where l.tenant_id = draft.tenant_id and l.invoice_id = draft.id
+       and l.tax_category <> all (
+         case when draft.tax_treatment = 'standard'
+           then array['standard', 'reduced', 'exempt']::app.tax_category[]
+           else array[draft.tax_treatment]
+         end
+       )
+  ) then
+    raise exception 'invoice % has lines outside its % treatment', p_invoice_id, draft.tax_treatment
+      using errcode = 'check_violation';
+  end if;
 
-  -- the upsert locks the counter row until commit, a rollback after this hands the number back (adr 0003)
+  select * into profile from app.billing_profiles p where p.tenant_id = app.tenant_id();
+  if not found and tenant_kind <> 'sandbox' then
+    raise exception 'tenant % has no billing profile yet', app.tenant_id() using errcode = 'ZT003';
+  end if;
+  prefix := case when tenant_kind = 'sandbox' then 'MUSTER-' else profile.invoice_prefix end;
+
+  if draft.kind = 'invoice' and tenant_kind = 'live' and draft.tax_profile is distinct from profile.tax_profile then
+    raise exception 'invoice % was drafted as %, the billing profile is % by now, refresh the draft first',
+      p_invoice_id, draft.tax_profile, profile.tax_profile using errcode = 'ZT003';
+  end if;
+
+  if draft.kind = 'cancellation' then
+    select o.seller - 'taxProfile', o.buyer into v_seller, v_buyer
+      from app.invoices o
+     where o.tenant_id = draft.tenant_id and o.id = draft.refers_to_id;
+  else
+    if profile.tenant_id is null then
+      v_seller := jsonb_build_object(
+        'legalName', 'Musterbetrieb Mira Beispiel', 'street', 'Musterstraße 1', 'postalCode', '10115',
+        'city', 'Berlin', 'countryCode', 'DE', 'taxNumber', '000/000/00000', 'vatId', 'DE000000000',
+        'iban', 'DE00500105170648489890', 'bic', 'MUSTERDEXXX', 'bankName', 'Musterbank',
+        'contactName', 'Mira Beispiel', 'contactEmail', 'rechnung@musterbetrieb.example.test',
+        'contactPhone', '030 000000', 'registerCourt', null, 'registerNumber', null
+      );
+    else
+      v_seller := jsonb_build_object(
+        'legalName', profile.legal_name, 'street', profile.street, 'postalCode', profile.postal_code,
+        'city', profile.city, 'countryCode', profile.country_code, 'taxNumber', profile.tax_number,
+        'vatId', profile.vat_id, 'iban', profile.iban, 'bic', profile.bic, 'bankName', profile.bank_name,
+        'contactName', profile.contact_name, 'contactEmail', profile.contact_email,
+        'contactPhone', profile.contact_phone, 'registerCourt', profile.register_court,
+        'registerNumber', profile.register_number
+      );
+    end if;
+
+    select * into client from app.clients c where c.tenant_id = app.tenant_id() and c.id = draft.client_id;
+    v_buyer := jsonb_build_object(
+      'name', client.name, 'street', client.street, 'postalCode', client.postal_code,
+      'city', client.city, 'countryCode', client.country_code, 'isBusiness', client.is_business,
+      'vatId', client.vat_id, 'email', client.email, 'buyerReference', client.buyer_reference,
+      'number', client.number
+    );
+
+    if exists (
+      select 1 from unnest(array['street', 'postalCode', 'city']) k where coalesce(btrim(v_seller ->> k), '') = ''
+    ) then
+      raise exception 'the seller address on invoice % is incomplete', p_invoice_id using errcode = 'ZT006';
+    end if;
+
+    if (reverse_charge or net_total + tax_total > 25000) and exists (
+      select 1 from unnest(array['street', 'postalCode', 'city']) k where coalesce(btrim(v_buyer ->> k), '') = ''
+    ) then
+      raise exception 'the buyer address on invoice % is incomplete', p_invoice_id using errcode = 'ZT006';
+    end if;
+  end if;
+
   insert into app.invoice_counters as c (tenant_id, year, last_seq)
   values (app.tenant_id(), year_num, 1)
   on conflict (tenant_id, year) do update set last_seq = c.last_seq + 1
@@ -1227,7 +1386,8 @@ begin
 
   update app.invoices i set
     status = 'issued',
-    number = prefix || year_num || '-' || (case when seq < 10000 then lpad(seq::text, 4, '0') else seq::text end),
+    number = coalesce(nullif(rtrim(prefix, '-'), '') || '-', '') || year_num || '-'
+      || (case when seq < 10000 then lpad(seq::text, 4, '0') else seq::text end),
     number_year = year_num,
     number_seq = seq,
     issue_date = today,
@@ -1242,6 +1402,10 @@ begin
     issued_by = app.user_id()
    where i.id = p_invoice_id and i.tenant_id = app.tenant_id() and i.status = 'draft'
   returning i.* into draft;
+
+  if not found then
+    raise exception 'invoice % is not an open draft', p_invoice_id using errcode = 'ZT003';
+  end if;
 
   return draft;
 end;
@@ -1263,6 +1427,21 @@ CREATE FUNCTION app.leads(p_employee_id uuid) RETURNS boolean
      where e.id = p_employee_id
        and l.user_id = app.user_id()
   )
+$$;
+
+
+--
+-- Name: mark_specimen(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.mark_specimen() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  new.specimen := exists (select 1 from app.tenants t where t.id = new.tenant_id and t.kind = 'sandbox');
+  return new;
+end;
 $$;
 
 
@@ -1471,6 +1650,58 @@ CREATE FUNCTION app.set_updated_at() RETURNS trigger
 begin
   new.updated_at := now();
   return new;
+end;
+$$;
+
+
+--
+-- Name: store_invoice_document(uuid, text, bytea); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.store_invoice_document(p_invoice_id uuid, p_format text, p_content bytea) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  stored uuid;
+  issued_format app.invoice_format;
+  head bytea := substring(p_content for 5);
+begin
+  if (app.role() >= 'hr') is not true then
+    raise exception 'only hr and admins store invoice documents' using errcode = 'insufficient_privilege';
+  end if;
+
+  select i.format into issued_format
+    from app.invoices i
+   where i.tenant_id = app.tenant_id() and i.id = p_invoice_id and i.status <> 'draft';
+  if not found then
+    raise exception 'a document only attaches to an issued invoice' using errcode = 'ZT003';
+  end if;
+
+  if p_format <> all (
+    case issued_format
+      when 'pdf' then array['pdf']
+      when 'zugferd' then array['zugferd']
+      else array['xrechnung_cii', 'pdf']
+    end
+  ) then
+    raise exception 'a % invoice keeps no % document', issued_format, p_format using errcode = 'ZT003';
+  end if;
+
+  if p_format = 'xrechnung_cii' and substring(p_content for 3) = '\xefbbbf'::bytea then
+    head := substring(p_content from 4 for 5);
+  end if;
+
+  if head <> (case when p_format = 'xrechnung_cii' then '<?xml'::bytea else '%PDF-'::bytea end) then
+    raise exception 'the content is no % document', p_format using errcode = 'ZT003';
+  end if;
+
+  insert into app.invoice_documents (tenant_id, invoice_id, format, content, sha256, created_by)
+  values (app.tenant_id(), p_invoice_id, p_format, p_content, sha256(p_content), app.user_id())
+  on conflict (tenant_id, invoice_id, format) do nothing
+  returning id into stored;
+
+  return stored;
 end;
 $$;
 
@@ -2774,16 +3005,97 @@ begin
       as x (id uuid, "clientId" uuid, "projectId" uuid, "taskId" uuid, "employeeId" uuid,
             "validFrom" date, "rateCents" bigint);
 
-  -- guard_project_entry asks everyone below hr for a released project, the seed books for all of them
+  insert into app.billing_profiles (
+    tenant_id, legal_name, street, postal_code, city, country_code, tax_number, vat_id, tax_profile,
+    previous_year_revenue_cents, iban, bic, bank_name, contact_name, contact_email, contact_phone,
+    register_court, register_number, invoice_prefix, payment_terms_days, rounding_increment_min,
+    rounding_mode, default_format
+  )
+  select p_tenant, x."legalName", x.street, x."postalCode", x.city, x."countryCode", x."taxNumber",
+         x."vatId", x."taxProfile", x."previousYearRevenueCents", x.iban, x.bic, x."bankName",
+         x."contactName", x."contactEmail", x."contactPhone", x."registerCourt", x."registerNumber",
+         x."invoicePrefix", x."paymentTermsDays", x."roundingIncrementMin", x."roundingMode", x."defaultFormat"
+    from jsonb_to_record(p_book -> 'billingProfile')
+      as x ("legalName" text, street text, "postalCode" text, city text, "countryCode" char(2),
+            "taxNumber" text, "vatId" text, "taxProfile" app.tax_profile, "previousYearRevenueCents" bigint,
+            iban text, bic text, "bankName" text, "contactName" text, "contactEmail" public.citext,
+            "contactPhone" text, "registerCourt" text, "registerNumber" text, "invoicePrefix" text,
+            "paymentTermsDays" smallint, "roundingIncrementMin" smallint, "roundingMode" app.rounding_mode,
+            "defaultFormat" app.invoice_format);
+
+  insert into app.invoice_counters (tenant_id, year, last_seq)
+  select p_tenant, x.year, x."lastSeq"
+    from jsonb_to_recordset(p_book -> 'invoiceCounters') as x (year smallint, "lastSeq" integer);
+
+  insert into app.invoices (
+    id, tenant_id, kind, client_id, refers_to_id, service_from, service_to, payment_terms_days, locale,
+    format, tax_profile, tax_treatment, intro_text, closing_text, created_by, created_at
+  )
+  select x.id, p_tenant, x.kind, x."clientId", x."refersToId", x."serviceFrom", x."serviceTo",
+         x."paymentTermsDays", x.locale, x.format, x."taxProfile", x."taxTreatment", x."introText",
+         x."closingText", x."createdBy", x."createdAt"
+    from jsonb_to_recordset(p_book -> 'invoices')
+      as x (id uuid, kind app.invoice_kind, "clientId" uuid, "refersToId" uuid, "serviceFrom" date,
+            "serviceTo" date, "paymentTermsDays" smallint, locale text, format app.invoice_format,
+            "taxProfile" app.tax_profile, "taxTreatment" app.tax_category, "introText" text,
+            "closingText" text, "createdBy" uuid, "createdAt" timestamptz);
+
   perform set_config('app.role', 'admin', true);
   insert into app.project_entries (
-    id, tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source
+    id, tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source, invoice_id
   )
-  select x.id, p_tenant, x."employeeId", x."projectId", x."taskId", x."startedAt", x."endedAt", x.note, 'seed'
+  select x.id, p_tenant, x."employeeId", x."projectId", x."taskId", x."startedAt", x."endedAt", x.note, 'seed',
+         x."invoiceId"
     from jsonb_to_recordset(p_book -> 'projectEntries')
       as x (id uuid, "employeeId" uuid, "projectId" uuid, "taskId" uuid, "startedAt" timestamptz,
-            "endedAt" timestamptz, note text);
+            "endedAt" timestamptz, note text, "invoiceId" uuid);
   perform set_config('app.role', coalesce(previous_role, ''), true);
+
+  insert into app.invoice_lines (
+    id, tenant_id, invoice_id, client_id, position, kind, project_id, task_id, description, service_from,
+    service_to, minutes, quantity_milli, unit, unit_price_cents, net_cents, tax_category, tax_rate_bp,
+    exemption_reason, derivation
+  )
+  select l.id, p_tenant, i.id, i."clientId", l.position, l.kind, l."projectId", l."taskId", l.description,
+         l."serviceFrom", l."serviceTo", l.minutes, l."quantityMilli", l.unit, l."unitPriceCents",
+         l."netCents", l."taxCategory", l."taxRateBp", l."exemptionReason", l.derivation
+    from jsonb_to_recordset(p_book -> 'invoices') as i (id uuid, "clientId" uuid, lines jsonb)
+    cross join lateral jsonb_to_recordset(i.lines)
+      as l (id uuid, position integer, kind app.invoice_line_kind, "projectId" uuid, "taskId" uuid,
+            description text, "serviceFrom" date, "serviceTo" date, minutes integer, "quantityMilli" bigint,
+            unit text, "unitPriceCents" bigint, "netCents" bigint, "taxCategory" app.tax_category,
+            "taxRateBp" smallint, "exemptionReason" text, derivation jsonb);
+
+  insert into app.invoice_line_entries (tenant_id, invoice_id, line_id, entry_id)
+  select p_tenant, i.id, l.id, e.id::uuid
+    from jsonb_to_recordset(p_book -> 'invoices') as i (id uuid, lines jsonb)
+    cross join lateral jsonb_to_recordset(i.lines) as l (id uuid, "entryIds" jsonb)
+    cross join lateral jsonb_array_elements_text(l."entryIds") as e (id);
+
+  update app.invoices i set
+    status = x.status,
+    number = x.number,
+    number_year = x."numberYear",
+    number_seq = x."numberSeq",
+    issue_date = x."issueDate",
+    due_date = x."dueDate",
+    net_cents = x."netCents",
+    tax_cents = x."taxCents",
+    gross_cents = x."grossCents",
+    seller = x.seller,
+    buyer = x.buyer,
+    paid_on = x."paidOn",
+    cancel_reason = x."cancelReason",
+    cancelled_at = x."cancelledAt",
+    cancelled_by = x."cancelledBy",
+    issued_at = x."issuedAt",
+    issued_by = x."issuedBy"
+    from jsonb_to_recordset(p_book -> 'invoices')
+      as x (id uuid, status app.invoice_status, number text, "numberYear" smallint, "numberSeq" integer,
+            "issueDate" date, "dueDate" date, "netCents" bigint, "taxCents" bigint, "grossCents" bigint,
+            seller jsonb, buyer jsonb, "paidOn" date, "cancelReason" text, "cancelledAt" timestamptz,
+            "cancelledBy" uuid, "issuedAt" timestamptz, "issuedBy" uuid)
+   where i.tenant_id = p_tenant and i.id = x.id and x.status <> 'draft';
 end;
 $$;
 
@@ -3392,13 +3704,24 @@ CREATE TABLE app.invoice_lines (
     tax_rate_bp smallint NOT NULL,
     derivation jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    exemption_reason text,
     CONSTRAINT invoice_lines_check CHECK (((kind = 'time'::app.invoice_line_kind) = (minutes IS NOT NULL))),
     CONSTRAINT invoice_lines_check1 CHECK (((kind = 'item'::app.invoice_line_kind) = (quantity_milli IS NOT NULL))),
     CONSTRAINT invoice_lines_check2 CHECK (((kind <> 'time'::app.invoice_line_kind) OR (project_id IS NOT NULL))),
     CONSTRAINT invoice_lines_check3 CHECK (((quantity_milli IS NULL) = (unit IS NULL))),
     CONSTRAINT invoice_lines_check4 CHECK (((tax_category = ANY (ARRAY['standard'::app.tax_category, 'reduced'::app.tax_category])) = (tax_rate_bp > 0))),
     CONSTRAINT invoice_lines_description_check CHECK ((btrim(description) <> ''::text)),
+    CONSTRAINT invoice_lines_exemption_reason CHECK (((exemption_reason IS NULL) OR (tax_category = 'exempt'::app.tax_category))),
+    CONSTRAINT invoice_lines_exemption_reason_text CHECK (((btrim(exemption_reason) <> ''::text) AND (char_length(exemption_reason) <= 200))),
+    CONSTRAINT invoice_lines_minutes_range CHECK (((minutes >= '-10000000'::integer) AND (minutes <= 10000000))),
+    CONSTRAINT invoice_lines_net_cents CHECK ((net_cents =
+CASE kind
+    WHEN 'time'::app.invoice_line_kind THEN app.round_div((minutes * unit_price_cents), (60)::bigint)
+    ELSE app.round_div((quantity_milli * unit_price_cents), (1000)::bigint)
+END)),
     CONSTRAINT invoice_lines_position_check CHECK (("position" > 0)),
+    CONSTRAINT invoice_lines_price_range CHECK (((unit_price_cents >= '-1000000000'::integer) AND (unit_price_cents <= 1000000000))),
+    CONSTRAINT invoice_lines_quantity_range CHECK (((quantity_milli >= '-1000000000'::integer) AND (quantity_milli <= 1000000000))),
     CONSTRAINT invoice_lines_tax_rate_bp_check CHECK (((tax_rate_bp >= 0) AND (tax_rate_bp <= 10000))),
     CONSTRAINT invoice_lines_unit_check CHECK ((unit = ANY (ARRAY['HUR'::text, 'DAY'::text, 'C62'::text, 'LS'::text])))
 );
@@ -5067,6 +5390,13 @@ CREATE TRIGGER audit_flex_bookings AFTER INSERT OR DELETE OR UPDATE ON app.flex_
 
 
 --
+-- Name: invoice_counters audit_invoice_counters; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_invoice_counters AFTER INSERT OR DELETE OR UPDATE ON app.invoice_counters FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
 -- Name: invoice_documents audit_invoice_documents; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -5190,6 +5520,13 @@ CREATE TRIGGER audit_vacation_notices AFTER INSERT OR DELETE OR UPDATE ON app.va
 --
 
 CREATE TRIGGER audit_work_models AFTER INSERT OR DELETE OR UPDATE ON app.work_models FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: billing_profiles billing_profiles_guard; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER billing_profiles_guard BEFORE INSERT OR UPDATE ON app.billing_profiles FOR EACH ROW WHEN ((CURRENT_USER = 'zeit_app'::name)) EXECUTE FUNCTION app.guard_billing_profile();
 
 
 --
@@ -5354,6 +5691,13 @@ CREATE TRIGGER invoices_guard BEFORE DELETE OR UPDATE ON app.invoices FOR EACH R
 
 
 --
+-- Name: invoices invoices_mark_specimen; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoices_mark_specimen BEFORE INSERT ON app.invoices FOR EACH ROW EXECUTE FUNCTION app.mark_specimen();
+
+
+--
 -- Name: invoices invoices_no_truncate; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -5407,6 +5751,13 @@ CREATE TRIGGER month_closings_sandbox_quota AFTER INSERT ON app.month_closings R
 --
 
 CREATE TRIGGER project_entries_guard BEFORE INSERT OR DELETE OR UPDATE ON app.project_entries FOR EACH ROW EXECUTE FUNCTION app.guard_project_entry();
+
+
+--
+-- Name: project_entries project_entries_guard_invoice; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER project_entries_guard_invoice BEFORE INSERT OR UPDATE OF invoice_id ON app.project_entries FOR EACH ROW EXECUTE FUNCTION app.guard_project_entry_invoice();
 
 
 --
@@ -6825,13 +7176,6 @@ CREATE POLICY "hr sends notices" ON app.vacation_notices FOR INSERT TO zeit_app 
 
 
 --
--- Name: invoice_documents hr stores invoice documents; Type: POLICY; Schema: app; Owner: -
---
-
-CREATE POLICY "hr stores invoice documents" ON app.invoice_documents FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
-
-
---
 -- Name: invoice_counters; Type: ROW SECURITY; Schema: app; Owner: -
 --
 
@@ -7498,4 +7842,16 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260926000960'),
     ('20260926000970'),
     ('20260926000980'),
-    ('20260926001000');
+    ('20260926001000'),
+    ('20260926001100'),
+    ('20260926001101'),
+    ('20260926001102'),
+    ('20260926001103'),
+    ('20260926001104'),
+    ('20260926001105'),
+    ('20260926001106'),
+    ('20260926001200'),
+    ('20260926001300'),
+    ('20260926001301'),
+    ('20260926001302'),
+    ('20260926001303');

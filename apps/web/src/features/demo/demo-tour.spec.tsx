@@ -164,6 +164,31 @@ describe('demo tour', () => {
 		);
 	});
 
+	it('adds the invoice step only to the freelancer tour', async () => {
+		answer({});
+		await startSandbox();
+		renderApp('/');
+		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 4' })).toBeInTheDocument();
+
+		await switchTo('Freelancer');
+		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 5' })).toBeInTheDocument();
+		expect((await steps()).map((step) => step.textContent)).toEqual([
+			'Urlaub beantragen, offen als Beschäftigte',
+			'Antrag genehmigen, offen als Teamleitung',
+			'Ruhezeit nach § 5 im Wochenbuch finden, offen als Beschäftigte',
+			'Monat abschließen, offen als Personalverwaltung',
+			'Rechnung ausstellen, offen als Freelancer'
+		]);
+
+		act(() => markTourStep('invoice'));
+		expect(await screen.findByRole('button', { name: 'Rundgang 1 von 5' })).toBeInTheDocument();
+		expect((await steps())[4]).toHaveTextContent('Rechnung ausstellen, erledigt');
+
+		await switchTo('Beschäftigte');
+		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 4' })).toBeInTheDocument();
+		expect(await steps()).toHaveLength(4);
+	});
+
 	it('reads the week step straight from session storage too', async () => {
 		answer({});
 		sessionStorage.setItem('zeit.demo.restFinding', '1');

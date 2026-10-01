@@ -5,6 +5,7 @@ import {
 	renderZugferd,
 	type EInvoice
 } from '../../src/einvoice/einvoice';
+import { isLeitwegId } from '../../src/einvoice/mapping';
 import { buyer, embeddedInvoice, FIXTURES, minimalPdf, seller } from './fixtures';
 
 const standard = FIXTURES['standard-19']!;
@@ -42,6 +43,17 @@ describe('einvoiceBlockers', () => {
 		expect(einvoiceBlockers(FIXTURES['public-leitweg']!, 'xrechnung')).toEqual([]);
 		const orderNumber = { ...standard, buyer: { ...buyer, email: null, buyerReference: 'PO-1' } };
 		expect(einvoiceBlockers(orderNumber, 'xrechnung')).toEqual(['buyer_endpoint_missing']);
+	});
+
+	it('takes no reference with a wrong check digit as Leitweg-ID endpoint', () => {
+		const leitweg = FIXTURES['public-leitweg']!;
+		const misspelt = {
+			...leitweg,
+			buyer: { ...leitweg.buyer, buyerReference: '14713000-DIGI01-45' }
+		};
+		expect(isLeitwegId(leitweg.buyer)).toBe(true);
+		expect(isLeitwegId(misspelt.buyer)).toBe(false);
+		expect(einvoiceBlockers(misspelt, 'xrechnung')).toEqual(['buyer_endpoint_missing']);
 	});
 
 	it('needs the tax number outside the scope of German VAT, the vat id must not be shown there', () => {
@@ -144,6 +156,25 @@ describe('renderXRechnung', () => {
 		expect(xml).not.toContain('schemeID="VA"');
 		expect(xml).toContain('<ram:ID schemeID="FC">231/5123/4567</ram:ID>');
 	});
+
+	it('marks a sandbox invoice as specimen in a note, in the language of the invoice (X-01)', async () => {
+		expect(await renderXRechnung({ ...standard, specimen: true })).toContain(
+			'<ram:Content>Musterrechnung – keine Rechnung im Sinne des § 14 UStG</ram:Content>'
+		);
+		const english = { ...FIXTURES['reverse-charge-eu']!, specimen: true };
+		expect(await renderXRechnung(english)).toContain(
+			'<ram:Content>Specimen invoice – not an invoice within the meaning of § 14 UStG\nSteuerschuldnerschaft'
+		);
+		expect(await renderXRechnung(standard)).not.toContain('Musterrechnung');
+	});
+
+	it('writes the specimen and the cancellation reference into one note, CII-SR-030 allows one content', async () => {
+		const xml = await renderXRechnung({ ...cancellation, specimen: true });
+		expect(xml.match(/<ram:Content>/g)).toHaveLength(1);
+		expect(xml).toContain(
+			'<ram:Content>Musterrechnung – keine Rechnung im Sinne des § 14 UStG\nstorniert Rechnung RE-2026-0012 vom 04.05.2026</ram:Content>'
+		);
+	});
 });
 
 describe('renderZugferd', () => {
@@ -155,5 +186,12 @@ describe('renderZugferd', () => {
 		expect(raw).toContain('<pdfaid:part>3</pdfaid:part>');
 		expect(raw).toContain('<fx:ConformanceLevel>EN 16931</fx:ConformanceLevel>');
 		expect(embeddedInvoice(document)).toContain('<ram:ID>urn:cen.eu:en16931:2017</ram:ID>');
+	});
+
+	it('embeds the specimen note as well', async () => {
+		const document = await renderZugferd({ ...standard, specimen: true }, await minimalPdf());
+		expect(embeddedInvoice(document)).toContain(
+			'<ram:Content>Musterrechnung – keine Rechnung im Sinne des § 14 UStG</ram:Content>'
+		);
 	});
 });

@@ -42,6 +42,7 @@
 		"archive": "Archive",
 		"archiveTitle": "Archive {{name}}",
 		"archiveText": "The client leaves the list and cannot be restored here. Projects, booked time and rates are kept.",
+		"openDraft": "This client still has an invoice draft. Issue or discard the draft first.",
 		"delete": "Delete",
 		"deleteTitle": "Delete {{name}}?",
 		"deleteText": "A client without projects and rates is deleted for good. If projects or rates still refer to it, it stays in the records as locked, a restriction of processing under Art. 18 DSGVO (GDPR). You may have to confirm your sign-in again first.",
@@ -74,6 +75,8 @@
 		"business": "Business (B2B)",
 		"private": "Private person (B2C)",
 		"vatId": "VAT ID",
+		"buyerReference": "Leitweg-ID or reference",
+		"buyerReferenceHint": "Public-sector clients need a Leitweg-ID, the invoice then goes out as XRechnung. Otherwise, for example, the client's order number.",
 		"invoiceLocale": "Invoice language",
 		"locales": {
 			"de": "German",
@@ -192,6 +195,10 @@
 			"paid": "paid",
 			"cancelled": "cancelled"
 		},
+		"pdf": "PDF",
+		"xml": "XML",
+		"pdfLabel": "Download PDF, {{number}}",
+		"xmlLabel": "Download XML, {{number}}",
 		"noMatch": "No invoice matches these filters.",
 		"empty": {
 			"title": "No invoices yet",
@@ -209,7 +216,7 @@
 		"amount": "Amount",
 		"noRate": "no rate on file",
 		"oldestDay": "Oldest day",
-		"rangeUnordered": "The end lies before the start",
+		"nothingToBill": "There is no billable time with a rate on file in this period.",
 		"create": "Create draft"
 	},
 	"reports": {
@@ -227,7 +234,12 @@
 	"settings": {
 		"title": "Invoicing profile",
 		"lead": "Address, tax details and defaults for every invoice.",
+		"sandboxHint": "In the demo only the tax profile and the previous year's revenue can be changed, the other details stay fixed.",
+		"sandboxRefused": "Cannot be changed in the demo: {{fields}}. Only the tax profile and the previous year's revenue can be changed here.",
 		"legalName": "Legal name",
+		"contactLegend": "Contact person",
+		"phone": "Phone",
+		"contactHint": "Required for XRechnung. Appears on the invoice as the contact for questions.",
 		"taxLegend": "Tax",
 		"taxNumber": "Tax number",
 		"taxProfileLabel": "Tax profile",
@@ -266,10 +278,11 @@
 		"addItem": "Add line item",
 		"itemDescription": "Description",
 		"quantity": "Quantity",
-		"quantityInvalid": "Quantity greater than 0, with up to three decimal places",
+		"quantityInvalid": "Quantity greater than 0 and up to 999,999.999, with up to three decimal places",
 		"unit": "Unit",
 		"unitPrice": "Unit price",
 		"unitPriceHint": "Net per unit, such as 95 or 95.50",
+		"unitPriceInvalid": "Amount up to ±€9,999,999.99, with up to two decimal places",
 		"taxCategory": "Tax rate",
 		"units": {
 			"HUR": "Hour",
@@ -285,6 +298,9 @@
 			"outside_scope": "Outside the scope of VAT",
 			"small_business": "Small business"
 		},
+		"exemptionReason": "Reason for the tax exemption",
+		"exemptionReasonHint": "With the legal reference, for example § 4 Nr. 21 UStG",
+		"exemptionReasonLine": "Tax exemption: {{reason}}",
 		"derivation": "Derivation",
 		"editItem": "Edit line item",
 		"editLabel": "Edit “{{description}}”",
@@ -293,18 +309,38 @@
 		"removeItemTitle": "Delete line item?",
 		"removeItemText": "“{{description}}” is removed from the invoice.",
 		"hints": {
-			"service_deadline_14a_1": "For this service, the invoice must be issued by the 15th day of the following month (§ 14a (1) UStG)."
+			"service_deadline_14a_1": "For this service, the invoice must be issued by the 15th day of the following month (§ 14a (1) UStG).",
+			"public_buyer_wants_xrechnung": "The client has a Leitweg-ID, but the invoice is set up as a PDF. Public-sector clients expect an XRechnung, the format can be chosen when issuing.",
+			"long_timer_entry": "A timer entry on this invoice ran for 12 hours or more. Check that the time is right before issuing, it can no longer be changed in the draft."
 		},
 		"blockers": {
 			"vat_id_missing": "The invoicing party's own details are missing a VAT ID.",
-			"tax_number_missing": "The invoicing party's own details are missing a tax number."
+			"tax_number_missing": "The invoicing party's own details are missing a tax number.",
+			"text_not_xml": "A text on the invoice contains control characters an e-invoice does not allow. Check the line item texts, the client's details and the settings.",
+			"seller_address_incomplete": "The settings are missing the invoicing party's street, postcode or city. Without them no invoice can be issued, in any format.",
+			"seller_tax_id_missing": "For an e-invoice, the settings are missing the invoicing party's tax number or VAT ID. For services to a non-EU country outside the scope of VAT, it has to be the tax number.",
+			"exemption_reason_missing": "For an e-invoice, the tax-exempt line items are missing the reason for the exemption.",
+			"seller_contact_missing": "For XRechnung, the settings are missing the contact person's name, phone or email.",
+			"iban_missing": "For XRechnung, the settings are missing the IBAN.",
+			"buyer_reference_missing": "For XRechnung, the client is missing a buyer reference, the Leitweg-ID for public bodies.",
+			"buyer_endpoint_missing": "For XRechnung, the client is missing an email address or a Leitweg-ID as electronic address.",
+			"buyer_address_incomplete": "The client is missing a street, postcode or city. Only an invoice up to €250 gross can do without the address, never as XRechnung.",
+			"tax_profile_mismatch": "The invoice's tax profile differs from the current one in the settings. Discard the draft and create it again.",
+			"tax_category_mismatch": "A line item has a tax category that does not fit this invoice. Edit an added line item; for line items from booked time, discard the draft and create it again.",
+			"tax_rate_mismatch": "The tax rate of a line item differs from the rate in force. Save an added line item again; for line items from booked time, discard the draft and create it again.",
+			"total_negative": "The invoice total is negative. Check the line items, an invoice with a negative total cannot be issued.",
+			"total_too_large": "The invoice total is too large to issue. Check the quantities and unit prices of the line items."
 		},
 		"issue": "Issue",
 		"issueTitle": "Issue invoice",
 		"issueWarning": "The invoice now gets a number and can no longer be changed afterwards.",
 		"issueConfirm": "Issue now",
 		"format": "Format",
-		"formatLater": "coming in a later version",
+		"formatHints": {
+			"pdf": "PDF only, no e-invoice",
+			"zugferd": "PDF with an embedded e-invoice",
+			"xrechnung": "XML for public-sector clients"
+		},
 		"discard": "Discard draft",
 		"discardTitle": "Discard draft?",
 		"discardText": "The draft is deleted, the underlying time is then available again for another invoice."
@@ -316,7 +352,9 @@
 		"refersToCancellation": "Cancelled by cancellation invoice {{number}}.",
 		"openReference": "Open",
 		"cancelReason": "Reason for cancellation: {{reason}}",
-		"download": "Download document",
+		"downloadPdf": "Download PDF",
+		"downloadXml": "Download XML",
+		"xrechnungHint": "Issued as XRechnung: the XML file is the invoice, the PDF is only a copy for reading.",
 		"payment": "Payment",
 		"markPaid": "Mark as paid",
 		"markUnpaid": "Undo payment",

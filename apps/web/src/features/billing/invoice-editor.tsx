@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { taxTreatment } from '@zeit/rules';
+import { isSmallAmountInvoice, taxTreatment } from '@zeit/rules';
 import {
 	hasRole,
 	invoiceLineInputSchema,
@@ -14,9 +14,8 @@ import {
 	type TaxCategory
 } from '@zeit/shared';
 import type { TFunction } from 'i18next';
-import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { Button } from '../../components/ui/button';
@@ -25,6 +24,7 @@ import { FormField, FormTextArea, TextAreaField } from '../../components/ui/fiel
 import { Notice } from '../../components/ui/notice';
 import { PageHead } from '../../components/ui/page-shell';
 import { FormSelect } from '../../components/ui/select-field';
+import { issueText } from '../../i18n';
 import { formatCents } from '../../i18n/format';
 import { flip } from '../../lib/sets';
 import { useErrorText } from '../hr/error-text';
@@ -38,9 +38,9 @@ import {
 	updateDraft,
 	updateLine
 } from './api';
-import { centsField, quantityField, quantityToText } from './fields';
+import { fieldIssues, issueAt, quantityField, quantityToText, unitPriceField } from './fields';
 import css from './invoice-editor.module.css';
-import { LineDerivation, LineMeta } from './invoice-lines';
+import { LineDerivation, LineExemption, LineMeta } from './invoice-lines';
 import lines from './invoice-lines.module.css';
 import { InvoicePreview } from './invoice-preview';
 import { IssueDialog } from './issue-dialog';
@@ -49,13 +49,53 @@ import { IssueDialog } from './issue-dialog';
 const itemTaxCategories = ['standard', 'reduced', 'exempt'] as const;
 const lineFields = invoiceLineInputSchema.shape;
 
-const lineSchema = z.object({
-	description: lineFields.description,
-	quantityMilli: quantityField,
-	unit: lineFields.unit,
-	unitPriceCents: centsField,
-	taxCategory: z.enum(taxCategories)
-});
+const everyFormat = [
+	'vat_id_missing',
+	'tax_number_missing',
+	'seller_address_incomplete',
+	'buyer_address_incomplete',
+	'tax_profile_mismatch',
+	'tax_category_mismatch',
+	'tax_rate_mismatch',
+	'total_negative',
+	'total_too_large'
+];
+
+const fixedIn: Record<string, 'settings' | 'client'> = {
+	vat_id_missing: 'settings',
+	tax_number_missing: 'settings',
+	seller_address_incomplete: 'settings',
+	seller_tax_id_missing: 'settings',
+	seller_contact_missing: 'settings',
+	iban_missing: 'settings',
+	buyer_reference_missing: 'client',
+	buyer_endpoint_missing: 'client',
+	buyer_address_incomplete: 'client'
+};
+
+const exemptionReasonField = lineFields.exemptionReason.unwrap();
+
+const lineSchema = z
+	.object({
+		description: lineFields.description,
+		quantityMilli: quantityField,
+		unit: lineFields.unit,
+		unitPriceCents: unitPriceField,
+		taxCategory: z.enum(taxCategories),
+		exemptionReason: z.string()
+	})
+	.superRefine(
+		(line, ctx) => {
+			if (line.taxCategory !== 'exempt') return;
+			const issue = exemptionReasonField.safeParse(line.exemptionReason).error?.issues[0];
+			if (issue)
+				ctx.addIssue({ code: 'custom', path: ['exemptionReason'], message: issue.message });
+		},
+		{ when: () => true }
+	)
+	.transform(({ exemptionReason, ...line }): InvoiceLineInput =>
+		line.taxCategory === 'exempt' ? { ...line, exemptionReason } : line
+	);
 
 type LineFormValues = z.input<typeof lineSchema>;
 
@@ -66,7 +106,8 @@ const lineDefaults = (line: InvoiceLine): LineFormValues => ({
 	quantityMilli: quantityToText(line.quantityMilli ?? '0'),
 	unit: line.unit ?? 'C62',
 	unitPriceCents: centsToText(line.unitPriceCents ?? '0'),
-	taxCategory: line.taxCategory
+	taxCategory: line.taxCategory,
+	exemptionReason: line.exemptionReason ?? ''
 });
 
 const unitOptions = (t: TFunction<'billing'>) =>
@@ -78,8 +119,8 @@ type LineFormProps = {
 	taxChoices: readonly TaxCategory[];
 	submitLabel: string;
 	pending: boolean;
-	error: ReactNode;
-	onSubmit: (input: InvoiceLineInput) => void;
+	error: Error | null;
+	onSubmit: (input: InvoiceLineInput) => Promise<unknown>;
 	onCancel: () => void;
 };
 
@@ -94,15 +135,39 @@ function ItemLineForm({
 	onCancel
 }: LineFormProps) {
 	const { t } = useTranslation('billing');
-	const { control, handleSubmit } = useForm({ resolver: zodResolver(lineSchema), defaultValues });
+	const errorText = useErrorText();
+	const { control, handleSubmit, setError } = useForm({
+		resolver: zodResolver(lineSchema),
+		defaultValues
+	});
+	const taxCategory = useWatch({ control, name: 'taxCategory' });
+	const fieldFor = (field: string) =>
+		field === 'exemptionReason' && taxCategory !== 'exempt' ? 'taxCategory' : field;
+	const onForm = (field: string): field is keyof LineFormValues => field in lineFields;
+
+	const send = (input: InvoiceLineInput) =>
+		onSubmit(input).catch((err: unknown) => {
+			for (const issue of fieldIssues(err)) {
+				const name = fieldFor(issue.field);
+				if (onForm(name)) {
+					setError(
+						name,
+						{ message: issueText(issue.message, issue.params) },
+						{ shouldFocus: true }
+					);
+				}
+			}
+		});
+	const issues = fieldIssues(error);
+	const elsewhere = issues.find((issue) => !onForm(fieldFor(issue.field)));
+	const refusal = elsewhere
+		? issueText(elsewhere.message, elsewhere.params)
+		: error && issues.length === 0
+			? errorText(error)
+			: null;
 
 	return (
-		<form
-			className={styles.panel}
-			noValidate
-			aria-label={label}
-			onSubmit={handleSubmit((values) => onSubmit(values))}
-		>
+		<form className={styles.panel} noValidate aria-label={label} onSubmit={handleSubmit(send)}>
 			<div className={styles.fields}>
 				<div className={styles.wide}>
 					<FormTextArea
@@ -136,8 +201,18 @@ function ItemLineForm({
 						label: t(`invoiceEditor.taxCategories.${category}`)
 					}))}
 				/>
+				{taxCategory === 'exempt' && (
+					<div className={styles.wide}>
+						<FormField
+							control={control}
+							name="exemptionReason"
+							label={t('invoiceEditor.exemptionReason')}
+							description={t('invoiceEditor.exemptionReasonHint')}
+						/>
+					</div>
+				)}
 			</div>
-			{error}
+			{refusal && <Notice tone="error">{refusal}</Notice>}
 			<div className={styles.actions}>
 				<Button type="submit" variant="primary" isPending={pending}>
 					{submitLabel}
@@ -234,6 +309,19 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 
 	const rangeDirty = range.from !== invoice.serviceFrom || range.to !== invoice.serviceTo;
 	const rangeFilled = range.from !== '' && range.to !== '';
+	const rangeIssue = issueAt(patchDraft.error, 'to');
+	const textIssue = issueAt(editText.error, 'description');
+	const pickRange = (patch: Partial<typeof range>) => {
+		setRange((r) => ({ ...r, ...patch }));
+		patchDraft.reset();
+	};
+
+	const smallAmount = isSmallAmountInvoice(BigInt(invoice.totals.grossCents), treatment);
+	const onlyForXRechnung = (blocker: string) =>
+		blocker === 'buyer_address_incomplete' && invoice.format === 'xrechnung' && smallAmount;
+	const issueClosed = invoice.blockers.some(
+		(blocker) => everyFormat.includes(blocker) && !onlyForXRechnung(blocker)
+	);
 
 	return (
 		<>
@@ -255,12 +343,13 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 						<DateInputField
 							label={t('from')}
 							value={range.from}
-							onChange={(from) => setRange((r) => ({ ...r, from }))}
+							onChange={(from) => pickRange({ from })}
 						/>
 						<DateInputField
 							label={t('to')}
 							value={range.to}
-							onChange={(to) => setRange((r) => ({ ...r, to }))}
+							onChange={(to) => pickRange({ to })}
+							error={rangeIssue}
 						/>
 						<Button
 							variant="secondary"
@@ -274,8 +363,14 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 							{t('invoiceEditor.refresh')}
 						</Button>
 					</div>
-					{patchDraft.error && <Notice tone="error">{errorText(patchDraft.error)}</Notice>}
-					{refresh.error && <Notice tone="error">{errorText(refresh.error)}</Notice>}
+					{patchDraft.error && !rangeIssue && (
+						<Notice tone="error">{errorText(patchDraft.error)}</Notice>
+					)}
+					{refresh.error && (
+						<Notice tone="error">
+							{issueAt(refresh.error, 'lines') ?? errorText(refresh.error)}
+						</Notice>
+					)}
 
 					<dl className={styles.facts}>
 						<dt>{t('client.invoiceLocale')}</dt>
@@ -303,10 +398,8 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 												}
 												submitLabel={t('save')}
 												pending={editItem.isPending}
-												error={
-													editItem.error && <Notice tone="error">{errorText(editItem.error)}</Notice>
-												}
-												onSubmit={(input) => editItem.mutate({ lineId: line.id, input })}
+												error={editItem.error}
+												onSubmit={(input) => editItem.mutateAsync({ lineId: line.id, input })}
 												onCancel={() => {
 													setEditingLineId(null);
 													editItem.reset();
@@ -335,8 +428,9 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 														autoFocus
 														value={descEdit.value}
 														onChange={(value) => setDescEdit({ lineId: line.id, value })}
+														error={textIssue}
 													/>
-													{editText.error && (
+													{editText.error && !textIssue && (
 														<Notice tone="error">{errorText(editText.error)}</Notice>
 													)}
 													<div className={styles.actions}>
@@ -361,6 +455,7 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 												{formatCents(line.netCents, lng)}
 											</span>
 										</div>
+										<LineExemption line={line} />
 
 										{!editingDesc && (
 											<LineMeta
@@ -406,13 +501,14 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 								quantityMilli: '1',
 								unit: 'C62',
 								unitPriceCents: '',
-								taxCategory: taxChoices[0]!
+								taxCategory: taxChoices[0]!,
+								exemptionReason: ''
 							}}
 							taxChoices={taxChoices}
 							submitLabel={t('invoiceEditor.addItem')}
 							pending={addItem.isPending}
-							error={addItem.error && <Notice tone="error">{errorText(addItem.error)}</Notice>}
-							onSubmit={(input) => addItem.mutate(input)}
+							error={addItem.error}
+							onSubmit={addItem.mutateAsync}
 							onCancel={() => {
 								setAddingLine(false);
 								addItem.reset();
@@ -438,7 +534,14 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 								{invoice.blockers.map((blocker) => (
 									<li key={blocker}>
 										{t(`invoiceEditor.blockers.${blocker}`, blocker)}{' '}
-										{hasRole(role, 'admin') && <Link to="/billing/settings">{t('nav.settings')}</Link>}
+										{fixedIn[blocker] === 'settings' && hasRole(role, 'admin') && (
+											<Link to="/billing/settings">{t('nav.settings')}</Link>
+										)}
+										{fixedIn[blocker] === 'client' && (
+											<Link to="/billing/clients/$id" params={{ id: invoice.clientId }}>
+												{t('invoicesList.client')}
+											</Link>
+										)}
 									</li>
 								))}
 							</ul>
@@ -448,7 +551,7 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 					<div className={styles.actions}>
 						<Button
 							variant="primary"
-							isDisabled={invoice.blockers.length > 0 || invoice.lines.length === 0}
+							isDisabled={issueClosed || invoice.lines.length === 0}
 							onPress={() => setIssuing(true)}
 							{...(invoice.blockers.length > 0 ? { 'aria-describedby': 'invoice-blockers' } : {})}
 						>

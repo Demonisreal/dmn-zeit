@@ -267,6 +267,7 @@ export interface AppInvoiceLines {
   created_at: Generated<string>;
   derivation: Json | null;
   description: string;
+  exemption_reason: string | null;
   id: Generated<string>;
   invoice_id: string;
   kind: AppInvoiceLineKind;
@@ -319,6 +320,7 @@ export interface AppInvoices {
   status: Generated<AppInvoiceStatus>;
   tax_cents: Generated<Int8>;
   tax_profile: AppTaxProfile;
+  tax_treatment: AppTaxCategory | null;
   tenant_id: string;
   updated_at: Generated<string>;
 }

@@ -14,7 +14,7 @@ import { useErrorText } from '../hr/error-text';
 import styles from '../hr/ui/page.module.css';
 import { markUnpaid } from './api';
 import { CancelDialog } from './cancel-dialog';
-import { LineDerivation, LineMeta } from './invoice-lines';
+import { LineDerivation, LineExemption, LineMeta } from './invoice-lines';
 import lines from './invoice-lines.module.css';
 import { InvoicePreview } from './invoice-preview';
 import css from './invoice-view.module.css';
@@ -45,6 +45,8 @@ export function InvoiceView({ invoice }: Props) {
 	const overdue =
 		payable && invoice.status === 'issued' && invoice.dueDate !== null && invoice.dueDate < todayIso();
 	const canCancel = (invoice.status === 'issued' || invoice.status === 'paid') && invoice.refersTo === null;
+	const xrechnung = invoice.format === 'xrechnung';
+	const hint = xrechnung ? 'invoice-xrechnung-hint' : undefined;
 
 	return (
 		<>
@@ -98,10 +100,20 @@ export function InvoiceView({ invoice }: Props) {
 					)}
 
 					<p className={styles.actions}>
-						<a href={`/api/invoices/${invoice.id}/document`} download>
-							{t('invoiceView.download')}
+						<a href={`/api/invoices/${invoice.id}/document`} download aria-describedby={hint}>
+							{t('invoiceView.downloadPdf')}
 						</a>
+						{xrechnung && (
+							<a href={`/api/invoices/${invoice.id}/xml`} download aria-describedby={hint}>
+								{t('invoiceView.downloadXml')}
+							</a>
+						)}
 					</p>
+					{xrechnung && (
+						<p id={hint} className={`${styles.small} ${styles.muted}`}>
+							{t('invoiceView.xrechnungHint')}
+						</p>
+					)}
 
 					<h2 id="invoice-view-lines">{t('invoiceEditor.positions')}</h2>
 					{invoice.lines.length === 0 ? (
@@ -118,6 +130,7 @@ export function InvoiceView({ invoice }: Props) {
 												{formatCents(line.netCents, lng)}
 											</span>
 										</div>
+										<LineExemption line={line} />
 										<LineMeta
 											line={line}
 											open={open}

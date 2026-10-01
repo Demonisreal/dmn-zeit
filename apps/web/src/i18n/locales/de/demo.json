@@ -26,12 +26,14 @@
 			"request": "Urlaub beantragen",
 			"approve": "Antrag genehmigen",
 			"restFinding": "Ruhezeit nach § 5 im Wochenbuch finden",
-			"close": "Monat abschließen"
+			"close": "Monat abschließen",
+			"invoice": "Rechnung ausstellen"
 		},
 		"as": {
 			"employee": "als Beschäftigte",
 			"team_lead": "als Teamleitung",
-			"hr": "als Personalverwaltung"
+			"hr": "als Personalverwaltung",
+			"freelancer": "als Freelancer"
 		}
 	},
 	"switch": {

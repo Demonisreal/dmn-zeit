@@ -10,6 +10,8 @@ import { Notice } from '../../components/ui/notice';
 import { useErrorText } from '../hr/error-text';
 import { useReauth } from '../security/reauth-dialog';
 import { cancelInvoice, invoiceQuery } from './api';
+import { blockersOf } from './fields';
+import editorCss from './invoice-editor.module.css';
 
 const styles = css as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions', string>;
 
@@ -47,6 +49,7 @@ export function CancelDialog({ invoice, onClose }: Props) {
 	}
 
 	const tooShort = reason.trim().length > 0 && reason.trim().length < MIN_REASON;
+	const blockers = blockersOf(cancel.error);
 
 	return (
 		<>
@@ -74,7 +77,17 @@ export function CancelDialog({ invoice, onClose }: Props) {
 									description={t('cancelDialog.reasonHint')}
 									error={tooShort ? t('cancelDialog.reasonTooShort') : undefined}
 								/>
-								{cancel.error && <Notice tone="error">{errorText(cancel.error)}</Notice>}
+								{blockers ? (
+									<Notice tone="error">
+										<ul className={editorCss.blockers}>
+											{blockers.map((code) => (
+												<li key={code}>{t(`invoiceEditor.blockers.${code}`, code)}</li>
+											))}
+										</ul>
+									</Notice>
+								) : (
+									cancel.error && <Notice tone="error">{errorText(cancel.error)}</Notice>
+								)}
 								<div className={styles.actions}>
 									<Button isDisabled={cancel.isPending} onPress={close}>
 										{t('cancel')}

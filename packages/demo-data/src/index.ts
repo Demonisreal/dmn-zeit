@@ -9,11 +9,19 @@ import type {
 	FederalState,
 	FlexBookingType,
 	FlexCapMode,
+	InvoiceFormat,
+	InvoiceKind,
+	InvoiceLine,
+	InvoiceLineKind,
+	InvoiceLineUnit,
+	InvoiceStatus,
 	Locale,
 	MonthClosingAction,
 	NoticeChannel,
 	Role,
 	RoundingMode,
+	TaxCategory,
+	TaxProfile,
 	Totals,
 	VacationEntryType,
 	WeekdayMinutes
@@ -92,7 +100,119 @@ export type ProjectBook = {
 		startedAt: string;
 		endedAt: string | null;
 		note: string | null;
+		invoiceId: string | null;
 	}[];
+	billingProfile: {
+		legalName: string;
+		street: string | null;
+		postalCode: string | null;
+		city: string | null;
+		countryCode: 'DE';
+		taxNumber: string | null;
+		vatId: string | null;
+		taxProfile: TaxProfile;
+		previousYearRevenueCents: number | null;
+		iban: string | null;
+		bic: string | null;
+		bankName: string | null;
+		contactName: string | null;
+		contactEmail: string | null;
+		contactPhone: string | null;
+		registerCourt: string | null;
+		registerNumber: string | null;
+		invoicePrefix: string;
+		paymentTermsDays: number;
+		roundingIncrementMin: number;
+		roundingMode: RoundingMode;
+		defaultFormat: InvoiceFormat;
+	};
+	invoiceCounters: { year: number; lastSeq: number }[];
+	invoices: {
+		id: string;
+		kind: InvoiceKind;
+		status: InvoiceStatus;
+		clientId: string;
+		refersToId: string | null;
+		number: string | null;
+		numberYear: number | null;
+		numberSeq: number | null;
+		issueDate: string | null;
+		dueDate: string | null;
+		serviceFrom: string;
+		serviceTo: string;
+		paymentTermsDays: number;
+		locale: Locale;
+		format: InvoiceFormat;
+		taxProfile: TaxProfile;
+		taxTreatment: TaxCategory;
+		seller: SellerSnapshot | null;
+		buyer: BuyerSnapshot | null;
+		introText: string | null;
+		closingText: string | null;
+		netCents: number;
+		taxCents: number;
+		grossCents: number;
+		paidOn: string | null;
+		cancelReason: string | null;
+		cancelledAt: string | null;
+		cancelledBy: string | null;
+		issuedAt: string | null;
+		issuedBy: string | null;
+		createdBy: string;
+		createdAt: string;
+		lines: {
+			id: string;
+			position: number;
+			kind: InvoiceLineKind;
+			projectId: string | null;
+			taskId: string | null;
+			description: string;
+			serviceFrom: string | null;
+			serviceTo: string | null;
+			minutes: number | null;
+			quantityMilli: number | null;
+			unit: InvoiceLineUnit | null;
+			unitPriceCents: number;
+			netCents: number;
+			taxCategory: TaxCategory;
+			taxRateBp: number;
+			exemptionReason: string | null;
+			derivation: InvoiceLine['derivation'] | null;
+			entryIds: string[];
+		}[];
+	}[];
+};
+
+export type SellerSnapshot = Pick<
+	ProjectBook['billingProfile'],
+	| 'legalName'
+	| 'street'
+	| 'postalCode'
+	| 'city'
+	| 'countryCode'
+	| 'taxNumber'
+	| 'vatId'
+	| 'iban'
+	| 'bic'
+	| 'bankName'
+	| 'contactName'
+	| 'contactEmail'
+	| 'contactPhone'
+	| 'registerCourt'
+	| 'registerNumber'
+>;
+
+export type BuyerSnapshot = {
+	name: string;
+	street: string | null;
+	postalCode: string | null;
+	city: string | null;
+	countryCode: string;
+	isBusiness: boolean;
+	vatId: string | null;
+	email: string | null;
+	buyerReference: string | null;
+	number: string | null;
 };
 
 // the freelancer next door, one person who is admin of her own workspace

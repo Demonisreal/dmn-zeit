@@ -33,3 +33,16 @@ export const invoiceIds = {
 	hagenIssued: '1f6a2e4c-8d9b-4a37-a05e-000000000002',
 	yilmazDraft: '1f6a2e4c-8d9b-4a37-a05e-000000000003'
 };
+
+export const addHostingLine = (invoiceId: string) =>
+	fetch(`/api/invoices/${invoiceId}/lines`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			description: 'Hosting-Pauschale',
+			quantityMilli: '1000',
+			unit: 'C62',
+			unitPriceCents: '5000',
+			taxCategory: 'standard'
+		})
+	});

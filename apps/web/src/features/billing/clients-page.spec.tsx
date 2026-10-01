@@ -84,6 +84,46 @@ describe('clients', () => {
 		expect(await within(form).findByText('Zwei Buchstaben, etwa DE')).toBeInTheDocument();
 	});
 
+	it('takes a Leitweg-ID as buyer reference and refuses one with wrong check digits', async () => {
+		let sent: unknown;
+		server.use(
+			http.post('/api/clients', async ({ request }) => {
+				sent = await request.clone().json();
+			})
+		);
+		signInForBilling();
+		renderApp('/billing/clients');
+		await clientsTable();
+		await userEvent.click(screen.getByRole('button', { name: 'Kunde anlegen' }));
+
+		const form = screen.getByRole('form', { name: 'Kunde anlegen' });
+		await userEvent.type(within(form).getByLabelText('Name'), 'Kreis Unna (Beispiel)');
+		const reference = within(form).getByLabelText('Leitweg-ID oder Referenz');
+		expect(reference).toHaveAccessibleDescription(
+			'Öffentliche Auftraggeber brauchen eine Leitweg-ID, die Rechnung geht dann als XRechnung. Sonst etwa die Bestellnummer des Kunden.'
+		);
+		await userEvent.type(reference, '05515000-00012-34');
+		await userEvent.click(within(form).getByRole('button', { name: 'Kunde anlegen' }));
+
+		expect(
+			await within(form).findByText(
+				'Keine gültige Leitweg-ID, die Prüfziffer am Ende stimmt nicht. Bei einer Bestellnummer ein Wort davor schreiben, z. B. „Best. 2026-118-07“'
+			)
+		).toBeInTheDocument();
+		expect(reference).toHaveFocus();
+		expect(sent).toBeUndefined();
+
+		await userEvent.clear(reference);
+		await userEvent.type(reference, '05515000-00012-69');
+		await userEvent.click(within(form).getByRole('button', { name: 'Kunde anlegen' }));
+
+		expect(
+			await screen.findByRole('heading', { level: 1, name: 'Kreis Unna (Beispiel)' })
+		).toBeInTheDocument();
+		expect(screen.getByText('05515000-00012-69')).toBeInTheDocument();
+		expect(sent).toMatchObject({ buyerReference: '05515000-00012-69' });
+	});
+
 	it('archives a client after asking', async () => {
 		signInForBilling();
 		renderApp('/billing/clients');
@@ -100,6 +140,38 @@ describe('clients', () => {
 		await waitFor(() =>
 			expect(within(table).queryByText('Elektro Kaya (Beispiel)')).not.toBeInTheDocument()
 		);
+	});
+
+	it('says why a client with an open draft stays in the list', async () => {
+		server.use(
+			http.post('/api/clients/:id/archive', () =>
+				HttpResponse.json(
+					{
+						code: 'INVALID_STATE',
+						message: 'This client still has an open invoice draft',
+						details: { field: 'client', message: 'client.openDraft' }
+					},
+					{ status: 409 }
+				)
+			)
+		);
+		signInForBilling();
+		renderApp('/billing/clients');
+		const table = await clientsTable();
+
+		await userEvent.click(
+			within(rowOf(table, 'Elektro Kaya (Beispiel)')).getByRole('button', {
+				name: 'Elektro Kaya (Beispiel) archivieren'
+			})
+		);
+		const dialog = screen.getByRole('alertdialog', { name: 'Elektro Kaya (Beispiel) archivieren' });
+		await userEvent.click(within(dialog).getByRole('button', { name: 'Archivieren' }));
+
+		expect(
+			await within(dialog).findByText(
+				'Für diesen Kunden gibt es noch einen Rechnungsentwurf. Den Entwurf vorher ausstellen oder verwerfen.'
+			)
+		).toBeInTheDocument();
 	});
 
 	it('offers deleting to the administration only', async () => {

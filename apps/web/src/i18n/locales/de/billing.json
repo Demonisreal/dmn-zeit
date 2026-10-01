@@ -42,6 +42,7 @@
 		"archive": "Archivieren",
 		"archiveTitle": "{{name}} archivieren",
 		"archiveText": "Der Kunde verschwindet aus der Liste und lässt sich hier nicht wiederherstellen. Projekte, gebuchte Zeiten und Sätze bleiben erhalten.",
+		"openDraft": "Für diesen Kunden gibt es noch einen Rechnungsentwurf. Den Entwurf vorher ausstellen oder verwerfen.",
 		"delete": "Löschen",
 		"deleteTitle": "{{name}} löschen?",
 		"deleteText": "Ohne Projekte und Sätze wird der Kunde endgültig gelöscht. Hängen noch Projekte oder Sätze an ihm, bleibt er gesperrt in den Unterlagen (Einschränkung der Verarbeitung nach Art. 18 DSGVO). Vorher kann eine erneute Bestätigung der Anmeldung nötig sein.",
@@ -74,6 +75,8 @@
 		"business": "Unternehmen (B2B)",
 		"private": "Privatperson (B2C)",
 		"vatId": "USt-IdNr.",
+		"buyerReference": "Leitweg-ID oder Referenz",
+		"buyerReferenceHint": "Öffentliche Auftraggeber brauchen eine Leitweg-ID, die Rechnung geht dann als XRechnung. Sonst etwa die Bestellnummer des Kunden.",
 		"invoiceLocale": "Rechnungssprache",
 		"locales": {
 			"de": "Deutsch",
@@ -192,6 +195,10 @@
 			"paid": "bezahlt",
 			"cancelled": "storniert"
 		},
+		"pdf": "PDF",
+		"xml": "XML",
+		"pdfLabel": "PDF herunterladen, {{number}}",
+		"xmlLabel": "XML herunterladen, {{number}}",
 		"noMatch": "Keine Rechnung passt zu den Filtern.",
 		"empty": {
 			"title": "Noch keine Rechnungen",
@@ -209,7 +216,7 @@
 		"amount": "Betrag",
 		"noRate": "kein Satz hinterlegt",
 		"oldestDay": "Ältester Tag",
-		"rangeUnordered": "Das Ende liegt vor dem Anfang",
+		"nothingToBill": "Im Zeitraum gibt es keine abrechenbare Zeit mit hinterlegtem Satz.",
 		"create": "Entwurf erstellen"
 	},
 	"reports": {
@@ -227,7 +234,12 @@
 	"settings": {
 		"title": "Rechnungssteller",
 		"lead": "Anschrift, Steuerangaben und Voreinstellungen für alle Rechnungen.",
+		"sandboxHint": "In der Demo lassen sich nur Steuerprofil und Vorjahresumsatz ändern, die übrigen Angaben bleiben fest.",
+		"sandboxRefused": "In der Demo nicht änderbar: {{fields}}. Nur Steuerprofil und Vorjahresumsatz lassen sich hier ändern.",
 		"legalName": "Firmierung",
+		"contactLegend": "Kontaktperson",
+		"phone": "Telefon",
+		"contactHint": "Pflicht für XRechnung. Steht in der Rechnung als Kontakt für Rückfragen.",
 		"taxLegend": "Steuer",
 		"taxNumber": "Steuernummer",
 		"taxProfileLabel": "Steuerprofil",
@@ -266,10 +278,11 @@
 		"addItem": "Position hinzufügen",
 		"itemDescription": "Beschreibung",
 		"quantity": "Menge",
-		"quantityInvalid": "Menge größer als 0, mit bis zu drei Nachkommastellen",
+		"quantityInvalid": "Menge größer als 0 und bis 999.999,999, mit bis zu drei Nachkommastellen",
 		"unit": "Einheit",
 		"unitPrice": "Einzelpreis",
 		"unitPriceHint": "Netto je Einheit, etwa 95 oder 95,50",
+		"unitPriceInvalid": "Betrag bis ±9.999.999,99 €, mit bis zu zwei Nachkommastellen",
 		"taxCategory": "Steuersatz",
 		"units": {
 			"HUR": "Stunde",
@@ -285,6 +298,9 @@
 			"outside_scope": "Nicht steuerbar",
 			"small_business": "Kleinunternehmer"
 		},
+		"exemptionReason": "Grund der Steuerbefreiung",
+		"exemptionReasonHint": "Mit Fundstelle, zum Beispiel § 4 Nr. 21 UStG",
+		"exemptionReasonLine": "Steuerbefreiung: {{reason}}",
 		"derivation": "Herleitung",
 		"editItem": "Position bearbeiten",
 		"editLabel": "„{{description}}“ bearbeiten",
@@ -293,18 +309,38 @@
 		"removeItemTitle": "Position löschen?",
 		"removeItemText": "„{{description}}“ wird aus der Rechnung entfernt.",
 		"hints": {
-			"service_deadline_14a_1": "Bei dieser Leistung muss die Rechnung bis zum 15. Tag des Folgemonats gestellt werden (§ 14a Abs. 1 UStG)."
+			"service_deadline_14a_1": "Bei dieser Leistung muss die Rechnung bis zum 15. Tag des Folgemonats gestellt werden (§ 14a Abs. 1 UStG).",
+			"public_buyer_wants_xrechnung": "Der Kunde hat eine Leitweg-ID, die Rechnung ist aber als PDF angelegt. Öffentliche Auftraggeber erwarten eine XRechnung, das Format lässt sich beim Ausstellen wählen.",
+			"long_timer_entry": "Ein Timer-Eintrag dieser Rechnung lief 12 Stunden oder länger. Vor dem Ausstellen prüfen, ob die Zeit stimmt, im Entwurf lässt sie sich nicht mehr ändern."
 		},
 		"blockers": {
 			"vat_id_missing": "In den Rechnungsangaben des Rechnungsstellers fehlt die USt-IdNr.",
-			"tax_number_missing": "In den Rechnungsangaben des Rechnungsstellers fehlt die Steuernummer."
+			"tax_number_missing": "In den Rechnungsangaben des Rechnungsstellers fehlt die Steuernummer.",
+			"text_not_xml": "Ein Text der Rechnung enthält Steuerzeichen, die eine E-Rechnung nicht erlaubt. Positionstexte, Kundenangaben und Einstellungen prüfen.",
+			"seller_address_incomplete": "In den Einstellungen fehlen Straße, PLZ oder Ort des Rechnungsstellers. Ohne sie lässt sich keine Rechnung ausstellen, in keinem Format.",
+			"seller_tax_id_missing": "Für die E-Rechnung fehlt in den Einstellungen die Steuernummer oder die USt-IdNr. des Rechnungsstellers. Bei nicht steuerbaren Leistungen ins Drittland muss es die Steuernummer sein.",
+			"exemption_reason_missing": "Für die E-Rechnung fehlt bei den steuerfreien Positionen der Grund der Steuerbefreiung.",
+			"seller_contact_missing": "Für XRechnung fehlen in den Einstellungen Name, Telefon oder E-Mail der Kontaktperson.",
+			"iban_missing": "Für XRechnung fehlt in den Einstellungen die IBAN.",
+			"buyer_reference_missing": "Für XRechnung fehlt beim Kunden die Käuferreferenz, bei Behörden die Leitweg-ID.",
+			"buyer_endpoint_missing": "Für XRechnung fehlt beim Kunden eine E-Mail-Adresse oder eine Leitweg-ID als elektronische Anschrift.",
+			"buyer_address_incomplete": "Beim Kunden fehlen Straße, PLZ oder Ort. Nur eine Rechnung bis 250 € brutto kommt ohne Anschrift aus, als XRechnung nicht.",
+			"tax_profile_mismatch": "Das Steuerprofil der Rechnung weicht vom aktuellen Profil in den Einstellungen ab. Entwurf verwerfen und neu anlegen.",
+			"tax_category_mismatch": "Eine Position trägt eine Steuerkategorie, die zu dieser Rechnung nicht passt. Eine hinzugefügte Position bearbeiten, bei Positionen aus gebuchter Zeit den Entwurf verwerfen und neu anlegen.",
+			"tax_rate_mismatch": "Der Steuersatz einer Position weicht vom gültigen Satz ab. Eine hinzugefügte Position neu speichern, bei Positionen aus gebuchter Zeit den Entwurf verwerfen und neu anlegen.",
+			"total_negative": "Die Rechnungssumme ist negativ. Positionen prüfen, eine Rechnung mit negativer Summe lässt sich nicht ausstellen.",
+			"total_too_large": "Die Rechnungssumme ist zu groß zum Ausstellen. Mengen und Einzelpreise der Positionen prüfen."
 		},
 		"issue": "Ausstellen",
 		"issueTitle": "Rechnung ausstellen",
 		"issueWarning": "Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.",
 		"issueConfirm": "Jetzt ausstellen",
 		"format": "Format",
-		"formatLater": "folgt in einer späteren Version",
+		"formatHints": {
+			"pdf": "Nur PDF, ohne E-Rechnung",
+			"zugferd": "PDF mit eingebetteter E-Rechnung",
+			"xrechnung": "XML für öffentliche Auftraggeber"
+		},
 		"discard": "Entwurf verwerfen",
 		"discardTitle": "Entwurf verwerfen?",
 		"discardText": "Der Entwurf wird gelöscht, die zugrunde liegenden Zeiten stehen danach wieder für eine andere Rechnung zur Verfügung."
@@ -316,7 +352,9 @@
 		"refersToCancellation": "Storniert durch Stornorechnung {{number}}.",
 		"openReference": "Anzeigen",
 		"cancelReason": "Stornogrund: {{reason}}",
-		"download": "Dokument herunterladen",
+		"downloadPdf": "PDF herunterladen",
+		"downloadXml": "XML herunterladen",
+		"xrechnungHint": "Als XRechnung ausgestellt: Die XML-Datei ist die Rechnung, die PDF nur eine Ansicht zum Lesen.",
 		"payment": "Zahlung",
 		"markPaid": "Als bezahlt markieren",
 		"markUnpaid": "Zahlung zurücknehmen",

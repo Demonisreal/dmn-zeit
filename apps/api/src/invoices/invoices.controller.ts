@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+	Body,
+	Controller,
+	Delete,
+	Get,
+	HttpCode,
+	Param,
+	Patch,
+	Post,
+	Query,
+	Res,
+	StreamableFile,
+	UseGuards
+} from '@nestjs/common';
 import {
 	cancelInvoiceSchema,
 	createDraftSchema,
@@ -40,7 +53,6 @@ const updateLineSchema = invoiceLineInputSchema.partial();
 
 @Controller('invoices')
 @Roles('hr')
-@UseGuards(UserRateLimitGuard)
 export class InvoicesController {
 	constructor(private readonly invoices: InvoicesService) {}
 
@@ -54,6 +66,7 @@ export class InvoicesController {
 
 	@Post('drafts')
 	@HttpCode(201)
+	@UseGuards(UserRateLimitGuard)
 	@UserRateLimit('drafts', 30)
 	createDraft(
 		@CurrentSession() session: AuthSession,
@@ -121,26 +134,26 @@ export class InvoicesController {
 
 	// D-03: a draft is never mistaken for a real invoice, frame-ancestors 'self' only for this route
 	@Get(':id/preview.pdf')
-	@UseGuards(RenderLimitGuard)
+	@UseGuards(RenderLimitGuard, UserRateLimitGuard)
 	@UserRateLimit('preview', 20)
 	async previewPdf(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
 		@Res({ passthrough: true }) response: Response
-	): Promise<Buffer> {
+	): Promise<StreamableFile> {
 		const pdf = await this.invoices.previewPdf(session, invoiceId);
 		response.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'self'");
 		response.setHeader('X-Frame-Options', 'SAMEORIGIN');
 		response.setHeader('Content-Type', 'application/pdf');
 		response.setHeader('Content-Disposition', 'inline; filename="preview.pdf"');
 		response.setHeader('Cache-Control', 'no-store');
-		return pdf;
+		return new StreamableFile(pdf);
 	}
 
 	@Post(':id/issue')
 	@HttpCode(200)
 	@RequireReauth()
-	@UseGuards(RenderLimitGuard)
+	@UseGuards(UserRateLimitGuard)
 	@UserRateLimit('issue', 30, 60)
 	issue(
 		@CurrentSession() session: AuthSession,
@@ -154,7 +167,7 @@ export class InvoicesController {
 	@Post(':id/cancel')
 	@HttpCode(200)
 	@RequireReauth()
-	@UseGuards(RenderLimitGuard)
+	@UseGuards(UserRateLimitGuard)
 	@UserRateLimit('cancel', 10, 60)
 	cancel(
 		@CurrentSession() session: AuthSession,
@@ -167,6 +180,7 @@ export class InvoicesController {
 
 	@Post(':id/paid')
 	@HttpCode(200)
+	@UseGuards(UserRateLimitGuard)
 	@UserRateLimit('payments', 30)
 	markPaid(
 		@CurrentSession() session: AuthSession,
@@ -179,6 +193,7 @@ export class InvoicesController {
 
 	@Post(':id/unpaid')
 	@HttpCode(200)
+	@UseGuards(UserRateLimitGuard)
 	@UserRateLimit('payments', 30)
 	markUnpaid(
 		@CurrentSession() session: AuthSession,
@@ -195,30 +210,46 @@ export class InvoicesController {
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
 		@Res({ passthrough: true }) response: Response
-	): Promise<Buffer> {
+	): Promise<StreamableFile> {
 		const document = await this.invoices.document(session, invoiceId);
+		response.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'self'");
+		response.setHeader('X-Frame-Options', 'SAMEORIGIN');
 		response.setHeader('Content-Type', 'application/pdf');
-		response.setHeader('Content-Disposition', `attachment; filename="${document.filename}"`);
+		response.setHeader('Content-Disposition', `inline; filename="${document.filename}"`);
 		response.setHeader('Cache-Control', 'no-store');
 		response.setHeader('ETag', `"${document.sha256.toString('hex')}"`);
-		return document.content;
+		return new StreamableFile(document.content);
+	}
+
+	@Get(':id/xml')
+	async xml(
+		@CurrentSession() session: AuthSession,
+		@Param('id', id) invoiceId: string,
+		@Res({ passthrough: true }) response: Response
+	): Promise<StreamableFile> {
+		const xml = await this.invoices.xml(session, invoiceId);
+		response.setHeader('Content-Type', 'application/xml; charset=utf-8');
+		response.setHeader('Content-Disposition', `attachment; filename="${xml.filename}"`);
+		response.setHeader('Cache-Control', 'no-store');
+		response.setHeader('ETag', `"${xml.sha256.toString('hex')}"`);
+		return new StreamableFile(xml.content);
 	}
 
 	@Get(':id/time-report')
-	@UseGuards(RenderLimitGuard)
+	@UseGuards(RenderLimitGuard, UserRateLimitGuard)
 	@UserRateLimit('time-report', 20)
 	async timeReport(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
 		@Query(new ZodPipe(invoiceTimeReportQuerySchema)) query: InvoiceTimeReportQuery,
 		@Res({ passthrough: true }) response: Response
-	): Promise<Buffer | string> {
+	): Promise<StreamableFile | string> {
 		const report = await this.invoices.timeReport(session, invoiceId, query.format);
 		response.setHeader('Cache-Control', 'no-store');
 		if (Buffer.isBuffer(report)) {
 			response.setHeader('Content-Type', 'application/pdf');
 			response.setHeader('Content-Disposition', 'attachment; filename="time-report.pdf"');
-			return report;
+			return new StreamableFile(report);
 		}
 		response.setHeader('Content-Type', 'text/csv; charset=utf-8');
 		response.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);

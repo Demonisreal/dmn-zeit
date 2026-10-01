@@ -1,7 +1,8 @@
 import { roundMinutes } from '@zeit/rules';
 import { Temporal } from 'temporal-polyfill';
-import { dateOf, iso, local, type Calendar } from './calendar';
+import { dateOf, earlier, endOfMonth, iso, local, nthBusinessDay, type Calendar } from './calendar';
 import type { PlanRow, ProjectBook } from './index';
+import { draft, issue, pay, type Desk, type Ledger } from './invoices';
 import { isAway, type Leave } from './leave';
 import type { Random } from './random';
 import type { Sheet } from './shifts';
@@ -274,10 +275,11 @@ export function bookProjects(
 		taskId: part.taskId,
 		startedAt: iso(part.start),
 		endedAt: end && iso(end),
-		note: part.note
+		note: part.note,
+		invoiceId: null
 	});
 
-	return {
+	const ledger: Ledger = {
 		clients,
 		projects: projects.map(({ id, clientId, name, code, budgetMinutes }) => ({
 			id,
@@ -292,5 +294,61 @@ export function bookProjects(
 			...kept.map((part) => row(part, part.end)),
 			...running.map((part) => row(part, null))
 		]
+	};
+	const profile: ProjectBook['billingProfile'] = {
+		legalName: 'Musterbetrieb Steuerberatung (Beispiel)',
+		street: 'Hohenstaufenring 62',
+		postalCode: '50674',
+		city: 'Köln',
+		countryCode: 'DE',
+		taxNumber: '987/6543/2109',
+		vatId: 'DE987654321',
+		taxProfile: 'regular',
+		previousYearRevenueCents: 118_400_000,
+		iban: 'DE84000000009876543210',
+		bic: 'BEISDEF0XXX',
+		bankName: 'Beispielbank',
+		contactName: cast.hr.user.displayName,
+		contactEmail: 'kanzlei@musterbetrieb.example.test',
+		contactPhone: '0221 4710-205',
+		registerCourt: null,
+		registerNumber: null,
+		invoicePrefix: 'MUSTER-',
+		paymentTermsDays: 14,
+		roundingIncrementMin: 15,
+		roundingMode: 'up',
+		defaultFormat: 'zugferd'
+	};
+	const desk: Desk = {
+		rng,
+		ledger,
+		profile,
+		userId: cast.hr.user.id,
+		invoices: [],
+		lastSeq: 0
+	};
+	const clientOf = (code: (typeof CLIENTS)[number]['code']) =>
+		clients[CLIENTS.findIndex((client) => client.code === code)]!;
+	const monthEnd = endOfMonth(calendar.previous);
+	const fee = 'Zeitgebühr nach § 13 StBVV: ';
+	const on = earlier(
+		nthBusinessDay(calendar, calendar.today.toPlainYearMonth(), 2),
+		calendar.today
+	);
+	for (const [code, days] of [
+		['LIN', 4],
+		['YIL', 9]
+	] as const) {
+		const invoice = draft(desk, clientOf(code), from, monthEnd, on, fee);
+		issue(desk, invoice, on);
+		pay(invoice, earlier(on.add({ days }), calendar.today));
+	}
+	draft(desk, clientOf('ZLI'), from, monthEnd, on, fee);
+
+	return {
+		...ledger,
+		billingProfile: profile,
+		invoiceCounters: [{ year: calendar.today.year, lastSeq: desk.lastSeq }],
+		invoices: desk.invoices
 	};
 }

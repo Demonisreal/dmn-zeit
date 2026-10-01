@@ -142,6 +142,7 @@ const expected: Record<string, Access> = {
 	'POST /invoices/:id/paid': 'hr',
 	'POST /invoices/:id/unpaid': 'hr',
 	'GET /invoices/:id/document': 'hr',
+	'GET /invoices/:id/xml': 'hr',
 	'GET /invoices/:id/time-report': 'hr',
 
 	'GET /compliance/findings': 'team_lead',
@@ -316,6 +317,7 @@ const expectedWorkspace: Record<string, Reach> = {
 	'POST /invoices/:id/paid': 'both',
 	'POST /invoices/:id/unpaid': 'both',
 	'GET /invoices/:id/document': 'both',
+	'GET /invoices/:id/xml': 'both',
 	'GET /invoices/:id/time-report': 'both',
 
 	'GET /compliance/findings': 'company',

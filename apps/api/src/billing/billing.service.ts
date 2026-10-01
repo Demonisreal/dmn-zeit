@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { invoiceTotals, smallBusinessCheck, type TaxCategory } from '@zeit/rules';
 import type {
+	ApiError,
 	BillingProfile,
 	Revenue,
 	Unbilled,
@@ -38,7 +39,9 @@ const CHANGE_FIELDS: (keyof BillingProfile)[] = [
 	'defaultFormat'
 ];
 
-function changedFields(before: BillingProfile, after: BillingProfile): string[] {
+const SANDBOX_FIELDS: (keyof BillingProfile)[] = ['taxProfile', 'previousYearRevenueCents'];
+
+function changedFields(before: BillingProfile, after: BillingProfile): (keyof BillingProfile)[] {
 	return CHANGE_FIELDS.filter((field) => before[field] !== after[field]);
 }
 
@@ -62,6 +65,18 @@ export class BillingService {
 	): Promise<BillingProfile> {
 		return this.db.withTenant(session, async (trx) => {
 			const before = await this.store.profile(trx);
+			if (await this.store.isSandbox(trx)) {
+				const locked = changedFields(before, { ...before, ...input }).filter(
+					(field) => !SANDBOX_FIELDS.includes(field)
+				);
+				if (locked.length > 0) {
+					throw new ForbiddenException({
+						code: 'FORBIDDEN',
+						message: 'A sandbox only changes the tax profile and the previous year revenue',
+						details: { fields: locked }
+					} satisfies ApiError);
+				}
+			}
 			const after = await this.store.upsert(trx, session.tenantId, input);
 			const changed = changedFields(before, after);
 

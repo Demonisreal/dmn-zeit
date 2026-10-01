@@ -271,14 +271,32 @@ describe('generateDemo against the table constraints', () => {
 });
 
 describe('generateDemo against the project tables', () => {
-	const books: { workspace: string; book: ProjectBook; staff: string[] }[] = [
-		{ workspace: 'company', book: plan, staff: plan.employees.map((employee) => employee.id) },
-		{ workspace: 'solo', book: plan.solo, staff: [plan.solo.employee.id] }
+	const books: { workspace: string; book: ProjectBook; staff: string[]; users: string[] }[] = [
+		{
+			workspace: 'company',
+			book: plan,
+			staff: plan.employees.map((employee) => employee.id),
+			users: plan.users.map((user) => user.id)
+		},
+		{
+			workspace: 'solo',
+			book: plan.solo,
+			staff: [plan.solo.employee.id],
+			users: [plan.solo.user.id]
+		}
 	];
 
 	it('hands out every id once, across both workspaces', () => {
 		const ids = books.flatMap(({ book }) =>
-			[book.clients, book.projects, book.tasks, book.rates, book.projectEntries]
+			[
+				book.clients,
+				book.projects,
+				book.tasks,
+				book.rates,
+				book.projectEntries,
+				book.invoices,
+				book.invoices.flatMap((invoice) => invoice.lines)
+			]
 				.flat()
 				.map((row) => row.id)
 		);
@@ -385,6 +403,122 @@ describe('generateDemo against the project tables', () => {
 					)
 				).toEqual([]);
 			}
+		}
+	);
+
+	it.each(books)(
+		'fills the billing profile of the $workspace workspace within its checks',
+		({ book }) => {
+			const profile = book.billingProfile;
+			expect(blank(profile.legalName)).toBe(false);
+			expect(profile.countryCode).toBe('DE');
+			expect(profile.vatId).toMatch(/^DE[0-9]{9}$/);
+			expect(profile.invoicePrefix).toMatch(/^[A-Z0-9-]{0,10}$/);
+			expect(profile.paymentTermsDays).toBeGreaterThanOrEqual(0);
+			expect(profile.paymentTermsDays).toBeLessThanOrEqual(120);
+			expect([1, 5, 6, 10, 15, 30, 60]).toContain(profile.roundingIncrementMin);
+			expect(book.invoiceCounters.filter((counter) => counter.lastSeq <= 0)).toEqual([]);
+			expect(duplicates(book.invoiceCounters.map((counter) => String(counter.year)))).toEqual([]);
+		}
+	);
+
+	it.each(books)(
+		'fills the invoices of the $workspace workspace the way app.invoices checks them',
+		({ book, users }) => {
+			const clients = new Set(book.clients.map((client) => client.id));
+			const invoices = new Map(book.invoices.map((invoice) => [invoice.id, invoice]));
+			const draft = (invoice: (typeof book.invoices)[number]) => invoice.status === 'draft';
+			expect(
+				book.invoices.filter(
+					(invoice) =>
+						!clients.has(invoice.clientId) ||
+						draft(invoice) !== (invoice.number === null) ||
+						draft(invoice) !== (invoice.issueDate === null) ||
+						draft(invoice) !== (invoice.dueDate === null) ||
+						draft(invoice) !== (invoice.issuedAt === null) ||
+						(invoice.issuedAt !== null &&
+							Temporal.Instant.compare(instant(invoice.issuedAt), instant(invoice.createdAt)) <
+								0) ||
+						(invoice.kind === 'invoice') !== (invoice.refersToId === null) ||
+						(invoice.refersToId !== null &&
+							invoices.get(invoice.refersToId)?.clientId !== invoice.clientId) ||
+						invoice.serviceTo < invoice.serviceFrom ||
+						(invoice.status === 'paid' && invoice.paidOn === null) ||
+						(invoice.kind === 'cancellation' && invoice.status === 'cancelled') ||
+						(invoice.cancelledAt === null) !== (invoice.cancelledBy === null) ||
+						(invoice.cancelledAt !== null && (invoice.cancelReason?.trim().length ?? 0) < 10) ||
+						!['de', 'en'].includes(invoice.locale) ||
+						invoice.paymentTermsDays < 0 ||
+						invoice.paymentTermsDays > 120 ||
+						!users.includes(invoice.createdBy) ||
+						[invoice.issuedBy, invoice.cancelledBy].some((id) => id !== null && !users.includes(id))
+				)
+			).toEqual([]);
+			expect(duplicates(book.invoices.flatMap((invoice) => invoice.number ?? []))).toEqual([]);
+			expect(
+				duplicates(
+					book.invoices.flatMap((invoice) =>
+						invoice.numberSeq === null ? [] : [`${invoice.numberYear} ${invoice.numberSeq}`]
+					)
+				)
+			).toEqual([]);
+			expect(
+				duplicates(
+					book.invoices.flatMap((invoice) =>
+						invoice.kind === 'cancellation' ? [invoice.refersToId!] : []
+					)
+				)
+			).toEqual([]);
+		}
+	);
+
+	it.each(books)(
+		'fills the invoice lines of the $workspace workspace the way app.invoice_lines checks them',
+		({ book }) => {
+			const projects = new Map(book.projects.map((project) => [project.id, project]));
+			const tasks = new Map(book.tasks.map((task) => [task.id, task]));
+			const entries = new Map(book.projectEntries.map((entry) => [entry.id, entry]));
+			for (const invoice of book.invoices) {
+				expect(duplicates(invoice.lines.map((line) => String(line.position)))).toEqual([]);
+				expect(
+					invoice.lines.filter(
+						(line) =>
+							line.position <= 0 ||
+							blank(line.description) ||
+							(line.kind === 'time') !== (line.minutes !== null) ||
+							(line.kind === 'item') !== (line.quantityMilli !== null) ||
+							(line.quantityMilli === null) !== (line.unit === null) ||
+							(line.kind === 'time' && line.projectId === null) ||
+							(line.projectId !== null &&
+								projects.get(line.projectId)?.clientId !== invoice.clientId) ||
+							(line.taskId !== null && tasks.get(line.taskId)?.projectId !== line.projectId) ||
+							['standard', 'reduced'].includes(line.taxCategory) !== line.taxRateBp > 0 ||
+							line.taxRateBp > 10_000 ||
+							duplicates(line.entryIds).length > 0 ||
+							line.entryIds.some(
+								(id) =>
+									entries.get(id)?.projectId !== line.projectId ||
+									entries.get(id)?.taskId !== line.taskId
+							)
+					)
+				).toEqual([]);
+			}
+		}
+	);
+
+	it.each(books)(
+		'puts only finished time of the $workspace workspace on an invoice of the same client',
+		({ book }) => {
+			const projects = new Map(book.projects.map((project) => [project.id, project]));
+			const invoices = new Map(book.invoices.map((invoice) => [invoice.id, invoice]));
+			expect(
+				book.projectEntries.filter(
+					(entry) =>
+						entry.invoiceId !== null &&
+						(entry.endedAt === null ||
+							invoices.get(entry.invoiceId)?.clientId !== projects.get(entry.projectId)!.clientId)
+				)
+			).toEqual([]);
 		}
 	);
 

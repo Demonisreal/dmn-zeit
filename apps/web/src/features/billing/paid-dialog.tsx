@@ -10,6 +10,7 @@ import { useErrorText } from '../hr/error-text';
 import { DateInputField } from '../hr/ui/date-field';
 import { todayIso } from '../../lib/dates';
 import { invoiceQuery, markPaid } from './api';
+import { issueAt } from './fields';
 
 const styles = css as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions', string>;
 
@@ -34,6 +35,8 @@ export function PaidDialog({ invoice, onClose }: Props) {
 		}
 	});
 
+	const dayIssue = issueAt(pay.error, 'paidOn');
+
 	function close() {
 		pay.reset();
 		onClose();
@@ -52,8 +55,16 @@ export function PaidDialog({ invoice, onClose }: Props) {
 					{invoice && (
 						<>
 							<Heading slot="title">{t('paidDialog.title', { number: invoice.number ?? '' })}</Heading>
-							<DateInputField label={t('paidDialog.date')} value={paidOn} onChange={setPaidOn} />
-							{pay.error && <Notice tone="error">{errorText(pay.error)}</Notice>}
+							<DateInputField
+								label={t('paidDialog.date')}
+								value={paidOn}
+								onChange={(day) => {
+									setPaidOn(day);
+									pay.reset();
+								}}
+								error={dayIssue}
+							/>
+							{pay.error && !dayIssue && <Notice tone="error">{errorText(pay.error)}</Notice>}
 							<div className={styles.actions}>
 								<Button isDisabled={pay.isPending} onPress={close}>
 									{t('cancel')}

@@ -16,7 +16,8 @@ import { Notice } from '../../components/ui/notice';
 import { Page, PageHead } from '../../components/ui/page-shell';
 import { FormSelect } from '../../components/ui/select-field';
 import { Loading, LoadError } from '../../components/ui/states';
-import { formatCents } from '../../i18n/format';
+import { formatCents, listFormat } from '../../i18n/format';
+import { hasCode } from '../../lib/api/errors';
 import { currentYear } from '../../lib/dates';
 import { useErrorText } from '../hr/error-text';
 import styles from '../hr/ui/page.module.css';
@@ -73,6 +74,35 @@ const schema = z.object({
 	defaultFormat: fields.defaultFormat
 });
 
+const lockedLabels = {
+	legalName: 'settings.legalName',
+	street: 'client.address',
+	postalCode: 'client.address',
+	city: 'client.address',
+	contactName: 'settings.contactLegend',
+	contactEmail: 'settings.contactLegend',
+	contactPhone: 'settings.contactLegend',
+	taxNumber: 'settings.taxNumber',
+	vatId: 'client.vatId',
+	iban: 'settings.bankLegend',
+	bic: 'settings.bankLegend',
+	bankName: 'settings.bankLegend',
+	invoicePrefix: 'settings.invoicePrefix',
+	paymentTermsDays: 'client.paymentTerms',
+	defaultFormat: 'settings.defaultFormat',
+	roundingIncrementMin: 'rounding.title',
+	roundingMode: 'rounding.title'
+} as const;
+
+const isLocked = (field: string): field is keyof typeof lockedLabels => field in lockedLabels;
+
+const lockedSchema = z.object({ fields: z.array(z.string()).min(1) });
+
+const lockedFields = (err: Error | null) =>
+	hasCode(err, 'FORBIDDEN')
+		? lockedSchema.safeParse(err.details).data?.fields.filter(isLocked)
+		: undefined;
+
 const defaults = (profile: BillingProfile): z.input<typeof schema> => ({
 	legalName: profile.legalName,
 	street: profile.street ?? '',
@@ -99,9 +129,10 @@ const defaults = (profile: BillingProfile): z.input<typeof schema> => ({
 
 type Props = {
 	role: Role;
+	sandbox: boolean;
 };
 
-export function SettingsPage({ role }: Props) {
+export function SettingsPage({ role, sandbox }: Props) {
 	const { i18n } = useTranslation('billing');
 	const errorText = useErrorText();
 	const queryClient = useQueryClient();
@@ -132,6 +163,7 @@ export function SettingsPage({ role }: Props) {
 	return (
 		<SettingsForm
 			role={role}
+			sandbox={sandbox}
 			profile={profile.data}
 			onSaved={(next) => queryClient.setQueryData(billingProfileQuery.queryKey, next)}
 			errorText={errorText}
@@ -143,6 +175,7 @@ export function SettingsPage({ role }: Props) {
 
 type FormProps = {
 	role: Role;
+	sandbox: boolean;
 	profile: BillingProfile;
 	onSaved: (next: BillingProfile) => void;
 	errorText: (err: unknown) => string;
@@ -150,7 +183,7 @@ type FormProps = {
 	lng: string;
 };
 
-function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormProps) {
+function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng }: FormProps) {
 	const { t } = useTranslation('billing');
 	const { control, handleSubmit } = useForm({
 		resolver: zodResolver(schema),
@@ -165,6 +198,14 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 	});
 	const submit = (input: z.output<typeof schema>) =>
 		save.mutate(input, { onError: reauth.onError(() => save.mutate(input)) });
+
+	const locked = lockedFields(save.error);
+	const refusal =
+		locked && locked.length > 0
+			? t('settings.sandboxRefused', {
+					fields: listFormat(lng).format(new Set(locked.map((field) => t(lockedLabels[field]))))
+				})
+			: save.error && errorText(save.error);
 
 	return (
 		<>
@@ -184,11 +225,17 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 					onSubmit={handleSubmit(submit)}
 				>
 					<h2 id="billing-settings">{t('settings.title')}</h2>
+					{sandbox && <Notice tone="info">{t('settings.sandboxHint')}</Notice>}
 
 					<div className={styles.fields}>
 						<div className={styles.wide}>
 							<div className={css.name}>
-								<FormField control={control} name="legalName" label={t('settings.legalName')} />
+								<FormField
+									control={control}
+									name="legalName"
+									label={t('settings.legalName')}
+									isReadOnly={sandbox}
+								/>
 							</div>
 						</div>
 					</div>
@@ -198,19 +245,71 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 						<div className={styles.fields}>
 							<div className={styles.wide}>
 								<div className={css.name}>
-									<FormField control={control} name="street" label={t('client.street')} />
+									<FormField
+										control={control}
+										name="street"
+										label={t('client.street')}
+										isReadOnly={sandbox}
+									/>
 								</div>
 							</div>
-							<FormField control={control} name="postalCode" label={t('client.postalCode')} />
-							<FormField control={control} name="city" label={t('client.city')} />
+							<FormField
+								control={control}
+								name="postalCode"
+								label={t('client.postalCode')}
+								isReadOnly={sandbox}
+							/>
+							<FormField
+								control={control}
+								name="city"
+								label={t('client.city')}
+								isReadOnly={sandbox}
+							/>
 						</div>
+					</fieldset>
+
+					<fieldset className={css.group}>
+						<legend className={css.legend}>{t('settings.contactLegend')}</legend>
+						<div className={styles.fields}>
+							<FormField
+								control={control}
+								name="contactName"
+								label={t('client.name')}
+								isReadOnly={sandbox}
+							/>
+							<FormField
+								control={control}
+								name="contactPhone"
+								label={t('settings.phone')}
+								type="tel"
+								isReadOnly={sandbox}
+							/>
+							<FormField
+								control={control}
+								name="contactEmail"
+								label={t('client.email')}
+								type="email"
+								isReadOnly={sandbox}
+							/>
+						</div>
+						<p className={`${styles.small} ${styles.muted}`}>{t('settings.contactHint')}</p>
 					</fieldset>
 
 					<fieldset className={css.group}>
 						<legend className={css.legend}>{t('settings.taxLegend')}</legend>
 						<div className={styles.fields}>
-							<FormField control={control} name="taxNumber" label={t('settings.taxNumber')} />
-							<FormField control={control} name="vatId" label={t('client.vatId')} />
+							<FormField
+								control={control}
+								name="taxNumber"
+								label={t('settings.taxNumber')}
+								isReadOnly={sandbox}
+							/>
+							<FormField
+								control={control}
+								name="vatId"
+								label={t('client.vatId')}
+								isReadOnly={sandbox}
+							/>
 							<FormSelect
 								control={control}
 								name="taxProfile"
@@ -244,9 +343,25 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 					<fieldset className={css.group}>
 						<legend className={css.legend}>{t('settings.bankLegend')}</legend>
 						<div className={styles.fields}>
-							<FormField control={control} name="iban" label={t('settings.iban')} autoComplete="off" />
-							<FormField control={control} name="bic" label={t('settings.bic')} />
-							<FormField control={control} name="bankName" label={t('settings.bankName')} />
+							<FormField
+								control={control}
+								name="iban"
+								label={t('settings.iban')}
+								autoComplete="off"
+								isReadOnly={sandbox}
+							/>
+							<FormField
+								control={control}
+								name="bic"
+								label={t('settings.bic')}
+								isReadOnly={sandbox}
+							/>
+							<FormField
+								control={control}
+								name="bankName"
+								label={t('settings.bankName')}
+								isReadOnly={sandbox}
+							/>
 						</div>
 						<p className={`${styles.small} ${styles.muted}`}>{t('settings.ibanHint')}</p>
 					</fieldset>
@@ -259,17 +374,20 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 								name="invoicePrefix"
 								label={t('settings.invoicePrefix')}
 								description={t('settings.invoicePrefixHint')}
+								isReadOnly={sandbox}
 							/>
 							<FormField
 								control={control}
 								name="paymentTermsDays"
 								label={t('client.paymentTerms')}
 								inputMode="numeric"
+								isReadOnly={sandbox}
 							/>
 							<FormSelect
 								control={control}
 								name="defaultFormat"
 								label={t('settings.defaultFormat')}
+								isDisabled={sandbox}
 								options={[
 									{ id: 'pdf', label: t('settings.formats.pdf') },
 									{ id: 'zugferd', label: t('settings.formats.zugferd') },
@@ -286,6 +404,7 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 								control={control}
 								name="roundingIncrementMin"
 								label={t('rounding.increment')}
+								isDisabled={sandbox}
 								options={increments.map((minutes) => ({
 									id: String(minutes),
 									label: t('rounding.minutes', { minutes })
@@ -295,6 +414,7 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 								control={control}
 								name="roundingMode"
 								label={t('rounding.modeLabel')}
+								isDisabled={sandbox}
 								options={[
 									{ id: 'up', label: t('rounding.modes.up') },
 									{ id: 'nearest', label: t('rounding.modes.nearest') },
@@ -304,7 +424,7 @@ function SettingsForm({ role, profile, onSaved, errorText, reauth, lng }: FormPr
 						</div>
 					</fieldset>
 
-					{save.error && <Notice tone="error">{errorText(save.error)}</Notice>}
+					{refusal && <Notice tone="error">{refusal}</Notice>}
 					<div className={styles.actions}>
 						<Button type="submit" variant="primary" isPending={save.isPending}>
 							{t('save')}

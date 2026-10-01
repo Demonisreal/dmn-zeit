@@ -1,5 +1,9 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
-import { monthOverviewQuerySchema, timeReportQuerySchema, timesheetQuerySchema } from '@zeit/shared';
+import { Controller, Get, Query, Res, StreamableFile, UseGuards } from '@nestjs/common';
+import {
+	monthOverviewQuerySchema,
+	timeReportQuerySchema,
+	timesheetQuerySchema
+} from '@zeit/shared';
 import type {
 	MonthOverview,
 	MonthOverviewQuery,
@@ -18,7 +22,6 @@ import { RenderLimitGuard } from '../documents/render-limit.guard';
 import { UserRateLimit, UserRateLimitGuard } from '../invoices/user-rate-limit.guard';
 import { ExportsService, type Download } from './exports.service';
 
-// plain ascii for old clients, filename* (rfc 6266) keeps a later name with umlauts intact
 export function contentDisposition(filename: string): string {
 	const ascii = filename.replace(/[^\w.-]/g, '_');
 	const encoded = encodeURIComponent(filename).replace(
@@ -38,7 +41,6 @@ function attach(response: Response, download: Download): string {
 export class ExportsController {
 	constructor(private readonly exports: ExportsService) {}
 
-	// whose sheet the reader may have is checked per person in the service
 	@Get('timesheet')
 	@Workspace('company')
 	@Roles('employee')
@@ -53,7 +55,6 @@ export class ExportsController {
 		return attach(response, await this.exports.timesheetCsv(session, query.employee, query.month));
 	}
 
-	// sick days of the whole tenant are payroll matters, not something for leads or colleagues
 	@Get('month-overview')
 	@Workspace('company')
 	@Roles('hr')
@@ -66,9 +67,6 @@ export class ExportsController {
 		return attach(response, await this.exports.overviewCsv(session, query.month));
 	}
 
-	// no billing data leaves the tenant here, only project bookings of the one named client (I-04)
-	// D-02/Z-07: this is a GET (the download link needs one) and so exempt from the CsrfGuard,
-	// the render guard at least keeps it from crowding out the shared worker queue
 	@Get('time-report')
 	@Roles('hr')
 	@UseGuards(RenderLimitGuard, UserRateLimitGuard)
@@ -77,13 +75,13 @@ export class ExportsController {
 		@CurrentSession() session: AuthSession,
 		@Query(new ZodPipe(timeReportQuerySchema)) query: TimeReportQuery,
 		@Res({ passthrough: true }) response: Response
-	): Promise<TimeReport | Buffer | string> {
+	): Promise<TimeReport | StreamableFile | string> {
 		const report = await this.exports.timeReport(session, query);
 		if (Buffer.isBuffer(report)) {
 			response.setHeader('Cache-Control', 'no-store');
 			response.setHeader('Content-Type', 'application/pdf');
 			response.setHeader('Content-Disposition', 'attachment; filename="time-report.pdf"');
-			return report;
+			return new StreamableFile(report);
 		}
 		if ('body' in report) {
 			response.setHeader('Cache-Control', 'no-store');

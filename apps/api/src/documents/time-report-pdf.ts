@@ -1,7 +1,8 @@
 import PDFDocument from 'pdfkit';
 import { formatDate } from './format';
-import { boldFont, regularFont } from './fonts';
+import { BOLD_FONT, REGULAR_FONT } from './fonts';
 import { labelsFor } from './labels';
+import { drawWatermark, escapeXmp, limitPages } from './pdf';
 import type { TimeReport } from './time-report';
 
 const MM = 72 / 25.4;
@@ -35,11 +36,11 @@ export async function buildTimeReportPdf(report: TimeReport): Promise<Buffer> {
 			CreationDate: new Date(report.generatedAt)
 		}
 	});
-	doc.registerFont('body', regularFont());
-	doc.registerFont('bold', boldFont());
+	escapeXmp(doc);
+	limitPages(doc);
 
-	doc.font('bold').fontSize(16).text(labels.timeReport);
-	doc.font('body').fontSize(10).fillColor('#333333').text(subjectLine(report, labels));
+	doc.font(BOLD_FONT).fontSize(16).text(labels.timeReport);
+	doc.font(REGULAR_FONT).fontSize(10).fillColor('#333333').text(subjectLine(report, labels));
 	doc
 		.fontSize(9)
 		.text(`${formatDate(report.period.from, report.locale)} – ${formatDate(report.period.to, report.locale)}`);
@@ -69,10 +70,10 @@ export async function buildTimeReportPdf(report: TimeReport): Promise<Buffer> {
 	});
 
 	doc.moveDown();
-	doc.font('bold').fontSize(10);
+	doc.font(BOLD_FONT).fontSize(10);
 	doc.text(`${labels.totalMinutes}: ${report.totals.minutes} ${labels.minutes}`);
 	doc
-		.font('body')
+		.font(REGULAR_FONT)
 		.fontSize(9)
 		.fillColor('#555555')
 		.text(`${labels.totalBillableMinutes}: ${report.totals.billableMinutes} ${labels.minutes}`);
@@ -81,6 +82,14 @@ export async function buildTimeReportPdf(report: TimeReport): Promise<Buffer> {
 	doc
 		.fontSize(7)
 		.text(labels.generatedAt(formatDate(report.generatedAt.slice(0, 10), report.locale)));
+
+	if (report.specimen) {
+		const range = doc.bufferedPageRange();
+		for (let i = 0; i < range.count; i++) {
+			doc.switchToPage(range.start + i);
+			drawWatermark(doc, labels.timeReportSpecimen, 0);
+		}
+	}
 
 	return await finish(doc);
 }

@@ -15,15 +15,20 @@ import { Button } from '../../components/ui/button';
 import dialogCss from '../../components/ui/dialog.module.css';
 import { Notice } from '../../components/ui/notice';
 import { formatCents } from '../../i18n/format';
+import { sessionQuery } from '../../lib/api/auth';
+import { markTourStep } from '../demo/tour';
 import { useErrorText } from '../hr/error-text';
 import styles from '../hr/ui/page.module.css';
 import { useReauth } from '../security/reauth-dialog';
+import formCss from '../week/form.module.css';
 import { invoiceQuery, issueInvoice } from './api';
+import { blockersOf } from './fields';
 import editorCss from './invoice-editor.module.css';
 
 // react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const dialog = dialogCss as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions', string>;
-const css = editorCss as Record<'formatGroup' | 'formatOption' | 'formatHint', string>;
+const css = editorCss as Record<'formatGroup' | 'formatOption' | 'formatHint' | 'blockers', string>;
+const form = formCss as Record<'radio', string>;
 
 type Props = {
 	invoice: Invoice;
@@ -36,14 +41,16 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 	const errorText = useErrorText();
 	const queryClient = useQueryClient();
 	const reauth = useReauth();
-	// only pdf renders in this version, zugferd and xrechnung would stay without a document
-	const [format, setFormat] = useState<InvoiceFormat>('pdf');
+	const [picked, setPicked] = useState<InvoiceFormat | null>(null);
+	const format = picked ?? invoice.format;
 
 	const issue = useMutation({
 		mutationFn: () => issueInvoice(invoice.id, { format }),
 		onSuccess: async (issued) => {
 			queryClient.setQueryData(invoiceQuery(issued.id).queryKey, issued);
 			close();
+			const session = queryClient.getQueryData(sessionQuery.queryKey);
+			if (session?.mode === 'demo' && session.tenant.workspace === 'solo') markTourStep('invoice');
 			// issuing swaps the whole editor for the read-only view, so the "Ausstellen" trigger is already gone
 			document.getElementById('main')?.focus();
 			await Promise.all(
@@ -54,9 +61,18 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 		}
 	});
 
+	const refused = blockersOf(issue.error);
+	const blockers = refused ?? (format === invoice.format ? invoice.blockers : []);
+
 	function close() {
 		issue.reset();
+		setPicked(null);
 		onClose();
+	}
+
+	function choose(next: InvoiceFormat) {
+		issue.reset();
+		setPicked(next);
 	}
 
 	return (
@@ -82,33 +98,38 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 							</dl>
 							<RadioGroup
 								value={format}
-								onChange={(value) => setFormat(value as InvoiceFormat)}
+								onChange={(value) => choose(value as InvoiceFormat)}
+								isDisabled={issue.isPending}
 								className={css.formatGroup}
 							>
 								<Label>{t('invoiceEditor.format')}</Label>
-								{invoiceFormats.map((candidate) => {
-									const hintId = `invoice-format-hint-${candidate}`;
-									return (
-										<div key={candidate} className={css.formatOption}>
-											<Radio
-												value={candidate}
-												isDisabled={candidate !== 'pdf'}
-												{...(candidate === 'pdf' ? {} : { 'aria-describedby': hintId })}
-											>
-												{t(`settings.formats.${candidate}`)}
-											</Radio>
-											{candidate !== 'pdf' && (
-												<span id={hintId} className={css.formatHint}>
-													{t('invoiceEditor.formatLater')}
-												</span>
-											)}
-										</div>
-									);
-								})}
+								{invoiceFormats.map((candidate) => (
+									<div key={candidate} className={css.formatOption}>
+										<Radio
+											value={candidate}
+											aria-describedby={`invoice-format-hint-${candidate}`}
+											className={form.radio}
+										>
+											{t(`settings.formats.${candidate}`)}
+										</Radio>
+										<span id={`invoice-format-hint-${candidate}`} className={css.formatHint}>
+											{t(`invoiceEditor.formatHints.${candidate}`)}
+										</span>
+									</div>
+								))}
 							</RadioGroup>
+							{blockers.length > 0 && (
+								<Notice tone={refused ? 'error' : 'warning'}>
+									<ul id="issue-blockers" className={css.blockers}>
+										{blockers.map((code) => (
+											<li key={code}>{t(`invoiceEditor.blockers.${code}`, code)}</li>
+										))}
+									</ul>
+								</Notice>
+							)}
 							<p>{t('invoiceEditor.issueWarning')}</p>
 						</div>
-						{issue.error && <Notice tone="error">{errorText(issue.error)}</Notice>}
+						{issue.error && !refused && <Notice tone="error">{errorText(issue.error)}</Notice>}
 						<div className={dialog.actions}>
 							<Button isDisabled={issue.isPending} onPress={close}>
 								{t('cancel')}
@@ -117,6 +138,7 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 								variant="primary"
 								isPending={issue.isPending}
 								onPress={() => issue.mutate(undefined, { onError: reauth.onError(() => issue.mutate()) })}
+								{...(blockers.length > 0 ? { 'aria-describedby': 'issue-blockers' } : {})}
 							>
 								{t('invoiceEditor.issueConfirm')}
 							</Button>

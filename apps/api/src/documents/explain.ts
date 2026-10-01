@@ -1,11 +1,12 @@
 import type { Explanation, Locale } from '@zeit/shared';
+import { formatHours } from './format';
 
 // turns the two explanation keys that survive into invoiceLineSchema.derivation into
 // a printable sentence; everything else (billing.totals, billing.totals.group) is
 // already visible as numbers in the tax summary table and needs no prose
 const ROUNDING_WORD: Record<string, Record<Locale, string>> = {
-	up: { de: 'aufgerundet', en: 'rounded up' },
-	down: { de: 'abgerundet', en: 'rounded down' },
+	up: { de: 'aufgerundet', en: 'rounded up to' },
+	down: { de: 'abgerundet', en: 'rounded down to' },
 	nearest: { de: 'kaufmännisch gerundet', en: 'rounded to the nearest' }
 };
 
@@ -24,10 +25,11 @@ export function roundingText(explanation: Explanation, locale: Locale): string |
 	const mode = explanation.key.split('.').at(-1);
 	const word = mode ? ROUNDING_WORD[mode]?.[locale] : undefined;
 	if (!word) return null;
-	const { raw, increment, rounded } = explanation.params;
+	const { raw, increment } = explanation.params;
+	const recorded = formatHours(Number(raw));
 	return locale === 'de'
-		? `${raw} Min. ${word} auf ${rounded} Min. (${increment}-Min.-Raster)`
-		: `${raw} min ${word} to ${rounded} min (${increment}-min. steps)`;
+		? `${recorded} Std. erfasst, je Tag auf ${increment} Min. ${word}`
+		: `${recorded} h recorded, ${word} ${increment} min per day`;
 }
 
 export function rateText(explanation: Explanation, locale: Locale): string | null {

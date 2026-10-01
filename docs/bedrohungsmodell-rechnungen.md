@@ -448,6 +448,16 @@ Lesen kann der Angreifer die Antwort nicht, aber er lässt im Namen des Opfers r
 - Test: `apps/api/test/auth/csrf.int.spec.ts`: "POST /exports/project-timesheet mit Sec-Fetch-Site:
   same-site ergibt 403 CSRF."
 
+Nachtrag 01.10.2026: Die rendernden Routen `GET /invoices/:id/preview.pdf`,
+`GET /invoices/:id/time-report` und `GET /exports/time-report` bleiben GET. Die Vorschau ist die
+Quelle eines `iframe` im Rechnungseditor und kann deshalb nur GET sein. Keine der drei Routen ändert
+Zustand, alle hängen an der Session mit `SameSite=Strict`-Cookie und an der Rollenprüfung. Die Last
+begrenzen das Limit je Nutzer (`UserRateLimit`, je Route 20/min) und die Render-Warteschlange
+(`RenderLimitGuard`, 2 gleichzeitig je Prozess, 10 wartend, danach 503 mit `Retry-After`). Eine
+Seite auf einer anderen Subdomain kann eine Anfrage auslösen, die Antwort aber nicht lesen, weil die
+API keine CORS-Freigabe setzt. Übrig bleibt Rechenzeit im Namen des Opfers bis zu seinem
+Nutzerlimit; das ist hingenommen, die Maßnahme oben wird nicht umgesetzt.
+
 ## 8. K2/K3: Mandant, Solo-Bereich und Mandantentyp
 
 ### M-01 Mandantentyp wechseln, um Regeln zu umgehen (Elevation of Privilege)
@@ -684,19 +694,19 @@ Eine Vorschau ohne Nummer, die an einen Kunden geht, ist ein Beleg ohne Aufzeich
 
 Globales Limit bleibt 300/min je IP. "Nutzer" heißt Zählung je `userId` über den Guard aus D-02.
 
-| Route (neu)                             | Live                           | Demo                            | Zählung |
-| --------------------------------------- | ------------------------------ | ------------------------------- | ------- |
-| POST `/invoice-drafts/:id/preview`      | 20/min                         | 10/min, 100/Tag je Sandbox      | Nutzer  |
-| POST `/invoice-drafts/:id/issue`        | 30/h                           | Kontingent 30 je Sandbox (X-03) | Nutzer  |
-| POST `/invoices/:id/cancel`             | 10/h                           | 10/h                            | Nutzer  |
-| POST `/invoices/:id/payments`           | 30/min                         | 30/min                          | Nutzer  |
-| GET `/invoices/:id/documents/:kind`     | global                         | global                          | IP      |
-| POST `/exports/project-timesheet` (PDF) | 20/min                         | 10/min                          | Nutzer  |
-| POST `/exports/project-timesheet` (CSV) | 30/min                         | 30/min                          | Nutzer  |
-| POST `/timer/start`, `/timer/stop`      | 30/min                         | 30/min                          | Nutzer  |
-| PUT `/billing-profile`                  | 10/h                           | Demo 404                        | Nutzer  |
-| PUT `/invoice-series/:series/start`     | 5/h                            | Demo 404                        | Nutzer  |
-| Renderings gleichzeitig                 | 2 je Prozess, Warteschlange 10 | wie Live                        | Prozess |
+| Route (neu)                             | Live                           | Demo                                                                          | Zählung |
+| --------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------- | ------- |
+| POST `/invoice-drafts/:id/preview`      | 20/min                         | 10/min, 100/Tag je Sandbox                                                    | Nutzer  |
+| POST `/invoice-drafts/:id/issue`        | 30/h                           | Kontingent 30 je Sandbox (X-03)                                               | Nutzer  |
+| POST `/invoices/:id/cancel`             | 10/h                           | 10/h                                                                          | Nutzer  |
+| POST `/invoices/:id/payments`           | 30/min                         | 30/min                                                                        | Nutzer  |
+| GET `/invoices/:id/documents/:kind`     | global                         | global                                                                        | IP      |
+| POST `/exports/project-timesheet` (PDF) | 20/min                         | 10/min                                                                        | Nutzer  |
+| POST `/exports/project-timesheet` (CSV) | 30/min                         | 30/min                                                                        | Nutzer  |
+| POST `/timer/start`, `/timer/stop`      | 30/min                         | 30/min                                                                        | Nutzer  |
+| PATCH `/billing/profile`                | 10/h                           | 10/h, in einer Sandbox nur `taxProfile` und `previousYearRevenueCents` (X-02) | Nutzer  |
+| PUT `/invoice-series/:series/start`     | 5/h                            | Demo 404                                                                      | Nutzer  |
+| Renderings gleichzeitig                 | 2 je Prozess, Warteschlange 10 | wie Live                                                                      | Prozess |
 
 ## 11. K3: Timer, Projektzeiten, Rundung
 
@@ -893,13 +903,21 @@ Demo ausgesetzt.
 
 ### X-02 Echte Firmendaten in der Demo (Spoofing)
 
-- Maßnahme: `PUT /billing-profile` ist in der Demo 404 (`NotInDemoGuard`,
-  `apps/api/src/auth/not-in-demo.guard.ts`), die Stammdaten kommen fest aus dem Generator. Damit
-  kann niemand ein Dokument im Namen einer echten Firma erzeugen. Kunden bleiben bearbeitbar; der
-  Demo-Banner sagt "Keine echten Daten eingeben", alles verschwindet nach 24 h.
-- Ort: Controller (neu), Web-Banner.
+- Maßnahme: In einer Sandbox (`tenants.kind = 'sandbox'`) nimmt `PATCH /billing/profile` nur
+  `taxProfile` und `previousYearRevenueCents` an, damit sich die Kleinunternehmerregel ausprobieren
+  lässt. Jedes andere geänderte Feld ergibt 403 `FORBIDDEN` mit den Feldnamen in `details.fields`,
+  das Profil bleibt dann unverändert. Die übrigen Stammdaten kommen fest aus dem Generator. Die
+  Prüfung hängt an `tenants.kind`, nicht an `APP_MODE`; Live-Mandanten sind nicht berührt. Limit
+  10/h je Nutzer wie im Live-Betrieb. Damit kann niemand ein Dokument im Namen einer echten Firma
+  erzeugen. Kunden bleiben bearbeitbar; der Demo-Banner sagt "Keine echten Daten eingeben", alles
+  verschwindet nach 24 h.
+- Ort: `apps/api/src/billing/billing.service.ts` (`SANDBOX_FIELDS`),
+  `apps/api/src/billing/billing.controller.ts`, Web-Banner.
 - Priorität: muss
-- Test: `apps/api/test/invoices/invoices.int.spec.ts`: "PUT /billing-profile ergibt bei APP_MODE=demo 404."
+- Test: `apps/api/test/billing/billing.int.spec.ts`: "In einer Sandbox gelingt der Wechsel von
+  Steuerprofil und Vorjahresumsatz, IBAN, Anschrift, Kontakt-E-Mail, Steuernummer und Präfix ergeben
+  403 mit `details.fields`; ein Live-Mandant ändert seine Stammdaten frei; die elfte Änderung
+  innerhalb einer Stunde ergibt 429 mit `Retry-After`."
 
 ### X-03 Spam-PDFs und Speicher in Sandboxes (Denial of Service)
 

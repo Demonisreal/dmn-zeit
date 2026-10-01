@@ -298,6 +298,24 @@ describe('exports after a closed december', () => {
 	});
 });
 
+describe('GET /api/exports/time-report', () => {
+	it('marks the report of a sandbox as specimen by tenants.kind, with APP_MODE=test', async () => {
+		expect(process.env.APP_MODE).toBe('test');
+		const report = async (tenant: string) => {
+			const { desk } = await seat(api, tenant, 'hr');
+			const client = (await desk.post('/clients', { name: 'Bäckerei Korn' })).body;
+			const answer = await desk.get(
+				`/exports/time-report?client=${client.id}&from=2026-04-01&to=2026-04-30&format=json`
+			);
+			expect(answer.status).toBe(200);
+			return answer.body;
+		};
+
+		expect((await report(await createTenant({ kind: 'sandbox' }))).specimen).toBe(true);
+		expect((await report(tenantId)).specimen).toBe(false);
+	});
+});
+
 describe('role matrix for exports', () => {
 	const cases: [Role, number, number][] = [
 		['employee', 403, 403],

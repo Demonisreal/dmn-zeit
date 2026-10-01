@@ -16,6 +16,7 @@ const line = (overrides: Partial<InvoiceLine> = {}): InvoiceLine => ({
 	netCents: '76000',
 	taxCategory: 'standard',
 	taxRateBp: 1900,
+	exemptionReason: null,
 	derivation: {
 		entries: [{ id: 'e1', startedAt: '2026-08-04T08:00:00+02:00', endedAt: '2026-08-04T16:00:00+02:00' }],
 		rounding: { key: 'billing.rounding.up', params: { raw: 473, increment: 15, rounded: 480 } },
@@ -67,8 +68,8 @@ export function invoiceFixture(overrides: Partial<Invoice> = {}): Invoice {
 			countryCode: 'DE',
 			taxNumber: '123/4567/8901',
 			vatId: 'DE123456789',
-			iban: 'DE02120300000000202051',
-			bic: 'BYLADEM1001',
+			iban: 'DE79000000001234567890',
+			bic: 'BEISDEF0XXX',
 			bankName: 'Musterbank',
 			contactName: 'Lena Vogt',
 			contactEmail: 'lena@example.test',

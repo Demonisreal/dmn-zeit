@@ -62,7 +62,7 @@
 				<ram:DefinedTradeContact>
 					<ram:PersonName>Jonas Kerber</ram:PersonName>
 					<ram:TelephoneUniversalCommunication>
-						<ram:CompleteNumber>0361 5566778</ram:CompleteNumber>
+						<ram:CompleteNumber>0221 4710-412</ram:CompleteNumber>
 					</ram:TelephoneUniversalCommunication>
 					<ram:EmailURIUniversalCommunication>
 						<ram:URIID>post@kerber-webdesign.example</ram:URIID>
@@ -107,7 +107,7 @@
 			<ram:SpecifiedTradeSettlementPaymentMeans>
 				<ram:TypeCode>58</ram:TypeCode>
 				<ram:PayeePartyCreditorFinancialAccount>
-					<ram:IBANID>DE02120300000000202051</ram:IBANID>
+					<ram:IBANID>DE79000000001234567890</ram:IBANID>
 					<ram:AccountName>Jonas Kerber Webdesign</ram:AccountName>
 				</ram:PayeePartyCreditorFinancialAccount>
 			</ram:SpecifiedTradeSettlementPaymentMeans>

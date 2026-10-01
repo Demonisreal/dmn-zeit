@@ -4,9 +4,25 @@ export const MAX_CONCURRENT = 2;
 export const MAX_QUEUED = 10;
 export const RETRY_AFTER_SECONDS = 5;
 
+export const MAX_PAGES = 50;
+
 export class RenderBusyError extends Error {
 	constructor() {
 		super('Rendering queue is full');
+	}
+}
+
+export class PageLimitError extends Error {
+	override name = 'PageLimitError';
+
+	constructor() {
+		super(`Document runs past ${MAX_PAGES} pages`);
+	}
+}
+
+export class RenderFailedError extends Error {
+	constructor(readonly retryAfter: number) {
+		super('Rendering this document failed a moment ago');
 	}
 }
 

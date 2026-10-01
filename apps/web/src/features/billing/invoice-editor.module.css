@@ -27,17 +27,12 @@
 }
 
 .formatOption {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 0 0.5rem;
-}
-
-.formatOption [data-disabled] {
-	color: var(--muted);
+	display: grid;
+	justify-items: start;
 }
 
 .formatHint {
+	padding-inline-start: 1.375rem;
 	color: var(--muted);
 	font-size: 0.8125rem;
 }

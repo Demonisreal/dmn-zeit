@@ -19,6 +19,7 @@ export const errorCodes = [
 	'INVOICED',
 	'RATE_LIMITED',
 	'RENDER_BUSY',
+	'PAGE_LIMIT',
 	'SANDBOX_LIMIT',
 	'SANDBOX_QUOTA',
 	'INTERNAL'
@@ -35,6 +36,7 @@ export const validationKeys = [
 	'format.cents',
 	'format.iban',
 	'format.vatId',
+	'format.leitwegId',
 	'format.entitlement',
 	'format.token',
 	'format.totp',
@@ -58,6 +60,10 @@ export const validationKeys = [
 	'invoice.rangeTooLong',
 	'invoice.tooManyLines',
 	'invoice.taxCategoryMismatch',
+	'invoice.paidOnFuture',
+	'invoice.exemptionReasonRequired',
+	'invoice.exemptionReasonUnexpected',
+	'report.tooManyEntries',
 	'password.common'
 ] as const;
 

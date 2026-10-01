@@ -12,5 +12,5 @@ export const Route = createFileRoute('/_app/billing/settings')({
 
 function SettingsRoute() {
 	const { session } = Route.useRouteContext();
-	return <SettingsPage role={session.user.role} />;
+	return <SettingsPage role={session.user.role} sandbox={session.tenant.kind === 'sandbox'} />;
 }

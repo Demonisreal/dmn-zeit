@@ -1,4 +1,4 @@
-import type { Locale } from '@zeit/shared';
+import type { InvoiceLineUnit, Locale, TaxCategory } from '@zeit/shared';
 
 // print-layout chrome only: invoice wording itself (intro/closing/legal notes) comes
 // already resolved per locale from invoices/texts.ts on the Invoice object
@@ -6,12 +6,13 @@ export const LABELS = {
 	de: {
 		invoice: 'Rechnung',
 		cancellation: 'Stornorechnung',
-		cancellationRefersTo: (number: string) => `storniert Rechnung ${number}`,
 		draftWatermark: 'Entwurf – keine Rechnung',
 		specimenWatermark: 'Musterrechnung – keine Rechnung im Sinne des § 14 UStG',
 		invoiceNumber: 'Rechnungsnummer',
 		date: 'Rechnungsdatum',
 		customerNumber: 'Kundennummer',
+		leitwegId: 'Leitweg-ID',
+		buyerReference: 'Ihre Referenz',
 		servicePeriod: 'Leistungszeitraum',
 		smallAmountInvoice: 'Kleinbetragsrechnung',
 		description: 'Beschreibung',
@@ -19,10 +20,20 @@ export const LABELS = {
 		unitPrice: 'Einzelpreis',
 		taxRate: 'Steuersatz',
 		net: 'Netto',
+		amount: 'Betrag',
 		net_at: 'zu',
 		subtotalNet: 'Nettobetrag',
 		tax: 'Umsatzsteuer',
 		total: 'Gesamtbetrag',
+		invoiceAmount: 'Rechnungsbetrag',
+		untaxed: {
+			exempt: 'steuerfrei',
+			reverse_charge: 'Reverse Charge',
+			outside_scope: 'nicht steuerbar'
+		} as Partial<Record<TaxCategory, string>>,
+		hours: 'Std.',
+		unit: (code: InvoiceLineUnit, quantity: number) =>
+			({ HUR: 'Std.', DAY: quantity === 1 ? 'Tag' : 'Tage', C62: 'Stk.', LS: 'pauschal' })[code],
 		paymentTerms: (days: number) => `Zahlbar innerhalb von ${days} Tagen ohne Abzug.`,
 		dueDate: (date: string) => `Fällig am ${date}.`,
 		bankDetails: 'Bankverbindung',
@@ -36,6 +47,7 @@ export const LABELS = {
 		page: (current: number, total: number) => `Seite ${current} von ${total}`,
 		minutes: 'Min.',
 		timeReport: 'Stundennachweis',
+		timeReportSpecimen: 'Muster – Stundennachweis aus dem Musterbetrieb',
 		entryDate: 'Datum',
 		client: 'Kunde',
 		project: 'Projekt',
@@ -49,12 +61,13 @@ export const LABELS = {
 	en: {
 		invoice: 'Invoice',
 		cancellation: 'Cancellation invoice',
-		cancellationRefersTo: (number: string) => `cancels invoice ${number}`,
 		draftWatermark: 'Draft – not an invoice',
 		specimenWatermark: 'Specimen invoice – not an invoice within the meaning of § 14 UStG',
 		invoiceNumber: 'Invoice number',
 		date: 'Invoice date',
 		customerNumber: 'Customer number',
+		leitwegId: 'Leitweg ID',
+		buyerReference: 'Your reference',
 		servicePeriod: 'Service period',
 		smallAmountInvoice: 'Small amount invoice',
 		description: 'Description',
@@ -62,10 +75,20 @@ export const LABELS = {
 		unitPrice: 'Unit price',
 		taxRate: 'Tax rate',
 		net: 'Net',
+		amount: 'Amount',
 		net_at: 'at',
 		subtotalNet: 'Net amount',
 		tax: 'VAT',
 		total: 'Total amount',
+		invoiceAmount: 'Invoice amount',
+		untaxed: {
+			exempt: 'exempt',
+			reverse_charge: 'reverse charge',
+			outside_scope: 'not taxable'
+		} as Partial<Record<TaxCategory, string>>,
+		hours: 'h',
+		unit: (code: InvoiceLineUnit, quantity: number) =>
+			({ HUR: 'h', DAY: quantity === 1 ? 'day' : 'days', C62: 'pcs', LS: 'lump sum' })[code],
 		paymentTerms: (days: number) => `Payable within ${days} days, no deductions.`,
 		dueDate: (date: string) => `Due on ${date}.`,
 		bankDetails: 'Bank details',
@@ -79,6 +102,7 @@ export const LABELS = {
 		page: (current: number, total: number) => `Page ${current} of ${total}`,
 		minutes: 'min',
 		timeReport: 'Time report',
+		timeReportSpecimen: 'Specimen – time report from the demo company',
 		entryDate: 'Date',
 		client: 'Client',
 		project: 'Project',

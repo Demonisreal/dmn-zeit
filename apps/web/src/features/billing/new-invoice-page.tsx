@@ -1,18 +1,21 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { Role } from '@zeit/shared';
+import { invoicePeriodIssue, type Role } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Notice } from '../../components/ui/notice';
 import { Page, PageHead } from '../../components/ui/page-shell';
 import { SelectField } from '../../components/ui/select-field';
+import { issueText } from '../../i18n';
 import { formatCents, formatDate, formatMinutes } from '../../i18n/format';
+import { hasCode } from '../../lib/api/errors';
 import { useErrorText } from '../hr/error-text';
 import { DateInputField } from '../hr/ui/date-field';
 import styles from '../hr/ui/page.module.css';
 import { clientsQuery, createDraft, unbilledQuery } from './api';
 import { BillingNav } from './billing-nav';
+import { issueAt } from './fields';
 
 type Prefill = { client?: string | undefined; from?: string | undefined; to?: string | undefined };
 
@@ -43,7 +46,14 @@ export function NewInvoicePage({ role, prefill }: Props) {
 			void navigate({ to: '/billing/invoices/$id', params: { id: invoice.id } })
 	});
 
-	const rangeProblem = from > to ? t('newInvoice.rangeUnordered') : undefined;
+	const period = invoicePeriodIssue({ from, to });
+	const rangeProblem = period === null ? undefined : issueText(period);
+	const refusal =
+		draft.error &&
+		(issueAt(draft.error, 'lines') ??
+			(hasCode(draft.error, 'INVALID_STATE')
+				? t('newInvoice.nothingToBill')
+				: errorText(draft.error)));
 	const options = (clients.data ?? [])
 		.filter((client) => !client.archivedAt)
 		.map((client) => ({ id: client.id, label: client.name }));
@@ -98,7 +108,7 @@ export function NewInvoicePage({ role, prefill }: Props) {
 							</dl>
 						))}
 
-					{draft.error && <Notice tone="error">{errorText(draft.error)}</Notice>}
+					{refusal && <Notice tone="error">{refusal}</Notice>}
 					<div className={styles.actions}>
 						<Button
 							variant="primary"

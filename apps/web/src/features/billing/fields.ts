@@ -1,7 +1,13 @@
-import { roundingModes, updateClientSchema, type RoundingMode } from '@zeit/shared';
+import {
+	roundingModes,
+	updateClientSchema,
+	type FieldIssue,
+	type RoundingMode
+} from '@zeit/shared';
 import type { TFunction } from 'i18next';
 import { z } from 'zod';
-import { i18n } from '../../i18n';
+import { i18n, issueText } from '../../i18n';
+import { hasCode } from '../../lib/api/errors';
 import { optionalDurationField } from '../hr/duration';
 
 // an empty input is "not set", the api keeps null for it
@@ -62,9 +68,19 @@ export const budgetField = optionalDurationField.pipe(
 		.nullable()
 );
 
+export const unitPriceField = z.string().transform((text, ctx) => {
+	const match = /^(-?)(\d{1,7})(?:[.,](\d{1,2}))?$/.exec(text.trim());
+	if (!match) {
+		ctx.addIssue({ code: 'custom', message: i18n.t('billing:invoiceEditor.unitPriceInvalid') });
+		return z.NEVER;
+	}
+	const cents = Number(match[2]) * 100 + Number((match[3] ?? '').padEnd(2, '0'));
+	return match[1] && cents > 0 ? `-${cents}` : String(cents);
+});
+
 // "2" and "2,5" both count; the api takes a positive milli-quantity string, three decimals at most
 export const quantityField = z.string().transform((text, ctx) => {
-	const match = /^(\d{1,12})(?:[.,](\d{1,3}))?$/.exec(text.trim());
+	const match = /^(\d{1,6})(?:[.,](\d{1,3}))?$/.exec(text.trim());
 	const milli = match ? Number(match[1]) * 1000 + Number((match[2] ?? '').padEnd(3, '0')) : 0;
 	if (milli <= 0) {
 		ctx.addIssue({ code: 'custom', message: i18n.t('billing:invoiceEditor.quantityInvalid') });
@@ -74,3 +90,16 @@ export const quantityField = z.string().transform((text, ctx) => {
 });
 
 export const quantityToText = (milli: string) => String(Number(milli) / 1000).replace('.', ',');
+
+export const fieldIssues = (err: unknown): FieldIssue[] =>
+	hasCode(err, 'VALIDATION') && Array.isArray(err.details) ? err.details : [];
+
+export const issueAt = (err: unknown, field: string) => {
+	const issue = fieldIssues(err).find((candidate) => candidate.field === field);
+	return issue && issueText(issue.message, issue.params);
+};
+
+const refusalSchema = z.object({ blockers: z.array(z.string()).min(1) });
+
+export const blockersOf = (err: Error | null) =>
+	hasCode(err, 'INVALID_STATE') ? refusalSchema.safeParse(err.details).data?.blockers : undefined;

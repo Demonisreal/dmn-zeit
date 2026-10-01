@@ -2,7 +2,13 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@n
 import { apiErrorSchema, type ApiError, type ErrorCode } from '@zeit/shared';
 import type { Response } from 'express';
 import { DatabaseError } from 'pg';
-import { RenderBusyError, RETRY_AFTER_SECONDS } from '../documents/render-limit';
+import {
+	MAX_PAGES,
+	PageLimitError,
+	RenderBusyError,
+	RenderFailedError,
+	RETRY_AFTER_SECONDS
+} from '../documents/render-limit';
 import { fromDatabase } from '../db/errors';
 
 const codeByStatus: Partial<Record<number, ErrorCode>> = {
@@ -45,6 +51,23 @@ export class ApiExceptionFilter implements ExceptionFilter {
 				code: 'RENDER_BUSY',
 				message: 'Too many documents are rendering right now, try again shortly',
 				details: null
+			} satisfies ApiError);
+			return;
+		}
+		if (exception instanceof RenderFailedError) {
+			response.setHeader('Retry-After', exception.retryAfter);
+			response.status(503).json({
+				code: 'RENDER_BUSY',
+				message: 'This document failed to render a moment ago, try again shortly',
+				details: null
+			} satisfies ApiError);
+			return;
+		}
+		if (exception instanceof PageLimitError) {
+			response.status(422).json({
+				code: 'PAGE_LIMIT',
+				message: exception.message,
+				details: { maxPages: MAX_PAGES }
 			} satisfies ApiError);
 			return;
 		}

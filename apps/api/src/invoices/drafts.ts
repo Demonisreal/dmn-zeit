@@ -5,7 +5,9 @@ import {
 	isBillable,
 	linesFromCells,
 	roundingFor,
+	taxMismatches,
 	taxTreatment,
+	totalBlockers,
 	vatRateFor,
 	type Cell,
 	type Explanation,
@@ -16,6 +18,8 @@ import {
 } from '@zeit/rules';
 import type { BillingProfile, Invoice, InvoiceLine, Locale } from '@zeit/shared';
 import { Temporal } from 'temporal-polyfill';
+import { isLeitwegId } from '../einvoice/mapping';
+import { TEXTS } from '../einvoice/texts';
 import { TENANT_ROUNDING, toBillingRate } from '../projects/project-engine';
 import { legalNoteTexts } from './texts';
 
@@ -36,6 +40,7 @@ export type UnbilledEntryRow = {
 	projectMode: 'up' | 'nearest' | 'down' | null;
 	clientIncrement: number | null;
 	clientMode: 'up' | 'nearest' | 'down' | null;
+	source: 'timer' | 'manual' | 'seed';
 };
 
 export type NewLine = {
@@ -98,11 +103,13 @@ export function buildTimeLines(input: {
 
 	// a representative cell per (project, task, rate, tax rate) group, the same key linesFromCells groups by
 	const repByKey = new Map<string, Cell>();
+	const rawByKey = new Map<string, number>();
 	for (const cell of cells) {
 		if (!cell.billable || !cell.rate) continue;
 		const taxRateBp = vatRateFor(taxCategory, cell.date);
 		const key = [cell.projectId, cell.taskId ?? '', cell.rate.cents, taxRateBp].join('|');
 		if (!repByKey.has(key)) repByKey.set(key, cell);
+		rawByKey.set(key, (rawByKey.get(key) ?? 0) + cell.rawMinutes);
 	}
 	const timesOf = new Map(entries.map((row) => [row.id, { startedAt: row.startedAt, endedAt: row.endedAt }]));
 
@@ -127,8 +134,10 @@ export function buildTimeLines(input: {
 			entryIds: [...line.entryIds],
 			derivation: {
 				entries: line.entryIds.map((id) => ({ id, ...timesOf.get(id)! })),
-				// the representative cell's own rounding, in the raw/increment/rounded shape documents/explain.ts reads
-				rounding: rep.rounding,
+				rounding: {
+					key: rep.rounding.key,
+					params: { ...rep.rounding.params, raw: rawByKey.get(key)!, rounded: line.minutes }
+				},
 				rate: { cents: String(line.rateCents), explanation: rep.rate!.explanation }
 			}
 		};
@@ -154,6 +163,7 @@ export type InvoiceRowDb = {
 	locale: string;
 	format: 'pdf' | 'zugferd' | 'xrechnung';
 	tax_profile: 'regular' | 'small_business';
+	tax_treatment: TaxCategory | null;
 	seller: unknown;
 	buyer: unknown;
 	intro_text: string | null;
@@ -186,6 +196,7 @@ export type InvoiceLineRowDb = {
 	net_cents: string;
 	tax_category: TaxCategory;
 	tax_rate_bp: number;
+	exemption_reason: string | null;
 	derivation: unknown;
 };
 
@@ -265,6 +276,7 @@ export function toLineModel(row: InvoiceLineRowDb): InvoiceLine {
 		netCents: row.net_cents,
 		taxCategory: row.tax_category,
 		taxRateBp: row.tax_rate_bp,
+		exemptionReason: row.exemption_reason,
 		derivation: (row.derivation as InvoiceLine['derivation'] | null) ?? {
 			entries: [],
 			rounding: null,
@@ -278,7 +290,7 @@ export function toInvoiceModel(ctx: {
 	lines: readonly InvoiceLineRowDb[];
 	client: ClientRowForInvoice;
 	profile: BillingProfile;
-	refersTo: { id: string; number: string | null } | null;
+	refersTo: Invoice['refersTo'];
 }): Invoice {
 	const { invoice, lines, client, profile, refersTo } = ctx;
 	const isDraft = invoice.status === 'draft';
@@ -291,29 +303,70 @@ export function toInvoiceModel(ctx: {
 		}))
 	);
 
-	const treatment = isDraft
-		? taxTreatment(profile, {
-				countryCode: client.country_code,
-				isBusiness: client.is_business,
-				vatId: client.vat_id
-			})
-		: inferTreatment(
-				invoice.tax_profile,
-				lines.map((line) => line.tax_category)
-			);
+	const treatment =
+		invoice.tax_treatment ??
+		(isDraft
+			? taxTreatment(profile, {
+					countryCode: client.country_code,
+					isBusiness: client.is_business,
+					vatId: client.vat_id
+				})
+			: inferTreatment(
+					invoice.tax_profile,
+					lines.map((line) => line.tax_category)
+				));
 
 	const seller = (invoice.seller as SellerSnapshot | null) ?? liveSeller(profile);
 	const buyer = (invoice.buyer as BuyerSnapshot | null) ?? liveBuyer(client);
 
 	const form = invoiceForm({
+		kind: invoice.kind,
+		format: invoice.format,
 		grossCents: totals.grossCents,
 		treatment,
 		isBusiness: buyer.isBusiness,
-		profile: { hasVatId: seller.vatId !== null, hasTaxNumber: seller.taxNumber !== null }
+		profile: { hasVatId: seller.vatId !== null, hasTaxNumber: seller.taxNumber !== null },
+		seller,
+		buyer: {
+			...buyer,
+			leitwegId: isLeitwegId(buyer)
+		}
 	});
+	const taxBlockers = isDraft
+		? [
+				...taxMismatches({
+					taxProfile: invoice.tax_profile,
+					treatment,
+					positions: lines.map((line) => ({
+						position: line.position,
+						kind: line.kind,
+						taxCategory: line.tax_category,
+						taxRateBp: line.tax_rate_bp,
+						serviceDate: Temporal.PlainDate.from(
+							line.kind === 'time' ? line.service_to! : invoice.service_to
+						)
+					}))
+				}).map((mismatch) => mismatch.code),
+				...(invoice.kind === 'invoice' ? totalBlockers(totals) : [])
+			]
+		: [];
+
 	const locale = invoice.locale as Locale;
+	const reasons = [
+		...new Set(
+			lines.filter((line) => line.tax_category === 'exempt').map((line) => line.exemption_reason)
+		)
+	];
+	const noteKeys =
+		reasons.length > 0 ? [...new Set([...form.legalNotes, 'exempt_reason'])] : form.legalNotes;
 	// the documents worker prints these as-is (labels.ts), so the key is resolved to text right here
-	const legalNotes = form.legalNotes.map((key) => legalNoteTexts[locale][key] ?? key);
+	const legalNotes = noteKeys.flatMap((key) =>
+		key === 'exempt_reason'
+			? reasons.map((reason) =>
+					reason === null ? (legalNoteTexts[locale][key] ?? key) : TEXTS[locale].exemption(reason)
+				)
+			: [legalNoteTexts[locale][key] ?? key]
+	);
 
 	return {
 		id: invoice.id,
@@ -352,7 +405,7 @@ export function toInvoiceModel(ctx: {
 			explanation: totals.explanation
 		},
 		legalNotes,
-		blockers: form.blockers,
+		blockers: [...new Set([...form.blockers, ...taxBlockers])],
 		hints: form.hints,
 		paidOn: invoice.paid_on,
 		cancelReason: invoice.cancel_reason,

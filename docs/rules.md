@@ -183,7 +183,7 @@ mehr als zwei Nachkommastellen.
 | `negateLines`                                      | Stornorechnung                                              | Minuten und `netCents` exakt negiert, Steuerkategorie und -satz bleiben. `invoiceTotals(negateLines(lines))` ist die exakte Negation von `invoiceTotals(lines)`, weil `roundDiv` halb vom Nullpunkt weg rundet.                                                                                                                                                                                                        | –                                                                                                               |
 | `isSmallAmountInvoice`, `SMALL_AMOUNT_LIMIT_CENTS` | § 33 UStDV                                                  | Kleinbetragsrechnung bis 250 € brutto, gemessen am Betrag (die Storno einer kleinen Rechnung bleibt klein), nie bei `reverse_charge`.                                                                                                                                                                                                                                                                                  | https://www.gesetze-im-internet.de/ustdv_1980/__33.html                                                         |
 | `smallBusinessCheck`, `SMALL_BUSINESS_LIMITS`      | § 19 Abs. 1 UStG                                            | ab 1.1.2025 Vorjahr höchstens 25.000 €, laufendes Jahr höchstens 100.000 €. `previous_year_exceeded`, wenn der Vorjahresumsatz darüber lag; `crosses_current_limit`, sobald ausgestellte Rechnungen plus Entwurf die laufende Grenze übersteigen. Die Herleitung unterscheidet die Rechnung, die die Grenze überschreitet (`crosses_current_limit`), von jeder weiteren (`already_crossed`). Nur Warnung, nie Blocker. | https://www.gesetze-im-internet.de/ustg_1980/__19.html                                                          |
-| `invoiceForm`                                      | § 14 Abs. 4, § 14a, § 19 UStG, § 33 UStDV, § 286 Abs. 3 BGB | Hinweisschlüssel `small_business_19`, `reverse_charge_13b`, `exempt_reason` und `late_payment_286_consumer` (nur Verbraucher). Blocker `vat_id_missing` bei Reverse Charge ohne eigene USt-IdNr., `tax_number_missing`, wenn weder Steuernummer noch USt-IdNr. hinterlegt sind und keine Kleinbetragsrechnung vorliegt. Hinweis `service_deadline_14a_1` bei Reverse Charge (Rechnung bis zum 15. des Folgemonats).    | https://www.gesetze-im-internet.de/ustg_1980/__14a.html, https://www.gesetze-im-internet.de/bgb/__286.html      |
+| `invoiceForm`                                      | § 14 Abs. 4, § 14a, § 19 UStG, § 33 UStDV, § 286 Abs. 3 BGB | Hinweisschlüssel `small_business_19`, `reverse_charge_13b`, `outside_scope_3a`, `exempt_reason`, `late_payment_286_consumer` (Verbraucher, nicht bei Storno). Blocker `vat_id_missing` (Reverse Charge), `tax_number_missing`, `seller_address_incomplete`, `buyer_address_incomplete` (außer Kleinbetrag). Hinweise `service_deadline_14a_1` (Reverse Charge), `public_buyer_wants_xrechnung` (Leitweg-ID bei PDF).   | https://www.gesetze-im-internet.de/ustg_1980/__14a.html, https://www.gesetze-im-internet.de/bgb/__286.html      |
 | `budgetStatus`                                     | betrieblich                                                 | `ok` unter 80 %, `warn` ab 80 % bis einschließlich 100 %, `exceeded` darüber. Anteil als `Fraction`, die Herleitung nennt verbrauchte und budgetierte Minuten. Grundlage sind die gerundeten abrechenbaren Minuten, die der Aufrufer übergibt.                                                                                                                                                                         | –                                                                                                               |
 
 Grenzen:
@@ -207,13 +207,19 @@ Grenzen:
   Einzelfall ins Ausland wandert, ist nicht geprüft.
 - **`tax_number_missing`** greift bei jeder Behandlung außer Reverse Charge, auch bei
   `small_business` (§ 34a UStDV verlangt Steuernummer oder USt-IdNr. ebenfalls) und bei
-  `outside_scope`. Die Kleinunternehmer-Identifikationsnummer ist nicht abgebildet.
+  `outside_scope`. Bei `outside_scope` zählt nur die Steuernummer, weil PDF und XML (BR-O-2) die
+  eigene USt-IdNr. dort weglassen. Die Kleinunternehmer-Identifikationsnummer ist nicht abgebildet.
+- **Anschriften:** `seller_address_incomplete` verlangt Straße, PLZ und Ort des Rechnungsstellers
+  immer, auch auf der Kleinbetragsrechnung (§ 33 UStDV nennt die Anschrift des leistenden
+  Unternehmers). `buyer_address_incomplete` entfällt nur auf der Kleinbetragsrechnung. Ein Postfach
+  statt Straße ist nicht vorgesehen.
 - **Zellen ohne Satz** lässt `linesFromCells` weg. Die aufrufende Seite muss sie als Blocker
   "fehlender Satz" melden, `invoiceForm` kennt die Zellen nicht.
 - **Freie Positionen** (Menge × Einzelpreis) rechnet `rules` noch nicht. `invoiceTotals` nimmt sie
   über den Typ `TaxedAmount` mit auf, `negateLines` deckt nur Zeitpositionen ab.
-- **XRechnung-Pflichtfelder** (BT-10, BT-49, Verkäuferkontakt) fehlen in `invoiceForm`, sie kommen
-  mit Stufe 10e.
+- **XRechnung-Pflichtfelder** (BT-10, BT-49, Verkäuferkontakt) fehlen in `invoiceForm`, sie prüft
+  `einvoiceBlockers` in der API. `invoiceForm` gibt nur den Hinweis `public_buyer_wants_xrechnung`,
+  wenn ein Kunde mit Leitweg-ID eine reine PDF-Rechnung bekommt.
 - Eine Zelle enthält neben Projekt, Aufgabe und Tag auch Person und Abrechenbarkeit im Schlüssel:
   Der Satz hängt an der Person, und abrechenbare und nicht abrechenbare Minuten dürfen nicht
   gemeinsam gerundet werden.
@@ -227,11 +233,15 @@ Grenzen:
   Grenze) kann wieder `ok` liefern, sobald die Summe unter die laufende Grenze fällt. Für den Beleg
   selbst ist das vertretbar, es ist aber keine Aussage darüber, ob die Befreiung im Jahr insgesamt
   wieder gilt (rechnungen-recht.md, offener Punkt 6).
-- **`outside_scope`** (B2B im Drittland) bekommt in `invoiceForm` weder einen Rechtshinweis noch
-  eine Pflicht auf die eigene USt-IdNr. rechnungen-recht.md Abschnitt 4 (Umsetzungsfolge) sieht
+- **`outside_scope`** (B2B im Drittland) bekommt den Hinweis `outside_scope_3a` ("nicht im Inland
+  steuerbar, Leistungsort nach § 3a Abs. 2 UStG im Ausland"), denselben Text wie die XML-Note, aber
+  keine Pflicht auf die eigene USt-IdNr. rechnungen-recht.md Abschnitt 4 (Umsetzungsfolge) sieht
   beide USt-IdNr. und den Reverse-Charge-Hinweis auch für Leistungen ins Drittland vor,
-  planung-projekte.md Abschnitt 3 nennt den Hinweis nur für `reverse_charge`. Was bei einem
-  Leistungsort im Drittland (§ 3a Abs. 2 UStG) auf die Rechnung gehört, ist offen.
+  planung-projekte.md Abschnitt 3 nennt den Hinweis nur für `reverse_charge`. Der Wortlaut ist ein
+  offener Punkt für die Steuerberatung (rechnungen-recht.md, Abschnitt "Offene Punkte für die
+  Steuerberatung").
+- **Stornorechnung:** `kind: 'cancellation'` lässt den Verzugshinweis nach § 286 Abs. 3 BGB weg, eine
+  Stornorechnung fordert keine Zahlung. Die übrigen Hinweise folgen der Behandlung des Originals.
 - **`exempt`** erreicht `invoiceForm` nur, wenn die aufrufende Seite die Kategorie einer einzelnen
   freien Position selbst als `treatment` übergibt. `taxTreatment` liefert `exempt` nie, weil eine
   Steuerbefreiung laut Plan je Position gewählt wird. Eine gemischte Rechnung mit einer

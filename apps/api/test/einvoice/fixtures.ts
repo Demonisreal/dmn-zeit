@@ -92,6 +92,7 @@ const standard: EInvoice = {
 	number: 'RE-2026-0012',
 	...april,
 	locale: 'de',
+	specimen: false,
 	treatment: 'regular',
 	exemptionReason: null,
 	seller,
@@ -109,6 +110,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		number: 'RE-2026-0013',
 		...april,
 		locale: 'de',
+		specimen: false,
 		treatment: 'regular',
 		exemptionReason: null,
 		seller,
@@ -120,6 +122,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		number: 'RE-2026-0014',
 		...april,
 		locale: 'de',
+		specimen: false,
 		treatment: 'regular',
 		exemptionReason: null,
 		seller,
@@ -140,6 +143,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		number: 'RE-2026-0015',
 		...april,
 		locale: 'en',
+		specimen: false,
 		treatment: 'reverse_charge',
 		exemptionReason: null,
 		seller,
@@ -160,6 +164,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		number: 'RE-2026-0016',
 		...april,
 		locale: 'de',
+		specimen: false,
 		treatment: 'outside_scope',
 		exemptionReason: null,
 		seller,
@@ -180,6 +185,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		number: '2026-0003',
 		...april,
 		locale: 'de',
+		specimen: false,
 		treatment: 'small_business',
 		exemptionReason: null,
 		seller: {
@@ -190,11 +196,11 @@ export const FIXTURES: Record<string, EInvoice> = {
 			city: 'Erfurt',
 			vatId: null,
 			taxNumber: '151/234/56789',
-			iban: 'DE02120300000000202051',
+			iban: 'DE79000000001234567890',
 			bic: null,
 			contactName: 'Jonas Kerber',
 			contactEmail: 'post@kerber-webdesign.example',
-			contactPhone: '0361 5566778'
+			contactPhone: '0221 4710-412'
 		},
 		buyer: { ...buyer, vatId: null },
 		...priced([hours('Relaunch Firmenwebsite', 720, 6500n, ['small_business', 0])])
@@ -208,6 +214,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		serviceFrom: standard.serviceFrom,
 		serviceTo: standard.serviceTo,
 		locale: 'de',
+		specimen: false,
 		treatment: 'regular',
 		exemptionReason: null,
 		seller,
@@ -226,6 +233,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 		number: 'RE-2026-0017',
 		...april,
 		locale: 'de',
+		specimen: false,
 		treatment: 'regular',
 		exemptionReason: null,
 		seller,
@@ -237,7 +245,7 @@ export const FIXTURES: Record<string, EInvoice> = {
 			countryCode: 'DE',
 			vatId: null,
 			email: null,
-			buyerReference: '14713000-DIGI01-45'
+			buyerReference: '14713000-DIGI01-62'
 		},
 		...priced([hours('Barrierefreiheitsprüfung Bürgerportal', 1440, 9800n, STANDARD)])
 	}

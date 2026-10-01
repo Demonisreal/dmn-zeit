@@ -100,6 +100,11 @@ export class BillingStore {
 		return row ? toProfile(row) : DEFAULT_PROFILE;
 	}
 
+	async isSandbox(trx: Trx): Promise<boolean> {
+		const tenant = await trx.selectFrom('app.tenants').select('kind').executeTakeFirstOrThrow();
+		return tenant.kind === 'sandbox';
+	}
+
 	async upsert(trx: Trx, tenantId: string, input: UpdateBillingProfileInput): Promise<BillingProfile> {
 		const columns = profileColumns(input);
 		const row = await trx
@@ -275,7 +280,7 @@ export class BillingStore {
 			.selectFrom('app.invoices')
 			.select('gross_cents')
 			.where('number_year', '=', year)
-			.where('status', 'in', ['issued', 'paid'])
+			.where('status', '<>', 'draft')
 			.execute();
 		return rows.reduce((sum, row) => sum + BigInt(row.gross_cents), 0n);
 	}

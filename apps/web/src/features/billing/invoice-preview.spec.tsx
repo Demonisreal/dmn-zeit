@@ -17,7 +17,7 @@ describe('InvoicePreview', () => {
 		render(<InvoicePreview invoiceId="inv-1" variant="issued" />);
 
 		const frame = screen.getByTitle('PDF-Vorschau der Rechnung');
-		expect(frame).toHaveAttribute('src', '/api/invoices/inv-1/document?format=pdf');
+		expect(frame).toHaveAttribute('src', '/api/invoices/inv-1/document');
 	});
 
 	it('remounts the frame when refreshKey changes', () => {

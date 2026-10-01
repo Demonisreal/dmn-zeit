@@ -3,8 +3,8 @@ import { rateText, roundingText } from './explain';
 
 describe('roundingText', () => {
 	it('describes an upward rounding in german', () => {
-		const text = roundingText({ key: 'billing.rounding.up', params: { raw: 47, increment: 15, rounded: 60 } }, 'de');
-		expect(text).toBe('47 Min. aufgerundet auf 60 Min. (15-Min.-Raster)');
+		const text = roundingText({ key: 'billing.rounding.up', params: { raw: 2247, increment: 15, rounded: 2310 } }, 'de');
+		expect(text).toBe('37:27 Std. erfasst, je Tag auf 15 Min. aufgerundet');
 	});
 
 	it('describes the same rounding in english', () => {
@@ -12,7 +12,7 @@ describe('roundingText', () => {
 			{ key: 'billing.rounding.down', params: { raw: 47, increment: 15, rounded: 45 } },
 			'en'
 		);
-		expect(text).toBe('47 min rounded down to 45 min (15-min. steps)');
+		expect(text).toBe('0:47 h recorded, rounded down to 15 min per day');
 	});
 
 	it('returns null for a key it does not know, instead of guessing a sentence', () => {

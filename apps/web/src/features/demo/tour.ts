@@ -1,7 +1,14 @@
+import type { WorkspaceKind } from '@zeit/shared';
 import { useSyncExternalStore } from 'react';
 
-export const tourSteps = ['request', 'approve', 'restFinding', 'close'] as const;
+const companySteps = ['request', 'approve', 'restFinding', 'close'] as const;
+export const tourSteps = [...companySteps, 'invoice'] as const;
 export type TourStep = (typeof tourSteps)[number];
+
+export const stepsIn: Record<WorkspaceKind, readonly TourStep[]> = {
+	company: companySteps,
+	solo: tourSteps
+};
 
 // other features tick a step with markTourStep, or by setting zeit.demo.<step> to '1' themselves
 const stepKey = (step: TourStep) => `zeit.demo.${step}`;

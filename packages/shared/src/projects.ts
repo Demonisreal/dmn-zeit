@@ -23,6 +23,82 @@ export type ProjectEntrySource = (typeof projectEntrySources)[number];
 // same raster as app.projects/app.clients, billing.ts reuses it for the billing profile
 export const roundingIncrementSchema = z.literal([1, 5, 6, 10, 15, 30, 60]);
 const countryCodeSchema = z.string().regex(/^[A-Z]{2}$/);
+
+export const vatIdFormats: Readonly<Record<string, RegExp>> = {
+	AT: /^ATU[0-9]{8}$/,
+	BE: /^BE[01][0-9]{9}$/,
+	BG: /^BG[0-9]{9,10}$/,
+	CY: /^CY[0-9]{8}[A-Z]$/,
+	CZ: /^CZ[0-9]{8,10}$/,
+	DE: /^DE[0-9]{9}$/,
+	DK: /^DK[0-9]{8}$/,
+	EE: /^EE[0-9]{9}$/,
+	ES: /^ES([A-Z][0-9]{7}[0-9A-Z]|[0-9]{8}[A-Z])$/,
+	FI: /^FI[0-9]{8}$/,
+	FR: /^FR[0-9A-HJ-NP-Z]{2}[0-9]{9}$/,
+	GR: /^EL[0-9]{9}$/,
+	HR: /^HR[0-9]{11}$/,
+	HU: /^HU[0-9]{8}$/,
+	IE: /^IE([0-9]{7}[A-W][A-I]?|[0-9][A-Z+*][0-9]{5}[A-W])$/,
+	IT: /^IT[0-9]{11}$/,
+	LT: /^LT([0-9]{9}|[0-9]{12})$/,
+	LU: /^LU[0-9]{8}$/,
+	LV: /^LV[0-9]{11}$/,
+	MT: /^MT[0-9]{8}$/,
+	NL: /^NL[0-9]{9}B[0-9]{2}$/,
+	PL: /^PL[0-9]{10}$/,
+	PT: /^PT[0-9]{9}$/,
+	RO: /^RO[1-9][0-9]{1,9}$/,
+	SE: /^SE[0-9]{10}01$/,
+	SI: /^SI[0-9]{8}$/,
+	SK: /^SK[0-9]{10}$/
+};
+
+export const buyerVatIdValid = (countryCode: string, vatId: string): boolean => {
+	const format = vatIdFormats[countryCode];
+	return format === undefined || format.test(vatId);
+};
+
+export const leitwegIdPattern = /^[0-9]{2,12}(-[0-9A-Z]{1,30})?-[0-9]{2}$/;
+
+export const leitwegIdValid = (id: string): boolean => {
+	if (!leitwegIdPattern.test(id)) {
+		return false;
+	}
+	const digits = id
+		.replaceAll('-', '')
+		.replace(/[A-Z]/g, (letter) => String(letter.charCodeAt(0) - 55));
+	let remainder = 0;
+	for (const digit of digits) {
+		remainder = (remainder * 10 + Number(digit)) % 97;
+	}
+	return remainder === 1;
+};
+
+const buyerReferenceSchema = invoicePlainText(100).refine(
+	(reference) => !leitwegIdPattern.test(reference) || leitwegIdValid(reference),
+	'format.leitwegId'
+);
+
+const vatIdOfCountry = (
+	client: { countryCode?: string | undefined; vatId?: string | null | undefined },
+	ctx: z.RefinementCtx
+) => {
+	const { countryCode, vatId } = client;
+	if (
+		countryCode !== undefined &&
+		typeof vatId === 'string' &&
+		!buyerVatIdValid(countryCode, vatId)
+	) {
+		ctx.addIssue({
+			code: 'custom',
+			message: 'format.vatId',
+			path: ['vatId'],
+			params: { countryCode }
+		});
+	}
+};
+
 // I-06: project/task names become a time line's description and the client name its buyer snapshot,
 // both end up on the invoice PDF, so all three stay within the invoice font's character set
 const clientName = invoicePlainText(120);
@@ -60,22 +136,25 @@ const clientInput = z.strictObject({
 	isBusiness: z.boolean(),
 	vatId: invoicePlainText(20).nullable(),
 	email: emailSchema.nullable(),
-	buyerReference: invoicePlainText(100).nullable(),
+	buyerReference: buyerReferenceSchema.nullable(),
 	invoiceLocale: z.enum(locales),
 	paymentTermsDays: z.int().min(0).max(120).nullable(),
 	roundingIncrementMin: roundingIncrementSchema.nullable(),
 	roundingMode: z.enum(roundingModes).nullable()
 });
 
-export const createClientSchema = clientInput.partial().extend({
-	name: clientName,
-	countryCode: countryCodeSchema.default('DE'),
-	isBusiness: z.boolean().default(true),
-	invoiceLocale: z.enum(locales).default('de')
-});
+export const createClientSchema = clientInput
+	.partial()
+	.extend({
+		name: clientName,
+		countryCode: countryCodeSchema.default('DE'),
+		isBusiness: z.boolean().default(true),
+		invoiceLocale: z.enum(locales).default('de')
+	})
+	.superRefine(vatIdOfCountry);
 
 // not derived from the create schema, partial() would fill in its defaults on every patch
-export const updateClientSchema = clientInput.partial();
+export const updateClientSchema = clientInput.partial().superRefine(vatIdOfCountry);
 
 export const budgetStateSchema = z.enum(['ok', 'warn', 'exceeded']);
 

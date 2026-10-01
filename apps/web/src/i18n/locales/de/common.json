@@ -26,6 +26,8 @@
 		"network": "Server nicht erreichbar. Verbindung prüfen und erneut versuchen.",
 		"rateLimited": "Zu viele Versuche. Bitte später erneut versuchen.",
 		"sandboxQuota": "Die Demo hat für diese Art von Eintrag ihre Grenze erreicht.",
+		"renderBusy": "Gerade werden zu viele Dokumente erstellt. In ein paar Sekunden erneut versuchen.",
+		"pageLimit": "Das Dokument würde zu lang. Weniger Positionen aufnehmen oder den Zeitraum verkürzen.",
 		"unexpected": "Das hat nicht geklappt. Bitte erneut versuchen."
 	},
 	"validation": {
@@ -44,7 +46,8 @@
 			"totp": "Sechs Ziffern aus der Authenticator-App",
 			"recoveryCode": "Zehn Zeichen, wie ABCDE-FGH23",
 			"iban": "Keine gültige IBAN",
-			"vatId": "Keine gültige USt-IdNr., z. B. DE123456789"
+			"vatId": "Keine gültige USt-IdNr. Sie beginnt mit dem Ländercode, z. B. DE123456789 oder NL123456789B01",
+			"leitwegId": "Keine gültige Leitweg-ID, die Prüfziffer am Ende stimmt nicht. Bei einer Bestellnummer ein Wort davor schreiben, z. B. „Best. 2026-118-07“"
 		},
 		"range": {
 			"required": "Zeitraum fehlt",
@@ -78,7 +81,13 @@
 		"invoice": {
 			"rangeTooLong": "Höchstens 366 Tage",
 			"tooManyLines": "Höchstens {{max}} Positionen",
-			"taxCategoryMismatch": "Diese Steuerkategorie passt nicht zu dieser Rechnung"
+			"taxCategoryMismatch": "Diese Steuerkategorie passt nicht zu dieser Rechnung",
+			"paidOnFuture": "Das Zahlungsdatum liegt in der Zukunft",
+			"exemptionReasonRequired": "Für steuerfreie Positionen fehlt der Grund der Steuerbefreiung",
+			"exemptionReasonUnexpected": "Bei dieser Steuerkategorie ist kein Befreiungsgrund erlaubt"
+		},
+		"report": {
+			"tooManyEntries": "Höchstens {{max}} Buchungen im PDF, für mehr bitte den Zeitraum verkürzen oder CSV wählen"
 		},
 		"text": {
 			"empty": "Dieses Feld darf nicht leer sein",

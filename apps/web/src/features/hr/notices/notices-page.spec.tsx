@@ -62,6 +62,8 @@ describe('leave forfeiture notices', () => {
 	});
 
 	it('chooses everyone with the box in the header and sends nothing without a choice', async () => {
+		const today = new Date().toISOString().slice(0, 10);
+		const employed = mockEmployees.filter((e) => e.exitDate === null || e.exitDate >= today);
 		renderApp('/hr/notices');
 		const table = await screen.findByRole('table', { name: /Hinweise für/ });
 
@@ -69,7 +71,7 @@ describe('leave forfeiture notices', () => {
 		await userEvent.click(within(table).getByRole('checkbox', { name: 'Alle auswählen' }));
 
 		expect(
-			screen.getByRole('button', { name: `Hinweis an ${mockEmployees.length - 1} Personen senden` })
+			screen.getByRole('button', { name: `Hinweis an ${employed.length} Personen senden` })
 		).toBeEnabled();
 	});
 

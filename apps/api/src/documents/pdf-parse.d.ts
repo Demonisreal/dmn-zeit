@@ -5,6 +5,15 @@ declare module 'pdf-parse/lib/pdf-parse.js' {
 		numpages: number;
 		info: Record<string, string | undefined>;
 	};
-	function pdfParse(data: Buffer): Promise<PdfParseResult>;
+	type PdfTextItem = {
+		str: string;
+		width: number;
+		transform: [number, number, number, number, number, number];
+	};
+	type PdfPage = { getTextContent(): Promise<{ items: PdfTextItem[] }> };
+	function pdfParse(
+		data: Buffer,
+		options?: { pagerender?: (page: PdfPage) => Promise<string> }
+	): Promise<PdfParseResult>;
 	export default pdfParse;
 }

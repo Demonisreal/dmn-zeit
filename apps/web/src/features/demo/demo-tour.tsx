@@ -1,6 +1,6 @@
 import { fromAbsolute, parseDate, toCalendarDate } from '@internationalized/date';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { hasRole, type Role } from '@zeit/shared';
+import { hasRole, type Role, type WorkspaceKind } from '@zeit/shared';
 import { useEffect, useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import {
 	isTourOpen,
 	keepTourOpen,
 	markTourStep,
+	stepsIn,
 	tourSteps,
 	useTourMarks,
 	type TourStep
@@ -22,18 +23,21 @@ const doneAs = {
 	request: 'employee',
 	approve: 'team_lead',
 	restFinding: 'employee',
-	close: 'hr'
-} as const satisfies Record<TourStep, Role>;
+	close: 'hr',
+	invoice: 'freelancer'
+} as const satisfies Record<TourStep, Role | 'freelancer'>;
 
 type Props = {
 	role: Role;
+	workspace: WorkspaceKind;
 	expiresAt: string;
 };
 
-export function DemoTour({ role, expiresAt }: Props) {
+export function DemoTour({ role, workspace, expiresAt }: Props) {
 	const { t } = useTranslation('demo');
 	const [open, setOpen] = useState(isTourOpen);
 	const marks = useTourMarks();
+	const steps = stepsIn[workspace];
 
 	// a sandbox lives 24 hours, so this is when it was set up
 	const created = Date.parse(expiresAt) - 24 * 3_600_000;
@@ -67,7 +71,7 @@ export function DemoTour({ role, expiresAt }: Props) {
 		for (const step of tourSteps) if (seen[step]) markTourStep(step);
 	}, [seen.request, seen.approve, seen.close]);
 
-	const done = tourSteps.filter((step) => seen[step] || marks.includes(step));
+	const done = steps.filter((step) => seen[step] || marks.includes(step));
 
 	const toggle = () => {
 		keepTourOpen(!open);
@@ -86,12 +90,12 @@ export function DemoTour({ role, expiresAt }: Props) {
 				<span className={styles.fold} aria-hidden="true" />
 				{t('tour.label')}{' '}
 				<span className={styles.progress}>
-					{t('tour.progress', { done: done.length, total: tourSteps.length })}
+					{t('tour.progress', { done: done.length, total: steps.length })}
 				</span>
 			</button>
 			{open && (
 				<ol id="demo-tour" className={styles.tour} aria-label={t('tour.label')}>
-					{tourSteps.map((step) => (
+					{steps.map((step) => (
 						<li key={step} data-done={done.includes(step) || undefined}>
 							<span className={styles.tick} aria-hidden="true" />
 							<span>

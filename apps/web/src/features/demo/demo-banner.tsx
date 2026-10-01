@@ -27,7 +27,13 @@ export function DemoBanner({ session }: Props) {
 					: t('banner.soon')}
 			</span>
 			<Link to="/demo/outbox">{t('banner.outbox')}</Link>
-			{expiresAt && <DemoTour role={session.user.role} expiresAt={expiresAt} />}
+			{expiresAt && (
+				<DemoTour
+					role={session.user.role}
+					workspace={session.tenant.workspace}
+					expiresAt={expiresAt}
+				/>
+			)}
 		</div>
 	);
 }

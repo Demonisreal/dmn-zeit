@@ -2,7 +2,6 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import type { ApiError, ErrorCode } from '@zeit/shared';
 import type { DatabaseError } from 'pg';
 
-// ZT codes come from our own triggers: period lock, append-only, state transitions, sandbox quota
 const known: Record<string, [HttpStatus, ErrorCode, string]> = {
 	'23P01': [HttpStatus.CONFLICT, 'TIME_OVERLAP', 'Overlaps an existing entry'],
 	ZT001: [HttpStatus.CONFLICT, 'PERIOD_LOCKED', 'The month is already closed'],
@@ -14,14 +13,12 @@ const known: Record<string, [HttpStatus, ErrorCode, string]> = {
 		'SANDBOX_QUOTA',
 		'The demo has reached its limit for this kind of entry'
 	],
+	ZT006: [HttpStatus.CONFLICT, 'INVALID_STATE', 'Seller or buyer address is incomplete'],
 	'23505': [HttpStatus.CONFLICT, 'ALREADY_EXISTS', 'Already exists'],
-	// on insert the referenced row is missing, on delete it is still referenced
 	'23503': [HttpStatus.CONFLICT, 'INVALID_STATE', 'Linked record missing or still in use'],
-	// a check constraint caught what the zod schema let through
 	'23514': [HttpStatus.BAD_REQUEST, 'VALIDATION', 'Invalid input'],
-	// a function refused its arguments, e.g. a team calendar over too many days
 	'22023': [HttpStatus.BAD_REQUEST, 'VALIDATION', 'Invalid input'],
-	// row level security refused a write, or a guard trigger did
+	'22003': [HttpStatus.BAD_REQUEST, 'VALIDATION', 'Number out of range'],
 	'42501': [HttpStatus.FORBIDDEN, 'FORBIDDEN', 'Not allowed'],
 	'28000': [HttpStatus.UNAUTHORIZED, 'UNAUTHENTICATED', 'Not signed in']
 };

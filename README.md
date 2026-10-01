@@ -14,12 +14,34 @@ Verfall von Resturlaub nur nach dokumentiertem Hinweis, Feiertage je Bundesland.
 
 Zwei getrennte Instanzen aus derselben Codebasis:
 
-- **Demo** — Musterbetrieb mit erfundenen Beispieldaten, Wechsel zwischen den Rollen ohne
-  Passwort, Daten werden regelmäßig zurückgesetzt.
+- **Demo** — eigene Sandbox je Besuch mit zwei Welten aus erfundenen Beispieldaten: einem
+  Musterbetrieb und einem Freelancer im Solo-Bereich. Wechsel zwischen den Rollen und zwischen
+  beiden Welten ohne Passwort. Rechnungen aus der Sandbox tragen das Wasserzeichen
+  "Musterrechnung – keine Rechnung im Sinne des § 14 UStG" und eine Nummer mit `MUSTER-`. Eine
+  Sandbox wird nach 24 Stunden gelöscht.
 - **Live** — echter Betrieb, nur auf Einladung. Es gibt keine offene Registrierung.
 
 Details zu Aufbau, Ersteinrichtung und Rollback der beiden Instanzen stehen in
 [`deploy/README.md`](deploy/README.md).
+
+## Funktionsumfang
+
+- **Arbeitszeit** — Stempeluhr und Wochenbuch, Prüfung nach ArbZG, Korrekturen per begründetem
+  Antrag, Monatsabschluss mit Sperre und Exporten.
+- **Urlaub und Gleitzeit** — Anspruch nach BUrlG mit Übertrag und Verfall nach Hinweis,
+  Abwesenheiten mit Genehmigung, Teamkalender, Gleitzeitkonto mit Kappung.
+- **Projektzeit** — eigener Projekt-Timer neben der Stempeluhr, Nachträge mit Notiz, Wochenmatrix
+  Projekt × Tag mit Herleitung jeder Zahl. Im Betrieb ein Abgleich mit der Arbeitszeit als Hinweis.
+- **Solo-Bereich** — eigener Mandant für eine freiberufliche Person, nur auf Einladung. Startseite
+  ist die Wochenmatrix, Personalfunktionen sind ausgeblendet.
+- **Kunden, Projekte, Stundensätze** — Aufgaben, Sätze mit Gültigkeitsdatum je Kunde, Projekt,
+  Aufgabe oder Person, Rundung je Projekt, Aufgabe und Tag, Budget je Projekt mit Warnung.
+- **Rechnungen** — aus erfassten Zeiten, freie Positionen ergänzbar, Nummernkreis je Jahr, nach
+  dem Ausstellen unveränderbar, Storno über eine Stornorechnung, Zahlungsstatus, Löschschutz
+  während der Aufbewahrungsfrist. Rechnungssprache je Kunde, Deutsch oder Englisch.
+- **E-Rechnung** — XRechnung (CII) und ZUGFeRD EN 16931 als PDF/A-3 mit eingebettetem XML,
+  geprüft mit dem KoSIT-Validator und veraPDF.
+- **Stundennachweis** — Projektzeiten je Kunde und Zeitraum oder je Rechnung, als PDF oder CSV.
 
 ## Architektur
 
@@ -57,6 +79,9 @@ Weitere Skripte aus der Wurzel-`package.json`: `pnpm build`, `pnpm test`, `pnpm 
   gestarteten Postgres, benötigt einen laufenden Docker-Daemon.
 - **End-to-End** — `compose.test.yml` baut API- und Web-Image und startet den vollen Stack
   (Postgres, Migration, API, Web) für Playwright-Läufe gegen den veröffentlichten Web-Port.
+- **E-Rechnung** — `apps/api/test/einvoice/kosit.sh` prüft die XML-Golden-Files mit dem
+  KoSIT-Validator (XRechnung-Konfiguration), `apps/api/test/einvoice/verapdf.sh` die PDF/A-3b-Ausgabe
+  mit veraPDF. Beide benötigen Docker.
 
 ## Sicherheit
 

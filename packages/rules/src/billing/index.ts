@@ -538,19 +538,36 @@ export const smallBusinessCheck = (input: {
 	return { state: 'crosses_current_limit', explanation: { key, params } };
 };
 
+export type PostalAddress = {
+	street: string | null;
+	postalCode: string | null;
+	city: string | null;
+};
+
+const isComplete = (address: PostalAddress) =>
+	Boolean(address.street && address.postalCode && address.city);
+
 export const invoiceForm = (input: {
+	kind: 'invoice' | 'cancellation';
+	format: 'pdf' | 'zugferd' | 'xrechnung';
 	grossCents: bigint;
 	treatment: TaxCategory;
 	isBusiness: boolean;
 	profile: { hasVatId: boolean; hasTaxNumber: boolean };
+	seller: PostalAddress;
+	buyer: PostalAddress & { leitwegId: boolean };
 }): InvoiceForm => {
-	const { grossCents, treatment, isBusiness, profile } = input;
+	const { kind, format, grossCents, treatment, isBusiness, profile, seller, buyer } = input;
+	const smallAmount = isSmallAmountInvoice(grossCents, treatment);
 	const form: InvoiceForm = { legalNotes: [], blockers: [], hints: [] };
 	if (treatment === 'small_business') {
 		form.legalNotes.push('small_business_19');
 	}
 	if (treatment === 'exempt') {
 		form.legalNotes.push('exempt_reason');
+	}
+	if (treatment === 'outside_scope') {
+		form.legalNotes.push('outside_scope_3a');
 	}
 	if (treatment === 'reverse_charge') {
 		form.legalNotes.push('reverse_charge_13b');
@@ -560,15 +577,24 @@ export const invoiceForm = (input: {
 			form.blockers.push('vat_id_missing');
 		}
 	} else if (
-		!profile.hasVatId &&
 		!profile.hasTaxNumber &&
-		!isSmallAmountInvoice(grossCents, treatment)
+		(!profile.hasVatId || treatment === 'outside_scope') &&
+		!smallAmount
 	) {
 		// § 33 UStDV drops the seller's tax number on invoices up to 250 euros
 		form.blockers.push('tax_number_missing');
 	}
-	if (!isBusiness) {
+	if (!isComplete(seller)) {
+		form.blockers.push('seller_address_incomplete');
+	}
+	if (!isComplete(buyer) && !smallAmount) {
+		form.blockers.push('buyer_address_incomplete');
+	}
+	if (!isBusiness && kind === 'invoice') {
 		form.legalNotes.push('late_payment_286_consumer');
+	}
+	if (buyer.leitwegId && format === 'pdf') {
+		form.hints.push('public_buyer_wants_xrechnung');
 	}
 	return form;
 };

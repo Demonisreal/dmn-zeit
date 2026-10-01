@@ -9,19 +9,21 @@ import {
 import { ThrottlerException } from '@nestjs/throttler';
 import { DatabaseError } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
+import { PageLimitError, RenderFailedError } from '../documents/render-limit';
 import { ApiExceptionFilter, toApiError } from './exception.filter';
 
 function answer(exception: unknown) {
 	const json = vi.fn((_body: unknown) => {});
 	const status = vi.fn((_code: number) => ({ json }));
+	const setHeader = vi.fn();
 	const host = {
-		switchToHttp: () => ({ getResponse: () => ({ status }) })
+		switchToHttp: () => ({ getResponse: () => ({ status, setHeader }) })
 	} as unknown as ArgumentsHost;
 	const filter = new ApiExceptionFilter();
 	const logged = vi.spyOn(filter['logger'], 'error').mockImplementation(() => {});
 
 	filter.catch(exception, host);
-	return { status: status.mock.calls[0]?.[0], body: json.mock.calls[0]?.[0], logged };
+	return { status: status.mock.calls[0]?.[0], body: json.mock.calls[0]?.[0], logged, setHeader };
 }
 
 describe('toApiError', () => {
@@ -85,5 +87,24 @@ describe('ApiExceptionFilter', () => {
 		const { status, logged } = answer(new NotFoundException());
 		expect(status).toBe(404);
 		expect(logged).not.toHaveBeenCalled();
+	});
+
+	it('answers a document past the page limit with 422 PAGE_LIMIT, nobody has to retry that', () => {
+		const { status, body, logged, setHeader } = answer(new PageLimitError());
+		expect(status).toBe(422);
+		expect(body).toEqual({
+			code: 'PAGE_LIMIT',
+			message: 'Document runs past 50 pages',
+			details: { maxPages: 50 }
+		});
+		expect(setHeader).not.toHaveBeenCalled();
+		expect(logged).not.toHaveBeenCalled();
+	});
+
+	it('answers a document that failed a moment ago with 503 and the seconds until the next attempt', () => {
+		const { status, body, setHeader } = answer(new RenderFailedError(12));
+		expect(status).toBe(503);
+		expect(body).toMatchObject({ code: 'RENDER_BUSY', details: null });
+		expect(setHeader).toHaveBeenCalledWith('Retry-After', 12);
 	});
 });
