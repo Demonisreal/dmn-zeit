@@ -13,7 +13,6 @@ export const CurrentClient = createParamDecorator(
 		return {
 			requestId: String(request.id),
 			ip: request.ip ?? null,
-			// ends up in the session list, a browser never sends anything near this long
 			userAgent: request.headers['user-agent']?.slice(0, 500) ?? null
 		};
 	}

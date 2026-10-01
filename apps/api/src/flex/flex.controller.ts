@@ -8,7 +8,6 @@ import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { FlexService } from './flex.service';
 
-// a sub path of employees/:id/flex, which time/ answers with the balance
 @Controller('employees/:id/flex/bookings')
 @Workspace('company')
 export class FlexController {

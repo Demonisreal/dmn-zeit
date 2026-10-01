@@ -1,6 +1,5 @@
 import { dateFormat } from '../../i18n/format';
 
-// the demo tour still imports it from here
 export { todayIso } from '../../lib/dates';
 
 export const yearSpan = (year: number) => ({ from: `${year}-01-01`, to: `${year}-12-31` });

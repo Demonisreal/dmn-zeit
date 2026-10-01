@@ -16,13 +16,10 @@ import { FactorStore, type NewPasskey, type PasskeyRow, type Scope } from './fac
 
 export type Assertion = Scope & {
 	passkeyId: string;
-	// false when signature, challenge or user handle did not hold
 	verified: boolean;
-	// the counter did not move forward, the authenticator was most likely cloned
 	cloned: boolean;
 };
 
-// the user handle a passkey carries is the uuid of its person
 const uuidBytes = (userId: string) => Buffer.from(userId.replaceAll('-', ''), 'hex');
 
 @Injectable()
@@ -51,7 +48,6 @@ export class WebAuthn {
 			userDisplayName: user.displayName,
 			attestationType: 'none',
 			authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
-			// the browser then refuses to register an authenticator that is already on the account
 			excludeCredentials: existing.map(({ credentialId, transports }) => ({
 				id: credentialId.toString('base64url'),
 				transports
@@ -101,7 +97,6 @@ export class WebAuthn {
 		};
 	}
 
-	// discoverable on purpose: residentKey is required, so no list of credentials goes out
 	async requestOptions(
 		purpose: 'login' | 'reauth',
 		userId: string | null
@@ -118,7 +113,6 @@ export class WebAuthn {
 		return options;
 	}
 
-	// null for an unknown passkey or, with owner set, one of somebody else
 	async assert(
 		response: AuthenticationResponse,
 		purpose: 'login' | 'reauth',
@@ -151,7 +145,6 @@ export class WebAuthn {
 			credential: {
 				id: response.rawId,
 				publicKey: new Uint8Array(passkey.publicKey),
-				// passkey_touch checks the counter, atomically and so that a clone shows up as one
 				counter: 0,
 				transports: passkey.transports
 			},

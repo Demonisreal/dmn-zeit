@@ -6,10 +6,8 @@ import type { Client } from './client.decorator';
 
 export type AuditEntry = {
 	tenantId: string;
-	// the person the entry is about
 	userId: string;
 	employeeId?: string | null;
-	// null when nobody is signed in yet, a failed login for instance
 	actor: { userId: string; role: Role } | null;
 	action: string;
 	details?: Record<string, string>;
@@ -22,7 +20,6 @@ export class Audit {
 
 	record(entry: AuditEntry): Promise<void> {
 		return this.db.transaction().execute(async (trx) => {
-			// the insert policy wants actor and role exactly as the context names them
 			await sql`select set_config('app.tenant_id', ${entry.tenantId}, true),
 				set_config('app.user_id', ${entry.actor?.userId ?? ''}, true),
 				set_config('app.role', ${entry.actor?.role ?? ''}, true)`.execute(trx);

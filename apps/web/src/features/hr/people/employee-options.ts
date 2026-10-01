@@ -13,7 +13,6 @@ export const employeeOptions = (employees: Employee[], lng: string) =>
 		.toSorted(byLastName(lng))
 		.map((employee) => ({ id: employee.id, label: fullName(employee) }));
 
-// a select cannot go back to "nothing chosen", so no team is an option of its own
 export const noTeam = 'none';
 
 export const teamField = z.string().transform((id) => (id === noTeam ? null : id));

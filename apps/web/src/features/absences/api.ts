@@ -44,7 +44,6 @@ export const absencesQuery = (filter: AbsenceFilter) =>
 		getNextPageParam: (page) => page.nextCursor ?? undefined
 	});
 
-// the list on the requests page, its route loader has to hit the same key
 export const ownAbsencesQuery = (year: number, type?: AbsenceType, status?: AbsenceStatus) =>
 	absencesQuery({
 		scope: 'mine',
@@ -53,7 +52,6 @@ export const ownAbsencesQuery = (year: number, type?: AbsenceType, status?: Abse
 		status: status && [status]
 	});
 
-// a POST, but it only calculates; as a query it follows the form and refreshes after new requests
 export const previewQuery = (input: PreviewInput | null) =>
 	queryOptions({
 		queryKey: ['absences', 'preview', input],
@@ -76,7 +74,6 @@ export const withdrawAbsence = (id: string) =>
 export const cancelAbsence = (id: string, note: string | undefined) =>
 	request(`/absences/${id}/cancel`, { method: 'POST', body: note ? { note } : {} });
 
-// a new request or a decision also moves the leave account and the team calendar
 export const refreshAbsences = (queryClient: QueryClient) =>
 	Promise.all(
 		[['absences'], ['vacation'], ['team-calendar']].map((queryKey) =>

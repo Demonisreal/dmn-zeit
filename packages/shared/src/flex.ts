@@ -26,7 +26,6 @@ export const flexBookingSchema = z.object({
 	createdAt: instantSchema
 });
 
-// cap_forfeit is only ever booked by the month closing
 export const createFlexBookingSchema = z
 	.object({
 		type: z.enum(flexBookingTypes).exclude(['cap_forfeit']),
@@ -60,7 +59,6 @@ export const flexAccountSchema = z.object({
 	openingMinutes: z.int(),
 	openingExplanation: explanationSchema,
 	balanceMinutes: z.int(),
-	// the day the balance is counted through, today for the running year
 	asOf: isoDateSchema,
 	cap: z.object({
 		plusMinutes: z.int().nullable(),

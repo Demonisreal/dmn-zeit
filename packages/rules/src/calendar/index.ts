@@ -7,7 +7,6 @@ export type Span = {
 
 export type DaySlice = Span & { date: Temporal.PlainDate };
 
-// a time entry as stored, the end stays null while it is running
 export type EntrySpan = {
 	start: Temporal.Instant;
 	end: Temporal.Instant | null;
@@ -24,7 +23,6 @@ export type WorkdaySummary = {
 
 const byStart = (a: Span, b: Span) => Temporal.Instant.compare(a.start, b.start);
 
-// an entry belongs to the local date it started on, even when it runs past midnight
 export const workdayOf = (start: Temporal.Instant, timeZone: string): Temporal.PlainDate =>
 	start.toZonedDateTimeISO(timeZone).toPlainDate();
 
@@ -33,7 +31,6 @@ export const splitByLocalDate = (span: Span, timeZone: string): DaySlice[] => {
 	let start = span.start;
 	while (Temporal.Instant.compare(start, span.end) < 0) {
 		const date = workdayOf(start, timeZone);
-		// next local midnight instead of start + 24h, the clock change makes days 23 or 25 hours long
 		const midnight = date.add({ days: 1 }).toZonedDateTime(timeZone).toInstant();
 		const end = Temporal.Instant.compare(midnight, span.end) < 0 ? midnight : span.end;
 		slices.push({ start, end, date });
@@ -45,7 +42,6 @@ export const splitByLocalDate = (span: Span, timeZone: string): DaySlice[] => {
 export const monthDays = (month: Temporal.PlainYearMonth): Temporal.PlainDate[] =>
 	Array.from({ length: month.daysInMonth }, (_, i) => month.toPlainDate({ day: i + 1 }));
 
-// stamps carry seconds, everything shown or checked counts whole minutes of the exact sum
 export const wholeMinutes = (spans: readonly Span[]): number =>
 	Math.round(spans.reduce((sum, span) => sum + span.start.until(span.end).total('minutes'), 0));
 

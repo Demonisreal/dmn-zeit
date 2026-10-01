@@ -8,7 +8,6 @@ import { TimeStore } from './time.store';
 @Module({
 	controllers: [ClockController, TimeController],
 	providers: [TimeStore, TimeService, ClockService],
-	// compliance, month closing and exports build their days from the same store
 	exports: [TimeStore, TimeService]
 })
 export class TimeModule {}

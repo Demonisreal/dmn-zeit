@@ -7,5 +7,5 @@
 		"rootDir": ".",
 		"noEmit": true
 	},
-	"include": ["test", "vitest.config.mts", "vitest.int.config.mts"]
+	"include": ["test", "src/documents/pdf-parse.d.ts", "vitest.config.mts", "vitest.int.config.mts"]
 }

@@ -18,7 +18,6 @@ export function SetupFlow() {
 	const [codes, setCodes] = useState<string[] | null>(null);
 
 	const finish = async () => {
-		// the api ended the setup state with the first factor, the cached session still has it
 		queryClient.setQueryData(
 			sessionQuery.queryKey,
 			(session) =>

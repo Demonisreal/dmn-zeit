@@ -50,7 +50,6 @@ export function AbsenceList({ year, type, status, onFilter }: Props) {
 		onSuccess: async () => {
 			setWithdrawing(null);
 			await refreshAbsences(queryClient);
-			// the row keeps its place but loses the button that had the focus
 			heading.current?.focus();
 		}
 	});
@@ -210,7 +209,6 @@ function AbsenceRow({ absence, onWithdraw, onCancel }: RowProps) {
 	const period = formatPeriod(absence.startDate, absence.endDate, lng);
 
 	const sick = absence.type === 'sick';
-	// sick leave is not taken back by the employee, and past leave cannot be undone anymore
 	const cancellable = absence.status === 'approved' && !sick && absence.endDate >= todayIso();
 
 	return (

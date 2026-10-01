@@ -14,7 +14,6 @@ services:
       - zeit-dev-db:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      # tcp on purpose: during init the socket-only temp server already passes pg_isready
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "zeit"]
       interval: 2s
       timeout: 5s

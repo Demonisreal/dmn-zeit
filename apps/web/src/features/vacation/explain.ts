@@ -2,7 +2,6 @@ import { holidayCodes, type Explanation, type HolidayCode } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { formatDate, formatDays } from '../../i18n/format';
 
-// the keys @zeit/rules writes for leave, each one needs a text in vacation.json
 const known = [
 	'vacation.entitlement.full_year',
 	'vacation.entitlement.pro_rata',
@@ -38,7 +37,6 @@ export function useExplain() {
 	const holidayName = useHolidayName();
 	const lng = i18n.language;
 	return ({ key, params }: Explanation) => {
-		// a rule newer than this build still shows up, only without wording
 		if (!isKnown(key)) return key;
 		if (key === 'vacation.day.workday' && params.portion === 0.5) {
 			return t('explain.vacation.day.half_workday');
@@ -49,7 +47,6 @@ export function useExplain() {
 		if (params.days) values.days = formatDays(String(params.days), lng);
 		if (params.exact) values.exact = formatDays(String(params.exact), lng);
 		if (params.code) values.code = holidayName(String(params.code));
-		// i18next picks the plural form from count
 		if (params.months) values.count = Number(params.months);
 		return t(`explain.${key}`, values);
 	};

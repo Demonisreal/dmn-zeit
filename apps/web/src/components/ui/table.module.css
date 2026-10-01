@@ -45,7 +45,6 @@
 	font-weight: 600;
 }
 
-/* the box around the table is the container, data-priority columns leave in two steps as it narrows */
 @container (max-width: 58rem) {
 	.table [data-priority='wide'] {
 		display: none;

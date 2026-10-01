@@ -16,7 +16,6 @@ export const auditEntrySchema = z.object({
 	table: z.string().nullable(),
 	rowId: uuidSchema.nullable(),
 	subjectEmployeeId: uuidSchema.nullable(),
-	// trigger rows carry column -> [old, new], app rows a flat context; the other one is null
 	changes: z.record(z.string(), z.tuple([z.unknown(), z.unknown()])).nullable(),
 	context: z.record(z.string(), z.unknown()).nullable(),
 	requestId: uuidSchema.nullable(),

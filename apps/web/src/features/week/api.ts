@@ -18,7 +18,6 @@ export const clockQuery = queryOptions({
 
 export type ClockAction = 'in' | 'break' | 'resume' | 'out';
 
-// the answer is not read, GET /clock afterwards decides what is shown
 export const stamp = (action: ClockAction) => request(`/clock/${action}`, { method: 'POST' });
 
 export const daysQuery = (employeeId: string, from: string, to: string) =>

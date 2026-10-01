@@ -18,7 +18,6 @@ export type NewCorrection = {
 	startedAt: string | null;
 	endedAt: string | null;
 	reason: string;
-	// hr correcting someone else: approved by the requester in the same step
 	direct: boolean;
 };
 
@@ -36,7 +35,6 @@ export class CorrectionsStore {
 		return correction;
 	}
 
-	// mine: about my own times; inbox: pending ones I may decide; all: what my role reaches
 	page(
 		trx: Trx,
 		reader: AuthSession,
@@ -44,7 +42,6 @@ export class CorrectionsStore {
 		after: Cursor | undefined
 	): Promise<Correction[]> {
 		let select = this.select(trx);
-		// only the inbox may come without a range, it has to show every open request however old
 		if (query.from !== undefined) {
 			select = select.where(
 				'c.created_at',
@@ -110,7 +107,6 @@ export class CorrectionsStore {
 		return employee !== undefined;
 	}
 
-	// a pending request on a closed month could never be approved
 	async touchesClosedMonth(trx: Trx, employeeId: string, stamps: string[]): Promise<boolean> {
 		const { rows } = await sql<{ locked: boolean }>`
 			select exists (
@@ -178,7 +174,6 @@ export class CorrectionsStore {
 		return voided.numUpdatedRows > 0n;
 	}
 
-	// app.users is open to hr, the only ones who correct directly
 	async recipient(
 		trx: Trx,
 		employeeId: string

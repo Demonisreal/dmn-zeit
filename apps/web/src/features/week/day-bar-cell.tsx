@@ -8,7 +8,6 @@ type Props = {
 	now: number;
 };
 
-// the bar covers 6 to 22 o'clock, a mark at the edge shows that a shift runs beyond it
 export function DayBarCell({ day, now }: Props) {
 	const spans = day.entries.map((entry): DaySpan => {
 		const from = minuteOn(entry.startedAt, day.date);

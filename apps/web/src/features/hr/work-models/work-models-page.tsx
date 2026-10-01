@@ -19,7 +19,6 @@ import styles from '../ui/page.module.css';
 import { WeekdayMinutes, weekMinutes } from '../weekday-minutes';
 import { WorkModelForm } from './work-model-form';
 
-// undefined: no form, null: a new model
 type Editing = WorkModel | null | undefined;
 
 export function WorkModelsPage() {

@@ -22,7 +22,6 @@ export function MonthsPage() {
 	} else if (!employees.data) {
 		body = <Loading rows={6} />;
 	} else {
-		// the closing trigger moves closed_through for everyone at once, so any record tells
 		const closedThrough = employees.data.reduce<string | null>(
 			(latest, employee) =>
 				employee.closedThrough && (latest === null || employee.closedThrough > latest)

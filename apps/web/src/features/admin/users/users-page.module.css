@@ -2,12 +2,10 @@
 	overflow-wrap: anywhere;
 }
 
-/* stands in for the role column once that is gone */
 .role {
 	display: none;
 }
 
-/* the same step at which the table drops its mid columns */
 @container (max-width: 38rem) {
 	.role {
 		display: block;

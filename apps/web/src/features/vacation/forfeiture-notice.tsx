@@ -21,7 +21,6 @@ export function ForfeitureNotice({ bucket, notice, onAcknowledged }: Props) {
 	const acknowledge = useMutation({
 		mutationFn: () => acknowledgeNotice(notice.id),
 		onSuccess: onAcknowledged,
-		// also after a conflict: then someone acknowledged it in another tab already
 		onSettled: () => queryClient.invalidateQueries({ queryKey: ['vacation'] })
 	});
 

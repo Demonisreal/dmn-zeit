@@ -6,7 +6,6 @@ import { formatInstant } from '../../i18n/format';
 import { CopyButton } from './copy-button';
 import css from './security.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<'flow' | 'anchor' | 'codes' | 'actions', string>;
 
 type Props = {
@@ -20,7 +19,6 @@ export function RecoveryCodes({ codes, doneLabel, onDone }: Props) {
 	const [saved, setSaved] = useState(false);
 	const intro = useRef<HTMLParagraphElement>(null);
 
-	// the button that led here is gone, focus would otherwise fall back to the page start
 	useEffect(() => intro.current?.focus(), []);
 
 	const download = () => {
@@ -31,7 +29,6 @@ export function RecoveryCodes({ codes, doneLabel, onDone }: Props) {
 		link.href = url;
 		link.download = t('recovery.fileName');
 		link.click();
-		// some browsers read the blob only after the click handler has returned
 		setTimeout(() => URL.revokeObjectURL(url), 40_000);
 	};
 

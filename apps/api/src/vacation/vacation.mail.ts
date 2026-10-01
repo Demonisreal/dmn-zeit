@@ -3,7 +3,6 @@ import { clean } from '../mail/templates';
 
 type MailText = { subject: string; text: string };
 
-// stored with every notice, so a later dispute can show which wording went out
 export const NOTICE_TEXT_VERSION = '2026-09-24';
 
 function day(iso: string, locale: Locale): string {
@@ -15,7 +14,6 @@ function day(iso: string, locale: Locale): string {
 	}).format(new Date(`${iso}T00:00:00Z`));
 }
 
-// only for reading, 4.50 becomes "4,5" or "4.5"
 function amount(days: string, locale: Locale): string {
 	return new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'de-DE', {
 		maximumFractionDigits: 2

@@ -14,7 +14,6 @@ type Props<T extends FieldValues, TOut> = {
 	workModels: WorkModel[];
 };
 
-// used by the new contract and by the first contract of a new employee
 export function ContractFields<T extends Values, TOut>({ control, workModels }: Props<T, TOut>) {
 	const { t } = useTranslation('hr');
 	const at = (name: keyof Values) => name as FieldPath<T>;

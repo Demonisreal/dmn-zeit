@@ -3,7 +3,6 @@ import { ApiRequestError, hasCode } from './errors';
 
 export const sessionKey = ['session'] as const;
 
-// an expired session shows up as 401 on any call, the app layout then sends the user to /login
 const dropSession = (err: Error) => {
 	if (hasCode(err, 'UNAUTHENTICATED')) queryClient.setQueryData(sessionKey, null);
 };

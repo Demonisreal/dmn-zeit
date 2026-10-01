@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1.7
-# node:24-slim, checked with `docker pull node:24-slim` on 2026-09-25 (v24.21.0)
 FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
 RUN corepack enable
 WORKDIR /repo
@@ -24,7 +23,6 @@ RUN pnpm --filter @zeit/shared build \
 FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
 
 ARG DBMATE_VERSION=2.36.0
-# ADD verifies the checksum itself, no curl/ca-certificates needed in the final image for this
 ADD --checksum=sha256:47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce \
 	https://github.com/amacneil/dbmate/releases/download/v${DBMATE_VERSION}/dbmate-linux-amd64 /usr/local/bin/dbmate
 RUN chmod +x /usr/local/bin/dbmate
@@ -38,7 +36,6 @@ USER node
 ENV NODE_ENV=production
 EXPOSE 3001
 
-# wget is missing on slim, node already has fetch built in
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 	CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 

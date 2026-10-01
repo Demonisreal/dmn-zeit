@@ -14,7 +14,6 @@ export type ResetPerson = {
 	email: string;
 };
 
-// the function sets the tenant context of the person itself and writes the trail as source cli
 export async function resetMfa(db: Database, email: string): Promise<ResetPerson | undefined> {
 	const { rows } = await sql<ResetPerson>`
 		select user_id as "userId", tenant_id as "tenantId", display_name as "displayName", locale, email
@@ -22,7 +21,6 @@ export async function resetMfa(db: Database, email: string): Promise<ResetPerson
 	return rows[0];
 }
 
-// mfa_reset took the password along, the person gets back in through this link
 export async function resetLink(db: Database, person: ResetPerson, origin: string) {
 	const token = newToken();
 	await sql`select auth.token_issue(${person.userId}, 'password_reset', ${hashToken(token)})`.execute(
@@ -31,7 +29,6 @@ export async function resetLink(db: Database, person: ResetPerson, origin: strin
 	return `${origin}/reset#t=${token}`;
 }
 
-// no queue in the cli, and the demo outbox belongs to the sandboxes, so only live mode mails
 export async function mailReset(
 	config: Config,
 	person: ResetPerson,

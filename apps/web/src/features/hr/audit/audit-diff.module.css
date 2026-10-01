@@ -5,7 +5,6 @@
 	font-size: 0.8125rem;
 }
 
-/* sits inside a row of the audit table, whose cell rules would reach in otherwise */
 table.diff th,
 table.diff td {
 	padding: 0.25rem 0.75rem 0.25rem 0;

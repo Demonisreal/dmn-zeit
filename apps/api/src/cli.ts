@@ -35,7 +35,6 @@ const tenantArgs = z
 		'last-name': displayNameSchema.optional()
 	})
 	.superRefine((args, ctx) => {
-		// a solo workspace falls back to the name of its person for the admin
 		const required =
 			args.workspace === 'solo'
 				? (['first-name', 'last-name'] as const)
@@ -66,7 +65,6 @@ function parse<T extends z.ZodType>(schema: T, args: string[], options: ParseArg
 }
 
 async function asOwner(command: string, work: (db: Database, config: Config) => Promise<void>) {
-	// the .env of the repo root in development, the container brings its env along
 	const envFile = join(__dirname, '..', '..', '..', '.env');
 	if (existsSync(envFile)) process.loadEnvFile(envFile);
 	const config = loadConfig(process.env);
@@ -116,7 +114,6 @@ async function tenantCreate(rest: string[]) {
 			);
 			console.log(link);
 		} catch (error) {
-			// slug or email taken, the constraint name in the message tells which
 			if (error instanceof DatabaseError && error.code === '23505') return fail(error.message);
 			throw error;
 		}
@@ -138,7 +135,6 @@ async function mfaReset(rest: string[]) {
 			if (await mailReset(config, person, link)) console.log('Notice with the reset link mailed.');
 			else console.log(`APP_MODE is ${config.APP_MODE}, no mail sent. ${handOver}`);
 		} catch (error) {
-			// the reset is committed at this point, only the notice went missing
 			fail(`Notice not mailed (${(error as Error).message}). ${handOver}`);
 		}
 	});

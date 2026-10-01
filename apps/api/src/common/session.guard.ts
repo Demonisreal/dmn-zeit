@@ -13,7 +13,6 @@ import { SessionService } from '../auth/session.service';
 export const IS_PUBLIC = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC, true);
 
-// fits TenantContext, so services hand it straight to withTenant
 export type AuthSession = SessionRow & { requestId: string };
 
 declare module 'express' {

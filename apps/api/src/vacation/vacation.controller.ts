@@ -50,7 +50,6 @@ export class VacationController {
 		return this.vacation.adjust(session, employeeId, body);
 	}
 
-	// one call reaches up to 500 people, by mail too
 	@Post('vacation/notices')
 	@Roles('hr')
 	@Throttle({ default: { limit: 10, ttl: hours(1) } })

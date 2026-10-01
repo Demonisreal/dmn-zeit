@@ -1,4 +1,3 @@
-// lowercase, and only entries with 12+ characters: shorter ones never get past the length rule
 export const commonPasswords = new Set([
 	'000000000000',
 	'111111111111',

@@ -14,7 +14,6 @@ export default defineConfig({
 	],
 	server: {
 		proxy: { '/api': 'http://localhost:3001' },
-		// the msw worker is served from node_modules in dev and still has to cover the whole app
 		headers: { 'Service-Worker-Allowed': '/' }
 	},
 	test: {

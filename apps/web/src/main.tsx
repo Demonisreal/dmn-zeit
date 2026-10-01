@@ -9,15 +9,12 @@ import { sessionQuery } from './lib/api/auth';
 import { queryClient } from './lib/api/query-client';
 
 async function start() {
-	// VITE_MSW=on answers /api from the mocks, the check on DEV drops the import from every build
 	if (import.meta.env.DEV && import.meta.env.VITE_MSW === 'on') {
 		const { startMockApi } = await import('./mocks/browser');
 		await startMockApi();
 	}
 
-	// every page starts with the session, the request need not wait for the first render
 	void queryClient.prefetchQuery(sessionQuery);
-	// English comes as chunks, rendering before them would only suspend
 	await i18nReady;
 
 	createRoot(document.getElementById('app')!).render(

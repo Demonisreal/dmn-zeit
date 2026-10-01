@@ -15,7 +15,6 @@ import { Workspace } from '../common/workspace.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { TimeService } from './time.service';
 
-// who may see whom is checked per person in the service, the role alone says nothing here
 @Controller('employees/:id')
 @Roles('employee')
 @Workspace('company')
@@ -40,7 +39,6 @@ export class TimeController {
 		return this.time.days(session, id, query);
 	}
 
-	// only the account, booking goes through the flex module
 	@Get('flex')
 	flex(
 		@CurrentSession() session: AuthSession,

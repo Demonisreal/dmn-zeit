@@ -43,20 +43,17 @@ export function DayTable({
 	const [open, setOpen] = useState(() => new Set(openDay ? [openDay] : []));
 	const [flexOpen, setFlexOpen] = useState(false);
 	const today = todayIso();
-	// placeholder data from the previous period has no fetchedAt yet, extra would run into millions of minutes
 	const running = !isStale && range.days.some((day) => day.running);
 	const now = useNow(running);
 	const extra = running ? minutesSince(fetchedAt, now) : 0;
 	const explained = Boolean(balanceDetail);
 	const { totals } = range;
 
-	// a link from the findings opens its day, which may sit far down the month
 	useEffect(() => {
 		if (!openDay) return;
 		frame.current?.querySelector<HTMLElement>(`[aria-controls="day-${openDay}"]`)?.focus();
 	}, [openDay]);
 
-	// stable, so the memoized rows that stay closed can skip the render
 	const toggle = useCallback(
 		(date: string) =>
 			setOpen((prev) => {
@@ -115,7 +112,6 @@ export function DayTable({
 				<tbody>
 					{range.days.map((day) => {
 						const dayExtra = day.running ? extra : 0;
-						// only the running day draws up to now, the others keep a fixed value and skip the tick
 						const dayNow = day.running ? now : fetchedAt;
 						return (
 							<DayRow

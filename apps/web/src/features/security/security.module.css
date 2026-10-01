@@ -51,7 +51,6 @@
 	gap: 0.5rem;
 }
 
-/* the hidden actions header is absolute, left outside the scroll it pushes the page sideways */
 .scroll {
 	position: relative;
 	overflow-x: auto;
@@ -116,7 +115,6 @@
 	font-size: 0.875rem;
 }
 
-/* the code sits on its own white quiet zone from the server, a scanner needs that contrast */
 .qr {
 	display: block;
 	width: 11rem;
@@ -156,7 +154,6 @@
 	letter-spacing: 0.04em;
 }
 
-/* only reached by script after a step is done, a ring around a paragraph would read as a control */
 .anchor:focus {
 	outline: none;
 }

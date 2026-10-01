@@ -14,7 +14,6 @@ import styles from './security.module.css';
 type Props = {
 	left: number;
 	hasFactor: boolean;
-	// fresh codes from this page, shown until the person confirms having stored them
 	codes: string[] | null;
 	onCodes: (recoveryCodes: string[] | null) => void;
 };

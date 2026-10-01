@@ -10,7 +10,6 @@ import { hasRole, type Role } from '@zeit/shared';
 import type { Request } from 'express';
 
 export const ROLE = 'role';
-// the lowest role that may pass, everyone above it on the ladder may too
 export const Roles = (role: Role) => SetMetadata(ROLE, role);
 
 @Injectable()

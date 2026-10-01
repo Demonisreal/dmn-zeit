@@ -23,7 +23,6 @@ import type {
 	TenantSettings
 } from './time.store';
 
-// the tenants table pins timezone to this zone with a check constraint
 export const TIME_ZONE = 'Europe/Berlin';
 
 export const localDate = (now: Date): string =>
@@ -62,7 +61,6 @@ function employmentOf(sheet: Sheet): Employment {
 	};
 }
 
-// two holidays can share a date, targetMinutes wants the whole one then
 function holidaysByDate(tenant: TenantSettings, from: Temporal.PlainDate, to: Temporal.PlainDate) {
 	const byDate = new Map<string, Holiday>();
 	const all: Holiday[] = [];
@@ -81,7 +79,6 @@ function holidaysByDate(tenant: TenantSettings, from: Temporal.PlainDate, to: Te
 	return { all, byDate };
 }
 
-// pending requests show on the day, only approved vacation and sick leave are credited
 function credits(absence: AbsenceDayRow): boolean {
 	return (
 		(absence.type === 'vacation' || absence.type === 'sick') &&
@@ -100,7 +97,6 @@ function findingOf(finding: Finding, ack: AckRow | undefined): Day['findings'][n
 	};
 }
 
-// the sheet has to carry the day before the range, it leads into the first rest period
 export function buildDays(
 	sheet: Sheet,
 	tenant: TenantSettings,
@@ -194,7 +190,6 @@ export function totalsOf(days: readonly Day[]): Totals {
 	return totals;
 }
 
-// bookings only up to the last day, otherwise the balance runs ahead of the months
 export function summarizeFlex(
 	days: readonly Day[],
 	bookings: readonly FlexBooking[],
@@ -231,7 +226,6 @@ export function summarizeFlex(
 	return { openingMinutes, balanceMinutes: accountBalance(days.map(minutesOf), bookings), months };
 }
 
-// entries of the current workday: the one of a running shift, otherwise today
 export function clockState(entries: readonly EntryRow[], today: string, now: Date): Clock {
 	const running = entries.find((entry) => entry.endedAt === null);
 	const workday = running?.workday ?? today;

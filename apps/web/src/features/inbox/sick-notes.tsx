@@ -19,11 +19,9 @@ type Props = {
 
 export function SickNotes({ employeeId, onDone }: Props) {
 	const { t } = useTranslation('inbox');
-	// scope=inbox only ever returns pending/cancel_pending, a confirmed sick note is already approved
 	const list = useInfiniteQuery(
 		absencesQuery({ scope: 'all', ...inboxRange(), type: ['sick'], status: ['approved'] })
 	);
-	// the api has no filter for the certificate state, and nobody confirms their own note
 	const open = (list.data?.pages.flatMap((part) => part.items) ?? []).filter(
 		(absence) => absence.sickNote === null && absence.employee.id !== employeeId
 	);

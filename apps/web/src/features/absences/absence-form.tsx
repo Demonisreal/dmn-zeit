@@ -31,7 +31,6 @@ const formSchema = z.object({
 	endDate: isoDateSchema,
 	halfDayStart: z.boolean(),
 	halfDayEnd: z.boolean(),
-	// an empty textarea means no note, the api refuses an empty string
 	note: z
 		.string()
 		.transform((raw) => raw.trim() || undefined)
@@ -124,7 +123,6 @@ export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 					className={styles.form}
 					onSubmit={handleSubmit((values) => create.mutate({ employeeId, ...values }))}
 				>
-					{/* react-aria looks for a description slot only on mount, this hint comes and goes with the type */}
 					<RadioGroup
 						value={type.field.value}
 						onChange={type.field.onChange}
@@ -159,7 +157,6 @@ export function AbsenceForm({ employeeId, start, onClose, onCreated }: Props) {
 						onChange={(from, to) => {
 							startDate.field.onChange(from);
 							endDate.field.onChange(to);
-							// on a single day there is only one half, the api refuses both flags
 							if (from === to) setValue('halfDayEnd', false);
 						}}
 						error={message(rangeError?.message)}

@@ -10,7 +10,6 @@ type Props = {
 	account: VacationAccount;
 };
 
-// in hundredths, adding up the decimal strings as floats would drift
 const hundredths = (days: string) => Math.round(Number(days) * 100);
 const asDays = (hundreds: number) => (hundreds / 100).toFixed(2);
 

@@ -38,7 +38,6 @@ export class CorrectionsService {
 		private readonly queue: MailQueue
 	) {}
 
-	// own times always wait for a second person; hr corrects anyone else's right away and says so
 	async create(session: AuthSession, input: CreateCorrectionInput): Promise<Correction> {
 		const { correction, mail } = await this.db.withTenant(session, async (trx) => {
 			let employeeId: string;
@@ -57,7 +56,6 @@ export class CorrectionsService {
 			if (direct && !hasRole(session.role, 'hr')) {
 				throw new ForbiddenException('Only hr corrects the times of someone else');
 			}
-			// someone from another tenant would otherwise only trip the foreign key, as a bare 409
 			if (direct && input.action === 'add' && !(await this.store.hasEmployee(trx, employeeId))) {
 				throw new NotFoundException('Employee not found');
 			}
@@ -136,7 +134,6 @@ export class CorrectionsService {
 	private decide(session: AuthSession, id: string, decision: Decision): Promise<Correction> {
 		return this.db.withTenant(session, async (trx) => {
 			const correction = await this.found(trx, id);
-			// the trigger refuses this as well, but only with a bare permission error
 			if (
 				correction.requestedBy.id === session.userId ||
 				correction.employee.id === session.employeeId
@@ -152,7 +149,6 @@ export class CorrectionsService {
 		});
 	}
 
-	// void first, the new entry may overlap the one it replaces
 	private async apply(trx: Trx, session: AuthSession, correction: Correction): Promise<void> {
 		if (
 			correction.target &&

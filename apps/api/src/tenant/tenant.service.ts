@@ -13,7 +13,6 @@ function toTenant(row: Selectable<AppTenants>): Tenant {
 		slug: row.slug,
 		state: row.state,
 		timezone: 'Europe/Berlin',
-		// the check constraint keeps the column to the three optional holidays
 		holidayOptions: row.holiday_options as OptionalHoliday[],
 		halfDaysDec24And31: row.half_days_dec24_31,
 		flexCapPlusMinutes: row.flex_cap_plus_min,

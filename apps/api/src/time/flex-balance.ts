@@ -2,7 +2,6 @@ import type { Day, FlexBooking } from '@zeit/shared';
 import { summarizeFlex } from './day-engine';
 import type { Sheet } from './time.store';
 
-// the carry-over is shown on top, never booked, so a reopened december takes it back by itself
 export function flexBalance(
 	sheet: Sheet,
 	days: readonly Day[],

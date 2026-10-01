@@ -10,7 +10,6 @@ type Props = {
 	onStep: (by: number) => void;
 	children: ReactNode;
 	range?: string;
-	// title: the period stands in for the page heading, field: it sits in a row of filters
 	variant?: 'title' | 'field';
 	action?: ReactNode;
 };
@@ -25,7 +24,6 @@ export function PeriodNav({
 	variant = 'field',
 	action
 }: Props) {
-	// the arrow keys page on as long as focus sits on one of these buttons
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'ArrowLeft') onStep(-1);
 		if (e.key === 'ArrowRight') onStep(1);

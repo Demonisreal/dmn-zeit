@@ -7,7 +7,6 @@ import { sessionQuery } from '../../lib/api/auth';
 
 const applied = new WeakSet<Session>();
 
-// outside _app so the sheet prints without navigation, the session check is the same one
 export const Route = createFileRoute('/print/timesheet/$id/$month')({
 	beforeLoad: async ({ context, location, params }) => {
 		const session = await context.queryClient.ensureQueryData(sessionQuery);

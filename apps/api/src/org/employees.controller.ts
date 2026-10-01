@@ -47,7 +47,6 @@ export class EmployeesController {
 		return this.employees.create(session, body);
 	}
 
-	// the person and their team lead too, the service checks which one it is
 	@Get(':id')
 	@Roles('employee')
 	get(

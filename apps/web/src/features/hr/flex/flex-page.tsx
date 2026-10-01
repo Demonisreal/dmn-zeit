@@ -89,7 +89,6 @@ export function FlexPage({ employeeId, year, onChange }: Props) {
 							employeeId={employeeId}
 							onDone={() => {
 								setBooking(false);
-								// the new button only mounts again after this render, its heading is already there
 								bookingsHeading.current?.focus();
 							}}
 						/>

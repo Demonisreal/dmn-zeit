@@ -18,7 +18,6 @@ export const Route = createFileRoute('/_app/vacation')({
 		const account = context.queryClient.prefetchQuery(
 			vacationQuery(employeeId, deps.year ?? currentYear())
 		);
-		// stepping through the years must not wait for the answer
 		return cause === 'stay' ? undefined : account;
 	},
 	staticData: { title: 'vacation' },

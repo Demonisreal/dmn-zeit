@@ -30,7 +30,6 @@ export function LoginForm({ next, notice }: Props) {
 	const signIn = useMutation({
 		mutationFn: login,
 		onSuccess: async (result) => {
-			// the password was right, the second factor is asked on its own page
 			if ('mfaRequired' in result) {
 				return navigate({ to: '/login/verify', search: { next, methods: result.methods } });
 			}

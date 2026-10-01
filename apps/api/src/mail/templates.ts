@@ -2,7 +2,6 @@ import type { Locale } from '@zeit/shared';
 
 type MailText = { subject: string; text: string };
 
-// names come from people, a line break in one would open a new header line or fake a paragraph
 export function clean(text: string): string {
 	return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').trim();
 }
@@ -243,7 +242,7 @@ export function billingIbanChangedMail(
 	locale: Locale,
 	{ name, lastFour }: { name: string; lastFour: string | null }
 ): MailText {
-	const account = lastFour ? `…${lastFour}` : (locale === 'en' ? 'removed' : 'entfernt');
+	const account = lastFour ? `…${lastFour}` : locale === 'en' ? 'removed' : 'entfernt';
 	return notice(locale, name, {
 		de: {
 			subject: 'Bankverbindung für Rechnungen geändert',

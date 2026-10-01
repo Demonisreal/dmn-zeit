@@ -19,7 +19,6 @@ export const usersQuery = queryOptions({
 export const createUser = (input: CreateUserInput) =>
 	request('/users', { method: 'POST', body: input, schema: userSchema });
 
-// createUser already sends the first invitation, this one is only for a resend
 export const inviteUser = (id: string) => request(`/users/${id}/invite`, { method: 'POST' });
 
 export const updateUser = (id: string, input: UpdateUserInput) =>

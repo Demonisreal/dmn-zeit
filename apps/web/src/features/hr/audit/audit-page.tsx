@@ -41,7 +41,6 @@ type AuditTable = (typeof auditTables)[number];
 const isKnownTable = (table: string | null): table is AuditTable =>
 	(auditTables as readonly (string | null)[]).includes(table);
 
-// the first three come from the table triggers, the rest from sign-in and account code in the api
 const knownActions = [
 	'insert',
 	'update',

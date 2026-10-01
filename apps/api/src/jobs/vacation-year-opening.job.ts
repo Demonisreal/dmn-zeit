@@ -25,7 +25,6 @@ export class VacationYearOpeningJob {
 		await withAdvisoryLock(this.db, 'zeit:vacation-year-opening', async (conn) => {
 			for (const { id: tenantId, workspace } of await activeTenants(conn)) {
 				if (workspace === 'solo') continue;
-				// one broken tenant must not keep the others from their new leave year
 				try {
 					await this.open(tenantId, year);
 				} catch (error) {
@@ -35,7 +34,6 @@ export class VacationYearOpeningJob {
 		});
 	}
 
-	// the dedupe key makes a second run after a crash book nothing new
 	open(tenantId: string, year: number): Promise<number> {
 		const newYear = Temporal.PlainDate.from({ year, month: 1, day: 1 });
 		return this.db.withTenant(jobContext(tenantId), async (trx) => {

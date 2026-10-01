@@ -24,7 +24,6 @@ export class VacationExpiryJob {
 		const today = berlinToday(this.clock.now());
 		await withAdvisoryLock(this.db, 'zeit:vacation-expiry', async (conn) => {
 			for (const { id: tenantId, workspace } of await activeTenants(conn)) {
-				// solo workspaces keep no leave, the company-only policies would answer 42501
 				if (workspace === 'solo') continue;
 				try {
 					await this.expire(tenantId, today);
@@ -35,7 +34,6 @@ export class VacationExpiryJob {
 		});
 	}
 
-	// without a notice nothing expires (BAG 2019), so only people who got one are looked at
 	expire(tenantId: string, today: Temporal.PlainDate): Promise<number> {
 		return this.db.withTenant(jobContext(tenantId), async (trx) => {
 			const { carryoverUntil } = await this.vacation.calendar(trx);
@@ -62,7 +60,6 @@ export class VacationExpiryJob {
 						bucketYear: bucket.year,
 						entryType: 'expiry',
 						days: toDecimal(negate(bucket.remaining), 2),
-						// the deadline the notice named, not the night the job got to it
 						effectiveDate: bucket.payable.deadline!.toString(),
 						noticeId: bucket.notice!.id,
 						dedupeKey: `vacation-expiry:${employeeId}:${bucket.year}`,

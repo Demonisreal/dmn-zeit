@@ -19,7 +19,6 @@ export async function request<T = void>(
 	const init: RequestInit = { method, headers, credentials: 'same-origin' };
 
 	if (method !== 'GET') {
-		// the csrf check only lets json writes through, so an empty body is sent as {}
 		headers.set('Content-Type', 'application/json');
 		init.body = JSON.stringify(body ?? {});
 		const csrf = queryClient.getQueryData<Session | null>(sessionKey)?.csrfToken;
@@ -32,7 +31,6 @@ export async function request<T = void>(
 		: undefined;
 
 	if (!res.ok) {
-		// a proxy error page has no json body, it still gets a code the ui can map
 		const parsed = apiErrorSchema.safeParse(json);
 		throw new ApiRequestError(
 			res.status,

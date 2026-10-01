@@ -38,7 +38,6 @@
 	font-weight: 600;
 }
 
-/* a red ring on the red button would not show */
 .primary:focus-visible {
 	outline-color: var(--white);
 	outline-offset: 3px;

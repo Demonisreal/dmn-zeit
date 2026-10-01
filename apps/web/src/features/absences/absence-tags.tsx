@@ -18,7 +18,6 @@ const tones = {
 
 export function StatusTag({ absence }: { absence: Pick<Absence, 'type' | 'status'> }) {
 	const { t } = useTranslation('absences');
-	// sick leave is only reported, calling it approved would suggest someone decided on it
 	if (absence.type === 'sick' && absence.status === 'approved') {
 		return <Tag>{t('status.reported')}</Tag>;
 	}

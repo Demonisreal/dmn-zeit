@@ -15,7 +15,6 @@ type Props = {
 export function Checklist({ checklist }: Props) {
 	const { t } = useTranslation('hr');
 	const { month, closed, items, capPreview } = checklist;
-	// blocking points first, they are the ones that stop the close
 	const sorted = items.toSorted((a, b) => Number(b.blocking) - Number(a.blocking));
 
 	const itemLink = (kind: ChecklistKind) => {
@@ -31,7 +30,6 @@ export function Checklist({ checklist }: Props) {
 		);
 	};
 
-	// the name keeps leading to master data, this one goes where the point gets resolved
 	const fix = (kind: ChecklistKind, employee: EmployeeRef) => {
 		if (kind === 'running_entry') {
 			return (

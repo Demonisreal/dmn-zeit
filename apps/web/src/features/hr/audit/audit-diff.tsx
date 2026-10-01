@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import styles from '../ui/page.module.css';
 import css from './audit-diff.module.css';
 
-// values arrive as json from the database; they are only ever shown as text
 const shown = (value: unknown) => {
 	if (value === null || value === undefined) return '–';
 	if (typeof value === 'object') return JSON.stringify(value);
@@ -37,7 +36,6 @@ export function AuditDiff({ changes }: { changes: NonNullable<AuditEntry['change
 	);
 }
 
-// app rows log a flat context, there is nothing before or after
 export function AuditContext({ context }: { context: NonNullable<AuditEntry['context']> }) {
 	return (
 		<dl className={css.context}>

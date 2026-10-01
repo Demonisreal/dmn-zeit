@@ -23,7 +23,6 @@ export class UsersController {
 		return this.users.list(session);
 	}
 
-	// sends the invitation right away, POST :id/invite is only for another copy
 	@Post()
 	@Workspace('company')
 	@Throttle({ default: { limit: 20, ttl: hours(1) } })
@@ -47,7 +46,6 @@ export class UsersController {
 		await this.users.invite(session, userId, client);
 	}
 
-	// role, employee link and status decide what the person gets to see, so the whole route wants a step-up
 	@Patch(':id')
 	@RequireReauth()
 	update(

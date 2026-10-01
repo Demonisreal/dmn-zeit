@@ -18,12 +18,10 @@
 	gap: 0.75rem 1rem;
 }
 
-/* the year stepper keeps its own width, only the selects share a basis */
 .filters > :not([role='group']) {
 	flex: 0 1 11rem;
 }
 
-/* on a phone the stepper takes its own row and the selects split the next one */
 @media (max-width: 30rem) {
 	.filters > [role='group'] {
 		flex-basis: 100%;
@@ -35,7 +33,6 @@
 	}
 }
 
-/* visually hidden cell labels are absolute, without a positioned box here they widen the page */
 .scroll {
 	position: relative;
 	container-type: inline-size;
@@ -55,7 +52,6 @@
 	font: 500 0.875rem var(--mono);
 }
 
-/* focused by script once a request is decided, a ring would make the heading look clickable */
 .anchor:focus {
 	outline: none;
 }

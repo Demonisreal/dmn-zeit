@@ -17,7 +17,6 @@ type Props = {
 	onConfirmed: (recoveryCodes: string[]) => void;
 };
 
-// as a data url the svg stays an image and never becomes markup in the page
 const svgImage = (svg: string) =>
 	`data:image/svg+xml;base64,${btoa(Array.from(new TextEncoder().encode(svg), (byte) => String.fromCharCode(byte)).join(''))}`;
 
@@ -68,14 +67,12 @@ function TotpConfirm({ setup, onConfirmed, onCancel }: ConfirmProps) {
 		mutationFn: confirmTotp,
 		onSuccess: ({ recoveryCodes }) => onConfirmed(recoveryCodes),
 		onError: (err) => {
-			// the api answers a code that does not match with a validation error on the field
 			if (hasCode(err, 'VALIDATION')) setError('code', { message: t('totp.wrong') });
 		}
 	});
 	const submit = handleSubmit((input) => confirm.mutate(input));
 	const intro = useRef<HTMLParagraphElement>(null);
 
-	// the setup button that led here is gone
 	useEffect(() => intro.current?.focus(), []);
 
 	return (

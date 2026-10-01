@@ -12,7 +12,6 @@ import { useController, type Control, type FieldPath, type FieldValues } from 'r
 import { issueText } from '../../i18n';
 import css from './field.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<
 	'field' | 'label' | 'input' | 'area' | 'description' | 'error',
 	string

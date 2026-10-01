@@ -7,7 +7,6 @@ import { Database } from '../db/database';
 
 type Position = { at: string; id: string };
 
-// the last entry of a page as "occurredAt,id", the next page starts right behind it
 function cursorOf(entry: Position): string {
 	return Buffer.from(`${entry.at},${entry.id}`).toString('base64url');
 }
@@ -30,9 +29,7 @@ export class AuditService {
 
 	page(session: AuthSession, query: AuditQuery): Promise<AuditPage> {
 		const after = query.cursor === undefined ? undefined : positionOf(query.cursor);
-		// below hr only what is about oneself (art. 15 gdpr); without an employee that is nothing
 		const subject = hasRole(session.role, 'hr') ? query.employee : session.employeeId;
-		// from and to are whole days in the tenant's zone
 		const since = sql<string>`${query.from}::date::timestamp at time zone 'Europe/Berlin'`;
 		const until = sql<string>`(${query.to}::date + 1)::timestamp at time zone 'Europe/Berlin'`;
 

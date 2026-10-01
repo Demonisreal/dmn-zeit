@@ -19,11 +19,9 @@ export const Route = createFileRoute('/login')({
 	beforeLoad: async ({ context }) => {
 		if (await context.queryClient.ensureQueryData(sessionQuery)) throw redirect({ to: '/' });
 	},
-	// prefetch never throws, without an answer the normal login shows
 	loader: async ({ context }) => {
 		await context.queryClient.prefetchQuery(configQuery);
 		const demo = context.queryClient.getQueryData(configQuery.queryKey)?.mode === 'demo';
-		// a failed passkey on the normal form speaks with the security texts
 		await i18n.loadNamespaces(demo ? 'demo' : 'security');
 	},
 	staticData: { title: 'login' },
@@ -33,7 +31,6 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
 	const { next, notice } = Route.useSearch();
 	const config = useQuery(configQuery);
-	// the demo api has no password login, visitors get a sandbox instead
 	return (
 		<PublicLayout>
 			{config.data?.mode === 'demo' ? <DemoStart /> : <LoginForm next={next} notice={notice} />}

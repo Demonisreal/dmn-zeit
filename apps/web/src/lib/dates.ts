@@ -1,6 +1,5 @@
 import { endOfMonth, parseDate, today } from '@internationalized/date';
 
-// the company's day, someone abroad still sees the German workday
 export const zone = 'Europe/Berlin';
 
 export const todayIso = () => today(zone).toString();

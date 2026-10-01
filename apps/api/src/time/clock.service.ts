@@ -58,7 +58,6 @@ export class ClockService {
 	}
 }
 
-// admins without a personnel record have nothing to stamp
 export function employeeOf(session: AuthSession): string {
 	if (!session.employeeId) throw new ForbiddenException('No personnel record for this account');
 	return session.employeeId;

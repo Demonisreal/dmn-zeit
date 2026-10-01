@@ -11,13 +11,11 @@ import { openAbsencesQuery, openCorrectionsQuery } from './api';
 import styles from './accounts.module.css';
 import { addDays } from './dates';
 
-// only counts and one figure, the full lists live on the requests and leave pages
 export function Accounts({ employeeId }: { employeeId: string }) {
 	const { t, i18n } = useTranslation(['week', 'common']);
 	const requestsId = useId();
 	const leaveId = useId();
 	const today = todayIso();
-	// pending corrections point back, leave requests mostly ahead; the api allows 366 days
 	const from = addDays(today, -90);
 	const to = addDays(from, 365);
 	const absences = useQuery(openAbsencesQuery(from, to));

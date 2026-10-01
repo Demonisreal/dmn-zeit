@@ -41,7 +41,6 @@ import { VacationModule } from './vacation/vacation.module';
 	imports: [
 		ConfigModule.forRoot({
 			isGlobal: true,
-			// the .env in the repo root for development, containers get their env from compose
 			envFilePath: join(__dirname, '..', '..', '..', '.env'),
 			validate: loadConfig
 		}),
@@ -70,19 +69,16 @@ import { VacationModule } from './vacation/vacation.module';
 		MonthsModule,
 		ExportsModule,
 		AuditModule,
-		// elsewhere the routes do not exist at all, not even for the session guard to answer 401
 		ConditionalModule.registerWhen(DemoModule, (env) => env.APP_MODE === 'demo'),
 		MailModule,
 		JobsModule
 	],
 	providers: [
 		{ provide: APP_FILTER, useClass: ApiExceptionFilter },
-		// order matters: throttle before the session lookup, SessionGuard sets request.auth for the rest
 		{ provide: APP_GUARD, useClass: AppThrottlerGuard },
 		{ provide: APP_GUARD, useClass: SessionGuard },
 		{ provide: APP_GUARD, useClass: CsrfGuard },
 		{ provide: APP_GUARD, useClass: EnrollmentGuard },
-		// before the roles, a solo workspace gets 404 for company routes and never a 403
 		{ provide: APP_GUARD, useClass: WorkspaceGuard },
 		{ provide: APP_GUARD, useClass: RolesGuard },
 		{ provide: APP_GUARD, useClass: ReauthGuard }

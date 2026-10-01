@@ -45,23 +45,19 @@ export type HolidayCode =
 	| 'boxing_day'
 	| 'new_years_eve';
 
-// opt-in for holidays kept only locally: corpus christi in SN/TH, assumption day in BY, augsburg
 export type OptionalHoliday = 'corpus_christi' | 'augsburg_peace' | 'assumption_day';
 
 export type Holiday = {
 	date: Temporal.PlainDate;
 	code: HolidayCode;
-	// half only for the company days 24.12. and 31.12., a statutory holiday is always whole
 	portion: 0.5 | 1;
 };
 
 export type HolidayOptions = {
 	optional: readonly OptionalHoliday[];
-	// 24.12. and 31.12. as half days
 	halfDays: boolean;
 };
 
-// Meeus/Jones/Butcher, the letters follow the published algorithm
 export const easterSunday = (year: number): Temporal.PlainDate => {
 	const a = year % 19;
 	const b = Math.floor(year / 100);
@@ -111,30 +107,25 @@ export const holidaysFor = (
 	if ((state === 'BE' && year >= 2019) || (state === 'MV' && year >= 2023)) {
 		add('womens_day', on(3, 8));
 	}
-	// both are sundays anyway, only brandenburg lists them as holidays of their own
 	if (state === 'BB') {
 		add('easter_sunday', easter);
 		add('whit_sunday', afterEaster(49));
 	}
-	// 75th and 80th anniversary of the end of the war, not a recurring holiday
 	if (state === 'BE' && (year === 2020 || year === 2025)) {
 		add('liberation_day', on(5, 8));
 	}
-	// statewide in these six, SN and TH keep it only in some catholic municipalities
 	if (oneOf('BW', 'BY', 'HE', 'NW', 'RP', 'SL') || (oneOf('SN', 'TH') && opted('corpus_christi'))) {
 		add('corpus_christi', afterEaster(60));
 	}
 	if (state === 'BY' && opted('augsburg_peace')) {
 		add('augsburg_peace', on(8, 8));
 	}
-	// statewide only in SL, in BY it depends on the municipality
 	if (state === 'SL' || (state === 'BY' && opted('assumption_day'))) {
 		add('assumption_day', on(8, 15));
 	}
 	if (state === 'TH' && year >= 2019) {
 		add('world_childrens_day', on(9, 20));
 	}
-	// 2017 was the 500th anniversary and a holiday in every state
 	if (
 		year === 2017 ||
 		oneOf('BB', 'MV', 'SN', 'ST', 'TH') ||
@@ -146,7 +137,6 @@ export const holidaysFor = (
 		add('all_saints_day', on(11, 1));
 	}
 	if (state === 'SN') {
-		// the wednesday before 23 november, which always lands between the 16th and the 22nd
 		const cutoff = on(11, 22);
 		const wednesday = 3;
 		add('repentance_day', cutoff.subtract({ days: (cutoff.dayOfWeek - wednesday + 7) % 7 }));

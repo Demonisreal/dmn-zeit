@@ -65,7 +65,6 @@ function absenceQuery(trx: Trx) {
 			'r.certificate_confirmed_at',
 			'r.certificate_confirmed_by',
 			'r.created_at',
-			// days a sick note took over no longer belong to this request, cancelled ones still do
 			eb
 				.selectFrom('app.absence_days as d')
 				.select(sql<string>`coalesce(sum(d.vacation_days), 0)::numeric(5, 2)`.as('days'))
@@ -96,7 +95,6 @@ export class AbsencesStore {
 				end_date: absence.endDate,
 				half_day_start: absence.halfDayStart,
 				half_day_end: absence.halfDayEnd,
-				// a sick note is taken note of, nobody approves it
 				status: absence.type === 'sick' ? 'approved' : 'pending',
 				note: absence.note,
 				requested_by: absence.requestedBy
@@ -124,7 +122,6 @@ export class AbsencesStore {
 			.execute();
 	}
 
-	// requests of the same person that are still in force, the no_overlap exclusion looks at the same
 	async overlapping(trx: Trx, employeeId: string, from: string, to: string): Promise<string[]> {
 		const rows = await trx
 			.selectFrom('app.absence_requests')
@@ -138,7 +135,6 @@ export class AbsencesStore {
 		return rows.map((row) => row.id);
 	}
 
-	// who else of the team is away over the same days; the type is never read, sick leave stays private
 	async concurrent(trx: Trx, absenceIds: readonly string[]): Promise<Map<string, Concurrent[]>> {
 		if (absenceIds.length === 0) return new Map();
 		const rows = await trx
@@ -150,7 +146,6 @@ export class AbsencesStore {
 					.onRef('o.start_date', '<=', 'a.end_date')
 					.onRef('o.end_date', '>=', 'a.start_date')
 			)
-			// the team as the team calendar draws it, so hr does not get the whole tenant
 			.innerJoin('app.employees as e', (join) =>
 				join.onRef('e.id', '=', 'o.employee_id').onRef('e.team_id', '=', 'p.team_id')
 			)
@@ -181,7 +176,6 @@ export class AbsencesStore {
 		return byAbsence;
 	}
 
-	// time off credits nothing, the balance already carries its days up to the given date
 	async minutesAfter(
 		trx: Trx,
 		absenceIds: readonly string[],
@@ -221,7 +215,6 @@ export class AbsencesStore {
 		return new Set(rows.map((row) => row.date));
 	}
 
-	// vacation already approved inside a sick note, what § 9 BUrlG may give back
 	vacationWithin(trx: Trx, employeeId: string, from: string, to: string): Promise<ActiveDay[]> {
 		return trx
 			.selectFrom('app.absence_days as d')
@@ -237,7 +230,6 @@ export class AbsencesStore {
 			.execute();
 	}
 
-	// only from the expected status, a second decision racing this one then changes nothing
 	async decide(
 		trx: Trx,
 		id: string,
@@ -259,8 +251,6 @@ export class AbsencesStore {
 		return updated.numUpdatedRows === 1n;
 	}
 
-	// withdraw and cancel come from the person; decided_by stays with the approver, a cancel reason
-	// takes the note of the latest step
 	async move(
 		trx: Trx,
 		id: string,
@@ -287,7 +277,6 @@ export class AbsencesStore {
 		return updated.numUpdatedRows === 1n;
 	}
 
-	// frees the dates for later requests, the unique index only counts days not superseded
 	async supersede(
 		trx: Trx,
 		where: { absenceId: string } | { dayIds: string[] },

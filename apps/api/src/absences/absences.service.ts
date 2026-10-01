@@ -102,12 +102,10 @@ const takenDay = (day: ActiveDay): TakenDay => ({
 	vacationDays: parseDecimal(day.vacationDays)
 });
 
-// opaque to the client, keyset on the sort order of the list
 function encodeCursor(absence: Absence): string {
 	return Buffer.from(`${absence.startDate}|${absence.id}`).toString('base64url');
 }
 
-// both parts end up as query parameters, a malformed one would otherwise fail inside postgres
 function decodeCursor(cursor: string): { date: string; id: string } {
 	const parsed = cursorSchema.safeParse(Buffer.from(cursor, 'base64url').toString().split('|'));
 	if (!parsed.success) throw badInput('cursor', 'invalid_format', 'Invalid cursor');
@@ -187,7 +185,6 @@ export class AbsencesService {
 				note: input.note ?? null,
 				requestedBy: session.userId
 			});
-			// vacation under a sick note stays until hr confirms the certificate, § 9 BUrlG
 			const taken =
 				input.type === 'sick'
 					? await this.store.takenDates(trx, input.employeeId, input.startDate, input.endDate)
@@ -208,7 +205,6 @@ export class AbsencesService {
 
 		const filter: Filter = (eb) => {
 			const leads = sql<boolean>`app.leads(${eb.ref('r.employee_id')})`;
-			// only the inbox may come without a range, it then shows every open request
 			const where: Expression<SqlBool>[] = [];
 			if (query.to) where.push(eb('r.start_date', '<=', query.to));
 			if (query.from) where.push(eb('r.end_date', '>=', query.from));
@@ -247,7 +243,6 @@ export class AbsencesService {
 			if (absence.status === 'pending') {
 				if (!(await this.store.decide(trx, id, 'pending', 'approved', decision)))
 					throw notInState();
-				// only an approved request counts in the ledger, open ones show as pending
 				if (absence.type === 'vacation') await this.bookTaken(trx, session, absence, today);
 			} else if (absence.status === 'cancel_pending') {
 				if (!(await this.store.decide(trx, id, 'cancel_pending', 'cancelled', decision))) {
@@ -262,7 +257,6 @@ export class AbsencesService {
 		});
 	}
 
-	// on a cancellation the request simply stays approved
 	reject(session: AuthSession, id: string, input: RejectInput): Promise<Absence> {
 		const decision = { userId: session.userId, note: input.note };
 		return this.db.withTenant(session, async (trx) => {
@@ -301,9 +295,7 @@ export class AbsencesService {
 			if (absence.employee.id !== session.employeeId) {
 				throw new ForbiddenException('Only the person on leave can cancel');
 			}
-			// past leave is history, only hr corrects it by hand
 			if (absence.endDate < today.toString()) throw notInState();
-			// vacation already given back for it would have to come off again, hr sorts that out by hand
 			if (absence.sickNote) throw notInState();
 			if (!(await this.store.move(trx, id, 'approved', 'cancel_pending', input.note ?? null))) {
 				throw notInState();
@@ -336,7 +328,6 @@ export class AbsencesService {
 
 			if (refunded.length > 0) {
 				await this.refundSick(trx, session, employeeId, refunded, today);
-				// superseded first, the unique index allows one active day per date
 				await this.store.supersede(trx, { dayIds: refunded.map((day) => day.id) }, id);
 			}
 			const days = await this.costs(trx, { ...sick, employeeId });
@@ -371,7 +362,6 @@ export class AbsencesService {
 		const last = first.add({ months: 1 }).subtract({ days: 1 });
 		return this.db.withTenant(session, async (trx) => {
 			const team = query.team ?? (await this.homeTeam(trx, session));
-			// the definer function decides between full view and "absent", and refuses foreign teams
 			const { rows } = await sql<{
 				employee_id: string;
 				display_name: string;
@@ -410,7 +400,6 @@ export class AbsencesService {
 		});
 	}
 
-	// what the approver weighs a request against, only the inbox asks for it
 	private async forDecision(trx: Trx, page: Absence[]): Promise<Absence[]> {
 		const now = this.clock.now();
 		const today = berlinToday(now);
@@ -424,7 +413,6 @@ export class AbsencesService {
 			page.map((absence) => absence.id)
 		);
 		const onLeave = peopleOf('vacation');
-		// the open request is part of pending already, the preview takes a new one off on top
 		const pending = await this.vacation.pendingByEmployee(trx, onLeave);
 		const left = new Map<string, Fraction>();
 		for (const [employeeId, buckets] of await this.buckets(trx, onLeave, today)) {
@@ -443,7 +431,6 @@ export class AbsencesService {
 				...absence,
 				concurrentAbsences: concurrent.get(absence.id) ?? []
 			};
-			// approving a cancellation gives the days back and keeps the time off from happening
 			const cancelling = absence.status === 'cancel_pending';
 			if (absence.type === 'vacation') {
 				const back = cancelling ? parseDecimal(absence.vacationDays) : zero;
@@ -457,7 +444,6 @@ export class AbsencesService {
 		});
 	}
 
-	// counted like GET /employees/:id/flex for the running year
 	private async flexBalances(
 		trx: Trx,
 		employeeIds: readonly string[],
@@ -498,7 +484,6 @@ export class AbsencesService {
 		);
 	}
 
-	// days without target time stay out, only the preview lists them with their reason
 	private async insertDays(
 		trx: Trx,
 		absenceId: string,
@@ -552,7 +537,6 @@ export class AbsencesService {
 		return absence;
 	}
 
-	// checked before the trigger does it, its error would only say insufficient_privilege
 	private async decidable(trx: Trx, session: AuthSession, id: string): Promise<Absence> {
 		const absence = await this.visible(trx, session, id);
 		if (absence.employee.id === session.employeeId || absence.requestedBy.id === session.userId) {
@@ -588,7 +572,6 @@ export class AbsencesService {
 		);
 	}
 
-	// every bucket gets back exactly what this absence still holds of it
 	private async refundCancel(
 		trx: Trx,
 		session: AuthSession,
@@ -630,7 +613,6 @@ export class AbsencesService {
 			const approval = own.find((entry) => entry.entryType === 'taken');
 			if (!approval) continue;
 
-			// approve books with its own "today" as effective date, the replay judges on that day
 			const approvedAt = instantOf(approval.createdAt);
 			const split = paidBy(
 				(await this.store.activeDays(trx, absenceId)).map(takenDay),

@@ -16,7 +16,6 @@ export function LangSwitch() {
 	const pick = (lng: Locale) => {
 		if (lng === i18n.language) return;
 		void i18n.changeLanguage(lng);
-		// signed in, the choice belongs to the profile so it follows the user to other devices
 		if (queryClient.getQueryData(sessionQuery.queryKey)) save.mutate(lng);
 	};
 

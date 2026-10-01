@@ -14,11 +14,9 @@ import type { Config } from '../config';
 export const REAUTH = 'reauth';
 
 type ReauthOptions = {
-	// the very first factor is set up with the password alone, there is nothing to confirm with yet
 	exceptFirstFactor?: boolean;
 };
 
-// the route wants a confirmation with password and second factor from the last ten minutes
 export const RequireReauth = (options: ReauthOptions = {}) => SetMetadata(REAUTH, options);
 
 @Injectable()
@@ -29,7 +27,6 @@ export class ReauthGuard implements CanActivate {
 		private readonly reflector: Reflector,
 		config: ConfigService<Config, true>
 	) {
-		// sandbox personas have no password, a step-up would lock them out of their own security page
 		this.demo = config.get('APP_MODE', { infer: true }) === 'demo';
 	}
 

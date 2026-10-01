@@ -17,7 +17,6 @@ import type { Holiday } from '../holidays';
 
 export type Entitlement = {
 	exact: Fraction;
-	// § 5 Abs. 2 BUrlG: from half a day up, never down
 	rounded: Fraction;
 	explanations: Explanation[];
 };
@@ -93,7 +92,6 @@ const contractAt = (employment: Employment, date: Temporal.PlainDate): Contract 
 	return current;
 };
 
-// § 3 Abs. 1 BUrlG: 24 days on a six-day week, scaled to the weekdays the contract works
 const statutoryDays = (contract: Contract): Fraction =>
 	fraction(24 * WEEKDAYS.filter((weekday) => contract.minutes[weekday] > 0).length, 6);
 
@@ -137,7 +135,6 @@ export const annualEntitlement = (
 		);
 	}
 
-	// § 4 BUrlG: six months end with this day, and they only count once asOf is past it
 	const lastWaitingDay = employment.entryDate.add({ months: 6 }).subtract({ days: 1 });
 	const completes =
 		employment.exitDate === null ||
@@ -156,16 +153,13 @@ export const annualEntitlement = (
 	const entersThisYear = employment.entryDate.year === year;
 	const exitsThisYear = employment.exitDate !== null && employment.exitDate.year === year;
 	const wholeYear = !entersThisYear && !exitsThisYear;
-	// § 5 Abs. 1 BUrlG: full minimum once the waiting period is met, on exit only after 30 June
 	const fullMinimum =
 		wholeYear ||
 		(waitingPeriodMet && (exitsThisYear ? employedTo.month > 6 : lastWaitingDay.year === year));
 
-	// simplified § 5 Abs. 1 BUrlG: one employed day makes the whole calendar month count
 	const twelfths = (first: number, last: number, amount: (terms: Contract) => Fraction) => {
 		let total = fraction(0);
 		for (let month = first; month <= last; month++) {
-			// months before the entry use the first terms, the full minimum spans all twelve
 			const terms = contractAt(
 				employment,
 				month <= from.month ? from : from.with({ month, day: 1 })
@@ -200,7 +194,6 @@ export const annualEntitlement = (
 			params: { days: toDecimal(contract.vacationDaysYear, 2) }
 		});
 	}
-	// entry and exit year cut the agreed days to twelfths, the usual pro rata clause of a contract
 	const exact = twelfths(from.month, employedTo.month, (terms) => terms.vacationDaysYear);
 	return settle(exact, {
 		key: 'vacation.entitlement.pro_rata',
@@ -233,7 +226,6 @@ export const daysForRange = (
 		const contract = employed ? contractAt(employment, date) : undefined;
 		const holiday = holidays.find((day) => day.portion === 1 && day.date.equals(date));
 		const halfHoliday = holidays.find((day) => day.portion === 0.5 && day.date.equals(date));
-		// dayOfWeek is ISO, 1 is Monday
 		const minutes = contract ? contract.minutes[WEEKDAYS[date.dayOfWeek - 1]!] : 0;
 
 		if (!contract) {
@@ -243,7 +235,6 @@ export const daysForRange = (
 		} else if (minutes === 0) {
 			costs.push(dayOff(date, 'vacation.day.non_working_day', {}));
 		} else if (halfHoliday) {
-			// the holiday already covers half the day, vacation only pays for the other half
 			costs.push({
 				date,
 				portion: 0.5,
@@ -268,7 +259,6 @@ export const daysForRange = (
 	return costs;
 };
 
-// a bucket pays from 1 january of its year through its deadline, none means no expiry
 const paysOn = (bucket: Bucket, date: Temporal.PlainDate) =>
 	date.year >= bucket.year &&
 	(bucket.deadline === null || Temporal.PlainDate.compare(date, bucket.deadline) <= 0);
@@ -288,7 +278,6 @@ export const allocate = (days: readonly TakenDay[], buckets: readonly Bucket[]):
 
 	const allocations: Allocation[] = [];
 	let shortfall = fraction(0);
-	// earliest day first, a later day could otherwise drain a bucket the earlier day depends on
 	for (const day of days.toSorted((a, b) => Temporal.PlainDate.compare(a.date, b.date))) {
 		let missing = day.vacationDays;
 		for (const balance of balances) {
@@ -319,12 +308,10 @@ export const expiryDecision = (
 			explanation: { key: 'vacation.expiry.not_due', params: {} }
 		};
 	}
-	// a notice can push the deadline back, never pull it in ahead of § 7 Abs. 3 BUrlG
 	const deadline =
 		notice && Temporal.PlainDate.compare(notice.deadline, bucket.deadline) > 0
 			? notice.deadline
 			: bucket.deadline;
-	// the deadline day itself is still usable, forfeiture only starts the day after
 	if (Temporal.PlainDate.compare(today, deadline) <= 0) {
 		return {
 			kind: 'not_due',
@@ -332,7 +319,6 @@ export const expiryDecision = (
 			explanation: { key: 'vacation.expiry.not_due', params: {} }
 		};
 	}
-	// BAG since 2019: without the employer's notice the days do not expire
 	if (notice === null) {
 		return {
 			kind: 'keep',

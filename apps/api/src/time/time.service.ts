@@ -50,7 +50,6 @@ export class TimeService {
 		});
 	}
 
-	// a past year counts through 31.12., the running one through today, a future one has nothing yet
 	flex(session: AuthSession, employeeId: string, year: number): Promise<FlexAccount> {
 		const now = this.clock.now();
 		const today = localDate(now);

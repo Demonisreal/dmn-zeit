@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { i18n } from '../../i18n';
 
-// "7:30", "7" and "-2:15" all count, plain hours are what people type most
 const pattern = /^([+-]?)(\d{1,4})(?::([0-5]\d))?$/;
 
 export function parseDuration(text: string) {
@@ -28,7 +27,6 @@ export const durationField = z.string().transform((text, ctx) => {
 	return minutes;
 });
 
-// empty means the company default applies
 export const optionalDurationField = z.string().transform((text, ctx) => {
 	if (text.trim() === '') return null;
 	const minutes = parseDuration(text);

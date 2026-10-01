@@ -14,7 +14,6 @@ type Props = {
 export function BucketTable({ account }: Props) {
 	const { t, i18n } = useTranslation('vacation');
 	const lng = i18n.language;
-	// the year on screen opens with its derivation, that is the question people come with
 	const [open, setOpen] = useState(() => new Set([account.year]));
 
 	const toggle = (year: number) =>

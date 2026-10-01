@@ -12,7 +12,6 @@ import { paragraph } from './explain';
 
 type Props = {
 	day: Day;
-	// minutes the running entry has grown since the days were fetched
 	extra: number;
 	now: number;
 	isToday: boolean;
@@ -22,7 +21,6 @@ type Props = {
 	children: ReactNode;
 };
 
-// the detail is a new element on every render of the table, a closed row never shows it though
 const sameRow = (prev: Props, next: Props) =>
 	!prev.isOpen &&
 	!next.isOpen &&
@@ -48,7 +46,6 @@ export const DayRow = memo(function DayRow({
 	const counted = !isFuture && !free;
 	const detailId = `day-${day.date}`;
 	const flagged = day.findings.some((finding) => finding.severity === 'warning' && !finding.ack);
-	// until the day is over a shortfall is time still to come, not yet a minus
 	const remaining = isToday ? Math.max(0, -(day.diffMinutes + extra)) : 0;
 	const toggle = () => onToggle(day.date);
 
@@ -134,7 +131,6 @@ export const DayRow = memo(function DayRow({
 
 function Notices({ day }: { day: Day }) {
 	const { t } = useTranslation(['week', 'hr']);
-	// two findings under the same paragraph share one tag, red only while one is still open
 	const paragraphs = new Map<string, boolean>();
 	for (const finding of day.findings) {
 		const label = paragraph(finding.code);

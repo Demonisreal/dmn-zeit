@@ -5,7 +5,6 @@ import type { Cursor } from './time.store';
 
 const cursorSchema = z.tuple([instantSchema, uuidSchema]);
 
-// keyset position: the sort instant and the id that breaks ties between equal instants
 export function encodeCursor(at: string, id: string): string {
 	return Buffer.from(`${at}|${id}`).toString('base64url');
 }

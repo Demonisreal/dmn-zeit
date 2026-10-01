@@ -43,7 +43,6 @@ export function FindingsPage({ filter, onFilter }: Props) {
 	const employees = useQuery(employeesQuery(true));
 	const date = (iso: string) => formatDate(iso, i18n.language);
 
-	// the api allows a year at most; asking anyway would only come back as a validation error
 	let rangeProblem: string | undefined;
 	if (filter.from > filter.to) rangeProblem = t('rangeUnordered');
 	else if ((Date.parse(filter.to) - Date.parse(filter.from)) / DAY_MS >= 366) {
@@ -148,7 +147,6 @@ export function FindingsPage({ filter, onFilter }: Props) {
 													finding={finding}
 													onDone={() => {
 														setAcking(null);
-														// once acknowledged the row loses its button or leaves the list
 														heading.current?.focus();
 													}}
 												/>

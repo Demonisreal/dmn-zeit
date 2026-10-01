@@ -3,7 +3,6 @@
 	border-bottom: 1px solid var(--edge);
 }
 
-/* nine entries do not fit a phone, the row scrolls sideways instead of wrapping into a block */
 .list {
 	display: flex;
 	gap: 0.25rem;
@@ -12,7 +11,6 @@
 	overflow-x: auto;
 	list-style: none;
 	scrollbar-width: none;
-	/* a focused entry stops short of the faded edge */
 	scroll-padding-inline: 2rem;
 }
 
@@ -28,7 +26,6 @@
 	initial-value: 0px;
 }
 
-/* an edge fades only while entries hide behind it, a row that fits stays untouched */
 @supports (animation-timeline: scroll()) {
 	.list {
 		mask-image: linear-gradient(

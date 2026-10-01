@@ -226,7 +226,7 @@ löschen; das Skript selbst erzwingt das nicht.
 Lokal bleiben die Dumps `BACKUP_KEEP_DAYS` (Default 14) Tage liegen, danach löscht das Skript sie.
 Vor jedem Live-Deploy und zusätzlich über Cron laufen lassen.
 
-Restore (Weg steht auch als Kommentar im Skript):
+Restore:
 
 1. `age -d -i backup-key.txt zeit-live-<datum>.dump.age > zeit-live-<datum>.dump` — die Identität
    kommt aus dem Passwortmanager, nie aus dem Server selbst (der hat sie nicht).

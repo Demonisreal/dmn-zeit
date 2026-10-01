@@ -38,7 +38,6 @@ export const entriesQuerySchema = z
 
 export const timeEntryPageSchema = pageOf(timeEntrySchema);
 
-// a calendar week can span two months, so week and month view ask by date range
 export const daysQuerySchema = z.object(rangeShape).superRefine(inRange(62));
 
 export const totalsSchema = z.object({

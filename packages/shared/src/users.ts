@@ -33,7 +33,6 @@ export const updateUserSchema = z
 		role: roleSchema,
 		locale: z.enum(locales),
 		employeeId: uuidSchema.nullable(),
-		// invited and demo are set by the invitation and the sandbox, never by hand
 		status: z.enum(['active', 'disabled'])
 	})
 	.partial();

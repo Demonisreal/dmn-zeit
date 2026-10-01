@@ -18,12 +18,10 @@ export type Coverage = {
 	hints: readonly CoverageHint[];
 	facts: {
 		toleranceMinutes: number;
-		// project time outside any stamped interval, pauses included
 		outside: readonly Span[];
 	};
 };
 
-// interpretation, not law: stamping and starting the timer are two clicks, a few minutes apart
 export const COVERAGE_TOLERANCE_MINUTES = 5;
 
 export const TIMER_HINT_AFTER_MINUTES = 720;
@@ -36,7 +34,6 @@ const later = (a: Temporal.Instant, b: Temporal.Instant) =>
 const earlier = (a: Temporal.Instant, b: Temporal.Instant) =>
 	Temporal.Instant.compare(a, b) <= 0 ? a : b;
 
-// both sides are free of overlaps (exclusion constraints), so no piece is counted twice
 const overlaps = (a: readonly Span[], b: readonly Span[]): Span[] =>
 	a.flatMap((x) =>
 		b.flatMap((y) => {
@@ -51,16 +48,13 @@ export const projectCoverage = (
 	workSpans: readonly EntrySpan[],
 	{ now, timeZone }: { now: Temporal.Instant; timeZone: string }
 ): Coverage => {
-	// summarizeWorkday closes running spans with now and throws on a span from another workday
 	const projectMinutes = summarizeWorkday(projectSpans, now, timeZone).workedMinutes;
 	const workedMinutes = summarizeWorkday(workSpans, now, timeZone).workedMinutes;
 	const projects = projectSpans.map(({ start, end }) => ({ start, end: end ?? now }));
 	const work = workSpans.map(({ start, end }) => ({ start, end: end ?? now }));
 
-	// covered is rounded once and the rest derived, so the minutes always add up exactly
 	const coveredMinutes = wholeMinutes(overlaps(projects, work));
 	const outsideMinutes = projectMinutes - coveredMinutes;
-	// empty marks at the ends of the instant range turn before and after work into gaps too
 	const offWork = gapsBetween([
 		{ start: EARLIEST, end: EARLIEST },
 		...work,

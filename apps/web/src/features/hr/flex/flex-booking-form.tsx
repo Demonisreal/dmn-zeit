@@ -21,7 +21,6 @@ import styles from '../ui/page.module.css';
 
 const fields = createFlexBookingSchema.shape;
 
-// the second pass runs the shared refine, which wants a payout to lower the balance
 const schema = z
 	.object({
 		type: fields.type,

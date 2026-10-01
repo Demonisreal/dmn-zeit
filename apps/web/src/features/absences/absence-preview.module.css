@@ -111,7 +111,6 @@
 	white-space: nowrap;
 }
 
-/* days without target time stay listed for their reason, but step back */
 .days .off td,
 .days .off td[data-numeric] {
 	color: var(--muted);

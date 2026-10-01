@@ -57,7 +57,6 @@ export const holidayCodes = [
 ] as const;
 export type HolidayCode = (typeof holidayCodes)[number];
 
-// opt-in for holidays kept only locally: corpus christi in SN/TH, assumption day in BY, augsburg
 export const optionalHolidays = ['corpus_christi', 'augsburg_peace', 'assumption_day'] as const;
 export type OptionalHoliday = (typeof optionalHolidays)[number];
 
@@ -67,7 +66,6 @@ export type FlexCapMode = (typeof flexCapModes)[number];
 export const tenantKinds = ['live', 'sandbox'] as const;
 export type TenantKind = (typeof tenantKinds)[number];
 
-// same check as the db: only days every year has, so no 02-29
 const monthDaySchema = z
 	.string()
 	.regex(
@@ -92,7 +90,6 @@ export const tenantSchema = z.object({
 	expiresAt: instantSchema.nullable()
 });
 
-// workspace stays out on purpose: a company never turns into a solo workspace or back
 export const updateTenantSchema = z
 	.object({
 		name: plainText(120),

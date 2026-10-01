@@ -8,9 +8,7 @@ type Entry = {
 	to: NonNullable<LinkProps['to']>;
 	label: keyof Resources['nav'];
 	role: Role;
-	// without it the entry shows in both workspaces
 	workspace?: WorkspaceKind;
-	// detail pages that live outside the entry's own path but belong to it
 	match?: string;
 };
 

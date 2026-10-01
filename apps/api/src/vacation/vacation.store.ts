@@ -56,7 +56,6 @@ export type NewNotice = {
 type NoticeFilter = {
 	year?: number;
 	ids?: readonly string[];
-	// without it everything rls lets through, e.g. for hr
 	visibleTo?: { employeeId: string | null; leads: boolean };
 	after?: Cursor;
 	limit?: number;
@@ -135,7 +134,6 @@ export class VacationStore {
 		};
 	}
 
-	// rls leaves exactly the tenant of the context
 	async calendar(trx: Trx): Promise<LeaveCalendar> {
 		const tenant = await trx
 			.selectFrom('app.tenants')
@@ -209,7 +207,6 @@ export class VacationStore {
 		return (await this.pendingByEmployee(trx, [employeeId])).get(employeeId) ?? '0.00';
 	}
 
-	// open requests are not in the ledger yet, approving books them
 	async pendingByEmployee(trx: Trx, employeeIds: readonly string[]): Promise<Map<string, string>> {
 		if (employeeIds.length === 0) return new Map();
 		const rows = await trx
@@ -227,30 +224,26 @@ export class VacationStore {
 
 	async book(trx: Trx, entries: NewLedgerEntry[]): Promise<LedgerEntry[]> {
 		if (entries.length === 0) return [];
-		return (
-			trx
-				.insertInto('app.vacation_ledger')
-				.values(
-					entries.map((entry) => ({
-						// withTenant already named the tenant, the policies compare against the same function
-						tenant_id: sql<string>`app.tenant_id()`,
-						employee_id: entry.employeeId,
-						bucket_year: entry.bucketYear,
-						entry_type: entry.entryType,
-						days: entry.days,
-						effective_date: entry.effectiveDate,
-						absence_id: entry.absenceId ?? null,
-						notice_id: entry.noticeId ?? null,
-						reason: entry.reason ?? null,
-						dedupe_key: entry.dedupeKey ?? null,
-						created_by: entry.createdBy
-					}))
-				)
-				// a job running twice for the same bucket finds its key already taken and books nothing
-				.onConflict((conflict) => conflict.columns(['tenant_id', 'dedupe_key']).doNothing())
-				.returning(ledgerColumns)
-				.execute()
-		);
+		return trx
+			.insertInto('app.vacation_ledger')
+			.values(
+				entries.map((entry) => ({
+					tenant_id: sql<string>`app.tenant_id()`,
+					employee_id: entry.employeeId,
+					bucket_year: entry.bucketYear,
+					entry_type: entry.entryType,
+					days: entry.days,
+					effective_date: entry.effectiveDate,
+					absence_id: entry.absenceId ?? null,
+					notice_id: entry.noticeId ?? null,
+					reason: entry.reason ?? null,
+					dedupe_key: entry.dedupeKey ?? null,
+					created_by: entry.createdBy
+				}))
+			)
+			.onConflict((conflict) => conflict.columns(['tenant_id', 'dedupe_key']).doNothing())
+			.returning(ledgerColumns)
+			.execute();
 	}
 
 	async employees(trx: Trx, ids: readonly string[]): Promise<Map<string, EmployeeRef>> {
@@ -263,7 +256,6 @@ export class VacationStore {
 		return new Map(rows.map((row) => [row.id, row]));
 	}
 
-	// app.users is closed to employees, the definer function hands out display names only
 	async userNames(trx: Trx, ids: readonly (string | null)[]): Promise<Map<string, string>> {
 		const wanted = [...new Set(ids.filter((id): id is string => id !== null))];
 		if (wanted.length === 0) return new Map();
@@ -302,13 +294,11 @@ export class VacationStore {
 		return new Map(rows.map((row) => [row.employee_id, row.days]));
 	}
 
-	// sent_at comes from the database clock, so "today" has to come from there too
 	async notifiedToday(
 		trx: Trx,
 		year: number,
 		employeeIds: readonly string[]
 	): Promise<Set<string>> {
-		// a double click sends two batches at once, the second has to wait and see the first
 		await sql`
 			select pg_advisory_xact_lock(
 				hashtextextended('vacation_notices ' || app.tenant_id()::text, 0))`.execute(trx);
@@ -400,7 +390,6 @@ export class VacationStore {
 		}));
 	}
 
-	// false when the notice is not one's own or was acknowledged before
 	async acknowledge(trx: Trx, id: string, employeeId: string): Promise<boolean> {
 		const updated = await trx
 			.updateTable('app.vacation_notices')

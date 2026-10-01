@@ -37,7 +37,6 @@ export function UsersPage({ selfId }: Props) {
 	const [closed, setClosed] = useState(false);
 	const [invited, setInvited] = useState<string>();
 	const [editing, setEditing] = useState<string | null>(null);
-	// the row's edit button is rebuilt after editing and takes the focus back
 	const [edited, setEdited] = useState<string | null>(null);
 	const users = useQuery(usersQuery);
 	const employees = useQuery(employeesQuery(true));

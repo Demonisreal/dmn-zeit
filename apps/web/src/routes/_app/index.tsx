@@ -17,12 +17,10 @@ export const Route = createFileRoute('/_app/')({
 		const { employeeId } = context.session.user;
 		if (!employeeId) return;
 		const monday = mondayOf(deps.week ?? todayIso());
-		// a solo workspace has no clock, its start page is the project week
 		const week =
 			context.session.tenant.workspace === 'solo'
 				? context.queryClient.prefetchQuery(projectWeekQuery(employeeId, monday))
 				: context.queryClient.prefetchQuery(daysQuery(employeeId, monday, addDays(monday, 6)));
-		// a step to another week shows the old one dimmed instead of holding back the click
 		return cause === 'stay' ? undefined : week;
 	},
 	staticData: { title: 'week' },

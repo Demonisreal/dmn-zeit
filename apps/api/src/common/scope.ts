@@ -4,7 +4,6 @@ import { sql } from 'kysely';
 import type { Trx } from '../db/database';
 import type { AuthSession } from './session.guard';
 
-// needs the trx of withTenant, app.leads reads the lead from app.user_id; RLS checks the same again
 export async function assertCanSee(
 	trx: Trx,
 	session: AuthSession,

@@ -16,27 +16,23 @@ import { Database, type Trx } from '../db/database';
 import type { AppContracts } from '../db/schema.generated';
 import { minutesOf } from './work-models.service';
 
-// the same day the contract policy compares with
 export const today = sql<string>`(now() at time zone 'Europe/Berlin')::date`;
 
 function selectEmployees(trx: Trx) {
-	return (
-		trx
-			.selectFrom('app.employees as e')
-			// team leads may not read the users of others, for them the link stays empty
-			.leftJoin('app.users as u', 'u.employee_id', 'e.id')
-			.select([
-				'e.id',
-				'e.personnel_no',
-				'e.first_name',
-				'e.last_name',
-				'e.team_id',
-				'u.id as user_id',
-				'e.entry_date',
-				'e.exit_date',
-				'e.closed_through'
-			])
-	);
+	return trx
+		.selectFrom('app.employees as e')
+		.leftJoin('app.users as u', 'u.employee_id', 'e.id')
+		.select([
+			'e.id',
+			'e.personnel_no',
+			'e.first_name',
+			'e.last_name',
+			'e.team_id',
+			'u.id as user_id',
+			'e.entry_date',
+			'e.exit_date',
+			'e.closed_through'
+		]);
 }
 
 type EmployeeRow = InferResult<ReturnType<typeof selectEmployees>>[number];
@@ -78,7 +74,6 @@ export class EmployeesService {
 		const rows = await this.db.withTenant(session, (trx) =>
 			selectEmployees(trx)
 				.$if(!!query.team, (qb) => qb.where('e.team_id', '=', query.team!))
-				// leaving at the end of the month means still here until that day is over
 				.$if(!query.includeExited, (qb) =>
 					qb.where((eb) => eb.or([eb('e.exit_date', 'is', null), eb('e.exit_date', '>=', today)]))
 				)
@@ -173,7 +168,6 @@ export class EmployeesService {
 
 	removeContract(session: AuthSession, employeeId: string, contractId: string): Promise<void> {
 		return this.db.withTenant(session, async (trx) => {
-			// row security only lets contracts go that have not started, the one from the entry date stays
 			const { numDeletedRows } = await trx
 				.deleteFrom('app.contracts as c')
 				.where('c.id', '=', contractId)

@@ -9,7 +9,6 @@ import { todayIso } from '../../lib/dates';
 
 const searchSchema = z.object({ week: isoDateSchema.optional().catch(undefined) });
 
-// every role books project time, a solo workspace already has the week on its start page
 export const Route = createFileRoute('/_app/projects')({
 	validateSearch: searchSchema,
 	beforeLoad: ({ context }) => requireWorkspace(context.session, 'company'),

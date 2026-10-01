@@ -73,7 +73,6 @@ export class VacationService {
 				year,
 				Temporal.PlainDate.compare(today, newYearsEve) < 0 ? today : newYearsEve
 			);
-			// older buckets only while days are left in them, kept for lack of a notice
 			const buckets = bucketsOf(entries, notices, carryoverUntil, today).filter(
 				(bucket) => bucket.year <= year && (bucket.year >= year - 1 || !isZero(bucket.remaining))
 			);
@@ -145,7 +144,6 @@ export class VacationService {
 		const { sent, skipped, mails } = await this.db.withTenant(session, async (trx) => {
 			const { carryoverUntil } = await this.store.calendar(trx);
 			const deadline = deadlineOf(input.bucketYear, carryoverUntil);
-			// a notice has to leave time to take the days, one after the deadline cannot do that
 			if (Temporal.PlainDate.compare(deadline, today) < 0) {
 				throw new ConflictException({
 					code: 'INVALID_STATE',
@@ -180,7 +178,6 @@ export class VacationService {
 			if (employeeIds.length === 0) return { sent: [], skipped, mails: [] };
 
 			const remaining = await this.store.remainingIn(trx, input.bucketYear, employeeIds);
-			// an overdrawn bucket has nothing left to forfeit, the notice then says zero
 			const left = (id: string) => {
 				const days = parseDecimal(remaining.get(id) ?? '0');
 				return toDecimal(compare(days, fraction(0)) > 0 ? days : fraction(0), 2);

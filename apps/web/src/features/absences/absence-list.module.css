@@ -6,7 +6,6 @@
 	min-width: 12rem;
 }
 
-/* stands in for the type column once that is gone */
 .type {
 	display: none;
 	margin-bottom: 0.25rem;
@@ -59,7 +58,6 @@
 	white-space: nowrap;
 }
 
-/* the row action sits at the far edge, below the status once the column gets narrow */
 .state {
 	display: flex;
 	flex-wrap: wrap;
@@ -77,7 +75,6 @@
 	white-space: normal;
 }
 
-/* the same step at which the table drops its mid columns */
 @container (max-width: 38rem) {
 	.period {
 		min-width: 0;
@@ -88,7 +85,6 @@
 		display: block;
 	}
 
-	/* a range across two months breaks at its dash rather than pushing the row action out */
 	.dates,
 	.decided {
 		white-space: normal;

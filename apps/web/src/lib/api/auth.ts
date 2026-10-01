@@ -35,7 +35,6 @@ export const sessionQuery = queryOptions({
 		try {
 			return await request('/auth/session', { schema: sessionSchema });
 		} catch (err) {
-			// 401 is the normal answer for a visitor, not a failure
 			if (err instanceof ApiRequestError && err.status === 401) return null;
 			throw err;
 		}
@@ -61,7 +60,6 @@ export const inspectInvitation = (token: string) =>
 		schema: invitationSchema
 	});
 
-// the api answers with the setup session, an older build with 204 and the invitee signs in after
 export const acceptInvitation = (input: AcceptInvitationInput) =>
 	request('/auth/invitations/accept', {
 		method: 'POST',

@@ -47,25 +47,21 @@ export type BucketState = {
 	deadline: Temporal.PlainDate;
 	notice: NoticeRow | null;
 	expiry: Expiry;
-	// what allocate gets to see of this bucket
 	payable: Bucket;
 };
 
 const zero = fraction(0);
 
-// the tenant is pinned to Europe/Berlin, so is every "today" of the leave rules
 export function berlinToday(now: Date): Temporal.PlainDate {
 	return Temporal.Instant.fromEpochMilliseconds(now.getTime())
 		.toZonedDateTimeISO('Europe/Berlin')
 		.toPlainDate();
 }
 
-// carry-over runs into the following year, carryoverUntil is a month-day like 03-31
 export function deadlineOf(year: number, carryoverUntil: string): Temporal.PlainDate {
 	return Temporal.PlainDate.from(`${year + 1}-${carryoverUntil}`);
 }
 
-// pg drops trailing zeros of the microseconds, so stamps compare as instants, never as text
 export function instantOf(stamp: string): Temporal.Instant {
 	return Temporal.Instant.from(stamp);
 }
@@ -98,7 +94,6 @@ function judge(
 	const expiry = expiryDecision({ year, remaining, deadline }, told, today);
 	const until =
 		told && Temporal.PlainDate.compare(told.deadline, deadline) > 0 ? told.deadline : deadline;
-	// days kept for lack of a notice stay usable past the deadline, allocate draws on them last
 	const payable: Bucket = { year, remaining, deadline: expiry.kind === 'keep' ? null : until };
 	return { deadline, expiry, payable };
 }
@@ -134,14 +129,12 @@ export function bucketsOf(
 	});
 }
 
-// a bucket past its deadline with a notice is gone even before the expiry job books it
 export function usableDays(buckets: readonly BucketState[]): Fraction {
 	return buckets
 		.filter((bucket) => bucket.expiry.kind !== 'forfeit')
 		.reduce((sum, bucket) => add(sum, bucket.remaining), zero);
 }
 
-// what the entries of one absence still hold per bucket, taken minus everything given back
 export function heldPerYear(own: readonly LedgerEntry[]): Map<number, Fraction> {
 	const held = new Map<number, Fraction>();
 	for (const entry of own) {
@@ -161,8 +154,6 @@ export function perYear(allocations: readonly Allocation[]): Map<number, Fractio
 	return years;
 }
 
-// what approving costs each bucket; a day no bucket can pay counts against its own year, so an
-// entitlement booked later still evens it out
 export function charge(
 	days: readonly TakenDay[],
 	buckets: readonly Bucket[]
@@ -181,8 +172,6 @@ export function charge(
 	return years;
 }
 
-// the ledger keeps one row per bucket, not per day: which bucket paid which day is replayed with
-// the capacities this absence still holds and the deadlines as they stood on the day of approval
 export function paidBy(
 	days: readonly TakenDay[],
 	own: readonly LedgerEntry[],

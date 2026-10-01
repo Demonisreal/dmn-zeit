@@ -106,7 +106,6 @@ export const setTeamLeads = (id: string, userIds: string[]) =>
 export const noticesQuery = (year: number) =>
 	infiniteQueryOptions({
 		queryKey: ['vacation-notices', year],
-		// the table shows each person's newest notice, a short first page would hide some
 		queryFn: ({ pageParam }) =>
 			request(withSearch('/vacation/notices', { year, cursor: pageParam, limit: 200 }), {
 				schema: vacationNoticePageSchema

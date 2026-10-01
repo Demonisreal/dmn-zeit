@@ -15,7 +15,6 @@ const labels = {
 	en: { added: 'Added', before: 'Before', now: 'Now', voided: 'Removed', open: 'still running' }
 } satisfies Record<Locale, Record<string, string>>;
 
-// built by hand, formatRange puts different spaces and an "Uhr" in depending on the ICU version
 function moment(at: string, locale: Locale) {
 	const instant = new Date(at);
 	const tag = locale === 'en' ? 'en-GB' : 'de-DE';

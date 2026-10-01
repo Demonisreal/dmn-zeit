@@ -28,7 +28,6 @@ export function TotpSection({ hasTotp, onCodes }: Props) {
 		onSuccess: async () => {
 			setConfirming(false);
 			await refresh();
-			// the remove button is gone now, the setup takes its place
 			heading.current?.focus();
 		}
 	});
@@ -55,7 +54,6 @@ export function TotpSection({ hasTotp, onCodes }: Props) {
 					onConfirmed={async (recoveryCodes) => {
 						if (recoveryCodes.length > 0) onCodes(recoveryCodes);
 						await refresh();
-						// fresh codes take the focus themselves
 						if (recoveryCodes.length === 0) heading.current?.focus();
 					}}
 				/>

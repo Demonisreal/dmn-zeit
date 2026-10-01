@@ -8,28 +8,23 @@ export type Trx = Transaction<DB>;
 
 export type TenantContext = {
 	tenantId: string;
-	// null only for the cli, the trail then shows no person as actor
 	userId: string | null;
 	role: Role;
 	employeeId: string | null;
 	requestId: string;
 };
 
-// under TimeZone=UTC pg prints "2026-09-24 08:15:00.123456+00", the api speaks ISO 8601
 export function isoInstant(text: string): string {
 	return text.replace(' ', 'T').replace(/\+00$/, 'Z');
 }
 
 const parsers = new TypeOverrides();
-// a js Date would drop the microseconds, numeric already arrives as text; codegen types match this
 parsers.setTypeParser(types.builtins.TIMESTAMPTZ, isoInstant);
 parsers.setTypeParser(types.builtins.DATE, (text) => text);
 
-// a burst of requests queues in the api instead of flooding postgres with connections
 export const POOL = { max: 10, connectionTimeoutMillis: 5_000, idleTimeoutMillis: 30_000 };
 
 export class Database extends Kysely<DB> implements OnApplicationShutdown {
-	// the sandbox functions read app.demo_mode and refuse to seed anywhere else
 	constructor(url: string, demo = false) {
 		const pool = new Pool({
 			...POOL,
@@ -37,14 +32,12 @@ export class Database extends Kysely<DB> implements OnApplicationShutdown {
 			types: parsers,
 			options: `-c TimeZone=UTC -c app.demo_mode=${demo}`
 		});
-		// an idle client losing its connection would otherwise take the whole process down
 		pool.on('error', (error) => new Logger(Database.name).warn(`Idle client: ${error.message}`));
 		super({ dialect: new PostgresDialect({ pool }) });
 	}
 
 	withTenant<T>(ctx: TenantContext, work: (trx: Trx) => Promise<T>): Promise<T> {
 		return this.transaction().execute(async (trx) => {
-			// is_local, so nothing of it outlives the transaction in the pooled connection
 			await sql`select set_config('app.tenant_id', ${ctx.tenantId}, true),
 				set_config('app.user_id', ${ctx.userId ?? ''}, true),
 				set_config('app.role', ${ctx.role}, true),

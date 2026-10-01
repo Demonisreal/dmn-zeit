@@ -8,7 +8,6 @@ import { MonthsStore } from './months.store';
 	imports: [TimeModule],
 	controllers: [MonthsController],
 	providers: [MonthsStore, MonthsService],
-	// exports read closed months from the snapshot and open ones from the same figures as the close
 	exports: [MonthsStore, MonthsService]
 })
 export class MonthsModule {}

@@ -32,7 +32,6 @@ export const absenceStatuses = [
 ] as const;
 export type AbsenceStatus = (typeof absenceStatuses)[number];
 
-// used by preview and create, the preview answers what the request would cost
 export const createAbsenceSchema = z
 	.object({
 		employeeId: uuidSchema,
@@ -56,7 +55,6 @@ export const absencePreviewSchema = z.object({
 	days: z.array(
 		z.object({
 			date: isoDateSchema,
-			// 0 marks a day without target time, it stays in the list for the explanation
 			portion: z.literal([0, 0.5, 1]),
 			targetMinutes: z.int().min(0),
 			vacationDays: dayCountSchema,
@@ -86,12 +84,9 @@ export const absenceSchema = z.object({
 	decidedBy: userRefSchema.nullable(),
 	decidedAt: instantSchema.nullable(),
 	decisionNote: z.string().nullable(),
-	// only for sick leave: hr confirms the certificate, that books vacation back under § 9 BUrlG
 	sickNote: z.object({ confirmedAt: instantSchema, confirmedBy: userRefSchema }).nullable(),
 	createdAt: instantSchema,
-	// the rest only comes with the inbox scope
 	remainingAfter: dayCountSchema.nullable().optional(),
-	// no type, the approver learns who else is away but not why
 	concurrentAbsences: z
 		.array(
 			z.object({ employee: employeeRefSchema, startDate: isoDateSchema, endDate: isoDateSchema })
@@ -139,7 +134,6 @@ export const teamCalendarSchema = z.object({
 				z.object({
 					date: isoDateSchema,
 					portion: portionSchema,
-					// employees only learn that a colleague is away, not why
 					type: z.enum([...absenceTypes, 'absent']),
 					status: z.enum(['pending', 'approved', 'cancel_pending']).nullable()
 				})

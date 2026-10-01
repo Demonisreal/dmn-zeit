@@ -7,7 +7,6 @@ import type { DateRange } from '../time/time.store';
 
 @Injectable()
 export class ComplianceStore {
-	// hr reviews the whole tenant, a lead only the led teams; people not employed in the range stay out
 	async reviewable(trx: Trx, reader: AuthSession, range: DateRange): Promise<string[]> {
 		let select = trx
 			.selectFrom('app.employees')

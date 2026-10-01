@@ -26,7 +26,6 @@ export function TeamLeadsForm({ team, employees, onDone }: Props) {
 	const queryClient = useQueryClient();
 	const [chosen, setChosen] = useState(team.leads.map((lead) => lead.id));
 
-	// leads are accounts, not personnel records; a lead without a record stays choosable
 	const candidates = new Map<string, string>();
 	for (const employee of employees) {
 		if (employee.userId) candidates.set(employee.userId, fullName(employee));

@@ -44,7 +44,6 @@ export type NewSession = {
 
 type UserContext = TenantContext & { userId: string };
 
-// zeit_app has no grant on the auth tables, everything goes through the security definer functions
 @Injectable()
 export class AuthStore {
 	constructor(private readonly db: Database) {}
@@ -61,12 +60,10 @@ export class AuthStore {
 		await sql`select auth.login_failed(${userId})`.execute(this.db);
 	}
 
-	// swaps the hash only while it is still the one that was checked, every session stays
 	async rehash(userId: string, oldHash: string, newHash: string): Promise<void> {
 		await sql`select auth.password_rehash(${userId}, ${oldHash}, ${newHash})`.execute(this.db);
 	}
 
-	// someone else in the tenant, as an admin sees them
 	async person(
 		ctx: TenantContext,
 		userId: string
@@ -96,7 +93,6 @@ export class AuthStore {
 	}
 
 	async resolveSession(tokenHash: Buffer): Promise<SessionRow | undefined> {
-		// a confirmation with password and second factor holds for ten minutes
 		const { rows } = await sql<SessionRow>`
 			select session_id as id, user_id as "userId", tenant_id as "tenantId", role, workspace,
 				employee_id as "employeeId", csrf_hash as "csrfHash",
@@ -176,7 +172,6 @@ export class AuthStore {
 		});
 	}
 
-	// the lifetime comes from the database: 7 days for invitations, 30 minutes for resets
 	async issueToken(userId: string, kind: TokenKind, tokenHash: Buffer): Promise<void> {
 		await sql`select auth.token_issue(${userId}, ${kind}::auth.token_kind, ${tokenHash})`.execute(
 			this.db
@@ -191,7 +186,6 @@ export class AuthStore {
 		return rows[0];
 	}
 
-	// token, new password and the end of every session in one statement
 	async resetPassword(tokenHash: Buffer, passwordHash: string): Promise<string | null> {
 		const { rows } = await sql<{ userId: string | null }>`
 			select auth.password_reset(${tokenHash}, ${passwordHash}) as "userId"`.execute(this.db);
@@ -211,7 +205,6 @@ export class AuthStore {
 		});
 	}
 
-	// ends every session of the person, this one included
 	changePassword(ctx: UserContext, passwordHash: string): Promise<void> {
 		return this.db.withTenant(ctx, async (trx) => {
 			await sql`select auth.password_change(${passwordHash})`.execute(trx);

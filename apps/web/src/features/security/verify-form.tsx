@@ -21,7 +21,6 @@ import { ErrorNotice } from './error-notice';
 import { signWithPasskey } from './passkey';
 import css from './security.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<'flow' | 'text' | 'actions' | 'aside' | 'switch', string>;
 
 type Factor = { method: 'totp' | 'recovery'; code: string } | { method: 'passkey' };
@@ -32,7 +31,6 @@ async function sendFactor(factor: Factor) {
 	return verifyMfaPasskey(await signWithPasskey(await mfaPasskeyOptions()));
 }
 
-// someone who typed a password most likely has no passkey at hand, recovery is the last resort
 const preference: MfaMethod[] = ['totp', 'passkey', 'recovery'];
 
 type Props = {
@@ -57,7 +55,6 @@ export function VerifyForm({ methods, next }: Props) {
 		}
 	});
 
-	// the pending sign-in lives 5 minutes and 5 attempts in a cookie, after that only a restart helps
 	if (hasCode(verify.error, 'UNAUTHENTICATED')) {
 		return (
 			<div className={styles.flow}>

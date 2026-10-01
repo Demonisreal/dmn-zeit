@@ -8,7 +8,6 @@ export function HrNav() {
 			label={t('nav.label')}
 			entries={[
 				{ to: '/hr', label: t('nav.people'), exact: true, match: '/hr/people' },
-				// month-end work right after people and in the order it gets done, so phones see it first
 				{ to: '/hr/findings', label: t('nav.findings') },
 				{ to: '/hr/months', label: t('nav.months') },
 				{ to: '/hr/exports', label: t('nav.exports') },

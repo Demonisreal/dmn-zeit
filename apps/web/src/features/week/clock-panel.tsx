@@ -18,7 +18,6 @@ const actions: Record<ClockState, { primary: ClockAction; secondary?: ClockActio
 	on_break: { primary: 'resume', secondary: 'out' }
 };
 
-// workedMinutes counts the open entry up to the moment the clock was read
 const liveMinutes = (clock: Clock, readAt: number, now: number) =>
 	clock.state === 'working' ? clock.workedMinutes + minutesSince(readAt, now) : clock.workedMinutes;
 

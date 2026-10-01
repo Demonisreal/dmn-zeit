@@ -14,7 +14,6 @@ type Props = {
 export function CorrectionSection({ day, employeeId }: Props) {
 	const { t } = useTranslation('week');
 	const [mode, setMode] = useState<'idle' | 'form' | 'sent'>('idle');
-	// focus goes back to the button once the form closes, not on first render
 	const [closed, setClosed] = useState(false);
 
 	if (mode === 'form') {

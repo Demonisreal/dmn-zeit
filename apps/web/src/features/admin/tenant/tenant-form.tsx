@@ -27,7 +27,6 @@ import css from './tenant-form.module.css';
 const styles = css as Record<'group' | 'label' | 'options' | 'cap', string>;
 const fields = updateTenantSchema.required().shape;
 
-// people type 31.03., the api stores 03-31
 const carryover = z.string().transform((text) => {
 	const match = /^(\d{1,2})\.(\d{1,2})\.?$/.exec(text.trim());
 	return match ? `${match[2]!.padStart(2, '0')}-${match[1]!.padStart(2, '0')}` : text;

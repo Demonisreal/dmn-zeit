@@ -64,7 +64,6 @@ export class TeamsService {
 
 	setLeads(session: AuthSession, id: string, input: TeamLeadsInput): Promise<Team> {
 		return this.db.withTenant(session, async (trx) => {
-			// a second replacement running at the same time would otherwise mix both lists
 			const team = await trx
 				.selectFrom('app.teams')
 				.select('id')
@@ -75,7 +74,6 @@ export class TeamsService {
 
 			await trx.deleteFrom('app.team_leads').where('team_id', '=', id).execute();
 			if (input.userIds.length > 0) {
-				// app.leads looks at this table only, assertCanSee also wants the role
 				const leads = await trx
 					.selectFrom('app.users')
 					.select('id')

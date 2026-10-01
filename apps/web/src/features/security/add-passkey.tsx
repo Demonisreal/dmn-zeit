@@ -30,7 +30,6 @@ export function AddPasskey({ onCreated, onCancel }: Props) {
 	});
 
 	const create = useMutation({ mutationFn: createPasskey, onSuccess: onCreated });
-	// the browser prompt and the upload are split, so a step-up in between does not ask twice
 	const register = useMutation({
 		mutationFn: async ({ name }: RenamePasskeyInput) => ({
 			name,
@@ -52,7 +51,6 @@ export function AddPasskey({ onCreated, onCancel }: Props) {
 					register.mutate(input);
 				})}
 			>
-				{/* opened on demand on the security page, in the setup flow it is there from the start */}
 				<FormField
 					control={control}
 					name="name"

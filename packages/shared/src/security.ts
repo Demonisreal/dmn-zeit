@@ -1,13 +1,11 @@
 import { z } from 'zod';
 import { instantSchema, plainText, uuidSchema } from './common';
 
-// authenticator apps show the code as "123 456"
 export const totpCodeSchema = z
 	.string()
 	.transform((code) => code.replace(/\s/g, ''))
 	.pipe(z.string().regex(/^\d{6}$/, 'format.totp'));
 
-// handed out as ABCDE-FGH23, accepted with or without dash and spaces, in any case
 export const recoveryCodeSchema = z
 	.string()
 	.transform((code) => code.replace(/[\s-]/g, '').toUpperCase())
@@ -15,7 +13,6 @@ export const recoveryCodeSchema = z
 
 const issuedRecoveryCode = z.string().regex(/^[A-Z2-7]{5}-[A-Z2-7]{5}$/);
 
-// the api verifies these with @simplewebauthn/server, here only the outer shape is fixed
 const base64url = z.string().regex(/^[A-Za-z0-9_-]+$/);
 
 export const registrationResponseSchema = z.looseObject({
@@ -85,12 +82,10 @@ export const securityOverviewSchema = z.object({
 
 export const totpSetupSchema = z.object({
 	otpauthUri: z.string().startsWith('otpauth://totp/'),
-	// 20 bytes in base32, for apps that cannot scan
 	secret: z.string().regex(/^[A-Z2-7]{32}$/),
 	qrSvg: z.string()
 });
 
-// empty unless this was the first factor, the codes are only ever shown once
 export const recoveryCodesSchema = z.object({
 	recoveryCodes: z.array(issuedRecoveryCode).max(10)
 });

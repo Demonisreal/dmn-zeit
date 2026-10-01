@@ -23,7 +23,6 @@ const rejectForm = z.object({
 });
 
 type Props = {
-	// names the request for screen readers, the buttons alone say nothing about which one
 	label: string;
 	approveLabel?: string | undefined;
 	rejectLabel?: string | undefined;
@@ -32,14 +31,7 @@ type Props = {
 	onDone: (outcome: 'approved' | 'rejected') => void;
 };
 
-export function Decision({
-	label,
-	approveLabel,
-	rejectLabel,
-	onApprove,
-	onReject,
-	onDone
-}: Props) {
+export function Decision({ label, approveLabel, rejectLabel, onApprove, onReject, onDone }: Props) {
 	const { t } = useTranslation(['inbox', 'common']);
 	const [rejecting, setRejecting] = useState(false);
 	const rejectButton = useRef<HTMLButtonElement>(null);

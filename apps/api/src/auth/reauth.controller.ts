@@ -10,7 +10,6 @@ import { ZodPipe } from '../common/zod.pipe';
 import { MfaService } from './mfa.service';
 import { WebAuthn } from './webauthn';
 
-// step-up: password with an authenticator code, or a passkey; recovery codes do not count here
 @Throttle({ default: { limit: 10, ttl: minutes(1) } })
 @Controller('auth/reauth')
 export class ReauthController {

@@ -5,7 +5,6 @@ import { request } from '../../lib/api/client';
 import { todayIso } from '../../lib/dates';
 import { absencesQuery } from '../absences/api';
 
-// only scope=inbox may go without a range, everything else needs one of at most 366 days
 export function inboxRange() {
 	const today = parseDate(todayIso());
 	return { from: today.subtract({ days: 365 }).toString(), to: today.toString() };

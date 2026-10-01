@@ -3,7 +3,6 @@ import { formatClock, listFormat } from '../../i18n/format';
 import styles from './day-bar.module.css';
 
 export type DaySpan = {
-	// minutes after local midnight, to runs past 1440 when a shift ends the next day
 	from: number;
 	to: number;
 	tone?: 'running' | 'violation';

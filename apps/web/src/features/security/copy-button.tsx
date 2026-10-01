@@ -23,7 +23,6 @@ export function CopyButton({ text, label }: Props) {
 			<Button onPress={() => void navigator.clipboard.writeText(text).then(() => setCopied(true))}>
 				{copied ? t('copied') : label}
 			</Button>
-			{/* a changed button label is not announced reliably, the status region is */}
 			<VisuallyHidden>
 				<span role="status">{copied ? t('copied') : ''}</span>
 			</VisuallyHidden>

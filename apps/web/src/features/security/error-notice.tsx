@@ -7,13 +7,11 @@ import { passkeyCancelled, passkeyExists } from './passkey';
 
 type Props = {
 	error: unknown;
-	// wording for codes that mean something specific at this spot, e.g. a wrong code
 	texts?: Partial<Record<ErrorCode, string>>;
 };
 
 export function ErrorNotice({ error, texts }: Props) {
 	const { t } = useTranslation(['security', 'common']);
-	// the step-up dialog opens instead, a message behind it would only repeat it
 	if (hasCode(error, 'REAUTH_REQUIRED')) return null;
 	if (passkeyCancelled(error)) return <Notice>{t('passkey.cancelled')}</Notice>;
 

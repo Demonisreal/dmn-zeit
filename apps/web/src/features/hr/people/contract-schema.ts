@@ -4,10 +4,8 @@ import { durationText, optionalDurationField } from '../duration';
 
 const contract = createContractSchema.shape;
 
-// shared by the new contract and the first contract of a new employee
 export const contractShape = {
 	workModelId: contract.workModelId,
-	// numeric(4,1) wants a dot, a German keyboard types a comma
 	vacationDaysYear: z
 		.string()
 		.transform((text) => text.trim().replace(',', '.'))
@@ -34,7 +32,6 @@ export const contractDefaults = (current: Contract | undefined): ContractValues 
 		current?.flexCapMinusMinutes == null ? '' : durationText(current.flexCapMinusMinutes)
 });
 
-// the contract valid on a day is the latest one that has started by then
 export const contractOn = (contracts: Contract[], day: string) =>
 	contracts
 		.filter((c) => c.validFrom <= day)

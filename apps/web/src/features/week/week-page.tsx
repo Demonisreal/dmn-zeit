@@ -92,7 +92,6 @@ function Week({ employeeId, monday, number, isDemo }: WeekProps) {
 		...daysQuery(employeeId, monday, addDays(monday, 6)),
 		placeholderData: keepPreviousData
 	});
-	// the balance of the running year as the api counts it, whichever week is shown
 	const flex = useQuery(flexQuery(employeeId, Number(today.slice(0, 4))));
 
 	if (!days.data) {
@@ -147,11 +146,9 @@ function Week({ employeeId, monday, number, isDemo }: WeekProps) {
 
 type DerivationProps = {
 	flex: FlexAccount;
-	// the last month counted, the month page stops at the month it shows
 	through: string;
 };
 
-// the api's sum spelled out, the december carry-over comes on top without a posting of its own
 export function FlexDerivation({ flex, through }: DerivationProps) {
 	const { t, i18n } = useTranslation(['week', 'hr']);
 	const months = flex.months.filter((month) => month.month <= through);

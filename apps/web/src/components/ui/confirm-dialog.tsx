@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from './button';
 import css from './dialog.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions', string>;
 
 type Props = {

@@ -53,7 +53,6 @@ export type AckRow = {
 	by: UserRef;
 };
 
-// everything the day engine needs about one person; entries reach one day past both ends of the range
 export type Sheet = {
 	employee: {
 		id: string;
@@ -90,7 +89,6 @@ const entryColumns = [
 	'voided_at as voidedAt'
 ] as const;
 
-// app.users is closed to leads, the definer function hands out names within the tenant
 export async function displayNames(
 	trx: Trx,
 	userIds: readonly string[]
@@ -103,7 +101,6 @@ export async function displayNames(
 
 @Injectable()
 export class TimeStore {
-	// one query per table however many people are asked for, rows the reader may not see are missing
 	async sheets(
 		trx: Trx,
 		employeeIds: readonly string[],
@@ -207,7 +204,6 @@ export class TimeStore {
 				requestId: day.id,
 				type: day.type,
 				status: day.status,
-				// numeric(2,1) arrives as '0.5' or '1.0'
 				portion: Number(day.portion) === 0.5 ? 0.5 : 1
 			});
 		}
@@ -267,7 +263,6 @@ export class TimeStore {
 		return query.orderBy('started_at').orderBy('id').limit(limit).execute();
 	}
 
-	// a shift still running from yesterday keeps its workday until it is stamped out
 	clockEntries(trx: Trx, employeeId: string, today: string): Promise<EntryRow[]> {
 		const running = trx
 			.selectFrom('app.time_entries')
@@ -285,7 +280,6 @@ export class TimeStore {
 			.execute();
 	}
 
-	// started_at stays on its default, the guard trigger takes nothing but now() for a stamp
 	async stamp(trx: Trx, ctx: TenantContext, employeeId: string): Promise<void> {
 		await trx
 			.insertInto('app.time_entries')
@@ -343,7 +337,6 @@ export class TimeStore {
 		}));
 	}
 
-	// the closings are hr only, the definer function hands out one balance per person
 	async checkpoints(
 		trx: Trx,
 		employeeIds: readonly string[],

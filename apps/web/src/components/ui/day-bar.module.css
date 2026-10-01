@@ -21,7 +21,6 @@
 	background: var(--red);
 }
 
-/* the gaps between the hours sit on top, the bar reads as segments like on the status page */
 .hours {
 	position: absolute;
 	inset: 0;

@@ -25,7 +25,6 @@ import {
 import css from './form.module.css';
 import { FormTime } from './time-field';
 
-// react-aria refuses className={undefined}, naming the classes keeps them plain strings
 const styles = css as Record<
 	| 'form'
 	| 'group'
@@ -91,7 +90,6 @@ export function CorrectionForm({ day, employeeId, onSent, onCancel }: Props) {
 		setValue('end', hhmm(entry?.endedAt));
 	};
 
-	// field issues already sit under their fields, everything else gets one line above the buttons
 	const refusal = (err: Error) => {
 		if (
 			hasCode(err, 'VALIDATION') &&

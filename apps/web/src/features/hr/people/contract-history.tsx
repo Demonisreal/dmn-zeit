@@ -40,7 +40,6 @@ export function ContractHistory({ employee, contracts, workModels }: Props) {
 		}
 	});
 
-	// the db only lets go of contracts that have not started and are not in a closed month
 	const removable = (contract: Contract) =>
 		contract.validFrom > today &&
 		(employee.closedThrough === null || contract.validFrom > employee.closedThrough);

@@ -38,7 +38,6 @@ const styles = css as Record<
 
 type Props = {
 	label: string;
-	// iso dates, both empty until a whole range is entered
 	start: string;
 	end: string;
 	onChange: (start: string, end: string) => void;

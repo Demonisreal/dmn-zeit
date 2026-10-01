@@ -21,7 +21,6 @@ import { SecurityService } from './security.service';
 
 const tight = { default: { limit: 10, ttl: minutes(1) } };
 
-// the own sign-in methods; setting up the first one is what an enrollment session is for
 @Controller('security')
 export class SecurityController {
 	constructor(private readonly security: SecurityService) {}

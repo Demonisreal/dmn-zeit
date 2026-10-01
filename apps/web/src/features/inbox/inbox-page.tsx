@@ -19,7 +19,6 @@ export function InboxPage({ role, employeeId }: Props) {
 	const heading = useRef<HTMLHeadingElement>(null);
 	const decided = (message: string) => {
 		setDone(message);
-		// the decided request leaves its list and takes the focused button with it
 		heading.current?.focus();
 	};
 	return (
@@ -32,7 +31,6 @@ export function InboxPage({ role, employeeId }: Props) {
 			{done && <Notice tone="success">{done}</Notice>}
 			<AbsenceRequests onDone={decided} />
 			<CorrectionRequests onDone={decided} />
-			{/* confirming a medical certificate books leave back, only hr may do that */}
 			{hasRole(role, 'hr') && <SickNotes employeeId={employeeId} onDone={decided} />}
 		</Page>
 	);

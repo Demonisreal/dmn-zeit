@@ -65,7 +65,6 @@ export function TeamGrid({ calendar, labelledBy, linkPeople }: Props) {
 		'data-monday': column.monday || undefined
 	});
 
-	// open on today plus three days ahead, scrollIntoView would scroll the page along with the grid
 	useLayoutEffect(() => {
 		const box = scroller.current;
 		if (!box) return;

@@ -14,7 +14,6 @@ type Props = {
 const minutesBetween = (from: string, to: string) =>
 	Math.round((Date.parse(to) - Date.parse(from)) / 60_000);
 
-// entries with the gaps between them, the gaps are what the break column adds up
 export function DayEntries({ day, now }: Props) {
 	const { t, i18n } = useTranslation('week');
 	const time = (instant: string) =>

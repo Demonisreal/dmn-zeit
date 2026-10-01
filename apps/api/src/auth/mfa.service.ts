@@ -63,7 +63,6 @@ export class MfaService {
 		this.pepper = config.get('PASSWORD_PEPPER', { infer: true });
 	}
 
-	// empty for someone without any second factor, their session then only reaches the setup
 	async methodsFor(userId: string): Promise<MfaMethod[]> {
 		const { hasTotp, passkeyCount, recoveryLeft } = await this.factors.factors(userId);
 		const methods: MfaMethod[] = [];
@@ -115,7 +114,6 @@ export class MfaService {
 		const session = await this.secondStep(request, response, client, 'recovery', ({ userId }) =>
 			this.factors.useRecoveryCode(userId, hashRecoveryCode(code, this.pepper))
 		);
-		// a code in the wrong hands looks just like this, so the person hears about every use
 		this.queue.later(() =>
 			this.mail.send({
 				tenantId: session.tenant.id,
@@ -137,7 +135,6 @@ export class MfaService {
 		);
 	}
 
-	// a passkey with user verification counts as both factors, no password needed
 	async passkeyLogin(
 		response: Response,
 		assertion: AuthenticationResponse,
@@ -148,7 +145,6 @@ export class MfaService {
 			if (found && !found.verified) await this.loginFailed(found, 'passkey', client);
 			throw new UnauthorizedException(wrongFactor);
 		}
-		// the lock counts guessed passwords and codes, none of which this login takes
 		return this.signIn(response, found.userId, client, 'passkey', true);
 	}
 
@@ -190,7 +186,6 @@ export class MfaService {
 		if (!scope) throw stepExpired();
 
 		if (!(await matches(scope))) {
-			// the password was right already, a wrong second factor counts towards the lock all the same
 			await this.store.loginFailed(scope.userId);
 			await this.loginFailed(scope, method, client);
 			throw new UnauthorizedException(wrongFactor);
@@ -223,7 +218,6 @@ export class MfaService {
 		return !!found?.verified && !found.cloned;
 	}
 
-	// nobody is signed in yet, so the entry has no actor
 	private loginFailed(scope: Scope, method: MfaMethod, client: Client) {
 		return this.audit.record({
 			tenantId: scope.tenantId,

@@ -19,7 +19,6 @@ body {
 	caret-color: var(--red);
 }
 
-/* grain under the content like on dmn-software.com */
 body::after {
 	content: '';
 	position: fixed;
@@ -118,7 +117,6 @@ samp {
 	}
 }
 
-/* the same names again without movement, so every opening still fades in */
 @media (prefers-reduced-motion: reduce) {
 	@keyframes pop {
 		from {

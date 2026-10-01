@@ -9,7 +9,6 @@ export const Route = createFileRoute('/_app/hr/months/$month')({
 		requireRole(context.session, 'hr');
 		if (!monthSchema.safeParse(params.month).success) throw notFound();
 	},
-	// reopening a closed month asks for the password again in a dialog
 	loader: () => i18n.loadNamespaces('security'),
 	component: MonthRoute
 });

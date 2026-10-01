@@ -36,7 +36,6 @@ export const correctionSchema = z.object({
 	id: uuidSchema,
 	employee: employeeRefSchema,
 	action: z.enum(correctionActions),
-	// the entry as it was before; null for add, open end while it is still running
 	target: z
 		.object({
 			entryId: uuidSchema,

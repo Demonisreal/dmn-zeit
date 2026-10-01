@@ -3,11 +3,9 @@ import { isoDateSchema, monthSchema, uuidSchema } from '@zeit/shared';
 import { z } from 'zod';
 import { TimePage } from '../../features/time/time-page';
 
-// employee lets the inbox or the team calendar open someone else's month
 const searchSchema = z.object({
 	month: monthSchema.optional().catch(undefined),
 	employee: uuidSchema.optional().catch(undefined),
-	// a finding links to its day, which then opens right away
 	day: isoDateSchema.optional().catch(undefined)
 });
 

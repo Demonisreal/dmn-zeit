@@ -29,14 +29,12 @@ export function TeamCalendarPage({ session, month, team, onSearch }: Props) {
 	const { t, i18n } = useTranslation('team');
 	const hr = hasRole(session.user.role, 'hr');
 	const teams = useQuery({ ...teamsQuery, enabled: hr });
-	// hr picks from every team, a team lead from the teams they lead, employees see their own
 	const options = hr ? (teams.data ?? []) : session.leadsTeams;
 	const selected = team ?? options[0]?.id;
 	const calendar = useQuery({
 		...teamCalendarQuery(month, selected),
 		enabled: !hr || !teams.isPending
 	});
-	// mirrors team_absence_days, a lead of another team only sees "absent" here
 	const full = hr || session.leadsTeams.some((led) => led.id === selected);
 
 	const body = () => {

@@ -357,7 +357,7 @@ seitdem verschickten Nummern werden neu vergeben.
 - Maßnahme: Runbook-Schritt nach jedem Restore: letzte Nummer je Mandant mit dem externen Stand
   aus R-05 (5.) abgleichen und den Zähler per `app.invoice_series_start` darüber setzen, vorher
   keine Ausstellung.
-- Ort: `deploy/README.md`, Restore-Kommentar in `deploy/live/backup.sh`.
+- Ort: `deploy/README.md`.
 - Priorität: sollte
 - Test: Restore-Test (monatlich, `docs/planung.md`, Betrieb): "Nach dem Restore ist der Zählerstand
   mit dem externen Stand abgeglichen und dokumentiert."

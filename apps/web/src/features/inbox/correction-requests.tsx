@@ -108,7 +108,6 @@ const same = (a: string | null, b: string | null) =>
 type SpanProps = {
 	start: string;
 	end: string | null;
-	// the state before, so the times that change stand out
 	before?: Correction['target'] | undefined;
 };
 

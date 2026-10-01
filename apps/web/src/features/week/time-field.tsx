@@ -14,7 +14,6 @@ type Props<T extends FieldValues, TOut> = {
 	label: string;
 };
 
-// the form keeps "08:15" as text, the segments only exist on screen
 export function FormTime<T extends FieldValues, TOut>({ control, name, label }: Props<T, TOut>) {
 	const { field: input, fieldState } = useController({ control, name });
 	const message = fieldState.error?.message;

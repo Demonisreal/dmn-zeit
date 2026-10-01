@@ -1,7 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 import type { DB } from '../db/schema.generated';
 
-// session lock on one pooled connection; while a deploy overlaps two containers only one runs the job
 export function withAdvisoryLock(
 	db: Kysely<DB>,
 	name: string,

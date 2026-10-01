@@ -5,7 +5,6 @@ import { i18n } from '../../../i18n';
 
 export const Route = createFileRoute('/_app/billing/settings')({
 	beforeLoad: ({ context }) => requireRole(context.session, 'admin'),
-	// changing the iban asks for the password again
 	loader: () => i18n.loadNamespaces(['billing', 'security']),
 	staticData: { title: 'billing' },
 	component: SettingsRoute

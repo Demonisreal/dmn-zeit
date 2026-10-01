@@ -29,7 +29,6 @@ export type RuleSet = {
 	limits: Limits;
 };
 
-// the entries of one shift, dated by the local day the shift began
 export type Shift = {
 	date: Temporal.PlainDate;
 	entries: readonly Span[];
@@ -46,11 +45,9 @@ export type Finding = {
 export type CheckContext = {
 	timeZone: string;
 	holidays: readonly Holiday[];
-	// shifts before from only lead into the first rest period, nothing outside gets reported
 	range: { from: Temporal.PlainDate; to: Temporal.PlainDate };
 };
 
-// a reform of the act becomes a new entry here, old findings keep the version they were made with
 export const RULESETS: readonly RuleSet[] = [
 	{
 		version: 'arbzg-1994',
@@ -67,12 +64,10 @@ export const RULESETS: readonly RuleSet[] = [
 	}
 ];
 
-// shorter gaps are breaks within the shift, also past midnight
 const SHIFT_GAP_MINUTES = 180;
 
 const byStart = (a: Span, b: Span) => Temporal.Instant.compare(a.start, b.start);
 
-// nothing we store predates the act, so earlier dates simply get the oldest set
 export const ruleSetFor = (date: Temporal.PlainDate): RuleSet =>
 	RULESETS.toSorted((a, b) => Temporal.PlainDate.compare(a.validFrom, b.validFrom)).reduce(
 		(current, set) => (Temporal.PlainDate.compare(set.validFrom, date) <= 0 ? set : current)
@@ -84,7 +79,6 @@ export const groupShifts = (entries: readonly Span[], timeZone: string): Shift[]
 		const date = workdayOf(entry.start, timeZone);
 		const current = shifts.at(-1);
 		const previous = current?.entries.at(-1);
-		// a split shift on one date stays together, otherwise findings would repeat for that day
 		if (
 			current &&
 			previous &&
@@ -132,7 +126,6 @@ export const checkShifts = (shifts: readonly Shift[], context: CheckContext): Fi
 		}
 
 		const minutes = wholeMinutes(entries);
-		// § 4 ArbZG: gaps under 15 min are no break and do not end a stretch either
 		const breaks = gapsBetween(entries).filter(
 			(gap) => wholeMinutes([gap]) >= limits.minBreakMinutes
 		);
@@ -167,7 +160,6 @@ export const checkShifts = (shifts: readonly Shift[], context: CheckContext): Fi
 			flag('ARBZG_4_CONTINUOUS_6H', 'warning', { continuousMinutes: longest });
 		}
 
-		// 24.12. and 31.12. are company half days, § 9 only protects statutory holidays
 		if (
 			context.holidays.some((holiday) => holiday.portion === 1 && holiday.date.equals(shift.date))
 		) {
@@ -178,7 +170,6 @@ export const checkShifts = (shifts: readonly Shift[], context: CheckContext): Fi
 		}
 	}
 
-	// groupShifts never puts two shifts on one date, so each code appears at most once per day
 	return findings.sort(
 		(a, b) => Temporal.PlainDate.compare(a.date, b.date) || (a.code < b.code ? -1 : 1)
 	);

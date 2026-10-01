@@ -88,7 +88,6 @@ tr.detailRow > td {
 	animation: global(reveal) var(--open-panel) var(--ease);
 }
 
-/* the columns the table drops on a phone, only shown there */
 .figures {
 	display: none;
 	grid-template-columns: max-content 1fr;

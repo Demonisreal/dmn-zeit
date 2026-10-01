@@ -25,7 +25,6 @@ export function toApiError(exception: unknown): { status: number; body: ApiError
 	if (parsed.success) return { status, body: parsed.data };
 	if (status >= 500) return undefined;
 
-	// nest's own exceptions (unknown route, throttler) carry no code, the status tells it
 	const code = codeByStatus[status] ?? 'INVALID_STATE';
 	const body: ApiError =
 		code === 'VALIDATION'
@@ -40,16 +39,13 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
 	catch(exception: unknown, host: ArgumentsHost) {
 		const response = host.switchToHttp().getResponse<Response>();
-		// D-02: a route without RenderLimitGuard (document() re-renders only rarely) still lands here
 		if (exception instanceof RenderBusyError) {
 			response.setHeader('Retry-After', RETRY_AFTER_SECONDS);
-			response
-				.status(503)
-				.json({
-					code: 'RENDER_BUSY',
-					message: 'Too many documents are rendering right now, try again shortly',
-					details: null
-				} satisfies ApiError);
+			response.status(503).json({
+				code: 'RENDER_BUSY',
+				message: 'Too many documents are rendering right now, try again shortly',
+				details: null
+			} satisfies ApiError);
 			return;
 		}
 

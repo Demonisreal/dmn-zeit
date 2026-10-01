@@ -22,7 +22,6 @@ type Props = {
 
 type Day = Timesheet['days'][number];
 
-// getUTCDay counts from sunday, the shared weekdays start on monday
 const weekdayOf = (iso: string) => weekdays[(new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7]!;
 
 export function TimesheetSheet({ employeeId, month }: Props) {

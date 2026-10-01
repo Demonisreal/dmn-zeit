@@ -8,7 +8,6 @@ import { VacationStore } from './vacation.store';
 	imports: [MailModule],
 	controllers: [VacationController],
 	providers: [VacationStore, VacationService],
-	// absences book into the ledger, the jobs open and close leave years
 	exports: [VacationStore]
 })
 export class VacationModule {}

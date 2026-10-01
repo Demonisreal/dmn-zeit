@@ -10,7 +10,6 @@ import type { ApiError } from '@zeit/shared';
 import type { Request } from 'express';
 
 export const DURING_ENROLLMENT = 'duringEnrollment';
-// what a session opened with the password alone may reach until a second factor is set up
 export const AllowDuringEnrollment = () => SetMetadata(DURING_ENROLLMENT, true);
 
 @Injectable()

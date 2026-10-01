@@ -21,7 +21,6 @@ function ExportsRoute() {
 	const navigate = Route.useNavigate();
 	return (
 		<ExportsPage
-			// what gets handed on is usually the month that was just closed
 			month={month ?? shiftMonth(currentMonth(), -1)}
 			employeeId={employee}
 			onChange={(next) =>

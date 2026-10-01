@@ -33,7 +33,6 @@ import { WebAuthn } from './webauthn';
 		SecurityService,
 		WebAuthn
 	],
-	// the global SessionGuard resolves the cookie through it
 	exports: [SessionService]
 })
 export class AuthModule {}

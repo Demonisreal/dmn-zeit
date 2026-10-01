@@ -4,7 +4,6 @@ import type { Explanation } from '../explanation';
 export type CapMode = 'none' | 'forfeit_at_close' | 'warn';
 export type FlexBookingType = 'opening' | 'manual' | 'payout' | 'cap_forfeit';
 
-// only vacation and sickness credit minutes; a holiday lowers the target, time off costs it
 export type DayMinutes = {
 	targetMinutes: number;
 	workedMinutes: number;
@@ -25,7 +24,6 @@ export type CapDecision = {
 export const dayBalance = (day: DayMinutes): number =>
 	day.workedMinutes + day.creditedMinutes - day.targetMinutes;
 
-// bookings carry their sign already, a payout is stored as negative minutes
 export const accountBalance = (
 	days: readonly DayMinutes[],
 	bookings: readonly FlexBooking[]
@@ -35,7 +33,6 @@ export const accountBalance = (
 
 export const applyCap = (balanceMinutes: number, cap: FlexCap, mode: CapMode): CapDecision => {
 	const upper = cap.plusMinutes ?? Infinity;
-	// 0 - x instead of -x, a minus limit of 0 would otherwise keep -0
 	const lower = 0 - (cap.minusMinutes ?? Infinity);
 	const uncapped = (key: string, params: Explanation['params'] = {}): CapDecision => ({
 		kept: balanceMinutes,

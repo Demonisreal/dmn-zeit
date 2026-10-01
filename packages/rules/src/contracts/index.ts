@@ -6,7 +6,6 @@ import type { Holiday } from '../holidays';
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 export type WeekdayMinutes = Readonly<Record<Weekday, number>>;
 
-// null means no limit in that direction
 export type FlexCap = {
 	plusMinutes: number | null;
 	minusMinutes: number | null;
@@ -69,7 +68,6 @@ export const targetMinutes = (
 	if (!contract) {
 		return { minutes: 0, explanation: { key: 'target.no_contract', params: {} } };
 	}
-	// iso dayOfWeek runs from 1 (monday) to 7 (sunday)
 	const weekday = WEEKDAYS[date.dayOfWeek - 1]!;
 	const minutes = contract.minutes[weekday];
 	const validFrom = contract.validFrom.toString();

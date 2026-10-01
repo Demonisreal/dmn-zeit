@@ -1,4 +1,3 @@
-/* settings on the left, the holidays they produce beside them */
 .layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(17rem, 24rem);

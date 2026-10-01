@@ -19,7 +19,6 @@ import { useFragmentToken } from './use-fragment-token';
 export function ResetPage() {
 	const { t } = useTranslation('auth');
 	const { present, token } = useFragmentToken();
-	// the route stays the same, so asking for a new link switches the view instead of navigating
 	const [requesting, setRequesting] = useState(false);
 
 	if (!present || requesting) return <ForgotForm />;

@@ -68,7 +68,6 @@
 		text-align: start;
 	}
 
-	/* time and both buttons fit one line on a 360px phone, the sticky bar stays low */
 	.buttons > * {
 		min-width: 5rem;
 	}

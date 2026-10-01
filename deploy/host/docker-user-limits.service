@@ -1,6 +1,3 @@
-# copy to /etc/systemd/system/docker-user-limits.service on the server, then:
-#   systemctl daemon-reload && systemctl enable --now docker-user-limits.service
-# replace <WAN_IF> with the real interface, `ip route show default` prints it
 [Unit]
 Description=Per-source connection and rate limits in the DOCKER-USER chain for zeit
 After=docker.service

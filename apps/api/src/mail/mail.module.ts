@@ -17,7 +17,6 @@ import { ResendTransport } from './resend.transport';
 			useFactory: (config: ConfigService<Config, true>, db: Database): MailTransport => {
 				switch (config.get('APP_MODE', { infer: true })) {
 					case 'live':
-						// loadConfig refuses live mode without both
 						return new ResendTransport(
 							config.get('RESEND_API_KEY', { infer: true })!,
 							config.get('MAIL_FROM', { infer: true })!

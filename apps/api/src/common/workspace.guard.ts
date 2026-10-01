@@ -26,7 +26,6 @@ export class WorkspaceGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest<Request>();
 		if (request.auth?.workspace === required) return true;
 
-		// same answer as a route that does not exist, a solo workspace learns nothing about the rest
 		throw new NotFoundException(`Cannot ${request.method} ${request.originalUrl}`);
 	}
 }

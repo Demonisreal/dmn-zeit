@@ -7,7 +7,6 @@ import type { AuthSession } from '../common/session.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { AuditService } from './audit.service';
 
-// everyone reads the trail, below hr the service narrows it to the own entries
 @Roles('employee')
 @Controller('audit')
 export class AuditController {

@@ -10,7 +10,6 @@ export type Factors = { hasTotp: boolean; passkeyCount: number; recoveryLeft: nu
 
 export type TotpRow = { sealed: Buffer; confirmed: boolean };
 
-// whose a challenge or passkey is, enough to file a failure in the trail of their tenant
 export type Scope = { userId: string; tenantId: string; role: Role };
 
 export type PasskeyRow = {
@@ -39,7 +38,6 @@ export type NewPasskey = {
 	name: string;
 };
 
-// totp, recovery codes, passkeys and the challenges around them, all through auth.* functions
 @Injectable()
 export class FactorStore {
 	constructor(private readonly db: Database) {}
@@ -69,14 +67,12 @@ export class FactorStore {
 		return rows[0]!.confirmed;
 	}
 
-	// false for a step already used, that is a replayed code
 	async useTotpStep(userId: string, step: number): Promise<boolean> {
 		const { rows } = await sql<{ used: boolean }>`
 			select auth.totp_use_step(${userId}, ${step}) as used`.execute(this.db);
 		return rows[0]!.used;
 	}
 
-	// the person comes from app.user_id of the session; every other session of theirs ends with it
 	removeTotp(session: AuthSession): Promise<boolean> {
 		return this.db.withTenant(session, async (trx) => {
 			const { rows } = await sql<{ removed: boolean }>`
@@ -146,7 +142,6 @@ export class FactorStore {
 		return rows[0];
 	}
 
-	// false when the counter did not move forward, the mark of a cloned authenticator
 	async touchPasskey(passkeyId: string, counter: number, backedUp: boolean): Promise<boolean> {
 		const { rows } = await sql<{ touched: boolean }>`
 			select auth.passkey_touch(${passkeyId}, ${counter}, ${backedUp}) as touched`.execute(this.db);
@@ -177,7 +172,6 @@ export class FactorStore {
 		await sql`select auth.mfa_challenge_create(${userId}, ${tokenHash})`.execute(this.db);
 	}
 
-	// counts the attempt first; nothing once the step expired, ran out of tries or the account locked
 	async attemptMfaChallenge(tokenHash: Buffer): Promise<Scope | undefined> {
 		const { rows } = await sql<Scope>`
 			select user_id as "userId", tenant_id as "tenantId", role
@@ -191,7 +185,6 @@ export class FactorStore {
 		return rows[0]?.userId ?? null;
 	}
 
-	// the confirmation holds for ten minutes, the same window resolveSession reads
 	async reauth(sessionId: string): Promise<string> {
 		const { rows } = await sql<{ reauthUntil: string }>`
 			select auth.session_reauth(${sessionId}) + interval '10 minutes' as "reauthUntil"`.execute(this.db);
@@ -202,11 +195,9 @@ export class FactorStore {
 		await sql`select auth.enrollment_finish(${sessionId})`.execute(this.db);
 	}
 
-	// the function itself checks for an admin of the same tenant and refuses one's own account
 	resetFactors(admin: TenantContext, userId: string, resetHash: Buffer): Promise<void> {
 		return this.db.withTenant(admin, async (trx) => {
 			await sql`select auth.mfa_reset(${userId})`.execute(trx);
-			// the password went too, without the link the person could not get back in
 			await sql`select auth.token_issue(${userId}, 'password_reset', ${resetHash})`.execute(trx);
 		});
 	}

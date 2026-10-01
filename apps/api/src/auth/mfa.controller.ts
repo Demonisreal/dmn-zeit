@@ -12,10 +12,8 @@ import { MfaService } from './mfa.service';
 import { NotInDemoGuard } from './not-in-demo.guard';
 import { WebAuthn } from './webauthn';
 
-// the second step after the password and the login with a passkey alone
 @Public()
 @UseGuards(NotInDemoGuard)
-// same office-nat headroom as the login limit
 @Throttle({ default: { limit: 60, ttl: minutes(1) } })
 @ThrottlePerNetwork()
 @Controller('auth')

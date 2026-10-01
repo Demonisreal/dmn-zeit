@@ -60,7 +60,6 @@ export class ComplianceService {
 		}));
 	}
 
-	// findings live nowhere but here, they are worked out from the entries on every request
 	private async compute(trx: Trx, employeeIds: string[], range: DateRange): Promise<Finding[]> {
 		const { tenant, sheets } = await this.time.sheets(trx, employeeIds, range);
 		const now = this.clock.now();

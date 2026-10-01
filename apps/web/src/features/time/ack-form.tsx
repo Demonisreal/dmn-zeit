@@ -38,7 +38,6 @@ export function AckForm({ employeeId, date, finding }: Props) {
 	const ack = useMutation({
 		mutationFn: (note: string) =>
 			ackFinding({ employeeId, date, code: finding.code, ruleVersion: finding.ruleVersion, note }),
-		// the row shows the acknowledgement from the next answer, the form goes away with it
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['days', employeeId] })
 	});
 

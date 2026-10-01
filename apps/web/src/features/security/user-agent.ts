@@ -1,4 +1,3 @@
-// first match wins: chrome also sends Safari/, edge and opera also send Chrome/
 const browsers: [RegExp, string][] = [
 	[/Edg(A|iOS)?\//, 'Edge'],
 	[/OPR\//, 'Opera'],

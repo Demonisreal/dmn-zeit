@@ -38,7 +38,6 @@ async function endSessions(trx: Trx, userId: string): Promise<void> {
 	await sql`select auth.session_revoke_all(${userId})`.execute(trx);
 }
 
-// app.leads asks team_leads only, not the role, a row left behind keeps the team readable
 async function dropLeads(trx: Trx, userId: string): Promise<void> {
 	await trx.deleteFrom('app.team_leads').where('user_id', '=', userId).execute();
 }
@@ -64,7 +63,6 @@ export class UsersService {
 		return rows.map(toUser);
 	}
 
-	// the account waits as invited until the link from the mail sets its password
 	async create(admin: AuthSession, input: CreateUserInput, client: Client): Promise<User> {
 		const token = newToken();
 		const { user, tenant } = await this.db.withTenant(admin, async (trx) => {
@@ -88,7 +86,6 @@ export class UsersService {
 		return user;
 	}
 
-	// a fresh link, the one from the previous mail stops working
 	async invite(admin: AuthSession, userId: string, client: Client): Promise<void> {
 		const token = newToken();
 		const { user, tenant } = await this.db.withTenant(admin, async (trx) => {
@@ -123,7 +120,6 @@ export class UsersService {
 			if (!before) throw new NotFoundException('User not found');
 			if (Object.keys(input).length === 0) return toUser(before);
 
-			// guard_own_user refuses role and employee changes on the own row, admins included
 			const row = await trx
 				.updateTable('app.users')
 				.set({
@@ -146,7 +142,6 @@ export class UsersService {
 		});
 	}
 
-	// a second click finds the account already in that state and changes nothing
 	private setStatus(
 		admin: AuthSession,
 		userId: string,
@@ -161,7 +156,6 @@ export class UsersService {
 				.executeTakeFirst();
 			if (!before) throw new NotFoundException('User not found');
 			if (before.status === status) return toUser(before);
-			// an invitation turns active by choosing a password, not by being enabled
 			if (status === 'active' && before.status !== 'disabled') {
 				throw new ConflictException({
 					code: 'INVALID_STATE',
@@ -170,7 +164,6 @@ export class UsersService {
 				} satisfies ApiError);
 			}
 
-			// guard_own_user refuses a status change on the own row, admins included
 			const row = await trx
 				.updateTable('app.users')
 				.set({ status })
@@ -217,7 +210,6 @@ export class UsersService {
 		return toUser(row);
 	}
 
-	// seven days, the database sets the lifetime
 	private async issueInvite(trx: Trx, userId: string, token: string): Promise<void> {
 		await sql`select auth.token_issue(${userId}, 'invite'::auth.token_kind, ${hashToken(token)})`.execute(
 			trx

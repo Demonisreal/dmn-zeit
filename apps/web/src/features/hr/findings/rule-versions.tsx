@@ -17,7 +17,6 @@ const limits: (keyof RuleSetInfo['limits'])[] = [
 	'minRestMinutes'
 ];
 
-// arbzg-1994 -> 1994, @zeit/rules names each set after the year its limits took effect
 export const versionYear = (version: string) => version.split('-')[1];
 
 export function RuleVersions() {

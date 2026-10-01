@@ -25,9 +25,7 @@ export function SessionList() {
 
 	const end = useMutation({
 		mutationFn: endSession,
-		// already gone counts as done, the list just catches up
 		onSettled: (_, err) => {
-			// the ended row leaves the table and takes the focused button with it
 			if (!err || hasCode(err, 'NOT_FOUND')) heading.current?.focus();
 			return queryClient.invalidateQueries({ queryKey: activeSessionsQuery.queryKey });
 		}

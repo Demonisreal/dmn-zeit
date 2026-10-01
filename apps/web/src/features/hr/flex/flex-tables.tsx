@@ -45,7 +45,6 @@ export function FlexBookings({ bookings }: { bookings: FlexBooking[] }) {
 	);
 }
 
-// the balance is the sum of these rows, this is where it can be checked
 export function FlexMonths({ months }: { months: FlexMonth[] }) {
 	const { t, i18n } = useTranslation('hr');
 	if (months.length === 0) return <EmptyState title={t('flex.noMonths')} />;

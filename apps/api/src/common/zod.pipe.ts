@@ -2,7 +2,6 @@ import { ArgumentMetadata, BadRequestException, PipeTransform } from '@nestjs/co
 import type { ApiError, FieldIssue } from '@zeit/shared';
 import type { core, ZodType } from 'zod';
 
-// the web builds the sentence in the reader's language from code and params
 function paramsOf(issue: core.$ZodIssue): FieldIssue['params'] {
 	switch (issue.code) {
 		case 'too_small':

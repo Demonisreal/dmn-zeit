@@ -3,7 +3,6 @@
 	transition: opacity 150ms ease-out;
 }
 
-/* the previous week stays in view while the next one loads */
 .frame[data-stale] {
 	opacity: 0.6;
 }
@@ -61,7 +60,6 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* on phones the notice column is gone, a small mark next to the day keeps an open finding visible */
 .flag {
 	display: none;
 	color: var(--red-hi);
@@ -162,7 +160,6 @@
 	font-weight: 600;
 }
 
-/* the shared table draws the line above the sums on td only, the row labels here are th */
 .frame tfoot th {
 	border-top: 1px solid var(--line);
 	border-bottom: 0;
@@ -185,18 +182,15 @@
 	background: var(--ink);
 }
 
-/* the balance row is the last one, so its breakdown hangs right under the table */
 .flexDetail {
 	border-bottom: 1px solid var(--edge);
 	background: var(--ink);
 }
 
-/* the breakdown breaks words anywhere, the month and posting tables scroll sideways instead */
 .flexDetail table {
 	overflow-wrap: normal;
 }
 
-/* the same step at which the shared table drops its mid columns */
 @container (max-width: 38rem) {
 	.toggle {
 		display: grid;
@@ -232,7 +226,6 @@
 		display: none;
 	}
 
-	/* the words next to a difference may break, the figures themselves stay on one line */
 	.remaining,
 	.frame tfoot td > span {
 		white-space: normal;

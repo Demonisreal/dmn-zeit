@@ -58,7 +58,6 @@ export function UserEditor({ user, employees, onDone }: Props) {
 		}
 	});
 
-	// only what changed goes out, an untouched role must not ask for a step-up
 	const submit = handleSubmit((input) => {
 		const changes: UpdateUserInput = {};
 		if (input.displayName !== user.displayName) changes.displayName = input.displayName;

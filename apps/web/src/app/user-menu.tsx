@@ -6,7 +6,6 @@ import { Button } from '../components/ui/button';
 import { useSignOut } from './use-sign-out';
 import css from './user-menu.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<'caret' | 'popover' | 'who' | 'email' | 'menu' | 'entry', string>;
 
 type Props = {

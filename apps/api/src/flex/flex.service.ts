@@ -9,7 +9,6 @@ import { notOwnAccount } from '../vacation/vacation.service';
 export class FlexService {
 	constructor(private readonly db: Database) {}
 
-	// the balance itself is read in time/, this is only the manual side of the account
 	book(
 		session: AuthSession,
 		employeeId: string,

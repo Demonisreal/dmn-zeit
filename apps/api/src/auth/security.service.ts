@@ -82,7 +82,6 @@ export class SecurityService {
 		};
 	}
 
-	// a pending secret replaces the previous pending one, a confirmed one has to be removed first
 	async startTotp(session: AuthSession): Promise<TotpSetup> {
 		const { user } = await this.store.profile(session);
 		const secret = newTotpSecret();
@@ -135,7 +134,6 @@ export class SecurityService {
 		if (!factors.hasTotp) throw new NotFoundException('No authenticator app is set up');
 
 		this.keepOneFactor(factors);
-		// a stolen session elsewhere must not outlive the factor change, this one stays
 		await this.factors.removeTotp(session);
 		await this.afterChange(session, 'totp.removed', client, totpRemovedMail);
 	}
@@ -209,7 +207,6 @@ export class SecurityService {
 		return { recoveryCodes: codes };
 	}
 
-	// admins only, never their own account and only within the tenant; the database checks all three
 	async resetFactors(admin: AuthSession, userId: string, client: Client): Promise<void> {
 		const person = await this.store.person(admin, userId);
 		if (!person) throw new NotFoundException('User not found');
@@ -241,7 +238,6 @@ export class SecurityService {
 		return !hasTotp && passkeyCount === 0;
 	}
 
-	// outside the demo nobody may end up without a second factor, the next login would stop at the setup
 	private keepOneFactor({ hasTotp, passkeyCount }: Factors) {
 		if (!this.demo && (hasTotp ? 1 : 0) + passkeyCount <= 1) {
 			throw new ConflictException({
@@ -253,7 +249,6 @@ export class SecurityService {
 	}
 
 	private async afterChange(session: AuthSession, action: string, client: Client, notice: Notice) {
-		// the first factor ends the setup state, any other half-finished session goes with it
 		if (session.enrollmentPending) await this.factors.finishEnrollment(session.id);
 
 		await this.audit.record({

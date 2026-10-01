@@ -1,4 +1,3 @@
-// vacation days are kept exact, a float would lose hundredths on every conversion
 export type Fraction = {
 	readonly num: number;
 	readonly den: number;
@@ -35,7 +34,6 @@ export const parseDecimal = (text: string): Fraction => {
 	return fraction(sign * num, den);
 };
 
-// half-up, matches how vacation balances are shown to employees
 export const toDecimal = (value: Fraction, places: number): string => {
 	const scale = 10 ** places;
 	const scaled = Math.round((value.num / value.den) * scale);
@@ -60,6 +58,5 @@ export const max = (a: Fraction, b: Fraction): Fraction => (compare(a, b) >= 0 ?
 export const isZero = (a: Fraction): boolean => a.num === 0;
 export const isNegative = (a: Fraction): boolean => a.num < 0;
 export const negate = (a: Fraction): Fraction => fraction(-a.num, a.den);
-// integer part rounded down, e.g. for splitting off the whole days before rounding
 export const floor = (a: Fraction): number => Math.floor(a.num / a.den);
 export const fractionalPart = (a: Fraction): Fraction => subtract(a, fraction(floor(a)));

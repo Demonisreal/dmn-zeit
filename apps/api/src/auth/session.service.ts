@@ -19,7 +19,6 @@ export class SessionService {
 		private readonly store: AuthStore,
 		config: ConfigService<Config, true>
 	) {
-		// __Host- requires Secure and Secure requires https, so plain http://localhost gets the bare name
 		const secure = new URL(config.get('APP_ORIGIN', { infer: true })).protocol === 'https:';
 		this.cookieName = secure ? '__Host-zeit_sid' : 'zeit_sid';
 		this.mfaCookieName = secure ? '__Host-zeit_mfa' : 'zeit_mfa';
@@ -27,7 +26,6 @@ export class SessionService {
 		this.mode = config.get('APP_MODE', { infer: true });
 	}
 
-	// the pending second step of a password login, as long as the challenge in the database lives
 	setMfaCookie(response: Response, token: string) {
 		response.cookie(this.mfaCookieName, token, { ...this.cookie, maxAge: 5 * 60_000 });
 	}

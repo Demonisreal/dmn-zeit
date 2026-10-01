@@ -25,10 +25,8 @@ export function PasskeyList({ passkeys, onCodes }: Props) {
 	const { t, i18n } = useTranslation('security');
 	const queryClient = useQueryClient();
 	const [adding, setAdding] = useState(false);
-	// focus goes back to the button once the form closes, not on first render
 	const [closed, setClosed] = useState(false);
 	const [renaming, setRenaming] = useState<string | null>(null);
-	// the row is rebuilt after editing, its rename button takes the focus back
 	const [renamed, setRenamed] = useState<string | null>(null);
 	const [removing, setRemoving] = useState<Passkey | null>(null);
 	const heading = useRef<HTMLHeadingElement>(null);
@@ -39,7 +37,6 @@ export function PasskeyList({ passkeys, onCodes }: Props) {
 		onSuccess: async () => {
 			setRemoving(null);
 			await refresh();
-			// the removed row took the focused button with it
 			heading.current?.focus();
 		}
 	});

@@ -18,12 +18,13 @@ import { ExportsStore } from './exports.store';
 export type Download = { filename: string; body: string };
 
 function minutesOf(startedAt: string, endedAt: string): number {
-	return Math.round(Temporal.Instant.from(startedAt).until(Temporal.Instant.from(endedAt)).total('minutes'));
+	return Math.round(
+		Temporal.Instant.from(startedAt).until(Temporal.Instant.from(endedAt)).total('minutes')
+	);
 }
 
 type OverviewRow = MonthOverview['rows'][number];
 
-// field by field, so a snapshot of an older shape cannot put anything else into the answer
 function overviewRow(employee: Staff, figures: SnapshotRow): OverviewRow {
 	return {
 		employee,
@@ -38,7 +39,6 @@ function overviewRow(employee: Staff, figures: SnapshotRow): OverviewRow {
 	};
 }
 
-// a german spreadsheet splits on ; and takes the comma for the decimal point
 const separatorOf = (locale: Locale) => (locale === 'de' ? ';' : ',');
 const decimal = (text: string, locale: Locale) => (locale === 'de' ? text.replace('.', ',') : text);
 
@@ -138,10 +138,12 @@ export class ExportsService {
 		private readonly documents: DocumentsService
 	) {}
 
-	async timeReport(session: AuthSession, query: TimeReportQuery): Promise<TimeReport | Buffer | Download> {
+	async timeReport(
+		session: AuthSession,
+		query: TimeReportQuery
+	): Promise<TimeReport | Buffer | Download> {
 		if (!query.client) throw new BadRequestException('client is required for the time report');
 		const clientId = query.client;
-		// csv goes to the requesting person in their own language, pdf goes to the client in theirs
 		const report = await this.db.withTenant(session, (trx) =>
 			this.timeReportOf(trx, session, clientId, query)
 		);
@@ -181,13 +183,18 @@ export class ExportsService {
 		return {
 			locale: query.format === 'pdf' ? (client.invoiceLocale as Locale) : ownLocale,
 			client: { name: client.name, number: client.number },
-			project: projectIds.size === 1 && first ? { name: first.projectName, code: first.projectCode ?? '' } : null,
+			project:
+				projectIds.size === 1 && first
+					? { name: first.projectName, code: first.projectCode ?? '' }
+					: null,
 			period: { from: query.from, to: query.to },
 			generatedAt: new Date().toISOString(),
 			entries,
 			totals: {
 				minutes: entries.reduce((sum, entry) => sum + entry.minutes, 0),
-				billableMinutes: entries.filter((entry) => entry.billable).reduce((sum, entry) => sum + entry.minutes, 0)
+				billableMinutes: entries
+					.filter((entry) => entry.billable)
+					.reduce((sum, entry) => sum + entry.minutes, 0)
 			}
 		};
 	}
@@ -200,7 +207,6 @@ export class ExportsService {
 		return this.db.withTenant(session, async (trx) => {
 			const sheet = await this.sheet(trx, session, employeeId, month);
 			const locale = await this.store.locale(trx, session.userId);
-			// the personnel number is free text and must not bring quotes or line breaks into the header
 			const personnelNo = sheet.employee.personnelNo.replace(/[^\w-]/g, '_');
 			return {
 				filename: `timesheet-${month}-${personnelNo}.csv`,
@@ -224,7 +230,6 @@ export class ExportsService {
 		});
 	}
 
-	// a closed month keeps its days from the locked entries, its balance from the snapshot
 	private async sheet(
 		trx: Trx,
 		session: AuthSession,
@@ -260,7 +265,6 @@ export class ExportsService {
 				workedMinutes: day.workedMinutes,
 				creditedMinutes: day.creditedMinutes,
 				diffMinutes: day.diffMinutes,
-				// a request still waiting for its decision is no part of the record
 				absence:
 					day.absence && ['approved', 'cancel_pending'].includes(day.absence.status)
 						? { type: day.absence.type, portion: day.absence.portion }
@@ -283,7 +287,6 @@ export class ExportsService {
 			const people = await this.store.identities(trx, Object.keys(snapshot.employees));
 			rows = people.map((employee) => overviewRow(employee, snapshot.employees[employee.id]!));
 		} else {
-			// open, or locked by a first closing that came after it and left no snapshot
 			const people = await this.closings.employed(trx, monthRange(month));
 			const { figures } = await this.months.figures(
 				trx,

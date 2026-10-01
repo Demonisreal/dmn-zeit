@@ -45,7 +45,6 @@
 	min-height: 1.5rem;
 }
 
-/* the digit segments are wider than their text for touch, the dots take that room back */
 .segment[data-type='literal'] {
 	margin-inline: -0.1875rem;
 	padding: 0;
@@ -225,7 +224,6 @@
 	outline-offset: -2px;
 }
 
-/* struck through as well, a paler grey alone would be the only hint that a day is locked */
 .cell[data-disabled],
 .cell[data-unavailable] {
 	color: var(--muted);

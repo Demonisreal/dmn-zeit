@@ -15,7 +15,6 @@
 }
 
 @media (min-width: 48rem) {
-	/* without a floor the auto column lays both storno buttons side by side and squeezes the request */
 	.item {
 		grid-template-columns: minmax(16rem, 1fr) auto;
 		align-items: start;

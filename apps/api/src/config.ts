@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 const cidr = z.union([z.cidrv4(), z.cidrv6()]);
 
-// every range may set x-forwarded-for, /0 would let any client choose its address for the rate limits
 const proxyRanges = z.string().refine(
 	(list) =>
 		list
@@ -22,14 +21,11 @@ const liveOnly = ['MAIL_FROM', 'RESEND_API_KEY', 'PASSWORD_PEPPER', 'DATA_ENCRYP
 const schema = z
 	.object({
 		APP_MODE: z.enum(appModes),
-		// compared verbatim with the Origin header of every write
 		APP_ORIGIN: z
 			.url({ protocol: /^https?$/ })
 			.refine((url) => new URL(url).origin === url, 'Expected an origin without path'),
 		PORT: z.coerce.number().int().min(1).max(65535).default(3001),
-		// the runtime role zeit_app, migrations run as owner in their own job
 		DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-		// zeit_owner for the cli commands only, never part of the api's own environment
 		CLI_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
 		TRUSTED_PROXY: proxyRanges,
 		MAIL_FROM: z.string().optional(),
@@ -54,7 +50,6 @@ const schema = z
 	})
 	.transform(({ PASSWORD_PEPPER, DATA_ENCRYPTION_KEY, ...env }) => ({
 		...env,
-		// fixed stand-ins keep demo, tests and development free of secrets, live is refused above
 		PASSWORD_PEPPER: PASSWORD_PEPPER
 			? Buffer.from(PASSWORD_PEPPER, 'base64')
 			: Buffer.from('dev-only-pepper-never-used-live!'),
@@ -66,7 +61,6 @@ const schema = z
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: Record<string, unknown>): Config {
-	// KEY= in .env means unset, not an empty value
 	const given = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== ''));
 	const parsed = schema.safeParse(given);
 	if (!parsed.success) {

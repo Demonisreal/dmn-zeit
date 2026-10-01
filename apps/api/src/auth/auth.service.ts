@@ -32,7 +32,6 @@ import {
 } from './passwords';
 import { hashToken, newToken } from './tokens';
 
-// one message for all cases, it must not tell an unknown address from a locked account
 const invalidCredentials = {
 	code: 'INVALID_CREDENTIALS',
 	message: 'Email or password is wrong. After repeated failures sign-in pauses for a few minutes',
@@ -84,12 +83,10 @@ export class AuthService {
 		this.pepper = config.get('PASSWORD_PEPPER', { infer: true });
 	}
 
-	// the password step only, the caller decides between a second factor and a session
 	async login(input: LoginInput, client: Client): Promise<string> {
 		const checked = await this.check(input.email, input.password);
 		if (checked && !checked.matched) {
 			const { tenantId, userId } = checked.credential;
-			// after the answer, a known address must not take longer than an unknown or locked one
 			this.queue.later(async () => {
 				await this.store.loginFailed(userId);
 				await this.audit.record({
@@ -115,7 +112,6 @@ export class AuthService {
 		return userId;
 	}
 
-	// password change and step-up both want the current password, counted like a login
 	async confirmPassword(session: AuthSession, password: string, client: Client): Promise<Profile> {
 		const profile = await this.store.profile(session);
 		const checked = await this.check(profile.user.email, password);
@@ -136,7 +132,6 @@ export class AuthService {
 		throw new ForbiddenException(invalidCredentials);
 	}
 
-	// the caller opens the new session, all others are gone after this
 	async changePassword(
 		session: AuthSession,
 		input: ChangePasswordInput,
@@ -150,7 +145,6 @@ export class AuthService {
 	}
 
 	forgotPassword(email: string, requestId: string): void {
-		// after the answer, its timing must not tell whether the address has an account
 		this.queue.later(() => this.sendReset(email, requestId));
 	}
 
@@ -194,12 +188,10 @@ export class AuthService {
 		return { email: owner.email, displayName: owner.displayName, tenantName: owner.tenantName };
 	}
 
-	// the new account, the caller opens its first session to set up the second factor
 	async acceptInvitation(input: AcceptInvitationInput, requestId: string): Promise<string> {
 		if (isCommonPassword(input.password)) throw commonPassword('password');
 
 		const tokenHash = hashToken(input.token);
-		// cheap check first, hashing for every guessed token would hand out free cpu time
 		if (!(await this.store.inspectToken(tokenHash, 'invite'))) throw tokenInvalid();
 
 		const passwordHash = await hashPassword(input.password, this.pepper);
@@ -208,7 +200,6 @@ export class AuthService {
 		return userId;
 	}
 
-	// undefined for unknown, locked and password-less alike; the caller counts a wrong guess towards the lock
 	private async check(email: string, password: string): Promise<Checked | undefined> {
 		const credential = await this.store.credential(email);
 		const locked =

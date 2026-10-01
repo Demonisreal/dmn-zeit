@@ -8,4 +8,7 @@ export * from './arbzg';
 export * from './flextime';
 export * from './vacation';
 export * from './billing';
+export * from './billing/limits';
+export * from './billing/long-entries';
+export * from './billing/verify';
 export * from './projects';

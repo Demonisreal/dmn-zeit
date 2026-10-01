@@ -10,7 +10,6 @@ import {
 import { z } from 'zod';
 import { request } from './client';
 
-// the mode is fixed per deployment, one answer per page load is enough
 export const configQuery = queryOptions({
 	queryKey: ['config'],
 	queryFn: () => request('/config', { schema: publicConfigSchema }),
@@ -25,7 +24,6 @@ export const personasQuery = queryOptions({
 	queryFn: () => request('/demo/personas', { schema: z.array(personaSchema) })
 });
 
-// the answer only matters as the new cookie, the session query reads the persona afterwards
 export const switchPersona = (input: SwitchPersonaInput) =>
 	request('/demo/switch', { method: 'POST', body: input });
 

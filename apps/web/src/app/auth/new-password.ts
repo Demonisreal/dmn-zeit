@@ -10,7 +10,6 @@ export const newPasswordSchema = z
 		error: () => i18n.t('mismatch', { ns: 'auth' })
 	});
 
-// length is checked here already, what the server still refuses is a password from its common list
 export const rejectsPassword = (err: unknown) =>
 	hasCode(err, 'VALIDATION') &&
 	Array.isArray(err.details) &&

@@ -1,9 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
-// the number stored with each secret, it names the DATA_ENCRYPTION_KEY that sealed it
 export const KEY_VERSION = 1;
 
-// iv (12) | ciphertext | tag (16); the aad ties the secret to its person, a copied row does not open
 export function seal(plain: Buffer, key: Buffer, aad: string): Buffer {
 	const iv = randomBytes(12);
 	const cipher = createCipheriv('aes-256-gcm', key, iv);

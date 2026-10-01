@@ -20,13 +20,11 @@ import { hasCode } from '../../lib/api/errors';
 import { ErrorNotice } from './error-notice';
 import { signWithPasskey } from './passkey';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions' | 'alt', string>;
 
 type Props = {
 	isOpen: boolean;
 	onClose: () => void;
-	// runs once the step-up went through, usually to send the refused request again
 	onConfirmed: () => void;
 };
 
@@ -47,7 +45,6 @@ export function ReauthDialog({ isOpen, onClose, onConfirmed }: Props) {
 	);
 }
 
-// callers pass onError(retry) to mutate; a REAUTH_REQUIRED answer opens the dialog and retries after
 export function useReauth() {
 	const [retry, setRetry] = useState<(() => void) | null>(null);
 
@@ -95,11 +92,9 @@ function ReauthForm({ onClose, onConfirmed }: Omit<Props, 'isOpen'>) {
 			);
 		}
 	});
-	// the callback only fires while the dialog is still open, a dismissed dialog retries nothing
 	const send = (input: ReauthInput | 'passkey') =>
 		confirm.mutate(input, { onSuccess: onConfirmed });
 
-	// until the overview is there both ways are offered, the server knows which one holds
 	const hasTotp = factors.data?.hasTotp ?? true;
 	const hasPasskey = browserSupportsWebAuthn() && (factors.data?.passkeys.length ?? 1) > 0;
 	const viaPasskey = confirm.variables === 'passkey';
@@ -109,7 +104,6 @@ function ReauthForm({ onClose, onConfirmed }: Omit<Props, 'isOpen'>) {
 			noValidate
 			className={styles.body}
 			onSubmit={(e) => {
-				// the dialog sits in a portal, react would still hand the submit to a form around the caller
 				e.stopPropagation();
 				void handleSubmit(send)(e);
 			}}

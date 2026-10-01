@@ -6,7 +6,6 @@ import {
 	type PasskeyRequestOptions
 } from '@zeit/shared';
 
-// closing the browser prompt and running into its timeout both end up as NotAllowedError
 export const passkeyCancelled = (err: unknown) =>
 	err instanceof Error && (err.name === 'NotAllowedError' || err.name === 'AbortError');
 

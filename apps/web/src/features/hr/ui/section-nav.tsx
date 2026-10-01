@@ -6,7 +6,6 @@ type Entry = {
 	to: NonNullable<LinkProps['to']>;
 	label: string;
 	exact?: boolean;
-	// detail pages that live outside the entry's own path but belong to it
 	match?: string;
 };
 
@@ -19,7 +18,6 @@ export function SectionNav({ label, entries }: Props) {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
 	const list = useRef<HTMLUListElement>(null);
 
-	// centres the active entry in the scrolling row, scrollIntoView would move the whole page too
 	useEffect(() => {
 		const row = list.current;
 		const active = row?.querySelector<HTMLElement>('[aria-current="page"]');

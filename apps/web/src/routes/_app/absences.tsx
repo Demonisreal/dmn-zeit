@@ -9,7 +9,6 @@ const searchSchema = z.object({
 	year: yearSchema.optional().catch(undefined),
 	type: z.enum(absenceTypes).optional().catch(undefined),
 	status: z.enum(absenceStatuses).optional().catch(undefined),
-	// a day from the week page, opens the form with it already filled in
 	start: isoDateSchema.optional().catch(undefined)
 });
 
@@ -21,7 +20,6 @@ export const Route = createFileRoute('/_app/absences')({
 		const list = context.queryClient.prefetchInfiniteQuery(
 			ownAbsencesQuery(deps.year ?? currentYear(), deps.type, deps.status)
 		);
-		// a new filter keeps the page responsive, the list shows its own loading state
 		return cause === 'stay' ? undefined : list;
 	},
 	staticData: { title: 'requests' },

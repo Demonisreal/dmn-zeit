@@ -112,7 +112,6 @@ export const vacationNoticePageSchema = pageOf(vacationNoticeSchema);
 
 export const sendVacationNoticesResultSchema = z.object({
 	sent: z.array(vacationNoticeSchema),
-	// already notified today for the same bucket year
 	skipped: z.array(employeeRefSchema)
 });
 

@@ -29,7 +29,6 @@ type Props = Omit<
 	| 'children'
 > & {
 	label: string;
-	// iso date, empty while nothing is entered
 	value: string;
 	onChange: (value: string) => void;
 	description?: string | undefined;

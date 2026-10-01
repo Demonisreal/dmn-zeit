@@ -9,7 +9,6 @@ const searchSchema = z.object({
 	team: uuidSchema.optional().catch(undefined)
 });
 
-// no role check: employees see their own team too, the api only tells them who is away, not why
 export const Route = createFileRoute('/_app/team/calendar')({
 	validateSearch: searchSchema,
 	staticData: { title: 'teamCalendar' },

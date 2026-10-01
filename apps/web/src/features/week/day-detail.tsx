@@ -44,7 +44,6 @@ export function DayDetail({
 	const canRequest = own && (isToday || isFuture) && !day.absence && day.target.minutes > 0;
 	const shortRest = day.findings.some((finding) => finding.code === 'ARBZG_5_REST_UNDER_11H');
 
-	// the detail only mounts while its row is open, so the finding has been seen
 	useEffect(() => {
 		if (isDemo && shortRest) markTourStep('restFinding');
 	}, [isDemo, shortRest]);

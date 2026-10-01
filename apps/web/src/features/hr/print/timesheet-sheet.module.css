@@ -1,4 +1,3 @@
-/* on screen the sheet is a preview of the paper, so it is light on the dark app ground */
 .page {
 	display: grid;
 	justify-items: center;
@@ -6,7 +5,6 @@
 	padding: 1rem;
 }
 
-/* stays on screen over a long month, the print button is always in reach */
 .toolbar {
 	position: sticky;
 	top: 0;
@@ -19,7 +17,6 @@
 	background: var(--dark);
 }
 
-/* paper has its own palette, the screen tokens are made for the dark ground */
 .sheet {
 	--paper: #fff;
 	--paper-text: #1b1c1f;

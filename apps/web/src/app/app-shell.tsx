@@ -26,18 +26,15 @@ export function AppShell({ session, children }: Props) {
 	const signOut = useSignOut();
 	const close = () => setOpen(false);
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
-	// an admin without a personnel record books no project time
 	const timer = session.user.employeeId && <TimerChip workspace={session.tenant.workspace} />;
 	const shownPath = useRef(pathname);
 
-	// only the path matters here, a `?week=` change on the same page must not steal focus
 	useEffect(() => {
 		if (shownPath.current === pathname) return;
 		shownPath.current = pathname;
 		main.current?.focus();
 	}, [pathname]);
 
-	// on the document, safari does not focus a button on click, so the key may come from body
 	useEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -84,7 +81,6 @@ export function AppShell({ session, children }: Props) {
 				aria-label={t('nav:label')}
 			>
 				<MainNav role={session.user.role} workspace={session.tenant.workspace} onNavigate={close} />
-				{/* on narrow screens the header has no room, so language and account move in here */}
 				<div className={styles.more}>
 					<p className={styles.who}>
 						{session.user.displayName}

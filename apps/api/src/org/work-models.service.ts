@@ -74,7 +74,6 @@ export class WorkModelsService {
 	async update(session: AuthSession, id: string, input: UpdateWorkModelInput): Promise<WorkModel> {
 		let archivedAt: RawBuilder<string> | null | undefined;
 		if (input.archived !== undefined) {
-			// archiving twice keeps the first date
 			archivedAt = input.archived ? sql<string>`coalesce(archived_at, now())` : null;
 		}
 

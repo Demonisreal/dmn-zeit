@@ -16,13 +16,11 @@ export const mondayOf = (iso: string) => startOfWeek(parseDate(iso), 'de-DE').to
 
 export const weekdayOf = (iso: string) => weekdays[getDayOfWeek(parseDate(iso), 'de-DE')]!;
 
-// iso 8601: a week belongs to the year its thursday falls in
 export function isoWeek(monday: string) {
 	const thursday = parseDate(monday).add({ days: 3 });
 	return Math.floor(thursday.compare(new CalendarDate(thursday.year, 1, 1)) / 7) + 1;
 }
 
-// minutes after the local midnight of date, a shift over midnight ends past 1440
 export function minuteOn(instant: string, date: string) {
 	const at = parseAbsolute(instant, zone);
 	return toCalendarDate(at).compare(parseDate(date)) * 1440 + at.hour * 60 + at.minute;

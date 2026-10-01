@@ -21,7 +21,6 @@ import styles from '../ui/page.module.css';
 import css from './work-model-form.module.css';
 
 const range = { error: () => i18n.t('hr:workModels.dayRange') };
-// an empty day is a day off, nobody wants to type 0:00 for the weekend
 const day = optionalDurationField
 	.transform((minutes) => minutes ?? 0)
 	.pipe(z.int().min(0, range).max(600, range));

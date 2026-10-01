@@ -9,7 +9,6 @@ import type { AuthSession } from '../common/session.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { SecurityService } from './security.service';
 
-// sits next to SecurityService instead of in users/, the reset belongs to the auth tables
 @Controller('users')
 export class MfaResetController {
 	constructor(private readonly security: SecurityService) {}

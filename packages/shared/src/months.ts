@@ -33,7 +33,6 @@ export const monthChecklistSchema = z.object({
 			explanation: explanationSchema
 		})
 	),
-	// signed like applyCap's forfeited: positive forfeits plus hours, negative forgives minus debt
 	capPreview: z.array(
 		z.object({
 			employee: employeeRefSchema,
@@ -51,7 +50,6 @@ export const monthClosingSchema = z.object({
 	reason: z.string().nullable(),
 	actor: userRefSchema,
 	at: instantSchema,
-	// stays empty on reopen; signed like applyCap's forfeited, see capPreview above
 	capped: z.array(
 		z.object({
 			employee: employeeRefSchema,

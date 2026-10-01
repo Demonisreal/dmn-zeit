@@ -28,17 +28,14 @@ export class CsrfGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest<Request>();
 		if (SAFE_METHODS.has(request.method)) return true;
 
-		// a cross-site form cannot send json without a preflight, and there is no cors to pass one
 		if (!request.is('application/json')) {
 			throw refused('Writes have to be sent as application/json');
 		}
 
-		// same-site is not enough, demo and live share dmn-software.com
 		const site = request.headers['sec-fetch-site'];
 		const sameOrigin = site ? site === 'same-origin' : request.headers.origin === this.origin;
 		if (!sameOrigin) throw refused('Cross-origin write refused');
 
-		// login and the token links have no session yet, the origin check above is their guard
 		if (isPublic(this.reflector, context)) return true;
 
 		if (!csrfMatches(request.header('x-csrf-token'), request.auth!.csrfHash)) {

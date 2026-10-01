@@ -35,7 +35,6 @@ export class ExportsStore {
 		return user.locale as Locale;
 	}
 
-	// only hr reads month_closings, everyone else gets the own row through the definer function
 	async monthSnapshot(trx: Trx, employeeId: string, month: string): Promise<SnapshotRow | null> {
 		const { rows } = await sql<{ row: SnapshotRow | null }>`
 			select app.month_snapshot(${employeeId}, ${`${month}-01`}) as row`.execute(trx);
@@ -50,7 +49,6 @@ export class ExportsStore {
 			.executeTakeFirst();
 	}
 
-	// live bookings, not the frozen assignment of an issued invoice (that one lives in invoices.store.ts)
 	timeReportEntries(trx: Trx, clientId: string, from: string, to: string) {
 		return trx
 			.selectFrom('app.project_entries as e')

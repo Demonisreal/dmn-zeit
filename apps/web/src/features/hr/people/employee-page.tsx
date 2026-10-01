@@ -25,7 +25,6 @@ export function EmployeePage({ id }: Props) {
 	const { t, i18n } = useTranslation('hr');
 	const [editing, setEditing] = useState(false);
 	const [adding, setAdding] = useState(false);
-	// only the button of the form that just closed mounts again and takes the focus back
 	const [closed, setClosed] = useState(false);
 	const employee = useQuery(employeeQuery(id));
 	const contracts = useQuery(contractsQuery(id));

@@ -5,7 +5,6 @@ import { AppShell } from '../app/app-shell';
 import { i18n } from '../i18n';
 import { sessionQuery } from '../lib/api/auth';
 
-// only a fresh session answer sets the language, a failed profile save must not flip it back later
 const applied = new WeakSet<Session>();
 
 export const Route = createFileRoute('/_app')({
@@ -18,14 +17,12 @@ export const Route = createFileRoute('/_app')({
 			});
 		}
 		if (session.security.enrollmentPending) throw redirect({ to: '/security/setup' });
-		// set before the first render, otherwise the page flashes in the browser language
 		if (!applied.has(session)) {
 			applied.add(session);
 			await i18n.changeLanguage(session.user.locale);
 		}
 		return { session };
 	},
-	// the start page already explains its numbers with the hr texts, so they come with the shell
 	loader: ({ context }) =>
 		i18n.loadNamespaces(context.session.mode === 'demo' ? ['hr', 'demo'] : 'hr'),
 	component: AppLayout

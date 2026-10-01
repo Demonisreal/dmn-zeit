@@ -4,7 +4,6 @@ import type { Config } from './config';
 
 async function bootstrap() {
 	const app = await createApp();
-	// closes the pool on SIGTERM, docker stop would otherwise cut open transactions
 	app.enableShutdownHooks();
 
 	await app.listen(

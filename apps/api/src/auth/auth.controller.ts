@@ -41,7 +41,6 @@ export class AuthController {
 	@HttpCode(200)
 	@ThrottlePerEmail()
 	@ThrottlePerNetwork()
-	// 50 people behind one office nat plus typos need more than the old 10/min
 	@Throttle({ default: { limit: 60, ttl: minutes(1) }, email: { limit: 10, ttl: minutes(15) } })
 	async login(
 		@Body(new ZodPipe(loginSchema)) body: LoginInput,
@@ -51,7 +50,6 @@ export class AuthController {
 		const userId = await this.auth.login(body, client);
 		const methods = await this.mfa.methodsFor(userId);
 		if (methods.length > 0) return this.mfa.challenge(response, userId, methods);
-		// without any second factor the session only reaches the setup, the database marks it so
 		return this.mfa.signIn(response, userId, client, 'password');
 	}
 
@@ -83,7 +81,6 @@ export class AuthController {
 		return this.auth.inspectInvitation(body.token);
 	}
 
-	// straight into a session that can only set up the second factor
 	@Post('invitations/accept')
 	@HttpCode(200)
 	async acceptInvitation(

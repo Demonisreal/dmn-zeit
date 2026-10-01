@@ -1,8 +1,5 @@
-// money is whole cents in a bigint throughout, a float drifts by a cent on long sums (T-06)
-
 const abs = (n: bigint) => (n < 0n ? -n : n);
 
-// half away from zero, so a cancellation rounds as the exact mirror image of its invoice
 export const roundDiv = (num: bigint, den: bigint): bigint => {
 	const quotient = num / den;
 	if (2n * abs(num % den) < abs(den)) {

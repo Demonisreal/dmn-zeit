@@ -25,7 +25,6 @@ export const weekdayMinutesSchema = z.object({
 
 const nameSchema = plainText(80);
 const personnelNoSchema = plainText(20);
-// contracts store numeric(4,1)
 const entitlementSchema = z.string().regex(/^\d{1,2}(\.\d)?$/, 'format.entitlement');
 
 export const workModelSchema = z.object({
@@ -65,7 +64,6 @@ export const contractSchema = z.object({
 	createdAt: instantSchema
 });
 
-// the minutes are copied from the work model, later edits to the model leave the contract alone
 export const createContractSchema = z.object({
 	validFrom: isoDateSchema,
 	workModelId: uuidSchema,
@@ -92,7 +90,6 @@ export const employeesQuerySchema = z.object({
 	includeExited: z.stringbool().default(false)
 });
 
-// the first contract starts on the entry date, so an employee never exists without one
 export const createEmployeeSchema = z.object({
 	personnelNo: personnelNoSchema,
 	firstName: nameSchema,

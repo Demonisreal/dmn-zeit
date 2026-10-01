@@ -9,10 +9,8 @@ services:
     environment:
       API_UPSTREAM: zeit-demo-api:3001
       ROBOTS_NOINDEX: noindex
-      # only the central caddy on this subnet may set x-forwarded-for
       EDGE_SUBNET: ${EDGE_SUBNET:?}
     volumes:
-      # named volume so fail2ban on the host can tail it, see deploy/README.md and deploy/host/
       - zeit-demo-access-log:/var/log/caddy
     networks:
       - edge
@@ -55,7 +53,6 @@ services:
       APP_ORIGIN: ${APP_ORIGIN:?}
       DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD:?}@zeit-demo-db:5432/zeit?sslmode=disable
       TRUSTED_PROXY: ${DEMO_APP_SUBNET:?}
-      # optional in demo mode, config.ts falls back to fixed development values when empty
       MAIL_FROM: ${MAIL_FROM:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       PASSWORD_PEPPER: ${PASSWORD_PEPPER:-}
@@ -97,12 +94,9 @@ services:
   zeit-demo-migrate:
     image: zeit-api:${IMAGE_TAG:-local-demo}
     environment:
-      # command args end up in `docker inspect`/`docker top` too, but at least not in shell history of run invocations
       DATABASE_URL: postgres://zeit_owner:${ZEIT_OWNER_PASSWORD:?}@zeit-demo-db:5432/zeit?sslmode=disable
-    # --no-dump-schema: dbmate would otherwise try to rewrite db/schema.sql, which fails under read_only anyway
     command: ["dbmate", "--wait", "--no-dump-schema", "up"]
     networks:
-      # only needs the db, not app
       - db
     read_only: true
     tmpfs:
@@ -124,7 +118,6 @@ services:
       zeit-demo-db:
         condition: service_healthy
 
-  # profile only, not part of the default `up`: docker compose -f deploy/demo/compose.yml run --rm zeit-demo-cli <command>
   zeit-demo-cli:
     image: zeit-api:${IMAGE_TAG:-local-demo}
     profiles:
@@ -162,9 +155,7 @@ services:
         condition: service_healthy
 
   zeit-demo-db:
-    # postgres:17-alpine, checked with `docker pull postgres:17-alpine` on 2026-09-25 (17.11)
     image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
-    # as root the entrypoint needs chown and su-exec, both fail under cap_drop: ALL
     user: postgres
     command: ["postgres", "-c", "max_wal_size=256MB", "-c", "max_connections=40"]
     environment:
@@ -180,7 +171,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64m,noexec,nosuid
-      # postgres wants this one executable, its own socket handling lives here
       - /var/run/postgresql:size=8m,nosuid
     cap_drop:
       - ALL
@@ -196,7 +186,6 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      # tcp on purpose: during init the socket-only temp server already passes pg_isready
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "zeit"]
       interval: 2s
       timeout: 5s

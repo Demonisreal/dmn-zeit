@@ -11,12 +11,10 @@ export type NewTenant = {
 	adminEmail: string;
 	adminName: string;
 	workspace?: WorkspaceKind;
-	// the personnel record of a solo workspace, ignored for a company
 	firstName?: string | undefined;
 	lastName?: string | undefined;
 };
 
-// db connects as zeit_owner, only ops.tenant_create may insert; the context just fills the trail
 export async function createTenant(db: Database, tenant: NewTenant, origin: string) {
 	const tenantId = randomUUID();
 	const token = newToken();

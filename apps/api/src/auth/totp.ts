@@ -18,7 +18,6 @@ export function newTotpSecret(): Buffer {
 	return randomBytes(20);
 }
 
-// the svg holds nothing but the module paths, the web shows it as an <img> from a data uri
 export async function totpSetup(secret: Buffer, email: string): Promise<TotpSetup> {
 	const totp = totpOf(secret, email);
 	const otpauthUri = totp.toString();
@@ -29,7 +28,6 @@ export async function totpSetup(secret: Buffer, email: string): Promise<TotpSetu
 	};
 }
 
-// the 30-second step the code belongs to, one step either side for clocks that drift
 export function stepOf(secret: Buffer, code: string, now: Date): number | null {
 	const totp = totpOf(secret);
 	const timestamp = now.getTime();

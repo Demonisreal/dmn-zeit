@@ -2,7 +2,6 @@ name: zeit-test
 
 services:
   zeit-test-db:
-    # postgres:17-alpine, checked with `docker pull postgres:17-alpine` on 2026-09-25 (17.11)
     image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
       POSTGRES_DB: zeit
@@ -14,7 +13,6 @@ services:
     networks:
       - test
     healthcheck:
-      # tcp on purpose: during init the socket-only temp server already passes pg_isready
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "zeit"]
       interval: 2s
       timeout: 5s

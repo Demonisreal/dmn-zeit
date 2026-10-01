@@ -24,7 +24,6 @@ const name = sql<string>`e.first_name || ' ' || e.last_name`.as('name');
 
 @Injectable()
 export class MonthsStore {
-	// closed means one close more than reopens, the same count the closing trigger makes
 	async lastClosed(trx: Trx): Promise<string | null> {
 		const closed = trx
 			.selectFrom('app.month_closings')
@@ -51,7 +50,6 @@ export class MonthsStore {
 			.execute();
 	}
 
-	// a running entry reaches into every month after its start, the close would lock it for good
 	running(trx: Trx, through: string): Promise<EmployeeRef[]> {
 		return trx
 			.selectFrom('app.time_entries as t')
@@ -65,7 +63,6 @@ export class MonthsStore {
 			.execute();
 	}
 
-	// approving touches the old entry and writes the new times, either one may lie in the month
 	pendingCorrections(trx: Trx, range: DateRange): Promise<EmployeeRef[]> {
 		return trx
 			.selectFrom('app.correction_requests as c')
@@ -101,7 +98,6 @@ export class MonthsStore {
 			.execute();
 	}
 
-	// a cancellation still waiting for its decision counts as taken, like on the day itself
 	async leave(
 		trx: Trx,
 		employeeIds: readonly string[],
@@ -135,7 +131,6 @@ export class MonthsStore {
 		);
 	}
 
-	// after a reopen the month can be closed again, the latest close is the one in force
 	async latestClose(
 		trx: Trx,
 		month: string

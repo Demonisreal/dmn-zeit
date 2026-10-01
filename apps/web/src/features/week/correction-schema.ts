@@ -27,7 +27,6 @@ export const correctionFormSchema = z
 			if (!clockTime.test(form.end)) flag('end', i18n.t('validation.required'));
 			else if (form.start === form.end) flag('end', i18n.t('week:correction.same'));
 		},
-		// also while the reason is still too short, so every problem shows on the first submit
 		{ when: () => true }
 	);
 
@@ -51,14 +50,12 @@ export function toCorrection(
 	const { action, entryId, reason } = form;
 	if (action === 'void') return { action, entryId, reason };
 	const startedAt = at(date, form.start);
-	// a clock-out earlier than the clock-in belongs to the next day
 	const endedAt = at(form.end < form.start ? addDays(date, 1) : date, form.end);
 	return action === 'add'
 		? { action, employeeId, startedAt, endedAt, reason }
 		: { action, entryId, startedAt, endedAt, reason };
 }
 
-// field names of the api body mapped onto the form
 export const apiFields = {
 	reason: 'reason',
 	startedAt: 'start',

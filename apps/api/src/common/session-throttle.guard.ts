@@ -4,10 +4,8 @@ import type { Request, Response } from 'express';
 import { Clock } from './clock';
 
 const WINDOW = 60_000;
-// findings are worked out from the entries on every call, clicking through filters stays below
 const LIMIT = 30;
 
-// per session rather than per address, the global throttler runs before request.auth exists
 @Injectable()
 export class SessionThrottleGuard implements CanActivate {
 	private readonly windows = new Map<string, { hits: number; until: number }>();
