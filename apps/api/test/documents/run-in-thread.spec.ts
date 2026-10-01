@@ -26,10 +26,12 @@ describe('runInThread', () => {
 		await expect(terminate.mock.results[0]!.value).resolves.toBe(1);
 	});
 
+	// a global --max-old-space-size (e.g. from NODE_OPTIONS) overrides resourceLimits, vitest.config resets it
 	it('runs out of memory inside its own heap limit', async () => {
 		await expect(
 			runInThread(job('hoard'), {
 				filename,
+				timeoutMs: 3000,
 				resourceLimits: { maxOldGenerationSizeMb: 16, maxYoungGenerationSizeMb: 4 }
 			})
 		).rejects.toMatchObject({ code: 'ERR_WORKER_OUT_OF_MEMORY' });
