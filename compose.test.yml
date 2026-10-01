@@ -2,7 +2,8 @@ name: zeit-test
 
 services:
   zeit-test-db:
-    image: postgres:17-alpine
+    # postgres:17-alpine, checked with `docker pull postgres:17-alpine` on 2026-09-25 (17.11)
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
       POSTGRES_DB: zeit
       POSTGRES_PASSWORD: postgres

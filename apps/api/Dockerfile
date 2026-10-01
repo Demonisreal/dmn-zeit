@@ -1,5 +1,6 @@
-# syntax=docker/dockerfile:1
-FROM node:24-slim AS build
+# syntax=docker/dockerfile:1.7
+# node:24-slim, checked with `docker pull node:24-slim` on 2026-09-25 (v24.21.0)
+FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -20,17 +21,13 @@ RUN pnpm --filter @zeit/shared build \
 	&& pnpm --filter @zeit/api build \
 	&& pnpm --filter @zeit/api deploy --prod --legacy /out
 
-FROM node:24-slim AS runtime
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends curl ca-certificates \
-	&& rm -rf /var/lib/apt/lists/*
+FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
 
 ARG DBMATE_VERSION=2.36.0
-ARG DBMATE_SHA256=47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce
-RUN curl -fsSL -o /usr/local/bin/dbmate \
-		"https://github.com/amacneil/dbmate/releases/download/v${DBMATE_VERSION}/dbmate-linux-amd64" \
-	&& echo "${DBMATE_SHA256}  /usr/local/bin/dbmate" | sha256sum -c - \
-	&& chmod +x /usr/local/bin/dbmate
+# ADD verifies the checksum itself, no curl/ca-certificates needed in the final image for this
+ADD --checksum=sha256:47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce \
+	https://github.com/amacneil/dbmate/releases/download/v${DBMATE_VERSION}/dbmate-linux-amd64 /usr/local/bin/dbmate
+RUN chmod +x /usr/local/bin/dbmate
 
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./

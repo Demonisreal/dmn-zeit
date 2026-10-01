@@ -10,15 +10,18 @@ services:
       API_UPSTREAM: zeit-demo-api:3001
       ROBOTS_NOINDEX: noindex
       # only the central caddy on this subnet may set x-forwarded-for
-      EDGE_SUBNET: ${EDGE_SUBNET}
+      EDGE_SUBNET: ${EDGE_SUBNET:?}
+    volumes:
+      # named volume so fail2ban on the host can tail it, see deploy/README.md and deploy/host/
+      - zeit-demo-access-log:/var/log/caddy
     networks:
       - edge
       - app
     read_only: true
     tmpfs:
-      - /tmp
-      - /data
-      - /config
+      - /tmp:size=16m,noexec,nosuid
+      - /data:size=16m,noexec,nosuid
+      - /config:size=16m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -49,9 +52,9 @@ services:
     image: zeit-api:${IMAGE_TAG:-local-demo}
     environment:
       APP_MODE: demo
-      APP_ORIGIN: ${APP_ORIGIN}
-      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD}@zeit-demo-db:5432/zeit?sslmode=disable
-      TRUSTED_PROXY: ${DEMO_APP_SUBNET}
+      APP_ORIGIN: ${APP_ORIGIN:?}
+      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD:?}@zeit-demo-db:5432/zeit?sslmode=disable
+      TRUSTED_PROXY: ${DEMO_APP_SUBNET:?}
       # optional in demo mode, config.ts falls back to fixed development values when empty
       MAIL_FROM: ${MAIL_FROM:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
@@ -62,7 +65,7 @@ services:
       - db
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=64m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -93,20 +96,17 @@ services:
 
   zeit-demo-migrate:
     image: zeit-api:${IMAGE_TAG:-local-demo}
-    command:
-      [
-        "dbmate",
-        "--wait",
-        "--url",
-        "postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-demo-db:5432/zeit?sslmode=disable",
-        "up"
-      ]
+    environment:
+      # command args end up in `docker inspect`/`docker top` too, but at least not in shell history of run invocations
+      DATABASE_URL: postgres://zeit_owner:${ZEIT_OWNER_PASSWORD:?}@zeit-demo-db:5432/zeit?sslmode=disable
+    # --no-dump-schema: dbmate would otherwise try to rewrite db/schema.sql, which fails under read_only anyway
+    command: ["dbmate", "--wait", "--no-dump-schema", "up"]
     networks:
       # only needs the db, not app
       - db
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -124,15 +124,54 @@ services:
       zeit-demo-db:
         condition: service_healthy
 
+  # profile only, not part of the default `up`: docker compose -f deploy/demo/compose.yml run --rm zeit-demo-cli <command>
+  zeit-demo-cli:
+    image: zeit-api:${IMAGE_TAG:-local-demo}
+    profiles:
+      - cli
+    entrypoint: ["node", "dist/cli.js"]
+    environment:
+      APP_MODE: demo
+      APP_ORIGIN: ${APP_ORIGIN:?}
+      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD:?}@zeit-demo-db:5432/zeit?sslmode=disable
+      CLI_DATABASE_URL: postgres://zeit_owner:${ZEIT_OWNER_PASSWORD:?}@zeit-demo-db:5432/zeit?sslmode=disable
+      TRUSTED_PROXY: ${DEMO_APP_SUBNET:?}
+      MAIL_FROM: ${MAIL_FROM:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-}
+    networks:
+      - db
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 50
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      zeit-demo-db:
+        condition: service_healthy
+
   zeit-demo-db:
-    image: postgres:17-alpine
+    # postgres:17-alpine, checked with `docker pull postgres:17-alpine` on 2026-09-25 (17.11)
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     # as root the entrypoint needs chown and su-exec, both fail under cap_drop: ALL
     user: postgres
+    command: ["postgres", "-c", "max_wal_size=256MB", "-c", "max_connections=40"]
     environment:
       POSTGRES_DB: zeit
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      ZEIT_OWNER_PASSWORD: ${ZEIT_OWNER_PASSWORD}
-      ZEIT_APP_PASSWORD: ${ZEIT_APP_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      ZEIT_OWNER_PASSWORD: ${ZEIT_OWNER_PASSWORD:?}
+      ZEIT_APP_PASSWORD: ${ZEIT_APP_PASSWORD:?}
     volumes:
       - zeit-demo-db:/var/lib/postgresql/data
       - ../../db/init:/docker-entrypoint-initdb.d:ro
@@ -140,15 +179,17 @@ services:
       - db
     read_only: true
     tmpfs:
-      - /tmp
-      - /var/run/postgresql
+      - /tmp:size=64m,noexec,nosuid
+      # postgres wants this one executable, its own socket handling lives here
+      - /var/run/postgresql:size=8m,nosuid
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    mem_limit: 512m
+    mem_limit: 384m
     cpus: 1
     pids_limit: 100
+    stop_grace_period: 60s
     logging:
       driver: json-file
       options:
@@ -170,12 +211,13 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: ${DEMO_APP_SUBNET}
+        - subnet: ${DEMO_APP_SUBNET:?}
   db:
     internal: true
     ipam:
       config:
-        - subnet: ${DEMO_DB_SUBNET}
+        - subnet: ${DEMO_DB_SUBNET:?}
 
 volumes:
   zeit-demo-db:
+  zeit-demo-access-log:

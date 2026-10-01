@@ -1,0 +1,19 @@
+# copy to /etc/systemd/system/docker-user-limits.service on the server, then:
+#   systemctl daemon-reload && systemctl enable --now docker-user-limits.service
+# replace <WAN_IF> with the real interface, `ip route show default` prints it
+[Unit]
+Description=Per-source connection and rate limits in the DOCKER-USER chain for zeit
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/iptables -I DOCKER-USER -i <WAN_IF> -p tcp -m multiport --dports 80,443 -m connlimit --connlimit-above 40 --connlimit-mask 32 -j DROP
+ExecStart=/sbin/iptables -I DOCKER-USER -i <WAN_IF> -p tcp -m multiport --dports 80,443 -m hashlimit --hashlimit-name zeit-syn --hashlimit-above 60/sec --hashlimit-burst 100 --hashlimit-mode srcip -j DROP
+ExecStop=/sbin/iptables -D DOCKER-USER -i <WAN_IF> -p tcp -m multiport --dports 80,443 -m connlimit --connlimit-above 40 --connlimit-mask 32 -j DROP
+ExecStop=/sbin/iptables -D DOCKER-USER -i <WAN_IF> -p tcp -m multiport --dports 80,443 -m hashlimit --hashlimit-name zeit-syn --hashlimit-above 60/sec --hashlimit-burst 100 --hashlimit-mode srcip -j DROP
+
+[Install]
+WantedBy=multi-user.target

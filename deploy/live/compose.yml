@@ -9,15 +9,18 @@ services:
     environment:
       API_UPSTREAM: zeit-live-api:3001
       # only the central caddy on this subnet may set x-forwarded-for
-      EDGE_SUBNET: ${EDGE_SUBNET}
+      EDGE_SUBNET: ${EDGE_SUBNET:?}
+    volumes:
+      # named volume so fail2ban on the host can tail it, see deploy/README.md and deploy/host/
+      - zeit-live-access-log:/var/log/caddy
     networks:
       - edge
       - app
     read_only: true
     tmpfs:
-      - /tmp
-      - /data
-      - /config
+      - /tmp:size=16m,noexec,nosuid
+      - /data:size=16m,noexec,nosuid
+      - /config:size=16m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -48,19 +51,21 @@ services:
     image: zeit-api:${IMAGE_TAG:-local-live}
     environment:
       APP_MODE: live
-      APP_ORIGIN: ${APP_ORIGIN}
-      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable
-      TRUSTED_PROXY: ${LIVE_APP_SUBNET}
+      APP_ORIGIN: ${APP_ORIGIN:?}
+      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD:?}@zeit-live-db:5432/zeit?sslmode=disable
+      TRUSTED_PROXY: ${LIVE_APP_SUBNET:?}
       MAIL_FROM: ${MAIL_FROM:?}
       RESEND_API_KEY: ${RESEND_API_KEY:?}
       PASSWORD_PEPPER: ${PASSWORD_PEPPER:?}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?}
     networks:
       - app
+      # only the api reaches the internet, for Resend; egress is not internal, app now is
+      - egress
       - db
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=64m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -91,20 +96,17 @@ services:
 
   zeit-live-migrate:
     image: zeit-api:${IMAGE_TAG:-local-live}
-    command:
-      [
-        "dbmate",
-        "--wait",
-        "--url",
-        "postgres://zeit_owner:${ZEIT_OWNER_PASSWORD}@zeit-live-db:5432/zeit?sslmode=disable",
-        "up"
-      ]
+    environment:
+      # command args end up in `docker inspect`/`docker top` too, but at least not in shell history of run invocations
+      DATABASE_URL: postgres://zeit_owner:${ZEIT_OWNER_PASSWORD:?}@zeit-live-db:5432/zeit?sslmode=disable
+    # --no-dump-schema: dbmate would otherwise try to rewrite db/schema.sql, which fails under read_only anyway
+    command: ["dbmate", "--wait", "--no-dump-schema", "up"]
     networks:
-      # only needs the db, not app: app is not internal here, no reason to give migrate internet access
+      # only needs the db, not app or egress: no reason to give migrate internet access
       - db
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -122,17 +124,57 @@ services:
       zeit-live-db:
         condition: service_healthy
 
+  # profile only, not part of the default `up`: docker compose -f deploy/live/compose.yml run --rm zeit-live-cli <command>
+  # no egress here either: user:mfa-reset just tells the operator to notify by hand if the mail can't go out
+  zeit-live-cli:
+    image: zeit-api:${IMAGE_TAG:-local-live}
+    profiles:
+      - cli
+    entrypoint: ["node", "dist/cli.js"]
+    environment:
+      APP_MODE: live
+      APP_ORIGIN: ${APP_ORIGIN:?}
+      DATABASE_URL: postgres://zeit_app:${ZEIT_APP_PASSWORD:?}@zeit-live-db:5432/zeit?sslmode=disable
+      CLI_DATABASE_URL: postgres://zeit_owner:${ZEIT_OWNER_PASSWORD:?}@zeit-live-db:5432/zeit?sslmode=disable
+      TRUSTED_PROXY: ${LIVE_APP_SUBNET:?}
+      MAIL_FROM: ${MAIL_FROM:?}
+      RESEND_API_KEY: ${RESEND_API_KEY:?}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:?}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?}
+    networks:
+      - db
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 50
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      zeit-live-db:
+        condition: service_healthy
+
   zeit-live-db:
-    image: postgres:17-alpine
+    # postgres:17-alpine, checked with `docker pull postgres:17-alpine` on 2026-09-25 (17.11)
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     # as root the entrypoint needs chown and su-exec, both fail under cap_drop: ALL
     user: postgres
+    command: ["postgres", "-c", "max_wal_size=256MB", "-c", "max_connections=40"]
     environment:
       POSTGRES_DB: zeit
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      ZEIT_OWNER_PASSWORD: ${ZEIT_OWNER_PASSWORD}
-      ZEIT_APP_PASSWORD: ${ZEIT_APP_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      ZEIT_OWNER_PASSWORD: ${ZEIT_OWNER_PASSWORD:?}
+      ZEIT_APP_PASSWORD: ${ZEIT_APP_PASSWORD:?}
       # read-only role for zeit-live-backup, see db/init/00-roles.sh
-      ZEIT_BACKUP_PASSWORD: ${ZEIT_BACKUP_PASSWORD}
+      ZEIT_BACKUP_PASSWORD: ${ZEIT_BACKUP_PASSWORD:?}
     volumes:
       - zeit-live-db:/var/lib/postgresql/data
       - ../../db/init:/docker-entrypoint-initdb.d:ro
@@ -140,8 +182,9 @@ services:
       - db
     read_only: true
     tmpfs:
-      - /tmp
-      - /var/run/postgresql
+      - /tmp:size=64m,noexec,nosuid
+      # postgres wants this one executable, its own socket handling lives here
+      - /var/run/postgresql:size=8m,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -149,6 +192,7 @@ services:
     mem_limit: 1024m
     cpus: 1.5
     pids_limit: 150
+    stop_grace_period: 60s
     logging:
       driver: json-file
       options:
@@ -165,18 +209,19 @@ services:
   # not part of the default `up`, backup.sh runs it via `--profile backup run --rm`
   # zeit_backup, not zeit_owner: a hijacked backup container must not be able to touch triggers or RLS (B11)
   zeit-live-backup:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     profiles:
       - backup
+    user: postgres
     environment:
-      PGPASSWORD: ${ZEIT_BACKUP_PASSWORD}
+      PGPASSWORD: ${ZEIT_BACKUP_PASSWORD:?}
     networks:
       - db
     # writes to stdout instead of a mounted volume: read_only + no writable path for the dump file itself
     command: ["pg_dump", "-h", "zeit-live-db", "-U", "zeit_backup", "-d", "zeit", "-Fc"]
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=32m,noexec,nosuid
     cap_drop:
       - ALL
     security_opt:
@@ -184,20 +229,31 @@ services:
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 50
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 networks:
   edge:
     external: true
     name: ${EDGE_NETWORK:?}
   app:
+    internal: true
     ipam:
       config:
-        - subnet: ${LIVE_APP_SUBNET}
+        - subnet: ${LIVE_APP_SUBNET:?}
+  egress:
+    ipam:
+      config:
+        - subnet: ${LIVE_EGRESS_SUBNET:?}
   db:
     internal: true
     ipam:
       config:
-        - subnet: ${LIVE_DB_SUBNET}
+        - subnet: ${LIVE_DB_SUBNET:?}
 
 volumes:
   zeit-live-db:
+  zeit-live-access-log:

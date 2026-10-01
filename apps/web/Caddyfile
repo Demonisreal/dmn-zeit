@@ -16,6 +16,15 @@
 }
 
 :8080 {
+	# read by fail2ban on the host, see deploy/host/ and deploy/README.md
+	log {
+		output file /var/log/caddy/zeit-access.log {
+			roll_size 20MiB
+			roll_keep_for 168h
+		}
+		format json
+	}
+
 	root * /srv
 
 	@api path /api/*
@@ -32,7 +41,8 @@
 		Cross-Origin-Opener-Policy same-origin
 		Cross-Origin-Resource-Policy same-origin
 		# backstop in case the central caddy misses HSTS; there it has to be >Strict-Transport-Security, or clients get two
-		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		# no preload: that needs submission to hstspreload.org first, the header alone does nothing for it
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
 	# ? only fills in a missing header, so the api keeps its stricter csp and assets their cache header

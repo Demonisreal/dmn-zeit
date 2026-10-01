@@ -1,0 +1,14 @@
+# copy to /etc/fail2ban/jail.d/zeit.local on the server, adjust logpath to the real mountpoints:
+# docker volume inspect zeit-live-access-log --format '{{ .Mountpoint }}'
+# docker volume inspect zeit-demo-access-log --format '{{ .Mountpoint }}'
+[zeit]
+enabled = true
+filter = zeit
+logpath = /var/lib/docker/volumes/zeit-live-access-log/_data/zeit-access.log
+          /var/lib/docker/volumes/zeit-demo-access-log/_data/zeit-access.log
+maxretry = 8
+findtime = 5m
+bantime = 1h
+banaction = iptables-allports[chain=DOCKER-USER]
+# the VPN reaches the server directly, never lock out its own address range
+ignoreip = 127.0.0.1/8 10.8.0.0/24
