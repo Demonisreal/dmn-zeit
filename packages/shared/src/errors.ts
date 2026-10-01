@@ -18,6 +18,7 @@ export const errorCodes = [
 	'APPEND_ONLY',
 	'INVOICED',
 	'RATE_LIMITED',
+	'RENDER_BUSY',
 	'SANDBOX_LIMIT',
 	'SANDBOX_QUOTA',
 	'INTERNAL'
@@ -32,12 +33,15 @@ export const validationKeys = [
 	'format.monthDay',
 	'format.dayCount',
 	'format.cents',
+	'format.iban',
+	'format.vatId',
 	'format.entitlement',
 	'format.token',
 	'format.totp',
 	'format.recoveryCode',
 	'text.empty',
 	'text.controlChars',
+	'text.invoiceCharset',
 	'range.required',
 	'range.unordered',
 	'range.tooLong',
@@ -51,6 +55,9 @@ export const validationKeys = [
 	'project.endBeforeStart',
 	'project.noteRequired',
 	'rate.futureOnly',
+	'invoice.rangeTooLong',
+	'invoice.tooManyLines',
+	'invoice.taxCategoryMismatch',
 	'password.common'
 ] as const;
 

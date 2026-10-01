@@ -41,7 +41,7 @@ function shiftOf(plan: DemoPlan, today: Temporal.PlainDate): PlanRow<'entries'> 
 }
 
 // the story clocks in at ten past eight, an earlier visitor finds the persona arrived minutes ago
-function clockInBefore(shift: PlanRow<'entries'>, today: Temporal.PlainDate, now: Date) {
+function clockInBefore(shift: { startedAt: string }, today: Temporal.PlainDate, now: Date) {
 	const instant = Temporal.Instant.fromEpochMilliseconds(now.getTime());
 	if (Temporal.Instant.compare(Temporal.Instant.from(shift.startedAt), instant) <= 0) return;
 
@@ -51,6 +51,22 @@ function clockInBefore(shift: PlanRow<'entries'>, today: Temporal.PlainDate, now
 	shift.startedAt = (Temporal.Instant.compare(start, midnight) < 0 ? midnight : start)
 		.toZonedDateTimeISO('Europe/Berlin')
 		.toString({ timeZoneName: 'never', smallestUnit: 'second' });
+}
+
+// a timer ahead of the visitor could never be stopped, the persona's goes back to her clock-in
+function timersBefore(
+	plan: DemoPlan,
+	shift: PlanRow<'entries'>,
+	today: Temporal.PlainDate,
+	now: Date
+) {
+	const runsToday = (entry: PlanRow<'projectEntries'>) =>
+		entry.endedAt === null && entry.startedAt.startsWith(today.toString());
+	const timer = plan.projectEntries.find(
+		(entry) => runsToday(entry) && entry.employeeId === shift.employeeId
+	)!;
+	if (Date.parse(timer.startedAt) > now.getTime()) timer.startedAt = shift.startedAt;
+	clockInBefore(plan.solo.projectEntries.find(runsToday)!, today, now);
 }
 
 @Injectable()
@@ -96,6 +112,7 @@ export class DemoService {
 		const shift = shiftOf(plan, today);
 		// a prepared plan can be hours old, what still lies ahead depends on the request
 		clockInBefore(shift, today, now);
+		timersBefore(plan, shift, today, now);
 		await this.store.write(plan, input.locale);
 		const starter = plan.users.find((user) => user.employeeId === shift.employeeId)!;
 		const session = await this.sessions.open(response, starter.id, client);
@@ -104,11 +121,8 @@ export class DemoService {
 		return session;
 	}
 
-	// employees may not read other accounts, but in a sandbox each of them is one switch away
 	personas(session: AuthSession): Promise<Persona[]> {
-		return this.db.withTenant({ ...session, role: 'hr' }, (trx) =>
-			this.store.personas(trx, session.userId)
-		);
+		return this.db.withTenant(session, (trx) => this.store.personas(trx, session.userId));
 	}
 
 	async switchTo(userId: string, request: Request, response: Response): Promise<Session> {

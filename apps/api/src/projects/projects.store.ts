@@ -192,6 +192,17 @@ export class ProjectsStore {
 		return row && toClient(row);
 	}
 
+	// 10d: an open draft still names this client, archiving now would confuse its buyer snapshot
+	async hasOpenDraft(trx: Trx, id: string): Promise<boolean> {
+		const row = await trx
+			.selectFrom('app.invoices')
+			.select('id')
+			.where('client_id', '=', id)
+			.where('status', '=', 'draft')
+			.executeTakeFirst();
+		return row !== undefined;
+	}
+
 	// archiving twice keeps the first date
 	async archiveClient(trx: Trx, id: string): Promise<Client | undefined> {
 		const row = await trx

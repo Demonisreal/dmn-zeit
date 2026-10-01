@@ -10,7 +10,10 @@ import { Database } from './database';
 			provide: Database,
 			inject: [ConfigService],
 			useFactory: (config: ConfigService<Config, true>) =>
-				new Database(config.get('DATABASE_URL', { infer: true }))
+				new Database(
+					config.get('DATABASE_URL', { infer: true }),
+					config.get('APP_MODE', { infer: true }) === 'demo'
+				)
 		}
 	],
 	exports: [Database]

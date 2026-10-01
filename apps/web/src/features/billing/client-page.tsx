@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { Client } from '@zeit/shared';
+import type { Client, Role } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
@@ -20,9 +20,10 @@ import { useRoundingText } from './use-rounding-text';
 type Props = {
 	id: string;
 	solo: boolean;
+	role: Role;
 };
 
-export function ClientPage({ id, solo }: Props) {
+export function ClientPage({ id, solo, role }: Props) {
 	const { t } = useTranslation('billing');
 	const [editing, setEditing] = useState(false);
 	const [closed, setClosed] = useState(false);
@@ -80,7 +81,7 @@ export function ClientPage({ id, solo }: Props) {
 
 	return (
 		<>
-			<BillingNav />
+			<BillingNav role={role} />
 			<Page>
 				<p className={styles.small}>
 					<Link to="/billing/clients">{t('client.back')}</Link>

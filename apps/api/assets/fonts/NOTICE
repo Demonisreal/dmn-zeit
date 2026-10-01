@@ -1,0 +1,4 @@
+DejaVuSans.ttf, DejaVuSans-Bold.ttf — DejaVu Fonts, version 2.37, https://dejavu-fonts.github.io/
+Derived from Bitstream Vera; licensed under the Bitstream Vera License plus the DejaVu changes (public domain), full text in LICENSE in this directory. Free to embed and redistribute, no attribution required in the rendered document.
+Fetched via npm package dejavu-fonts-ttf@2.37.3 (https://www.npmjs.com/package/dejavu-fonts-ttf) on 2026-09-25.
+Coverage checked for invoice rendering: Latin-1 Supplement, Latin Extended-A, Euro sign (U+20AC), typographic quotes (U+2018/2019/201C/201D) — see packages/shared/src/billing.ts invoiceTextSchema.

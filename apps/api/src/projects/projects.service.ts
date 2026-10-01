@@ -65,11 +65,17 @@ export class ProjectsService {
 		});
 	}
 
-	// 10d refuses this while an open invoice draft names the client
 	archiveClient(session: AuthSession, id: string): Promise<Client> {
-		return this.db.withTenant(session, async (trx) =>
-			found(await this.store.archiveClient(trx, id), 'Client')
-		);
+		return this.db.withTenant(session, async (trx) => {
+			if (await this.store.hasOpenDraft(trx, id)) {
+				throw new ConflictException({
+					code: 'INVALID_STATE',
+					message: 'This client still has an open invoice draft',
+					details: { field: 'client', message: 'client.openDraft' }
+				} satisfies ApiError);
+			}
+			return found(await this.store.archiveClient(trx, id), 'Client');
+		});
 	}
 
 	removeClient(session: AuthSession, id: string): Promise<void> {

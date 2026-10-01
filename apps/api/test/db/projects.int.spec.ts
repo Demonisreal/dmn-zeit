@@ -165,9 +165,13 @@ describe('project entries', () => {
 		).rejects.toMatchObject({ code: '42501' });
 
 		await withContext(app, hr.context);
-		await app.query('update app.project_entries set invoice_id = gen_random_uuid() where id = $1', [
-			entry
-		]);
+		const draft = await insertId(
+			app,
+			`insert into app.invoices (tenant_id, client_id, service_from, service_to, payment_terms_days, format, tax_profile)
+			 values ($1, $2, current_date, current_date, 14, 'pdf', 'regular') returning id`,
+			[tenant, client]
+		);
+		await app.query('update app.project_entries set invoice_id = $2 where id = $1', [entry, draft]);
 
 		await withContext(app, worker.context);
 		await expect(
@@ -337,5 +341,52 @@ describe('project entries', () => {
 		await expect(
 			superuser.query('delete from app.project_entries where id = $1', [entry])
 		).rejects.toMatchObject({ code: 'ZT002' });
+	});
+
+	it('caps a manual entry at 24 hours', async () => {
+		await withContext(app, worker.context);
+		await expect(
+			app.query(
+				`insert into app.project_entries (tenant_id, employee_id, project_id, started_at, ended_at, note, source)
+				 values ($1, $2, $3, '2026-03-11 00:00+01', '2026-03-12 01:00+01', 'zu lang', 'manual')`,
+				[tenant, worker.employeeId, project]
+			)
+		).rejects.toMatchObject({ code: '23514' });
+	});
+
+	it('lets only hr mark an entry billable', async () => {
+		const entry = await book(worker, '2026-03-12 08:00+01', '2026-03-12 09:00+01');
+		await withContext(app, worker.context);
+		await expect(
+			app.query('update app.project_entries set billable = false where id = $1', [entry])
+		).rejects.toMatchObject({ code: '42501' });
+
+		await withContext(app, hr.context);
+		const marked = await app.query(
+			'update app.project_entries set billable = false where id = $1',
+			[entry]
+		);
+		expect(marked.rowCount).toBe(1);
+	});
+
+	it('turns a corrected timer entry into a manual one', async () => {
+		await withContext(app, worker.context);
+		const entry = await insertId(
+			app,
+			`insert into app.project_entries (tenant_id, employee_id, project_id, source)
+			 values ($1, $2, $3, 'timer') returning id`,
+			[tenant, worker.employeeId, project]
+		);
+		await app.query(`update app.project_entries set ended_at = now(), note = 'Startseite' where id = $1`, [
+			entry
+		]);
+
+		// the running timer already claimed now(), pushing the start back is the only safe correction here
+		const corrected = await app.query(
+			`update app.project_entries set started_at = started_at - interval '10 minutes' where id = $1
+			 returning source`,
+			[entry]
+		);
+		expect(corrected.rows[0].source).toBe('manual');
 	});
 });

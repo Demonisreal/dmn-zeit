@@ -1,0 +1,21 @@
+.tags {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.375rem;
+}
+
+.number {
+	font-family: var(--mono);
+}
+
+.status {
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--edge);
+}
+
+.status h2 {
+	margin-bottom: 0.5rem;
+	font-size: 1rem;
+}

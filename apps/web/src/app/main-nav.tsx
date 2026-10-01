@@ -24,7 +24,8 @@ const entries: Entry[] = [
 	{ to: '/team/calendar', label: 'team', role: 'team_lead', workspace: 'company' },
 	{ to: '/team/projects', label: 'teamProjects', role: 'team_lead', workspace: 'company' },
 	{ to: '/hr', label: 'hr', role: 'hr', workspace: 'company' },
-	{ to: '/billing/clients', label: 'billing', role: 'hr', match: '/billing' },
+	{ to: '/billing', label: 'billing', role: 'hr', workspace: 'company', match: '/billing' },
+	{ to: '/billing', label: 'billingSolo', role: 'hr', workspace: 'solo', match: '/billing' },
 	{ to: '/admin', label: 'admin', role: 'admin' }
 ];
 

@@ -1,18 +1,31 @@
 import { today } from '@internationalized/date';
+import { invoiceTotals, roundDiv } from '@zeit/rules';
 import {
+	cancelInvoiceSchema,
 	createClientSchema,
+	createDraftSchema,
 	createProjectSchema,
 	createRateSchema,
 	createTaskSchema,
+	invoiceLineInputSchema,
+	issueInvoiceSchema,
+	markPaidSchema,
+	updateBillingProfileSchema,
 	updateClientSchema,
+	updateDraftSchema,
 	updateProjectSchema,
 	updateTaskSchema,
+	type BillingProfile,
 	type BudgetStatus,
 	type Client,
 	type ErrorCode,
+	type Invoice,
+	type InvoiceLine,
+	type InvoiceSummary,
 	type Project,
 	type Rate,
-	type Task
+	type Task,
+	type Unbilled
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 import { z, type ZodError } from 'zod';
@@ -33,10 +46,129 @@ const clientId = (n: number) => `3c9f1a70-2e4b-4d18-9a53-${hex(n)}`;
 const projectId = (n: number) => `5e21b8d4-6a0f-4c37-8e92-${hex(n)}`;
 const taskId = (n: number) => `8b47e2c1-9d3a-4f65-a0b8-${hex(n)}`;
 const rateId = (n: number) => `7d3e9b25-4f1a-4c68-b2d7-${hex(n)}`;
+const invoiceId = (n: number) => `1f6a2e4c-8d9b-4a37-a05e-${hex(n)}`;
 
 const todayIso = () => today('Europe/Berlin').toString();
 const nextYear = () => `${Number(todayIso().slice(0, 4)) + 1}-01-01`;
 const personId = (lastName: string) => mockEmployees.find((e) => e.lastName === lastName)!.id;
+
+const zeroTotals = {
+	netCents: '0',
+	taxCents: '0',
+	grossCents: '0',
+	explanation: { key: 'billing.totals.empty', params: {} }
+};
+
+const sellerOf = (profile: BillingProfile) => ({
+	legalName: profile.legalName,
+	street: profile.street,
+	postalCode: profile.postalCode,
+	city: profile.city,
+	countryCode: profile.countryCode,
+	taxNumber: profile.taxNumber,
+	vatId: profile.vatId,
+	iban: profile.iban,
+	bic: profile.bic,
+	bankName: profile.bankName,
+	contactName: profile.contactName,
+	contactEmail: profile.contactEmail,
+	contactPhone: profile.contactPhone,
+	registerCourt: profile.registerCourt,
+	registerNumber: profile.registerNumber
+});
+
+const buyerOf = (owner: Client) => ({
+	name: owner.name,
+	street: owner.street,
+	postalCode: owner.postalCode,
+	city: owner.city,
+	countryCode: owner.countryCode,
+	isBusiness: owner.isBusiness,
+	vatId: owner.vatId,
+	email: owner.email,
+	buyerReference: owner.buyerReference,
+	number: owner.number
+});
+
+// draft by default, issued/paid/cancelled invoices come with the fields that status implies
+type InvoiceRest = Partial<Invoice> & { dueInDays?: number };
+
+function invoice(n: number, owner: Client, profile: BillingProfile, rest: InvoiceRest = {}): Invoice {
+	const { dueInDays, ...fields } = rest;
+	const issueDate = fields.issueDate ?? null;
+	const dueDate =
+		fields.dueDate ?? (issueDate && dueInDays !== undefined
+			? today('Europe/Berlin').add({ days: dueInDays }).toString()
+			: null);
+	return {
+		id: invoiceId(n),
+		kind: 'invoice',
+		status: 'draft',
+		specimen: false,
+		clientId: owner.id,
+		refersTo: null,
+		number: null,
+		numberYear: null,
+		numberSeq: null,
+		issueDate,
+		dueDate,
+		serviceFrom: `${todayIso().slice(0, 7)}-01`,
+		serviceTo: todayIso(),
+		paymentTermsDays: owner.paymentTermsDays ?? profile.paymentTermsDays,
+		locale: owner.invoiceLocale,
+		format: profile.defaultFormat,
+		taxProfile: profile.taxProfile,
+		seller: sellerOf(profile),
+		buyer: buyerOf(owner),
+		introText: null,
+		closingText: null,
+		lines: [],
+		taxGroups: [],
+		totals: zeroTotals,
+		legalNotes: [],
+		blockers: [],
+		hints: [],
+		paidOn: null,
+		cancelReason: null,
+		cancelledAt: null,
+		cancelledBy: null,
+		issuedAt: null,
+		issuedBy: null,
+		createdBy: { id: mockSession.user.id, displayName: mockSession.user.displayName },
+		createdAt: `${todayIso()}T09:00:00+02:00`,
+		updatedAt: `${todayIso()}T09:00:00+02:00`,
+		retainUntil: null,
+		...fields
+	};
+}
+
+const grossOf = (euros: number) => String(Math.round(euros * 100));
+
+const profileFor = (legalName: string, rest: Partial<BillingProfile> = {}): BillingProfile => ({
+	legalName,
+	street: null,
+	postalCode: null,
+	city: null,
+	countryCode: 'DE',
+	taxNumber: null,
+	vatId: null,
+	taxProfile: 'regular',
+	previousYearRevenueCents: null,
+	iban: null,
+	bic: null,
+	bankName: null,
+	contactName: null,
+	contactEmail: null,
+	contactPhone: null,
+	registerCourt: null,
+	registerNumber: null,
+	invoicePrefix: '',
+	paymentTermsDays: 14,
+	roundingIncrementMin: 15,
+	roundingMode: 'up',
+	defaultFormat: 'pdf',
+	...rest
+});
 
 const client = (n: number, name: string, rest: Partial<Client> = {}): Client => ({
 	id: clientId(n),
@@ -108,44 +240,107 @@ const rate = (
 	createdBy: mockSession.user.id
 });
 
-type World = { clients: Client[]; projects: MockProject[]; tasks: Task[]; rates: Rate[] };
+type World = {
+	clients: Client[];
+	projects: MockProject[];
+	tasks: Task[];
+	rates: Rate[];
+	invoices: Invoice[];
+	profile: BillingProfile;
+	unbilled: Unbilled;
+};
 
 // mara's tax office: the clients of the project week plus a long name, one without projects, one archived
 function companyWorld(): World {
+	const clients = [
+		client(1, 'Bäckerei Hagen GmbH (Beispiel)', {
+			number: 'K-1001',
+			street: 'Marktstraße 12',
+			postalCode: '44135',
+			city: 'Dortmund'
+		}),
+		client(2, 'Autohaus Brinkmann KG (Beispiel)', {
+			number: 'K-1002',
+			street: 'Westfalendamm 88',
+			postalCode: '44141',
+			city: 'Dortmund',
+			paymentTermsDays: 14
+		}),
+		client(3, 'Praxis Dr. Yilmaz (Beispiel)', { number: 'K-1003', city: 'Unna' }),
+		client(4, 'Tischlerei Overbeck (Beispiel)', {
+			number: 'K-1004',
+			city: 'Schwerte',
+			roundingIncrementMin: 30,
+			roundingMode: 'up'
+		}),
+		client(5, 'Hofladen Schulte-Wessel (Beispiel)', { number: 'K-1005', city: 'Werne' }),
+		client(
+			6,
+			'Förderverein der Offenen Ganztagsschule an der Kreuzgrundschule Dortmund-Innenstadt-Nord e. V. (Beispiel)',
+			{ number: 'K-1006', city: 'Dortmund' }
+		),
+		client(7, 'Elektro Kaya (Beispiel)', { number: 'K-1007', city: 'Kamen' }),
+		client(8, 'Friseursalon Beckmann (Beispiel)', {
+			number: 'K-0998',
+			city: 'Lünen',
+			archivedAt: '2026-03-31T16:00:00+02:00'
+		})
+	];
+	// StBVV Zeitgebühr, see the open question in planung-projekte.md ("Musterbetrieb ist ein Steuerbüro")
+	const profile = profileFor('Musterbetrieb Steuerkanzlei (Beispiel)', {
+		street: 'Kanzleiring 4',
+		postalCode: '44135',
+		city: 'Dortmund',
+		taxNumber: '314/5758/1121',
+		registerCourt: 'Steuerberaterkammer Westfalen-Lippe',
+		iban: 'DE02120300000000202051',
+		bic: 'BYLADEM1001',
+		bankName: 'Deutsche Skatbank',
+		invoicePrefix: 'RE',
+		contactEmail: 'buero@musterbetrieb-steuerkanzlei.example'
+	});
+	const year = Number(todayIso().slice(0, 4));
 	return {
-		clients: [
-			client(1, 'Bäckerei Hagen GmbH (Beispiel)', {
-				number: 'K-1001',
-				street: 'Marktstraße 12',
-				postalCode: '44135',
-				city: 'Dortmund'
+		clients,
+		invoices: [
+			invoice(1, clients[1]!, profile, {
+				status: 'issued',
+				number: `RE-${year}-0001`,
+				numberYear: year,
+				numberSeq: 1,
+				issueDate: '2026-08-04',
+				dueDate: '2026-08-18',
+				issuedAt: '2026-08-04T08:15:00+02:00',
+				issuedBy: { id: mockSession.user.id, displayName: mockSession.user.displayName },
+				totals: {
+					netCents: grossOf(1250),
+					taxCents: grossOf(237.5),
+					grossCents: grossOf(1487.5),
+					explanation: zeroTotals.explanation
+				}
 			}),
-			client(2, 'Autohaus Brinkmann KG (Beispiel)', {
-				number: 'K-1002',
-				street: 'Westfalendamm 88',
-				postalCode: '44141',
-				city: 'Dortmund',
-				paymentTermsDays: 14
+			invoice(2, clients[0]!, profile, {
+				status: 'issued',
+				number: `RE-${year}-0002`,
+				numberYear: year,
+				numberSeq: 2,
+				issueDate: '2026-07-02',
+				dueDate: '2026-07-16',
+				issuedAt: '2026-07-02T08:15:00+02:00',
+				issuedBy: { id: mockSession.user.id, displayName: mockSession.user.displayName },
+				totals: {
+					netCents: grossOf(640),
+					taxCents: grossOf(121.6),
+					grossCents: grossOf(761.6),
+					explanation: zeroTotals.explanation
+				}
 			}),
-			client(3, 'Praxis Dr. Yilmaz (Beispiel)', { number: 'K-1003', city: 'Unna' }),
-			client(4, 'Tischlerei Overbeck (Beispiel)', {
-				number: 'K-1004',
-				city: 'Schwerte',
-				roundingIncrementMin: 30,
-				roundingMode: 'up'
-			}),
-			client(5, 'Hofladen Schulte-Wessel (Beispiel)', { number: 'K-1005', city: 'Werne' }),
-			client(
-				6,
-				'Förderverein der Offenen Ganztagsschule an der Kreuzgrundschule Dortmund-Innenstadt-Nord e. V. (Beispiel)',
-				{ number: 'K-1006', city: 'Dortmund' }
-			),
-			client(7, 'Elektro Kaya (Beispiel)', { number: 'K-1007', city: 'Kamen' }),
-			client(8, 'Friseursalon Beckmann (Beispiel)', {
-				number: 'K-0998',
-				city: 'Lünen',
-				archivedAt: '2026-03-31T16:00:00+02:00'
-			})
+			invoice(3, clients[2]!, profile)
+		],
+		profile,
+		unbilled: [
+			{ clientId: clients[2]!.id, clientName: clients[2]!.name, minutes: 450, amountCents: grossOf(637.5), oldestDay: '2026-08-11' },
+			{ clientId: clients[3]!.id, clientName: clients[3]!.name, minutes: 180, amountCents: null, oldestDay: '2026-09-01' }
 		],
 		projects: [
 			project(1, 1, 'Finanzbuchhaltung 2026'),
@@ -181,39 +376,93 @@ function companyWorld(): World {
 }
 
 function soloWorld(): World {
+	const clients = [
+		client(11, 'Stadtwerke (Beispiel)', {
+			number: 'SW-01',
+			street: 'Hafenstraße 1',
+			postalCode: '48153',
+			city: 'Münster',
+			email: 'rechnung@stadtwerke.example',
+			buyerReference: '05515000-00012-34',
+			paymentTermsDays: 30
+		}),
+		client(12, 'Agentur Nordlicht GmbH (Beispiel)', {
+			number: 'NL-01',
+			street: 'Große Elbstraße 145',
+			postalCode: '22767',
+			city: 'Hamburg',
+			vatId: 'DE123456789',
+			paymentTermsDays: 14
+		}),
+		client(13, 'Studio Brandt B.V. (Beispiel)', {
+			street: 'Keizersgracht 221',
+			postalCode: '1016 DV',
+			city: 'Amsterdam',
+			countryCode: 'NL',
+			vatId: 'NL123456789B01',
+			invoiceLocale: 'en'
+		}),
+		client(14, 'Petra Winkler (Beispiel)', {
+			street: 'Am Sparrenberg 3',
+			postalCode: '33602',
+			city: 'Bielefeld',
+			isBusiness: false
+		})
+	];
+	const profile = profileFor('Lena Vogt, Softwareentwicklung (Beispiel)', {
+		street: 'Schwarze-Brüder-Straße 9',
+		postalCode: '48143',
+		city: 'Münster',
+		taxProfile: 'small_business',
+		previousYearRevenueCents: grossOf(18400),
+		iban: 'DE44500105175407324931',
+		invoicePrefix: 'RE',
+		contactEmail: 'lena.vogt@example.com'
+	});
+	const year = Number(todayIso().slice(0, 4));
 	return {
-		clients: [
-			client(11, 'Stadtwerke (Beispiel)', {
-				number: 'SW-01',
-				street: 'Hafenstraße 1',
-				postalCode: '48153',
-				city: 'Münster',
-				email: 'rechnung@stadtwerke.example',
-				buyerReference: '05515000-00012-34',
-				paymentTermsDays: 30
+		clients,
+		invoices: [
+			invoice(1, clients[1]!, profile, {
+				status: 'paid',
+				number: `RE-${year}-0001`,
+				numberYear: year,
+				numberSeq: 1,
+				issueDate: '2026-06-03',
+				dueDate: '2026-06-17',
+				issuedAt: '2026-06-03T10:00:00+02:00',
+				issuedBy: { id: mockSession.user.id, displayName: mockSession.user.displayName },
+				paidOn: '2026-06-12',
+				totals: {
+					netCents: grossOf(2400),
+					taxCents: grossOf(0),
+					grossCents: grossOf(2400),
+					explanation: zeroTotals.explanation
+				}
 			}),
-			client(12, 'Agentur Nordlicht GmbH (Beispiel)', {
-				number: 'NL-01',
-				street: 'Große Elbstraße 145',
-				postalCode: '22767',
-				city: 'Hamburg',
-				vatId: 'DE123456789',
-				paymentTermsDays: 14
+			invoice(2, clients[0]!, profile, {
+				status: 'cancelled',
+				number: `RE-${year}-0002`,
+				numberYear: year,
+				numberSeq: 2,
+				issueDate: '2026-07-01',
+				issuedAt: '2026-07-01T09:30:00+02:00',
+				issuedBy: { id: mockSession.user.id, displayName: mockSession.user.displayName },
+				cancelReason: 'Falscher Leistungszeitraum, neu ausgestellt.',
+				cancelledAt: '2026-07-02T08:00:00+02:00',
+				cancelledBy: { id: mockSession.user.id, displayName: mockSession.user.displayName }
 			}),
-			client(13, 'Studio Brandt B.V. (Beispiel)', {
-				street: 'Keizersgracht 221',
-				postalCode: '1016 DV',
-				city: 'Amsterdam',
-				countryCode: 'NL',
-				vatId: 'NL123456789B01',
-				invoiceLocale: 'en'
-			}),
-			client(14, 'Petra Winkler (Beispiel)', {
-				street: 'Am Sparrenberg 3',
-				postalCode: '33602',
-				city: 'Bielefeld',
-				isBusiness: false
-			})
+			invoice(3, clients[0]!, profile)
+		],
+		profile,
+		unbilled: [
+			{
+				clientId: clients[0]!.id,
+				clientName: clients[0]!.name,
+				minutes: 320,
+				amountCents: grossOf(506.67),
+				oldestDay: '2026-09-02'
+			}
 		],
 		projects: [
 			project(11, 11, 'Kundenportal Wartung', { budget: [60, 1.04] }),
@@ -293,7 +542,10 @@ function manyWorld(): World {
 			)
 		],
 		tasks: [],
-		rates: [rate(1, '2026-01-01', 85), rate(2, '2026-01-01', 78, { client: 27 })]
+		rates: [rate(1, '2026-01-01', 85), rate(2, '2026-01-01', 78, { client: 27 })],
+		invoices: [],
+		profile: profileFor('Nina Berg, Webentwicklung (Beispiel)'),
+		unbilled: []
 	};
 }
 
@@ -302,7 +554,15 @@ const worlds: Record<ProjectWorld, () => World> = {
 	solo: soloWorld,
 	'solo-many': manyWorld,
 	// a freshly invited freelancer, nothing set up yet
-	'solo-empty': () => ({ clients: [], projects: [], tasks: [], rates: [] })
+	'solo-empty': () => ({
+		clients: [],
+		projects: [],
+		tasks: [],
+		rates: [],
+		invoices: [],
+		profile: profileFor('Ole Hansen, Fotografie (Beispiel)'),
+		unbilled: []
+	})
 };
 
 let world: ProjectWorld = 'company';
@@ -381,6 +641,52 @@ const replaceProject = (next: MockProject) => {
 const replaceTask = (next: Task) => {
 	store.tasks = store.tasks.map((t) => (t.id === next.id ? next : t));
 	return HttpResponse.json(next);
+};
+
+const replaceInvoice = (next: Invoice) => {
+	store.invoices = store.invoices.map((inv) => (inv.id === next.id ? next : inv));
+	return HttpResponse.json(next);
+};
+
+// mirrors packages/rules vatRateFor closely enough for the mock, the real rate history stays server-side
+const rateBpFor = (category: string) => (category === 'standard' ? 1900 : category === 'reduced' ? 700 : 0);
+
+const flipSign = (digits: string) => String(-BigInt(digits));
+
+// line changes do not touch the invoice row, so updatedAt stays as it is, same as the invoices_set_updated_at trigger
+function recalcTotals(inv: Invoice): Invoice {
+	const totals = invoiceTotals(
+		inv.lines.map((line) => ({
+			netCents: BigInt(line.netCents),
+			taxCategory: line.taxCategory,
+			taxRateBp: line.taxRateBp
+		}))
+	);
+	return {
+		...inv,
+		taxGroups: totals.groups.map((group) => ({
+			taxCategory: group.taxCategory,
+			taxRateBp: group.taxRateBp,
+			netCents: String(group.netCents),
+			taxCents: String(group.taxCents),
+			explanation: group.explanation
+		})),
+		totals: {
+			netCents: String(totals.netCents),
+			taxCents: String(totals.taxCents),
+			grossCents: String(totals.grossCents),
+			explanation: totals.explanation
+		}
+	};
+}
+
+const netOf = (quantityMilli: string, unitPriceCents: string) =>
+	String(roundDiv(BigInt(quantityMilli) * BigInt(unitPriceCents), 1000n));
+
+const nextInvoiceNumber = (year: number) => {
+	const seq = store.invoices.filter((inv) => inv.numberYear === year).length + 1;
+	const prefix = store.profile.invoicePrefix ? `${store.profile.invoicePrefix}-` : '';
+	return { number: `${prefix}${year}-${String(seq).padStart(4, '0')}`, seq };
 };
 
 type Defined<T> = { [K in keyof T]?: Exclude<T[K], undefined> };
@@ -618,5 +924,308 @@ export const billingHandlers = [
 		}
 		store.rates = store.rates.filter((r) => r.id !== found.id);
 		return done();
+	}),
+
+	http.get('/api/invoices', ({ request }) => {
+		const search = new URL(request.url).searchParams;
+		const statuses = search.get('status')?.split(',');
+		const owner = search.get('client');
+		const from = search.get('from');
+		const to = search.get('to');
+		const items: InvoiceSummary[] = store.invoices
+			.filter((inv) => statuses === undefined || statuses.includes(inv.status))
+			.filter((inv) => owner === null || inv.clientId === owner)
+			.filter((inv) => from === null || inv.serviceTo >= from)
+			.filter((inv) => to === null || inv.serviceFrom <= to)
+			.toSorted((a, b) => (b.issueDate ?? b.createdAt).localeCompare(a.issueDate ?? a.createdAt))
+			.map((inv) => ({
+				id: inv.id,
+				kind: inv.kind,
+				status: inv.status,
+				number: inv.number,
+				clientId: inv.clientId,
+				clientName: findClient(inv.clientId)?.name ?? inv.buyer.name,
+				issueDate: inv.issueDate,
+				dueDate: inv.dueDate,
+				grossCents: inv.totals.grossCents,
+				overdue: inv.status === 'issued' && inv.dueDate !== null && inv.dueDate < todayIso()
+			}));
+		return HttpResponse.json({ items, nextCursor: null });
+	}),
+
+	http.post('/api/invoices/drafts', async ({ request }) => {
+		const parsed = createDraftSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const owner = findClient(parsed.data.clientId);
+		if (!owner) return fail(404, 'NOT_FOUND', 'Client not found');
+		const created = invoice(store.invoices.length + 1, owner, store.profile, {
+			id: crypto.randomUUID(),
+			serviceFrom: parsed.data.from,
+			serviceTo: parsed.data.to
+		});
+		store.invoices.push(created);
+		return HttpResponse.json(created, { status: 201 });
+	}),
+
+	http.get('/api/invoices/:id', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		return found ? HttpResponse.json(found) : fail(404, 'NOT_FOUND', 'Invoice not found');
+	}),
+
+	http.patch('/api/invoices/:id', async ({ params, request }) => {
+		const parsed = updateDraftSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		const { clientId, from, to, ...rest } = parsed.data;
+		const owner = clientId !== undefined ? findClient(clientId) : undefined;
+		if (clientId !== undefined && !owner) return fail(404, 'NOT_FOUND', 'Client not found');
+		const patch: Partial<Invoice> = { ...defined(rest) };
+		if (owner) {
+			patch.clientId = owner.id;
+			patch.buyer = buyerOf(owner);
+			patch.locale = owner.invoiceLocale;
+		}
+		if (from !== undefined) patch.serviceFrom = from;
+		if (to !== undefined) patch.serviceTo = to;
+		return replaceInvoice({ ...found, ...patch, updatedAt: now() });
+	}),
+
+	http.delete('/api/invoices/:id', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		store.invoices = store.invoices.filter((inv) => inv.id !== found.id);
+		return done();
+	}),
+
+	http.post('/api/invoices/:id/refresh', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		return HttpResponse.json(found);
+	}),
+
+	http.post('/api/invoices/:id/lines', async ({ params, request }) => {
+		const parsed = invoiceLineInputSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		const input = parsed.data;
+		const taxRateBp = rateBpFor(input.taxCategory);
+		const line: InvoiceLine = {
+			id: crypto.randomUUID(),
+			position: found.lines.length + 1,
+			kind: 'item',
+			projectId: null,
+			taskId: null,
+			description: input.description,
+			serviceFrom: null,
+			serviceTo: null,
+			minutes: null,
+			quantityMilli: input.quantityMilli,
+			unit: input.unit,
+			unitPriceCents: input.unitPriceCents,
+			netCents: netOf(input.quantityMilli, input.unitPriceCents),
+			taxCategory: input.taxCategory,
+			taxRateBp,
+			derivation: { entries: [], rounding: null, rate: null }
+		};
+		replaceInvoice(recalcTotals({ ...found, lines: [...found.lines, line] }));
+		return HttpResponse.json(line, { status: 201 });
+	}),
+
+	http.patch('/api/invoices/:id/lines/:lineId', async ({ params, request }) => {
+		const parsed = invoiceLineInputSchema.partial().safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		const line = found.lines.find((l) => l.id === params.lineId);
+		if (!line) return fail(404, 'NOT_FOUND', 'Invoice line not found');
+		const patch = parsed.data;
+		if (line.kind === 'time' && Object.keys(patch).some((key) => key !== 'description')) {
+			return fail(409, 'INVALID_STATE', 'Only the text of a time-based line can be changed');
+		}
+		const nextLine: InvoiceLine =
+			line.kind === 'time'
+				? patch.description === undefined
+					? line
+					: { ...line, description: patch.description }
+				: (() => {
+						const quantityMilli = patch.quantityMilli ?? line.quantityMilli!;
+						const unitPriceCents = patch.unitPriceCents ?? line.unitPriceCents!;
+						const taxCategory = patch.taxCategory ?? line.taxCategory;
+						return {
+							...line,
+							description: patch.description ?? line.description,
+							unit: patch.unit ?? line.unit!,
+							quantityMilli,
+							unitPriceCents,
+							taxCategory,
+							netCents: netOf(quantityMilli, unitPriceCents),
+							taxRateBp: rateBpFor(taxCategory)
+						};
+					})();
+		replaceInvoice(
+			recalcTotals({ ...found, lines: found.lines.map((l) => (l.id === nextLine.id ? nextLine : l)) })
+		);
+		return HttpResponse.json(nextLine);
+	}),
+
+	http.delete('/api/invoices/:id/lines/:lineId', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		if (!found.lines.some((l) => l.id === params.lineId)) {
+			return fail(404, 'NOT_FOUND', 'Invoice line not found');
+		}
+		replaceInvoice(recalcTotals({ ...found, lines: found.lines.filter((l) => l.id !== params.lineId) }));
+		return done();
+	}),
+
+	http.post('/api/invoices/:id/issue', async ({ params, request }) => {
+		const parsed = issueInvoiceSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		if (found.blockers.length > 0) {
+			return HttpResponse.json(
+				{
+					code: 'INVALID_STATE',
+					message: 'This invoice is missing required fields',
+					details: { blockers: found.blockers }
+				},
+				{ status: 409 }
+			);
+		}
+		const year = Number(todayIso().slice(0, 4));
+		const { number, seq } = nextInvoiceNumber(year);
+		const issueDate = todayIso();
+		const dueDate = today('Europe/Berlin').add({ days: found.paymentTermsDays }).toString();
+		return replaceInvoice({
+			...found,
+			status: 'issued',
+			format: parsed.data.format,
+			number,
+			numberYear: year,
+			numberSeq: seq,
+			issueDate,
+			dueDate,
+			issuedAt: now(),
+			issuedBy: { id: mockSession.user.id, displayName: mockSession.user.displayName }
+		});
+	}),
+
+	http.post('/api/invoices/:id/cancel', async ({ params, request }) => {
+		const parsed = cancelInvoiceSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		const year = Number(todayIso().slice(0, 4));
+		const { number, seq } = nextInvoiceNumber(year);
+		const stamp = now();
+		const who = { id: mockSession.user.id, displayName: mockSession.user.displayName };
+		const cancellation: Invoice = {
+			...found,
+			id: crypto.randomUUID(),
+			kind: 'cancellation',
+			refersTo: { id: found.id, number: found.number },
+			number,
+			numberYear: year,
+			numberSeq: seq,
+			status: 'issued',
+			issueDate: todayIso(),
+			dueDate: today('Europe/Berlin').add({ days: found.paymentTermsDays }).toString(),
+			issuedAt: stamp,
+			issuedBy: who,
+			lines: found.lines.map((line) => ({
+				...line,
+				id: crypto.randomUUID(),
+				minutes: line.minutes === null ? null : 0 - line.minutes,
+				quantityMilli: line.quantityMilli === null ? null : flipSign(line.quantityMilli),
+				netCents: flipSign(line.netCents)
+			})),
+			taxGroups: found.taxGroups.map((group) => ({
+				...group,
+				netCents: flipSign(group.netCents),
+				taxCents: flipSign(group.taxCents)
+			})),
+			totals: {
+				netCents: flipSign(found.totals.netCents),
+				taxCents: flipSign(found.totals.taxCents),
+				grossCents: flipSign(found.totals.grossCents),
+				explanation: zeroTotals.explanation
+			},
+			paidOn: null,
+			cancelReason: null,
+			cancelledAt: null,
+			cancelledBy: null,
+			createdAt: stamp,
+			updatedAt: stamp
+		};
+		store.invoices.push(cancellation);
+		replaceInvoice({
+			...found,
+			status: 'cancelled',
+			refersTo: { id: cancellation.id, number: cancellation.number },
+			cancelReason: parsed.data.reason,
+			cancelledAt: stamp,
+			cancelledBy: who,
+			updatedAt: stamp
+		});
+		return HttpResponse.json(cancellation);
+	}),
+
+	http.post('/api/invoices/:id/paid', async ({ params, request }) => {
+		const parsed = markPaidSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		return replaceInvoice({ ...found, status: 'paid', paidOn: parsed.data.paidOn });
+	}),
+
+	http.post('/api/invoices/:id/unpaid', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		if (!found) return fail(404, 'NOT_FOUND', 'Invoice not found');
+		return replaceInvoice({ ...found, status: 'issued', paidOn: null });
+	}),
+
+	http.get('/api/billing/profile', () => HttpResponse.json(store.profile)),
+
+	http.patch('/api/billing/profile', async ({ request }) => {
+		const parsed = updateBillingProfileSchema.safeParse(await request.json());
+		if (!parsed.success) return invalid(parsed.error);
+		store.profile = { ...store.profile, countryCode: 'DE', ...parsed.data };
+		return HttpResponse.json(store.profile);
+	}),
+
+	http.get('/api/billing/unbilled', ({ request }) => {
+		const owner = new URL(request.url).searchParams.get('client');
+		return HttpResponse.json(store.unbilled.filter((row) => owner === null || row.clientId === owner));
+	}),
+
+	http.get('/api/billing/revenue', ({ request }) => {
+		const year = Number(new URL(request.url).searchParams.get('year') ?? todayIso().slice(0, 4));
+		const issuedThisYearCents = String(
+			store.invoices
+				.filter((inv) => inv.status !== 'draft' && inv.numberYear === year)
+				.reduce((sum, inv) => sum + Number(inv.totals.grossCents), 0)
+		);
+		const draftCents = String(
+			store.invoices
+				.filter((inv) => inv.status === 'draft')
+				.reduce((sum, inv) => sum + Number(inv.totals.grossCents), 0)
+		);
+		const previous = store.profile.previousYearRevenueCents ?? '0';
+		const state =
+			Number(previous) > 2_500_000
+				? 'previous_year_exceeded'
+				: Number(issuedThisYearCents) + Number(draftCents) > 8_000_000
+					? 'crosses_current_limit'
+					: 'ok';
+		return HttpResponse.json({
+			year,
+			previousYearRevenueCents: previous,
+			issuedThisYearCents,
+			draftCents,
+			smallBusiness: { state, explanation: { key: `billing.small_business.${state}`, params: {} } }
+		});
 	})
 ];

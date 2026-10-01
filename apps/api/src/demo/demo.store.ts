@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { DemoPlan } from '@zeit/demo-data';
-import type { Locale, OutboxMail, Persona } from '@zeit/shared';
+import type { Locale, OutboxMail, Persona, Role, WorkspaceKind } from '@zeit/shared';
 import { sql } from 'kysely';
 import { Database, type Trx } from '../db/database';
 
@@ -10,10 +10,11 @@ export type Attempt = { window: 'hour' | 'day'; hits: number; retryAfter: number
 export class DemoStore {
 	constructor(private readonly db: Database) {}
 
-	// zeit_app only sees its own tenant, the definer function counts all of them
+	// zeit_app only sees its own tenant, the definer function counts all of them; a visitor's solo sandbox rides along
 	async activeSandboxes(): Promise<number> {
 		const { rows } = await sql<{ count: number }>`
-			select count(*)::int as count from ops.active_tenants() where kind = 'sandbox'`.execute(this.db);
+			select count(*)::int as count from ops.active_tenants()
+			 where kind = 'sandbox' and workspace = 'company'`.execute(this.db);
 		return rows[0]!.count;
 	}
 
@@ -37,38 +38,27 @@ export class DemoStore {
 		await sql`select ops.sandbox_seed(${JSON.stringify(plan)}::jsonb, ${locale})`.execute(this.db);
 	}
 
-	// everyone ops.demo_switch_persona would switch to
+	// the company and the solo workspace of the visitor, the definer function looks past the tenant fence
 	async personas(trx: Trx, userId: string): Promise<Persona[]> {
-		const rows = await trx
-			.selectFrom('app.users as u')
-			.innerJoin('app.tenants as t', 't.id', 'u.tenant_id')
-			.leftJoin('app.employees as e', 'e.id', 'u.employee_id')
-			.leftJoin('app.teams as tm', 'tm.id', 'e.team_id')
-			.select([
-				'u.id',
-				'u.display_name',
-				'u.role',
-				'e.id as employee_id',
-				sql<string>`e.first_name || ' ' || e.last_name`.as('employee_name'),
-				'tm.id as team_id',
-				'tm.name as team_name',
-				't.workspace'
-			])
-			.where('t.kind', '=', 'sandbox')
-			.where('u.status', 'in', ['active', 'demo'])
-			// the enum runs up the role ladder
-			.orderBy('u.role')
-			.orderBy('u.display_name')
-			.execute();
+		const { rows } = await sql<{
+			user_id: string;
+			display_name: string;
+			role: Role;
+			employee_id: string | null;
+			employee_name: string | null;
+			team_id: string | null;
+			team_name: string | null;
+			workspace: WorkspaceKind;
+		}>`select * from ops.demo_personas()`.execute(trx);
 
 		return rows.map((row) => ({
-			userId: row.id,
+			userId: row.user_id,
 			displayName: row.display_name,
 			role: row.role,
-			employee: row.employee_id ? { id: row.employee_id, name: row.employee_name } : null,
+			employee: row.employee_id ? { id: row.employee_id, name: row.employee_name! } : null,
 			team: row.team_id ? { id: row.team_id, name: row.team_name! } : null,
 			workspace: row.workspace,
-			current: row.id === userId
+			current: row.user_id === userId
 		}));
 	}
 

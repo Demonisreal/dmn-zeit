@@ -25,6 +25,9 @@ import { Route as LoginVerifyRouteImport } from './routes/login_.verify';
 import { Route as SecuritySetupRouteImport } from './routes/security.setup';
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index';
 import { Route as AppAdminTenantRouteImport } from './routes/_app/admin/tenant';
+import { Route as AppBillingIndexRouteImport } from './routes/_app/billing/index';
+import { Route as AppBillingReportsRouteImport } from './routes/_app/billing/reports';
+import { Route as AppBillingSettingsRouteImport } from './routes/_app/billing/settings';
 import { Route as AppDemoOutboxRouteImport } from './routes/_app/demo/outbox';
 import { Route as AppHrIndexRouteImport } from './routes/_app/hr/index';
 import { Route as AppHrAuditRouteImport } from './routes/_app/hr/audit';
@@ -38,6 +41,8 @@ import { Route as AppTeamCalendarRouteImport } from './routes/_app/team/calendar
 import { Route as AppTeamProjectsRouteImport } from './routes/_app/team/projects';
 import { Route as AppBillingClientsIndexRouteImport } from './routes/_app/billing/clients.index';
 import { Route as AppBillingClientsIdRouteImport } from './routes/_app/billing/clients.$id';
+import { Route as AppBillingInvoicesIdRouteImport } from './routes/_app/billing/invoices.$id';
+import { Route as AppBillingInvoicesNewRouteImport } from './routes/_app/billing/invoices.new';
 import { Route as AppBillingProjectsIdRouteImport } from './routes/_app/billing/projects.$id';
 import { Route as AppHrMonthsIndexRouteImport } from './routes/_app/hr/months.index';
 import { Route as AppHrMonthsMonthRouteImport } from './routes/_app/hr/months.$month';
@@ -123,6 +128,21 @@ const AppAdminTenantRoute = AppAdminTenantRouteImport.update({
   path: '/admin/tenant',
   getParentRoute: () => AppRoute,
 } as any);
+const AppBillingIndexRoute = AppBillingIndexRouteImport.update({
+  id: '/billing/',
+  path: '/billing/',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppBillingReportsRoute = AppBillingReportsRouteImport.update({
+  id: '/billing/reports',
+  path: '/billing/reports',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppBillingSettingsRoute = AppBillingSettingsRouteImport.update({
+  id: '/billing/settings',
+  path: '/billing/settings',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppDemoOutboxRoute = AppDemoOutboxRouteImport.update({
   id: '/demo/outbox',
   path: '/demo/outbox',
@@ -188,6 +208,16 @@ const AppBillingClientsIdRoute = AppBillingClientsIdRouteImport.update({
   path: '/billing/clients/$id',
   getParentRoute: () => AppRoute,
 } as any);
+const AppBillingInvoicesIdRoute = AppBillingInvoicesIdRouteImport.update({
+  id: '/billing/invoices/$id',
+  path: '/billing/invoices/$id',
+  getParentRoute: () => AppRoute,
+} as any);
+const AppBillingInvoicesNewRoute = AppBillingInvoicesNewRouteImport.update({
+  id: '/billing/invoices/new',
+  path: '/billing/invoices/new',
+  getParentRoute: () => AppRoute,
+} as any);
 const AppBillingProjectsIdRoute = AppBillingProjectsIdRouteImport.update({
   id: '/billing/projects/$id',
   path: '/billing/projects/$id',
@@ -229,6 +259,8 @@ export interface FileRoutesByFullPath {
   '/login/verify': typeof LoginVerifyRoute;
   '/security/setup': typeof SecuritySetupRoute;
   '/admin/tenant': typeof AppAdminTenantRoute;
+  '/billing/reports': typeof AppBillingReportsRoute;
+  '/billing/settings': typeof AppBillingSettingsRoute;
   '/demo/outbox': typeof AppDemoOutboxRoute;
   '/hr/audit': typeof AppHrAuditRoute;
   '/hr/exports': typeof AppHrExportsRoute;
@@ -240,8 +272,11 @@ export interface FileRoutesByFullPath {
   '/team/calendar': typeof AppTeamCalendarRoute;
   '/team/projects': typeof AppTeamProjectsRoute;
   '/admin/': typeof AppAdminIndexRoute;
+  '/billing/': typeof AppBillingIndexRoute;
   '/hr/': typeof AppHrIndexRoute;
   '/billing/clients/$id': typeof AppBillingClientsIdRoute;
+  '/billing/invoices/$id': typeof AppBillingInvoicesIdRoute;
+  '/billing/invoices/new': typeof AppBillingInvoicesNewRoute;
   '/billing/projects/$id': typeof AppBillingProjectsIdRoute;
   '/hr/months/$month': typeof AppHrMonthsMonthRoute;
   '/hr/people/$id': typeof AppHrPeopleIdRoute;
@@ -264,6 +299,8 @@ export interface FileRoutesByTo {
   '/security/setup': typeof SecuritySetupRoute;
   '/': typeof AppIndexRoute;
   '/admin/tenant': typeof AppAdminTenantRoute;
+  '/billing/reports': typeof AppBillingReportsRoute;
+  '/billing/settings': typeof AppBillingSettingsRoute;
   '/demo/outbox': typeof AppDemoOutboxRoute;
   '/hr/audit': typeof AppHrAuditRoute;
   '/hr/exports': typeof AppHrExportsRoute;
@@ -275,8 +312,11 @@ export interface FileRoutesByTo {
   '/team/calendar': typeof AppTeamCalendarRoute;
   '/team/projects': typeof AppTeamProjectsRoute;
   '/admin': typeof AppAdminIndexRoute;
+  '/billing': typeof AppBillingIndexRoute;
   '/hr': typeof AppHrIndexRoute;
   '/billing/clients/$id': typeof AppBillingClientsIdRoute;
+  '/billing/invoices/$id': typeof AppBillingInvoicesIdRoute;
+  '/billing/invoices/new': typeof AppBillingInvoicesNewRoute;
   '/billing/projects/$id': typeof AppBillingProjectsIdRoute;
   '/hr/months/$month': typeof AppHrMonthsMonthRoute;
   '/hr/people/$id': typeof AppHrPeopleIdRoute;
@@ -301,6 +341,8 @@ export interface FileRoutesById {
   '/security/setup': typeof SecuritySetupRoute;
   '/_app/': typeof AppIndexRoute;
   '/_app/admin/tenant': typeof AppAdminTenantRoute;
+  '/_app/billing/reports': typeof AppBillingReportsRoute;
+  '/_app/billing/settings': typeof AppBillingSettingsRoute;
   '/_app/demo/outbox': typeof AppDemoOutboxRoute;
   '/_app/hr/audit': typeof AppHrAuditRoute;
   '/_app/hr/exports': typeof AppHrExportsRoute;
@@ -312,8 +354,11 @@ export interface FileRoutesById {
   '/_app/team/calendar': typeof AppTeamCalendarRoute;
   '/_app/team/projects': typeof AppTeamProjectsRoute;
   '/_app/admin/': typeof AppAdminIndexRoute;
+  '/_app/billing/': typeof AppBillingIndexRoute;
   '/_app/hr/': typeof AppHrIndexRoute;
   '/_app/billing/clients/$id': typeof AppBillingClientsIdRoute;
+  '/_app/billing/invoices/$id': typeof AppBillingInvoicesIdRoute;
+  '/_app/billing/invoices/new': typeof AppBillingInvoicesNewRoute;
   '/_app/billing/projects/$id': typeof AppBillingProjectsIdRoute;
   '/_app/hr/months/$month': typeof AppHrMonthsMonthRoute;
   '/_app/hr/people/$id': typeof AppHrPeopleIdRoute;
@@ -338,6 +383,8 @@ export interface FileRouteTypes {
     | '/login/verify'
     | '/security/setup'
     | '/admin/tenant'
+    | '/billing/reports'
+    | '/billing/settings'
     | '/demo/outbox'
     | '/hr/audit'
     | '/hr/exports'
@@ -349,8 +396,11 @@ export interface FileRouteTypes {
     | '/team/calendar'
     | '/team/projects'
     | '/admin/'
+    | '/billing/'
     | '/hr/'
     | '/billing/clients/$id'
+    | '/billing/invoices/$id'
+    | '/billing/invoices/new'
     | '/billing/projects/$id'
     | '/hr/months/$month'
     | '/hr/people/$id'
@@ -373,6 +423,8 @@ export interface FileRouteTypes {
     | '/security/setup'
     | '/'
     | '/admin/tenant'
+    | '/billing/reports'
+    | '/billing/settings'
     | '/demo/outbox'
     | '/hr/audit'
     | '/hr/exports'
@@ -384,8 +436,11 @@ export interface FileRouteTypes {
     | '/team/calendar'
     | '/team/projects'
     | '/admin'
+    | '/billing'
     | '/hr'
     | '/billing/clients/$id'
+    | '/billing/invoices/$id'
+    | '/billing/invoices/new'
     | '/billing/projects/$id'
     | '/hr/months/$month'
     | '/hr/people/$id'
@@ -409,6 +464,8 @@ export interface FileRouteTypes {
     | '/security/setup'
     | '/_app/'
     | '/_app/admin/tenant'
+    | '/_app/billing/reports'
+    | '/_app/billing/settings'
     | '/_app/demo/outbox'
     | '/_app/hr/audit'
     | '/_app/hr/exports'
@@ -420,8 +477,11 @@ export interface FileRouteTypes {
     | '/_app/team/calendar'
     | '/_app/team/projects'
     | '/_app/admin/'
+    | '/_app/billing/'
     | '/_app/hr/'
     | '/_app/billing/clients/$id'
+    | '/_app/billing/invoices/$id'
+    | '/_app/billing/invoices/new'
     | '/_app/billing/projects/$id'
     | '/_app/hr/months/$month'
     | '/_app/hr/people/$id'
@@ -554,6 +614,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminTenantRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/billing/': {
+      id: '/_app/billing/';
+      path: '/billing';
+      fullPath: '/billing/';
+      preLoaderRoute: typeof AppBillingIndexRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/billing/reports': {
+      id: '/_app/billing/reports';
+      path: '/billing/reports';
+      fullPath: '/billing/reports';
+      preLoaderRoute: typeof AppBillingReportsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/billing/settings': {
+      id: '/_app/billing/settings';
+      path: '/billing/settings';
+      fullPath: '/billing/settings';
+      preLoaderRoute: typeof AppBillingSettingsRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/demo/outbox': {
       id: '/_app/demo/outbox';
       path: '/demo/outbox';
@@ -645,6 +726,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBillingClientsIdRouteImport;
       parentRoute: typeof AppRoute;
     };
+    '/_app/billing/invoices/$id': {
+      id: '/_app/billing/invoices/$id';
+      path: '/billing/invoices/$id';
+      fullPath: '/billing/invoices/$id';
+      preLoaderRoute: typeof AppBillingInvoicesIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    '/_app/billing/invoices/new': {
+      id: '/_app/billing/invoices/new';
+      path: '/billing/invoices/new';
+      fullPath: '/billing/invoices/new';
+      preLoaderRoute: typeof AppBillingInvoicesNewRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     '/_app/billing/projects/$id': {
       id: '/_app/billing/projects/$id';
       path: '/billing/projects/$id';
@@ -693,6 +788,8 @@ interface AppRouteChildren {
   AppVacationRoute: typeof AppVacationRoute;
   AppIndexRoute: typeof AppIndexRoute;
   AppAdminTenantRoute: typeof AppAdminTenantRoute;
+  AppBillingReportsRoute: typeof AppBillingReportsRoute;
+  AppBillingSettingsRoute: typeof AppBillingSettingsRoute;
   AppDemoOutboxRoute: typeof AppDemoOutboxRoute;
   AppHrAuditRoute: typeof AppHrAuditRoute;
   AppHrExportsRoute: typeof AppHrExportsRoute;
@@ -704,8 +801,11 @@ interface AppRouteChildren {
   AppTeamCalendarRoute: typeof AppTeamCalendarRoute;
   AppTeamProjectsRoute: typeof AppTeamProjectsRoute;
   AppAdminIndexRoute: typeof AppAdminIndexRoute;
+  AppBillingIndexRoute: typeof AppBillingIndexRoute;
   AppHrIndexRoute: typeof AppHrIndexRoute;
   AppBillingClientsIdRoute: typeof AppBillingClientsIdRoute;
+  AppBillingInvoicesIdRoute: typeof AppBillingInvoicesIdRoute;
+  AppBillingInvoicesNewRoute: typeof AppBillingInvoicesNewRoute;
   AppBillingProjectsIdRoute: typeof AppBillingProjectsIdRoute;
   AppHrMonthsMonthRoute: typeof AppHrMonthsMonthRoute;
   AppHrPeopleIdRoute: typeof AppHrPeopleIdRoute;
@@ -723,6 +823,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppVacationRoute: AppVacationRoute,
   AppIndexRoute: AppIndexRoute,
   AppAdminTenantRoute: AppAdminTenantRoute,
+  AppBillingReportsRoute: AppBillingReportsRoute,
+  AppBillingSettingsRoute: AppBillingSettingsRoute,
   AppDemoOutboxRoute: AppDemoOutboxRoute,
   AppHrAuditRoute: AppHrAuditRoute,
   AppHrExportsRoute: AppHrExportsRoute,
@@ -734,8 +836,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamCalendarRoute: AppTeamCalendarRoute,
   AppTeamProjectsRoute: AppTeamProjectsRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
+  AppBillingIndexRoute: AppBillingIndexRoute,
   AppHrIndexRoute: AppHrIndexRoute,
   AppBillingClientsIdRoute: AppBillingClientsIdRoute,
+  AppBillingInvoicesIdRoute: AppBillingInvoicesIdRoute,
+  AppBillingInvoicesNewRoute: AppBillingInvoicesNewRoute,
   AppBillingProjectsIdRoute: AppBillingProjectsIdRoute,
   AppHrMonthsMonthRoute: AppHrMonthsMonthRoute,
   AppHrPeopleIdRoute: AppHrPeopleIdRoute,

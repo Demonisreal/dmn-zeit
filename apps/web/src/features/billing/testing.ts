@@ -27,3 +27,9 @@ export const projectIds = {
 	overbeckClosing: '5e21b8d4-6a0f-4c37-8e92-000000000005',
 	stadtwerkePortal: '5e21b8d4-6a0f-4c37-8e92-00000000000b'
 };
+
+export const invoiceIds = {
+	brinkmannIssued: '1f6a2e4c-8d9b-4a37-a05e-000000000001',
+	hagenIssued: '1f6a2e4c-8d9b-4a37-a05e-000000000002',
+	yilmazDraft: '1f6a2e4c-8d9b-4a37-a05e-000000000003'
+};

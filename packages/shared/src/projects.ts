@@ -5,6 +5,7 @@ import {
 	explanationSchema,
 	inRange,
 	instantSchema,
+	invoicePlainText,
 	isoDateSchema,
 	noteSchema,
 	plainText,
@@ -19,11 +20,14 @@ export type RoundingMode = (typeof roundingModes)[number];
 export const projectEntrySources = ['timer', 'manual', 'seed'] as const;
 export type ProjectEntrySource = (typeof projectEntrySources)[number];
 
-const roundingIncrementSchema = z.literal([1, 5, 6, 10, 15, 30, 60]);
+// same raster as app.projects/app.clients, billing.ts reuses it for the billing profile
+export const roundingIncrementSchema = z.literal([1, 5, 6, 10, 15, 30, 60]);
 const countryCodeSchema = z.string().regex(/^[A-Z]{2}$/);
-const clientName = plainText(120);
-const projectName = plainText(120);
-const taskName = plainText(80);
+// I-06: project/task names become a time line's description and the client name its buyer snapshot,
+// both end up on the invoice PDF, so all three stay within the invoice font's character set
+const clientName = invoicePlainText(120);
+const projectName = invoicePlainText(120);
+const taskName = invoicePlainText(80);
 
 export const clientSchema = z.object({
 	id: uuidSchema,
@@ -47,16 +51,16 @@ export const clientSchema = z.object({
 
 // archiving and restricting have their own routes and never ride along in a patch
 const clientInput = z.strictObject({
-	number: plainText(20).nullable(),
+	number: invoicePlainText(20).nullable(),
 	name: clientName,
-	street: plainText(120).nullable(),
-	postalCode: plainText(10).nullable(),
-	city: plainText(80).nullable(),
+	street: invoicePlainText(120).nullable(),
+	postalCode: invoicePlainText(10).nullable(),
+	city: invoicePlainText(80).nullable(),
 	countryCode: countryCodeSchema,
 	isBusiness: z.boolean(),
-	vatId: plainText(20).nullable(),
+	vatId: invoicePlainText(20).nullable(),
 	email: emailSchema.nullable(),
-	buyerReference: plainText(100).nullable(),
+	buyerReference: invoicePlainText(100).nullable(),
 	invoiceLocale: z.enum(locales),
 	paymentTermsDays: z.int().min(0).max(120).nullable(),
 	roundingIncrementMin: roundingIncrementSchema.nullable(),

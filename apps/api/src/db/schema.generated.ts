@@ -23,6 +23,14 @@ export type AppFlexBookingType = "cap_forfeit" | "manual" | "opening" | "payout"
 
 export type AppFlexCapMode = "forfeit_at_close" | "none" | "warn";
 
+export type AppInvoiceFormat = "pdf" | "xrechnung" | "zugferd";
+
+export type AppInvoiceKind = "cancellation" | "invoice";
+
+export type AppInvoiceLineKind = "item" | "time";
+
+export type AppInvoiceStatus = "cancelled" | "draft" | "issued" | "paid";
+
 export type AppMonthClosingAction = "close" | "reopen";
 
 export type AppNoticeChannel = "email" | "in_app" | "letter";
@@ -30,6 +38,10 @@ export type AppNoticeChannel = "email" | "in_app" | "letter";
 export type AppProjectEntrySource = "manual" | "seed" | "timer";
 
 export type AppRoundingMode = "down" | "nearest" | "up";
+
+export type AppTaxCategory = "exempt" | "outside_scope" | "reduced" | "reverse_charge" | "small_business" | "standard";
+
+export type AppTaxProfile = "regular" | "small_business";
 
 export type AppTenantKind = "live" | "sandbox";
 
@@ -96,6 +108,34 @@ export interface AppAbsenceRequests {
   updated_at: Generated<string>;
 }
 
+export interface AppBillingProfiles {
+  bank_name: string | null;
+  bic: string | null;
+  city: string | null;
+  contact_email: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  country_code: Generated<string>;
+  created_at: Generated<string>;
+  default_format: Generated<AppInvoiceFormat>;
+  iban: string | null;
+  invoice_prefix: Generated<string>;
+  legal_name: string;
+  payment_terms_days: Generated<number>;
+  postal_code: string | null;
+  previous_year_revenue_cents: Int8 | null;
+  register_court: string | null;
+  register_number: string | null;
+  rounding_increment_min: Generated<number>;
+  rounding_mode: Generated<AppRoundingMode>;
+  street: string | null;
+  tax_number: string | null;
+  tax_profile: Generated<AppTaxProfile>;
+  tenant_id: string;
+  updated_at: Generated<string>;
+  vat_id: string | null;
+}
+
 export interface AppClients {
   archived_at: string | null;
   buyer_reference: string | null;
@@ -104,6 +144,7 @@ export interface AppClients {
   created_at: Generated<string>;
   email: string | null;
   id: Generated<string>;
+  invoice_format: AppInvoiceFormat | null;
   invoice_locale: Generated<string>;
   is_business: Generated<boolean>;
   name: string;
@@ -194,6 +235,92 @@ export interface AppFlexBookings {
   reason: string;
   tenant_id: string;
   type: AppFlexBookingType;
+}
+
+export interface AppInvoiceCounters {
+  last_seq: number;
+  tenant_id: string;
+  year: number;
+}
+
+export interface AppInvoiceDocuments {
+  content: Buffer;
+  created_at: Generated<string>;
+  created_by: string | null;
+  format: string;
+  id: Generated<string>;
+  invoice_id: string;
+  sha256: Buffer;
+  tenant_id: string;
+}
+
+export interface AppInvoiceLineEntries {
+  created_at: Generated<string>;
+  entry_id: string;
+  invoice_id: string;
+  line_id: string;
+  tenant_id: string;
+}
+
+export interface AppInvoiceLines {
+  client_id: string;
+  created_at: Generated<string>;
+  derivation: Json | null;
+  description: string;
+  id: Generated<string>;
+  invoice_id: string;
+  kind: AppInvoiceLineKind;
+  minutes: number | null;
+  net_cents: Int8;
+  position: number;
+  project_id: string | null;
+  quantity_milli: Int8 | null;
+  service_from: string | null;
+  service_to: string | null;
+  task_id: string | null;
+  tax_category: AppTaxCategory;
+  tax_rate_bp: number;
+  tenant_id: string;
+  unit: string | null;
+  unit_price_cents: Int8;
+}
+
+export interface AppInvoices {
+  buyer: Json | null;
+  cancel_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  client_id: string;
+  closing_text: string | null;
+  created_at: Generated<string>;
+  created_by: string | null;
+  due_date: string | null;
+  format: AppInvoiceFormat;
+  gross_cents: Generated<Int8>;
+  id: Generated<string>;
+  intro_text: string | null;
+  issue_date: string | null;
+  issued_at: string | null;
+  issued_by: string | null;
+  kind: Generated<AppInvoiceKind>;
+  locale: Generated<string>;
+  net_cents: Generated<Int8>;
+  number: string | null;
+  number_seq: number | null;
+  number_year: number | null;
+  paid_on: string | null;
+  payment_terms_days: number;
+  refers_to_id: string | null;
+  retain_until: Generated<string | null>;
+  seller: Json | null;
+  service_from: string;
+  service_to: string;
+  specimen: Generated<boolean>;
+  status: Generated<AppInvoiceStatus>;
+  tax_cents: Generated<Int8>;
+  tax_profile: AppTaxProfile;
+  tenant_id: string;
+  updated_at: Generated<string>;
 }
 
 export interface AppMonthClosings {
@@ -421,12 +548,18 @@ export interface OpsRateLimits {
 export interface DB {
   "app.absence_days": AppAbsenceDays;
   "app.absence_requests": AppAbsenceRequests;
+  "app.billing_profiles": AppBillingProfiles;
   "app.clients": AppClients;
   "app.contracts": AppContracts;
   "app.correction_requests": AppCorrectionRequests;
   "app.employees": AppEmployees;
   "app.finding_acks": AppFindingAcks;
   "app.flex_bookings": AppFlexBookings;
+  "app.invoice_counters": AppInvoiceCounters;
+  "app.invoice_documents": AppInvoiceDocuments;
+  "app.invoice_line_entries": AppInvoiceLineEntries;
+  "app.invoice_lines": AppInvoiceLines;
+  "app.invoices": AppInvoices;
   "app.month_closings": AppMonthClosings;
   "app.project_entries": AppProjectEntries;
   "app.project_members": AppProjectMembers;

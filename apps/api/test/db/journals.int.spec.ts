@@ -8,7 +8,13 @@ let app: pg.Client;
 let tenant: string;
 let worker: Person;
 
-const journals = ['app.vacation_ledger', 'app.flex_bookings', 'app.month_closings', 'audit.log'];
+const journals = [
+	'app.vacation_ledger',
+	'app.flex_bookings',
+	'app.month_closings',
+	'app.invoice_documents',
+	'audit.log'
+];
 
 beforeAll(async () => {
 	superuser = await connectAs('superuser');

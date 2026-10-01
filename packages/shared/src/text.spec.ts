@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emailSchema, multilineText, plainText, reasonSchema } from './common';
+import { emailSchema, invoiceMultilineText, invoicePlainText, multilineText, plainText, reasonSchema } from './common';
 
 const char = (code: number) => String.fromCharCode(code);
 const messages = (parsed: { error?: { issues: { message: string }[] } }) =>
@@ -62,6 +62,23 @@ describe('multilineText', () => {
 	it('still refuses tabs and other controls', () => {
 		expect(messages(note.safeParse('Spalte\tSpalte'))).toEqual(['text.controlChars']);
 		expect(messages(note.safeParse(`Zeile${char(0x202e)}`))).toEqual(['text.controlChars']);
+	});
+});
+
+describe('invoicePlainText / invoiceMultilineText', () => {
+	it('takes ordinary German business text', () => {
+		expect(invoicePlainText(60).parse('Müller & Co (GmbH) / Straße 12')).toBe('Müller & Co (GmbH) / Straße 12');
+	});
+
+	it('keeps line breaks, unlike a plain invoice field', () => {
+		expect(invoiceMultilineText(60).parse('erste Zeile\nzweite Zeile')).toBe('erste Zeile\nzweite Zeile');
+	});
+
+	it('refuses a character the invoice font is not guaranteed to show', () => {
+		expect(messages(invoicePlainText(60).safeParse('Beratung 日本語'))).toEqual(['text.invoiceCharset']);
+		expect(messages(invoiceMultilineText(60).safeParse('Zeile 1\n🚀 Zeile 2'))).toEqual([
+			'text.invoiceCharset'
+		]);
 	});
 });
 

@@ -32,7 +32,16 @@ function planFor(today: string, tenantId: string): DemoPlan {
 			{ id: 'u-forgot', employeeId: 'e-forgot' },
 			{ id: 'u-worker', employeeId: 'e-worker' },
 			{ id: 'u-admin', employeeId: null }
-		]
+		],
+		projectEntries: [
+			{ employeeId: 'e-forgot', startedAt: '2026-09-24T16:40:00+02:00', endedAt: null },
+			{ employeeId: 'e-worker', startedAt: `${today}T08:18:31+02:00`, endedAt: null }
+		],
+		solo: {
+			projectEntries: [
+				{ employeeId: 'e-solo', startedAt: `${today}T08:34:02+02:00`, endedAt: null }
+			]
+		}
 	} as unknown as DemoPlan;
 }
 
@@ -45,6 +54,11 @@ const client = { requestId: 'r1', ip: '203.0.113.7', userAgent: 'Firefox' };
 
 const startOf = (plan: DemoPlan, employeeId: string) =>
 	plan.entries.find((entry) => entry.employeeId === employeeId)!.startedAt;
+
+const timerOf = (plan: DemoPlan, employeeId: string) =>
+	[...plan.projectEntries, ...plan.solo.projectEntries].find(
+		(entry) => entry.employeeId === employeeId
+	)!.startedAt;
 
 function setup() {
 	let plans = 0;
@@ -214,6 +228,26 @@ describe('DemoService.create', () => {
 		expect(startOf(plan, 'e-forgot')).toBe('2026-09-24T12:16:00+02:00');
 	});
 
+	it('never leaves a timer of today ahead of an early visitor', async () => {
+		const { demo, store, clock, asResponse } = setup();
+		clock.now.mockReturnValue(new Date('2026-09-25T05:00:00Z'));
+		await demo.create({ locale: 'de' }, client, asResponse);
+
+		const plan = store.write.mock.calls[0]![0];
+		expect(timerOf(plan, 'e-worker')).toBe(startOf(plan, 'e-worker'));
+		expect(Date.parse(timerOf(plan, 'e-solo'))).toBeLessThan(Date.parse('2026-09-25T05:00:00Z'));
+		expect(timerOf(plan, 'e-forgot')).toBe('2026-09-24T16:40:00+02:00');
+	});
+
+	it('keeps the timers of the story once they have started', async () => {
+		const { demo, store, asResponse } = setup();
+		await demo.create({ locale: 'de' }, client, asResponse);
+
+		const plan = store.write.mock.calls[0]![0];
+		expect(timerOf(plan, 'e-worker')).toBe('2026-09-25T08:18:31+02:00');
+		expect(timerOf(plan, 'e-solo')).toBe('2026-09-25T08:34:02+02:00');
+	});
+
 	it('does not clock the persona in yesterday for a visitor just after midnight', async () => {
 		const { demo, store, sessions, clock, asResponse } = setup();
 		clock.now.mockReturnValue(new Date('2026-09-24T22:03:00Z'));
@@ -298,12 +332,12 @@ describe('DemoService.switchTo', () => {
 });
 
 describe('DemoService.personas', () => {
-	it('reads the accounts as hr, whatever role the persona has', async () => {
+	it('reads the accounts in the context of the session, whatever role the persona has', async () => {
 		const { demo, db, store } = setup();
 		const session = { tenantId: 't1', userId: 'u-worker', role: 'employee' } as AuthSession;
 		await demo.personas(session);
 
-		expect(db.withTenant).toHaveBeenCalledWith({ ...session, role: 'hr' }, expect.any(Function));
+		expect(db.withTenant).toHaveBeenCalledWith(session, expect.any(Function));
 		expect(store.personas).toHaveBeenCalledWith('trx', 'u-worker');
 	});
 });

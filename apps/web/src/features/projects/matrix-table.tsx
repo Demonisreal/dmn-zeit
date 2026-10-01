@@ -5,6 +5,7 @@ import { Chevron } from '../../components/ui/chevron';
 import { Table } from '../../components/ui/table';
 import { formatCents, formatMinutes } from '../../i18n/format';
 import { todayIso } from '../../lib/dates';
+import { flip } from '../../lib/sets';
 import { addDays, shortDate, weekdayShort } from '../week/dates';
 import { CoverageRows } from './coverage-row';
 import { groupRows } from './matrix-rows';
@@ -22,13 +23,6 @@ type Props = {
 	coverage: DayCoverage[] | null;
 	empty: string;
 	isStale?: boolean;
-};
-
-const flip = (set: Set<string>, key: string) => {
-	const next = new Set(set);
-	if (next.has(key)) next.delete(key);
-	else next.add(key);
-	return next;
 };
 
 export function MatrixTable({

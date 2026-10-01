@@ -188,6 +188,49 @@ CREATE TYPE app.flex_cap_mode AS ENUM (
 
 
 --
+-- Name: invoice_format; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.invoice_format AS ENUM (
+    'pdf',
+    'zugferd',
+    'xrechnung'
+);
+
+
+--
+-- Name: invoice_kind; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.invoice_kind AS ENUM (
+    'invoice',
+    'cancellation'
+);
+
+
+--
+-- Name: invoice_line_kind; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.invoice_line_kind AS ENUM (
+    'time',
+    'item'
+);
+
+
+--
+-- Name: invoice_status; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.invoice_status AS ENUM (
+    'draft',
+    'issued',
+    'paid',
+    'cancelled'
+);
+
+
+--
 -- Name: month_closing_action; Type: TYPE; Schema: app; Owner: -
 --
 
@@ -227,6 +270,30 @@ CREATE TYPE app.rounding_mode AS ENUM (
     'up',
     'nearest',
     'down'
+);
+
+
+--
+-- Name: tax_category; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.tax_category AS ENUM (
+    'standard',
+    'reduced',
+    'exempt',
+    'reverse_charge',
+    'outside_scope',
+    'small_business'
+);
+
+
+--
+-- Name: tax_profile; Type: TYPE; Schema: app; Owner: -
+--
+
+CREATE TYPE app.tax_profile AS ENUM (
+    'regular',
+    'small_business'
 );
 
 
@@ -502,6 +569,122 @@ $$;
 
 
 --
+-- Name: guard_invoice(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_invoice() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  -- retain_until is generated from number_year, itself frozen below; postgres recomputes it only
+  -- after before-row triggers run, so it still reads stale inside this one and needs the same pass
+  movable constant text[] := array[
+    'status', 'paid_on', 'cancelled_at', 'cancelled_by', 'cancel_reason', 'updated_at', 'retain_until'
+  ];
+begin
+  if tg_op = 'DELETE' then
+    -- same rule as app.reject_change
+    if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
+      and current_user in ('zeit_system', 'zeit_owner') then
+      return old;
+    end if;
+    if old.status = 'draft' then
+      return old;
+    end if;
+    raise exception 'invoice % is %, only drafts are deleted', old.id, old.status using errcode = 'ZT002';
+  end if;
+
+  if old.status = 'draft' then
+    return new;
+  end if;
+
+  if to_jsonb(new) - movable <> to_jsonb(old) - movable then
+    raise exception 'an issued invoice is fixed outside status, payment and cancellation' using errcode = 'ZT002';
+  end if;
+
+  if new.status is distinct from old.status
+    and old.status::text || '>' || new.status::text <> all (
+      array['issued>paid', 'paid>issued', 'issued>cancelled', 'paid>cancelled']
+    )
+  then
+    raise exception 'invoice % cannot go from % to %', old.id, old.status, new.status using errcode = 'ZT003';
+  end if;
+
+  if new.status = 'cancelled' and not exists (
+    select 1 from app.invoices c
+     where c.tenant_id = new.tenant_id and c.refers_to_id = new.id and c.status <> 'draft'
+  ) then
+    raise exception 'invoice % has no issued cancellation yet', new.id using errcode = 'ZT003';
+  end if;
+
+  return new;
+end;
+$$;
+
+
+--
+-- Name: guard_invoice_child(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_invoice_child() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  target record;
+begin
+  select i.status, i.tax_profile into target
+    from app.invoices i
+   where i.tenant_id = coalesce(new.tenant_id, old.tenant_id)
+     and i.id = coalesce(new.invoice_id, old.invoice_id);
+
+  -- not found means the invoice is gone too, which only happens cascading from a deleted draft
+  if found and target.status <> 'draft' then
+    raise exception '% belongs to an issued invoice', tg_table_name using errcode = 'ZT002';
+  end if;
+
+  -- a line's category has to match the invoice's tax treatment (planung-projekte.md, risk 17):
+  -- a small-business invoice never carries a taxed or reverse-charge line and vice versa
+  if tg_table_name = 'invoice_lines' and tg_op <> 'DELETE' then
+    if target.tax_profile = 'small_business' and new.tax_category <> 'small_business' then
+      raise exception 'a small-business invoice only takes small_business lines' using errcode = 'check_violation';
+    elsif target.tax_profile = 'regular' and new.tax_category = 'small_business' then
+      raise exception 'a regular invoice cannot take a small_business line' using errcode = 'check_violation';
+    end if;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+
+--
+-- Name: guard_invoice_document(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_invoice_document() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  -- never trust a checksum the caller sends along (R-07)
+  new.sha256 := sha256(new.content);
+  if not exists (
+    select 1 from app.invoices i
+     where i.tenant_id = new.tenant_id and i.id = new.invoice_id and i.status <> 'draft'
+  ) then
+    raise exception 'a document only attaches to an issued invoice' using errcode = 'ZT003';
+  end if;
+  return new;
+end;
+$$;
+
+
+--
 -- Name: guard_own_user(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -560,6 +743,32 @@ begin
     raise exception 'timer entries start and end at now()' using errcode = 'check_violation';
   end if;
 
+  if new.ended_at is not null and new.ended_at > now()
+    and (tg_op = 'INSERT' or new.ended_at is distinct from old.ended_at)
+  then
+    raise exception 'a project entry cannot end in the future' using errcode = 'check_violation';
+  end if;
+
+  -- a booking nobody's clock confirmed stays inside one working day (bedrohungsmodell T-02)
+  if new.source <> 'timer' and new.ended_at is not null and new.ended_at - new.started_at > interval '24 hours' then
+    raise exception 'a manual or seeded entry cannot span more than 24 hours' using errcode = 'check_violation';
+  end if;
+
+  -- correcting the end of an already-stopped timer entry means it is no longer the clock's record
+  if tg_op = 'UPDATE' and old.source = 'timer' and new.source = old.source and old.ended_at is not null
+    and (new.started_at is distinct from old.started_at or new.ended_at is distinct from old.ended_at)
+  then
+    new.source := 'manual';
+  end if;
+
+  -- only hr decides whether an entry counts towards a bill, never the person booking it
+  if (
+    (tg_op = 'INSERT' and new.billable is not null)
+    or (tg_op = 'UPDATE' and new.billable is distinct from old.billable)
+  ) and (app.role() >= 'hr') is not true then
+    raise exception 'only hr sets whether a project entry is billable' using errcode = 'insufficient_privilege';
+  end if;
+
   -- the release is checked on the way onto a project only, a note on an archived one stays editable
   if (tg_op = 'INSERT' or new.project_id is distinct from old.project_id)
     and (app.role() >= 'hr') is not true
@@ -581,9 +790,14 @@ begin
     raise exception 'project entry % is invoiced', old.id using errcode = 'ZT004';
   end if;
 
-  if (new.id, new.tenant_id, new.employee_id, new.source, new.created_by, new.created_at)
-    is distinct from (old.id, old.tenant_id, old.employee_id, old.source, old.created_by, old.created_at) then
+  if (new.id, new.tenant_id, new.employee_id, new.created_by, new.created_at)
+    is distinct from (old.id, old.tenant_id, old.employee_id, old.created_by, old.created_at) then
     raise exception 'owner and origin of a project entry stay fixed' using errcode = 'ZT002';
+  end if;
+
+  -- source is frozen too, except for the one conversion handled above
+  if new.source is distinct from old.source and not (old.source = 'timer' and new.source = 'manual') then
+    raise exception 'a project entry cannot change how it was booked' using errcode = 'ZT002';
   end if;
 
   if old.voided_at is not null and to_jsonb(new) - bookkeeping <> to_jsonb(old) - bookkeeping then
@@ -692,6 +906,26 @@ $$;
 
 
 --
+-- Name: guard_tenant_retention(); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.guard_tenant_retention() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if old.kind = 'live' and exists (
+    select 1 from app.invoices i
+     where i.tenant_id = old.id and i.status <> 'draft' and i.retain_until >= current_date
+  ) then
+    raise exception 'tenant % still keeps invoices under the retention period' , old.id using errcode = 'ZT002';
+  end if;
+  return old;
+end;
+$$;
+
+
+--
 -- Name: guard_time_entry(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -758,6 +992,262 @@ end;
 $$;
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: invoices; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.invoices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    kind app.invoice_kind DEFAULT 'invoice'::app.invoice_kind NOT NULL,
+    status app.invoice_status DEFAULT 'draft'::app.invoice_status NOT NULL,
+    client_id uuid NOT NULL,
+    refers_to_id uuid,
+    number text,
+    number_year smallint,
+    number_seq integer,
+    issue_date date,
+    due_date date,
+    service_from date NOT NULL,
+    service_to date NOT NULL,
+    payment_terms_days smallint NOT NULL,
+    locale text DEFAULT 'de'::text NOT NULL,
+    format app.invoice_format NOT NULL,
+    tax_profile app.tax_profile NOT NULL,
+    specimen boolean DEFAULT false NOT NULL,
+    seller jsonb,
+    buyer jsonb,
+    intro_text text,
+    closing_text text,
+    net_cents bigint DEFAULT 0 NOT NULL,
+    tax_cents bigint DEFAULT 0 NOT NULL,
+    gross_cents bigint DEFAULT 0 NOT NULL,
+    paid_on date,
+    cancel_reason text,
+    cancelled_at timestamp with time zone,
+    cancelled_by uuid,
+    issued_at timestamp with time zone,
+    issued_by uuid,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    retain_until date GENERATED ALWAYS AS (make_date(((number_year)::integer + 8), 12, 31)) STORED,
+    CONSTRAINT invoices_check CHECK (((status = 'draft'::app.invoice_status) = (number IS NULL))),
+    CONSTRAINT invoices_check1 CHECK (((status = 'draft'::app.invoice_status) = (issue_date IS NULL))),
+    CONSTRAINT invoices_check2 CHECK (((status = 'draft'::app.invoice_status) = (due_date IS NULL))),
+    CONSTRAINT invoices_check3 CHECK (((status = 'draft'::app.invoice_status) = (issued_at IS NULL))),
+    CONSTRAINT invoices_check4 CHECK (((kind = 'invoice'::app.invoice_kind) = (refers_to_id IS NULL))),
+    CONSTRAINT invoices_check5 CHECK ((service_to >= service_from)),
+    CONSTRAINT invoices_check6 CHECK (((status <> 'paid'::app.invoice_status) OR (paid_on IS NOT NULL))),
+    CONSTRAINT invoices_check7 CHECK (((kind <> 'cancellation'::app.invoice_kind) OR (status <> 'cancelled'::app.invoice_status))),
+    CONSTRAINT invoices_check8 CHECK (((cancelled_at IS NULL) = (cancelled_by IS NULL))),
+    CONSTRAINT invoices_check9 CHECK (((cancelled_at IS NULL) OR (cancel_reason IS NOT NULL))),
+    CONSTRAINT invoices_locale_check CHECK ((locale = ANY (ARRAY['de'::text, 'en'::text])))
+);
+
+ALTER TABLE ONLY app.invoices FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: invoice_cancel(uuid, text); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.invoice_cancel(p_invoice_id uuid, p_reason text) RETURNS app.invoices
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  original app.invoices;
+  cancellation app.invoices;
+  cancellation_id uuid;
+  new_line_id uuid;
+  src app.invoice_lines;
+begin
+  if (app.role() >= 'hr') is not true then
+    raise exception 'only hr and admins cancel invoices' using errcode = 'insufficient_privilege';
+  end if;
+  if char_length(btrim(p_reason)) < 10 then
+    raise exception 'a cancellation needs a reason of at least 10 characters' using errcode = 'check_violation';
+  end if;
+
+  select * into original from app.invoices i where i.id = p_invoice_id and i.tenant_id = app.tenant_id();
+  if not found then
+    raise exception 'invoice % not found', p_invoice_id using errcode = 'ZT003';
+  end if;
+  -- neither a cancellation of a cancellation nor a second one for the same invoice (R-08)
+  if original.kind = 'cancellation' then
+    raise exception 'a cancellation cannot itself be cancelled' using errcode = 'ZT003';
+  end if;
+  if original.status not in ('issued', 'paid') then
+    raise exception 'invoice % is % and cannot be cancelled', p_invoice_id, original.status using errcode = 'ZT003';
+  end if;
+  if exists (select 1 from app.invoices c where c.tenant_id = app.tenant_id() and c.refers_to_id = original.id) then
+    raise exception 'invoice % is already cancelled', p_invoice_id using errcode = 'ZT003';
+  end if;
+
+  insert into app.invoices (
+    tenant_id, kind, client_id, refers_to_id, service_from, service_to, payment_terms_days,
+    locale, format, tax_profile, intro_text, closing_text, created_by
+  ) values (
+    original.tenant_id, 'cancellation', original.client_id, original.id, original.service_from,
+    original.service_to, original.payment_terms_days, original.locale, original.format,
+    original.tax_profile, original.intro_text, original.closing_text, app.user_id()
+  ) returning id into cancellation_id;
+
+  -- negated snapshots of the original's positions (0 - x, never -x, so a zero line stays zero)
+  for src in select * from app.invoice_lines where tenant_id = original.tenant_id and invoice_id = original.id
+  loop
+    insert into app.invoice_lines (
+      tenant_id, invoice_id, client_id, position, kind, project_id, task_id, description,
+      service_from, service_to, minutes, quantity_milli, unit, unit_price_cents, net_cents,
+      tax_category, tax_rate_bp, derivation
+    ) values (
+      src.tenant_id, cancellation_id, src.client_id, src.position, src.kind, src.project_id,
+      src.task_id, src.description, src.service_from, src.service_to,
+      case when src.minutes is null then null else 0 - src.minutes end,
+      case when src.quantity_milli is null then null else 0 - src.quantity_milli end,
+      src.unit, src.unit_price_cents, 0 - src.net_cents, src.tax_category, src.tax_rate_bp, src.derivation
+    ) returning id into new_line_id;
+
+    insert into app.invoice_line_entries (tenant_id, invoice_id, line_id, entry_id)
+    select tenant_id, cancellation_id, new_line_id, entry_id
+      from app.invoice_line_entries
+     where tenant_id = original.tenant_id and invoice_id = original.id and line_id = src.id;
+  end loop;
+
+  cancellation := app.issue_invoice(cancellation_id);
+
+  update app.invoices set status = 'cancelled', cancelled_at = now(), cancelled_by = app.user_id(), cancel_reason = p_reason
+   where id = original.id and tenant_id = original.tenant_id;
+
+  -- the abrechnungssperre lifts, the entries can be picked up by a new draft (R-09)
+  update app.project_entries set invoice_id = null
+   where tenant_id = original.tenant_id and invoice_id = original.id;
+
+  return cancellation;
+end;
+$$;
+
+
+--
+-- Name: issue_invoice(uuid); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.issue_invoice(p_invoice_id uuid) RETURNS app.invoices
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  draft app.invoices;
+  client app.clients;
+  profile app.billing_profiles;
+  tenant_kind app.tenant_kind;
+  today date := (now() at time zone 'Europe/Berlin')::date;
+  year_num smallint := extract(year from (now() at time zone 'Europe/Berlin'))::smallint;
+  prefix text;
+  seq integer;
+  net_total bigint;
+  tax_total bigint;
+  -- named v_ to avoid "column reference is ambiguous" against invoices.seller/buyer in the update below
+  v_seller jsonb;
+  v_buyer jsonb;
+begin
+  if (app.role() >= 'hr') is not true then
+    raise exception 'only hr and admins issue invoices' using errcode = 'insufficient_privilege';
+  end if;
+
+  select * into draft from app.invoices i where i.id = p_invoice_id and i.tenant_id = app.tenant_id();
+  if not found or draft.status <> 'draft' then
+    raise exception 'invoice % is not an open draft', p_invoice_id using errcode = 'ZT003';
+  end if;
+
+  select t.kind into tenant_kind from app.tenants t where t.id = app.tenant_id();
+
+  -- X-03: a sandbox demo never accumulates more issued invoices than fit a walkthrough
+  if tenant_kind = 'sandbox' and (
+    select count(*) from app.invoices i where i.tenant_id = app.tenant_id() and i.status <> 'draft'
+  ) >= 30 then
+    raise exception 'sandbox % has issued enough invoices for a demo', app.tenant_id() using errcode = 'ZT005';
+  end if;
+
+  select * into client from app.clients c where c.tenant_id = app.tenant_id() and c.id = draft.client_id;
+
+  -- BR-CO-17: tax per rate group from the summed, already-rounded net amounts, never per line
+  select coalesce(sum(g.net_cents), 0), coalesce(sum(app.percent_of(g.net_cents::bigint, g.tax_rate_bp::integer)), 0)
+    into net_total, tax_total
+    from (
+      select tax_rate_bp, sum(net_cents) as net_cents
+        from app.invoice_lines
+       where tenant_id = app.tenant_id() and invoice_id = draft.id
+       group by tax_rate_bp
+    ) g;
+
+  if tenant_kind = 'sandbox' then
+    -- x-01: an invalid vat id and iban, so neither a tax office nor a bank ever acts on this
+    prefix := 'MUSTER-';
+    v_seller := jsonb_build_object(
+      'legalName', 'Musterbetrieb Mira Beispiel', 'street', 'Musterstraße 1', 'postalCode', '10115',
+      'city', 'Berlin', 'countryCode', 'DE', 'taxNumber', '000/000/00000', 'vatId', 'DE000000000',
+      'taxProfile', 'regular', 'iban', 'DE00500105170648489890', 'bic', 'MUSTERDEXXX',
+      'bankName', 'Musterbank', 'contactName', 'Mira Beispiel', 'contactEmail', null,
+      'contactPhone', null, 'registerCourt', null, 'registerNumber', null
+    );
+  else
+    select * into profile from app.billing_profiles p where p.tenant_id = app.tenant_id();
+    if not found then
+      raise exception 'tenant % has no billing profile yet', app.tenant_id() using errcode = 'ZT003';
+    end if;
+    prefix := profile.invoice_prefix;
+    v_seller := jsonb_build_object(
+      'legalName', profile.legal_name, 'street', profile.street, 'postalCode', profile.postal_code,
+      'city', profile.city, 'countryCode', profile.country_code, 'taxNumber', profile.tax_number,
+      'vatId', profile.vat_id, 'taxProfile', profile.tax_profile, 'iban', profile.iban,
+      'bic', profile.bic, 'bankName', profile.bank_name, 'contactName', profile.contact_name,
+      'contactEmail', profile.contact_email, 'contactPhone', profile.contact_phone,
+      'registerCourt', profile.register_court, 'registerNumber', profile.register_number
+    );
+  end if;
+
+  v_buyer := jsonb_build_object(
+    'name', client.name, 'street', client.street, 'postalCode', client.postal_code,
+    'city', client.city, 'countryCode', client.country_code, 'isBusiness', client.is_business,
+    'vatId', client.vat_id, 'email', client.email, 'buyerReference', client.buyer_reference,
+    'number', client.number
+  );
+
+  -- the upsert locks the counter row until commit, a rollback after this hands the number back (adr 0003)
+  insert into app.invoice_counters as c (tenant_id, year, last_seq)
+  values (app.tenant_id(), year_num, 1)
+  on conflict (tenant_id, year) do update set last_seq = c.last_seq + 1
+  returning c.last_seq into seq;
+
+  update app.invoices i set
+    status = 'issued',
+    number = prefix || year_num || '-' || (case when seq < 10000 then lpad(seq::text, 4, '0') else seq::text end),
+    number_year = year_num,
+    number_seq = seq,
+    issue_date = today,
+    due_date = today + i.payment_terms_days,
+    net_cents = net_total,
+    tax_cents = tax_total,
+    gross_cents = net_total + tax_total,
+    seller = v_seller,
+    buyer = v_buyer,
+    specimen = (tenant_kind = 'sandbox'),
+    issued_at = now(),
+    issued_by = app.user_id()
+   where i.id = p_invoice_id and i.tenant_id = app.tenant_id() and i.status = 'draft'
+  returning i.* into draft;
+
+  return draft;
+end;
+$$;
+
+
 --
 -- Name: leads(uuid); Type: FUNCTION; Schema: app; Owner: -
 --
@@ -806,6 +1296,18 @@ $$;
 
 
 --
+-- Name: percent_of(bigint, integer); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.percent_of(cents bigint, basis_points integer) RETURNS bigint
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    SET search_path TO ''
+    AS $$
+  select app.round_div(cents * basis_points, 10000);
+$$;
+
+
+--
 -- Name: project_budget_status(uuid); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -850,6 +1352,35 @@ $$;
 
 
 --
+-- Name: project_rounding(uuid[]); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.project_rounding(p_ids uuid[]) RETURNS TABLE(project_id uuid, increment_minutes smallint, increment_source text, mode app.rounding_mode, mode_source text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select p.id,
+         coalesce(p.rounding_increment_min, c.rounding_increment_min, b.rounding_increment_min, 15),
+         case
+           when p.rounding_increment_min is not null then 'project'
+           when c.rounding_increment_min is not null then 'client'
+           else 'tenant'
+         end,
+         coalesce(p.rounding_mode, c.rounding_mode, b.rounding_mode, 'up'::app.rounding_mode),
+         case
+           when p.rounding_mode is not null then 'project'
+           when c.rounding_mode is not null then 'client'
+           else 'tenant'
+         end
+    from app.projects p
+    join app.clients c on c.id = p.client_id
+    left join app.billing_profiles b on b.tenant_id = p.tenant_id
+   where p.id = any (p_ids)
+     and p.tenant_id = app.tenant_id();
+$$;
+
+
+--
 -- Name: reject_change(); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -880,6 +1411,24 @@ CREATE FUNCTION app.role() RETURNS app.user_role
     LANGUAGE sql STABLE PARALLEL SAFE
     AS $$
   select nullif(pg_catalog.current_setting('app.role', true), '')::app.user_role
+$$;
+
+
+--
+-- Name: round_div(bigint, bigint); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.round_div(num bigint, den bigint) RETURNS bigint
+    LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE
+    SET search_path TO ''
+    AS $$
+begin
+  -- half away from zero, so a cancellation rounds as the exact mirror image of its invoice
+  if 2 * abs(num % den) < abs(den) then
+    return num / den;
+  end if;
+  return case when (num < 0) <> (den < 0) then num / den - 1 else num / den + 1 end;
+end;
 $$;
 
 
@@ -1007,6 +1556,35 @@ $$;
 
 
 --
+-- Name: guard_log(); Type: FUNCTION; Schema: audit; Owner: -
+--
+
+CREATE FUNCTION audit.guard_log() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  -- the one update allowed: the address cut down to its network, everything else untouched
+  if to_jsonb(new) - 'ip' = to_jsonb(old) - 'ip' and new.ip = audit.ip_network(old.ip) then
+    return new;
+  end if;
+  raise exception '%.% is append-only', tg_table_schema, tg_table_name using errcode = 'ZT002';
+end;
+$$;
+
+
+--
+-- Name: ip_network(inet); Type: FUNCTION; Schema: audit; Owner: -
+--
+
+CREATE FUNCTION audit.ip_network(p_ip inet) RETURNS inet
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    AS $$
+  select pg_catalog.network(pg_catalog.set_masklen(p_ip, case pg_catalog.family(p_ip) when 4 then 24 else 48 end))::inet
+$$;
+
+
+--
 -- Name: track(); Type: FUNCTION; Schema: audit; Owner: -
 --
 
@@ -1015,8 +1593,12 @@ CREATE FUNCTION audit.track() RETURNS trigger
     SET search_path TO ''
     AS $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
-  skipped constant text[] := array['updated_at', 'last_login_at'];
+  -- bookkeeping columns are never worth a trail entry, invoices and their PDF also drop a blob
+  skipped constant text[] := case tg_table_name
+    when 'invoices' then array['updated_at', 'last_login_at', 'seller', 'buyer']
+    when 'invoice_documents' then array['updated_at', 'last_login_at', 'content']
+    else array['updated_at', 'last_login_at']
+  end;
   old_row jsonb := '{}';
   new_row jsonb := '{}';
   latest jsonb;
@@ -1029,6 +1611,17 @@ begin
   if tg_op <> 'DELETE' then
     new_row := to_jsonb(new) - skipped;
   end if;
+
+  -- a payment routing change stays in the trail, but only the last four digits of it (P-01/P-05)
+  if tg_table_name = 'billing_profiles' then
+    old_row := old_row || jsonb_strip_nulls(
+      jsonb_build_object('iban', right(old_row ->> 'iban', 4), 'bic', right(old_row ->> 'bic', 4))
+    );
+    new_row := new_row || jsonb_strip_nulls(
+      jsonb_build_object('iban', right(new_row ->> 'iban', 4), 'bic', right(new_row ->> 'bic', 4))
+    );
+  end if;
+
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
@@ -1166,20 +1759,16 @@ CREATE FUNCTION auth.login_failed(p_user_id uuid) RETURNS timestamp with time zo
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4 ... 64 minutes
+  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4, 8, then 15 minutes
+  -- only c is read again once the row lock is granted, a subquery would lose a parallel miss
   update auth.credentials c
-     set failed_count = s.misses,
+     set failed_count = case when c.last_failed_at > now() - interval '24 hours' then c.failed_count else 0 end + 1,
          last_failed_at = now(),
          locked_until = case
-           when s.misses >= 5 then now() + interval '1 minute' * power(2, least(s.misses - 5, 6))
+           when c.last_failed_at > now() - interval '24 hours' and c.failed_count >= 4
+             then now() + interval '1 minute' * least(power(2, c.failed_count - 4), 15)
          end
-    from (
-      select p.user_id,
-             case when p.last_failed_at > now() - interval '24 hours' then p.failed_count else 0 end + 1 as misses
-        from auth.credentials p
-       where p.user_id = p_user_id
-    ) s
-   where c.user_id = s.user_id
+   where c.user_id = p_user_id
   returning c.locked_until;
 $$;
 
@@ -1292,21 +1881,23 @@ begin
   delete from auth.mfa_challenges m where m.user_id = p_user_id;
   delete from auth.webauthn_challenges w where w.user_id = p_user_id;
   delete from auth.sessions s where s.user_id = p_user_id;
+  -- the old password alone must not lead to a fresh second factor, a new one needs the mailbox
+  delete from auth.credentials c where c.user_id = p_user_id;
 end;
 $$;
 
 
 --
--- Name: passkey_add(uuid, bytea, bytea, bigint, text[], uuid, boolean, text); Type: FUNCTION; Schema: auth; Owner: -
+-- Name: passkey_add(bytea, bytea, bigint, text[], uuid, boolean, text); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.passkey_add(p_user_id uuid, p_credential_id bytea, p_public_key bytea, p_counter bigint, p_transports text[], p_aaguid uuid, p_backed_up boolean, p_name text) RETURNS uuid
+CREATE FUNCTION auth.passkey_add(p_credential_id bytea, p_public_key bytea, p_counter bigint, p_transports text[], p_aaguid uuid, p_backed_up boolean, p_name text) RETURNS uuid
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
   insert into auth.passkeys (user_id, credential_id, public_key, counter, transports, aaguid, backed_up, name)
   values (
-    p_user_id, p_credential_id, p_public_key, p_counter, coalesce(p_transports, '{}'), p_aaguid,
+    app.user_id(), p_credential_id, p_public_key, p_counter, coalesce(p_transports, '{}'), p_aaguid,
     p_backed_up, p_name
   )
   returning id;
@@ -1414,6 +2005,8 @@ begin
   perform auth.password_set(account, p_password_hash);
   -- this device included, the api opens a fresh session right after
   delete from auth.sessions s where s.user_id = account;
+  -- a reset link sent before the change would otherwise still overwrite the new password
+  delete from auth.tokens t where t.user_id = account and t.kind = 'password_reset' and t.used_at is null;
 end;
 $$;
 
@@ -1517,24 +2110,24 @@ $$;
 
 
 --
--- Name: recovery_codes_replace(uuid, bytea[]); Type: FUNCTION; Schema: auth; Owner: -
+-- Name: recovery_codes_replace(bytea[]); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.recovery_codes_replace(p_user_id uuid, p_code_hashes bytea[]) RETURNS void
+CREATE FUNCTION auth.recovery_codes_replace(p_code_hashes bytea[]) RETURNS void
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  delete from auth.recovery_codes c where c.user_id = p_user_id;
+  delete from auth.recovery_codes c where c.user_id = app.user_id();
   insert into auth.recovery_codes (user_id, code_hash)
-  select p_user_id, h.code_hash from unnest(p_code_hashes) as h (code_hash);
+  select app.user_id(), h.code_hash from unnest(p_code_hashes) as h (code_hash);
 $$;
 
 
 --
--- Name: session_create(uuid, bytea, bytea, inet, text); Type: FUNCTION; Schema: auth; Owner: -
+-- Name: session_create(uuid, bytea, bytea, inet, text, boolean); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.session_create(p_user_id uuid, p_token_hash bytea, p_csrf_hash bytea, p_ip inet, p_user_agent text) RETURNS uuid
+CREATE FUNCTION auth.session_create(p_user_id uuid, p_token_hash bytea, p_csrf_hash bytea, p_ip inet, p_user_agent text, p_bypass_lock boolean DEFAULT false) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -1549,13 +2142,18 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- a lock holds for passkeys too, and signing in does not lift it
-  if exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now()) then
+  -- misses come from password guesses, a passkey with user verification is let past the lock
+  if not p_bypass_lock
+    and exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now())
+  then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
 
+  -- a running lock stays, or every passkey login would hand the guesser five fresh tries
   update auth.credentials c set failed_count = 0, locked_until = null, last_failed_at = null
-   where c.user_id = p_user_id and c.failed_count > 0;
+   where c.user_id = p_user_id
+     and c.failed_count > 0
+     and (c.locked_until is null or c.locked_until <= now());
 
   -- without a second factor the session only reaches the enrollment endpoints, demo personas excepted
   insert into auth.sessions (
@@ -1658,6 +2256,18 @@ CREATE FUNCTION auth.session_revoke_by_id(p_user_id uuid, p_session_id uuid) RET
     delete from auth.sessions s where s.id = p_session_id and s.user_id = p_user_id returning s.id
   )
   select exists (select 1 from gone);
+$$;
+
+
+--
+-- Name: session_revoke_others(uuid, uuid); Type: FUNCTION; Schema: auth; Owner: -
+--
+
+CREATE FUNCTION auth.session_revoke_others(p_user_id uuid, p_keep_session_id uuid) RETURNS void
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  delete from auth.sessions s where s.user_id = p_user_id and s.id <> p_keep_session_id;
 $$;
 
 
@@ -1774,7 +2384,9 @@ begin
   end if;
 
   if p_code_hashes is not null then
-    perform auth.recovery_codes_replace(p_user_id, p_code_hashes);
+    delete from auth.recovery_codes c where c.user_id = p_user_id;
+    insert into auth.recovery_codes (user_id, code_hash)
+    select p_user_id, h.code_hash from unnest(p_code_hashes) as h (code_hash);
   end if;
   return true;
 end;
@@ -1782,14 +2394,14 @@ $$;
 
 
 --
--- Name: totp_remove(uuid); Type: FUNCTION; Schema: auth; Owner: -
+-- Name: totp_remove(); Type: FUNCTION; Schema: auth; Owner: -
 --
 
-CREATE FUNCTION auth.totp_remove(p_user_id uuid) RETURNS boolean
+CREATE FUNCTION auth.totp_remove() RETURNS boolean
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  with gone as (delete from auth.totp t where t.user_id = p_user_id returning t.user_id)
+  with gone as (delete from auth.totp t where t.user_id = app.user_id() returning t.user_id)
   select exists (select 1 from gone);
 $$;
 
@@ -1878,6 +2490,71 @@ $$;
 
 
 --
+-- Name: audit_ip_retention(); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.audit_ip_retention() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  cut integer;
+begin
+  -- a second container running the job at the same time just skips
+  if not pg_try_advisory_xact_lock(hashtext('zeit:audit-ip-retention')) then
+    return 0;
+  end if;
+
+  update audit.log l set ip = audit.ip_network(l.ip)
+   where l.occurred_at < now() - interval '30 days'
+     and l.ip <> audit.ip_network(l.ip);
+  get diagnostics cut = row_count;
+  return cut;
+end;
+$$;
+
+
+--
+-- Name: demo_only(); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.demo_only() RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+begin
+  if current_setting('app.demo_mode', true) is distinct from 'true' then
+    raise exception 'sandboxes are only seeded in the demo' using errcode = 'insufficient_privilege';
+  end if;
+end;
+$$;
+
+
+--
+-- Name: demo_personas(); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.demo_personas() RETURNS TABLE(user_id uuid, display_name text, role app.user_role, employee_id uuid, employee_name text, team_id uuid, team_name text, workspace app.workspace_kind)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  select u.id, u.display_name, u.role, e.id, e.first_name || ' ' || e.last_name, tm.id, tm.name,
+         t.workspace
+    from app.tenants own
+    join app.tenants t on t.id = own.id or t.sandbox_group = own.sandbox_group
+    join app.users u on u.tenant_id = t.id
+    left join app.employees e on e.id = u.employee_id
+    left join app.teams tm on tm.id = e.team_id
+   where own.id = app.tenant_id()
+     and own.kind = 'sandbox'
+     and t.kind = 'sandbox'
+     and t.expires_at > now()
+     and u.status in ('active', 'demo')
+   order by u.role, u.display_name;
+$$;
+
+
+--
 -- Name: demo_switch_persona(bytea, uuid, bytea, bytea); Type: FUNCTION; Schema: ops; Owner: -
 --
 
@@ -1885,10 +2562,10 @@ CREATE FUNCTION ops.demo_switch_persona(p_session_token_hash bytea, p_target_use
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- null when the session is gone, the tenant is no live sandbox or the target lives elsewhere
+  -- null when the session is gone, the tenant is no live sandbox or the target lives outside its group
   with old as (
     delete from auth.sessions s
-     using app.users u, app.tenants t, app.users target
+     using app.users u, app.tenants t, app.users target, app.tenants tt
      where s.token_hash = p_session_token_hash
        and s.idle_expires_at > now()
        and s.absolute_expires_at > now()
@@ -1897,8 +2574,11 @@ CREATE FUNCTION ops.demo_switch_persona(p_session_token_hash bytea, p_target_use
        and t.kind = 'sandbox'
        and t.expires_at > now()
        and target.id = p_target_user_id
-       and target.tenant_id = t.id
        and target.status in ('active', 'demo')
+       and tt.id = target.tenant_id
+       and tt.kind = 'sandbox'
+       and tt.expires_at > now()
+       and (tt.id = t.id or tt.sandbox_group = t.sandbox_group)
     returning target.id as user_id, s.ip, s.user_agent
   )
   insert into auth.sessions (
@@ -2001,6 +2681,7 @@ CREATE FUNCTION ops.sandbox_create(p_id uuid, p_name text, p_slug text, p_state 
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
+  select ops.demo_only();
   insert into app.tenants (
     id, name, slug, state, flex_cap_plus_min, flex_cap_minus_min, flex_cap_mode, kind, expires_at
   )
@@ -2017,6 +2698,101 @@ $$;
 --
 
 CREATE FUNCTION ops.sandbox_seed(p_plan jsonb, p_locale text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  tenant constant uuid := (p_plan -> 'tenant' ->> 'id')::uuid;
+  solo constant uuid := (p_plan -> 'solo' -> 'tenant' ->> 'id')::uuid;
+  -- never taken from the plan, nobody gets a tenant into the group of another visitor
+  pair constant uuid := gen_random_uuid();
+begin
+  perform ops.sandbox_seed_company(p_plan, p_locale);
+  update app.tenants t set sandbox_group = pair where t.id = tenant;
+
+  -- expires with the company, the purge takes both on the same run
+  insert into app.tenants (id, name, slug, state, workspace, kind, expires_at, sandbox_group)
+  select solo, p_plan -> 'solo' -> 'tenant' ->> 'name', p_plan -> 'solo' -> 'tenant' ->> 'slug',
+         (p_plan -> 'solo' -> 'tenant' ->> 'state')::app.federal_state, 'solo', 'sandbox', t.expires_at, pair
+    from app.tenants t
+   where t.id = tenant;
+
+  insert into app.employees (id, tenant_id, personnel_no, first_name, last_name, entry_date)
+  select x.id, solo, x."personnelNo", x."firstName", x."lastName", x."entryDate"
+    from jsonb_to_record(p_plan -> 'solo' -> 'employee')
+      as x (id uuid, "personnelNo" text, "firstName" text, "lastName" text, "entryDate" date);
+
+  insert into app.users (id, tenant_id, email, display_name, role, locale, status, employee_id)
+  select x.id, solo, x.email, x."displayName", 'admin', p_locale, 'demo',
+         (p_plan -> 'solo' -> 'employee' ->> 'id')::uuid
+    from jsonb_to_record(p_plan -> 'solo' -> 'user') as x (id uuid, email text, "displayName" text);
+
+  perform ops.sandbox_seed_book(tenant, p_plan);
+  perform ops.sandbox_seed_book(solo, p_plan -> 'solo');
+end;
+$$;
+
+
+--
+-- Name: sandbox_seed_book(uuid, jsonb); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.sandbox_seed_book(p_tenant uuid, p_book jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  previous_role text := current_setting('app.role', true);
+begin
+  perform ops.demo_only();
+
+  insert into app.clients (
+    id, tenant_id, number, name, street, postal_code, city, country_code, is_business, vat_id, email,
+    buyer_reference, invoice_locale, payment_terms_days, rounding_increment_min, rounding_mode
+  )
+  select x.id, p_tenant, x.number, x.name, x.street, x."postalCode", x.city, x."countryCode",
+         x."isBusiness", x."vatId", x.email, x."buyerReference", x."invoiceLocale", x."paymentTermsDays",
+         x."roundingIncrementMin", x."roundingMode"
+    from jsonb_to_recordset(p_book -> 'clients')
+      as x (id uuid, number text, name text, street text, "postalCode" text, city text,
+            "countryCode" text, "isBusiness" boolean, "vatId" text, email public.citext,
+            "buyerReference" text, "invoiceLocale" text, "paymentTermsDays" smallint,
+            "roundingIncrementMin" smallint, "roundingMode" app.rounding_mode);
+
+  insert into app.projects (id, tenant_id, client_id, name, code, budget_minutes)
+  select x.id, p_tenant, x."clientId", x.name, x.code, x."budgetMinutes"
+    from jsonb_to_recordset(p_book -> 'projects')
+      as x (id uuid, "clientId" uuid, name text, code text, "budgetMinutes" integer);
+
+  insert into app.tasks (id, tenant_id, client_id, project_id, name)
+  select x.id, p_tenant, x."clientId", x."projectId", x.name
+    from jsonb_to_recordset(p_book -> 'tasks') as x (id uuid, "clientId" uuid, "projectId" uuid, name text);
+
+  insert into app.rates (id, tenant_id, client_id, project_id, task_id, employee_id, valid_from, rate_cents)
+  select x.id, p_tenant, x."clientId", x."projectId", x."taskId", x."employeeId", x."validFrom", x."rateCents"
+    from jsonb_to_recordset(p_book -> 'rates')
+      as x (id uuid, "clientId" uuid, "projectId" uuid, "taskId" uuid, "employeeId" uuid,
+            "validFrom" date, "rateCents" bigint);
+
+  -- guard_project_entry asks everyone below hr for a released project, the seed books for all of them
+  perform set_config('app.role', 'admin', true);
+  insert into app.project_entries (
+    id, tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source
+  )
+  select x.id, p_tenant, x."employeeId", x."projectId", x."taskId", x."startedAt", x."endedAt", x.note, 'seed'
+    from jsonb_to_recordset(p_book -> 'projectEntries')
+      as x (id uuid, "employeeId" uuid, "projectId" uuid, "taskId" uuid, "startedAt" timestamptz,
+            "endedAt" timestamptz, note text);
+  perform set_config('app.role', coalesce(previous_role, ''), true);
+end;
+$$;
+
+
+--
+-- Name: sandbox_seed_company(jsonb, text); Type: FUNCTION; Schema: ops; Owner: -
+--
+
+CREATE FUNCTION ops.sandbox_seed_company(p_plan jsonb, p_locale text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO ''
     AS $$
@@ -2262,10 +3038,6 @@ end;
 $$;
 
 
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
 --
 -- Name: absence_days; Type: TABLE; Schema: app; Owner: -
 --
@@ -2326,6 +3098,47 @@ ALTER TABLE ONLY app.absence_requests FORCE ROW LEVEL SECURITY;
 
 
 --
+-- Name: billing_profiles; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.billing_profiles (
+    tenant_id uuid NOT NULL,
+    legal_name text NOT NULL,
+    street text,
+    postal_code text,
+    city text,
+    country_code character(2) DEFAULT 'DE'::bpchar NOT NULL,
+    tax_number text,
+    vat_id text,
+    tax_profile app.tax_profile DEFAULT 'regular'::app.tax_profile NOT NULL,
+    previous_year_revenue_cents bigint,
+    iban text,
+    bic text,
+    bank_name text,
+    contact_name text,
+    contact_email public.citext,
+    contact_phone text,
+    register_court text,
+    register_number text,
+    invoice_prefix text DEFAULT ''::text NOT NULL,
+    payment_terms_days smallint DEFAULT 14 NOT NULL,
+    rounding_increment_min smallint DEFAULT 15 NOT NULL,
+    rounding_mode app.rounding_mode DEFAULT 'up'::app.rounding_mode NOT NULL,
+    default_format app.invoice_format DEFAULT 'pdf'::app.invoice_format NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT billing_profiles_country_code_check CHECK ((country_code = 'DE'::bpchar)),
+    CONSTRAINT billing_profiles_invoice_prefix_check CHECK ((invoice_prefix ~ '^[A-Z0-9-]{0,10}$'::text)),
+    CONSTRAINT billing_profiles_legal_name_check CHECK ((btrim(legal_name) <> ''::text)),
+    CONSTRAINT billing_profiles_payment_terms_days_check CHECK (((payment_terms_days >= 0) AND (payment_terms_days <= 120))),
+    CONSTRAINT billing_profiles_rounding_increment_min_check CHECK ((rounding_increment_min = ANY (ARRAY[1, 5, 6, 10, 15, 30, 60]))),
+    CONSTRAINT billing_profiles_vat_id_check CHECK ((vat_id ~ '^DE[0-9]{9}$'::text))
+);
+
+ALTER TABLE ONLY app.billing_profiles FORCE ROW LEVEL SECURITY;
+
+
+--
 -- Name: clients; Type: TABLE; Schema: app; Owner: -
 --
 
@@ -2350,6 +3163,7 @@ CREATE TABLE app.clients (
     restricted_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    invoice_format app.invoice_format,
     CONSTRAINT clients_check CHECK (((restricted_at IS NULL) OR (archived_at IS NOT NULL))),
     CONSTRAINT clients_country_code_check CHECK ((country_code ~ '^[A-Z]{2}$'::text)),
     CONSTRAINT clients_invoice_locale_check CHECK ((invoice_locale = ANY (ARRAY['de'::text, 'en'::text]))),
@@ -2501,6 +3315,95 @@ CREATE TABLE app.flex_bookings (
 );
 
 ALTER TABLE ONLY app.flex_bookings FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: invoice_counters; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.invoice_counters (
+    tenant_id uuid NOT NULL,
+    year smallint NOT NULL,
+    last_seq integer NOT NULL,
+    CONSTRAINT invoice_counters_last_seq_check CHECK ((last_seq > 0))
+);
+
+ALTER TABLE ONLY app.invoice_counters FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: invoice_documents; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.invoice_documents (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    invoice_id uuid NOT NULL,
+    format text NOT NULL,
+    content bytea NOT NULL,
+    sha256 bytea NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT invoice_documents_content_check CHECK (((octet_length(content) >= 1) AND (octet_length(content) <= 5242880))),
+    CONSTRAINT invoice_documents_format_check CHECK ((format = ANY (ARRAY['pdf'::text, 'zugferd'::text, 'xrechnung_cii'::text, 'time_report_pdf'::text, 'time_report_csv'::text]))),
+    CONSTRAINT invoice_documents_sha256_check CHECK ((octet_length(sha256) = 32))
+);
+
+ALTER TABLE ONLY app.invoice_documents FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: invoice_line_entries; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.invoice_line_entries (
+    tenant_id uuid NOT NULL,
+    invoice_id uuid NOT NULL,
+    line_id uuid NOT NULL,
+    entry_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE ONLY app.invoice_line_entries FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: invoice_lines; Type: TABLE; Schema: app; Owner: -
+--
+
+CREATE TABLE app.invoice_lines (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    invoice_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    "position" integer NOT NULL,
+    kind app.invoice_line_kind NOT NULL,
+    project_id uuid,
+    task_id uuid,
+    description text NOT NULL,
+    service_from date,
+    service_to date,
+    minutes integer,
+    quantity_milli bigint,
+    unit text,
+    unit_price_cents bigint NOT NULL,
+    net_cents bigint NOT NULL,
+    tax_category app.tax_category NOT NULL,
+    tax_rate_bp smallint NOT NULL,
+    derivation jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT invoice_lines_check CHECK (((kind = 'time'::app.invoice_line_kind) = (minutes IS NOT NULL))),
+    CONSTRAINT invoice_lines_check1 CHECK (((kind = 'item'::app.invoice_line_kind) = (quantity_milli IS NOT NULL))),
+    CONSTRAINT invoice_lines_check2 CHECK (((kind <> 'time'::app.invoice_line_kind) OR (project_id IS NOT NULL))),
+    CONSTRAINT invoice_lines_check3 CHECK (((quantity_milli IS NULL) = (unit IS NULL))),
+    CONSTRAINT invoice_lines_check4 CHECK (((tax_category = ANY (ARRAY['standard'::app.tax_category, 'reduced'::app.tax_category])) = (tax_rate_bp > 0))),
+    CONSTRAINT invoice_lines_description_check CHECK ((btrim(description) <> ''::text)),
+    CONSTRAINT invoice_lines_position_check CHECK (("position" > 0)),
+    CONSTRAINT invoice_lines_tax_rate_bp_check CHECK (((tax_rate_bp >= 0) AND (tax_rate_bp <= 10000))),
+    CONSTRAINT invoice_lines_unit_check CHECK ((unit = ANY (ARRAY['HUR'::text, 'DAY'::text, 'C62'::text, 'LS'::text])))
+);
+
+ALTER TABLE ONLY app.invoice_lines FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -3125,6 +4028,14 @@ ALTER TABLE ONLY app.absence_requests
 
 
 --
+-- Name: billing_profiles billing_profiles_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.billing_profiles
+    ADD CONSTRAINT billing_profiles_pkey PRIMARY KEY (tenant_id);
+
+
+--
 -- Name: clients clients_pkey; Type: CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -3266,6 +4177,118 @@ ALTER TABLE ONLY app.flex_bookings
 
 ALTER TABLE ONLY app.flex_bookings
     ADD CONSTRAINT flex_bookings_tenant_id_month_closing_id_employee_id_key UNIQUE (tenant_id, month_closing_id, employee_id);
+
+
+--
+-- Name: invoice_counters invoice_counters_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_counters
+    ADD CONSTRAINT invoice_counters_pkey PRIMARY KEY (tenant_id, year);
+
+
+--
+-- Name: invoice_documents invoice_documents_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_documents
+    ADD CONSTRAINT invoice_documents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: invoice_documents invoice_documents_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_documents
+    ADD CONSTRAINT invoice_documents_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: invoice_documents invoice_documents_tenant_id_invoice_id_format_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_documents
+    ADD CONSTRAINT invoice_documents_tenant_id_invoice_id_format_key UNIQUE (tenant_id, invoice_id, format);
+
+
+--
+-- Name: invoice_line_entries invoice_line_entries_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_line_entries
+    ADD CONSTRAINT invoice_line_entries_pkey PRIMARY KEY (line_id, entry_id);
+
+
+--
+-- Name: invoice_lines invoice_lines_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_invoice_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_invoice_id_id_key UNIQUE (tenant_id, invoice_id, id);
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_invoice_id_position_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_invoice_id_position_key UNIQUE (tenant_id, invoice_id, "position") DEFERRABLE;
+
+
+--
+-- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: invoices invoices_tenant_id_id_client_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_id_client_id_key UNIQUE (tenant_id, id, client_id);
+
+
+--
+-- Name: invoices invoices_tenant_id_id_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_id_key UNIQUE (tenant_id, id);
+
+
+--
+-- Name: invoices invoices_tenant_id_number_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_number_key UNIQUE (tenant_id, number);
+
+
+--
+-- Name: invoices invoices_tenant_id_number_year_number_seq_key; Type: CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_number_year_number_seq_key UNIQUE (tenant_id, number_year, number_seq);
 
 
 --
@@ -3764,10 +4787,31 @@ CREATE INDEX flex_bookings_employee_idx ON app.flex_bookings USING btree (tenant
 
 
 --
+-- Name: invoices_one_cancellation_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE UNIQUE INDEX invoices_one_cancellation_idx ON app.invoices USING btree (tenant_id, refers_to_id) WHERE (kind = 'cancellation'::app.invoice_kind);
+
+
+--
+-- Name: invoices_tenant_status_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX invoices_tenant_status_idx ON app.invoices USING btree (tenant_id, status);
+
+
+--
 -- Name: month_closings_month_idx; Type: INDEX; Schema: app; Owner: -
 --
 
 CREATE INDEX month_closings_month_idx ON app.month_closings USING btree (tenant_id, month);
+
+
+--
+-- Name: project_entries_budget_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX project_entries_budget_idx ON app.project_entries USING btree (project_id) WHERE ((ended_at IS NOT NULL) AND (voided_at IS NULL));
 
 
 --
@@ -3824,6 +4868,13 @@ CREATE UNIQUE INDEX time_entries_one_open_idx ON app.time_entries USING btree (e
 --
 
 CREATE INDEX vacation_ledger_employee_idx ON app.vacation_ledger USING btree (tenant_id, employee_id, bucket_year);
+
+
+--
+-- Name: log_ip_uncut_idx; Type: INDEX; Schema: audit; Owner: -
+--
+
+CREATE INDEX log_ip_uncut_idx ON audit.log USING btree (occurred_at) WHERE (ip <> audit.ip_network(ip));
 
 
 --
@@ -3967,6 +5018,13 @@ CREATE TRIGGER audit_absence_requests AFTER INSERT OR DELETE OR UPDATE ON app.ab
 
 
 --
+-- Name: billing_profiles audit_billing_profiles; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_billing_profiles AFTER INSERT OR DELETE OR UPDATE ON app.billing_profiles FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
 -- Name: clients audit_clients; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -4006,6 +5064,34 @@ CREATE TRIGGER audit_finding_acks AFTER INSERT OR DELETE OR UPDATE ON app.findin
 --
 
 CREATE TRIGGER audit_flex_bookings AFTER INSERT OR DELETE OR UPDATE ON app.flex_bookings FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: invoice_documents audit_invoice_documents; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_invoice_documents AFTER INSERT ON app.invoice_documents FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: invoice_line_entries audit_invoice_line_entries; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_invoice_line_entries AFTER INSERT OR DELETE OR UPDATE ON app.invoice_line_entries FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: invoice_lines audit_invoice_lines; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_invoice_lines AFTER INSERT OR DELETE OR UPDATE ON app.invoice_lines FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: invoices audit_invoices; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER audit_invoices AFTER INSERT OR DELETE OR UPDATE ON app.invoices FOR EACH ROW EXECUTE FUNCTION audit.track();
 
 
 --
@@ -4104,6 +5190,20 @@ CREATE TRIGGER audit_vacation_notices AFTER INSERT OR DELETE OR UPDATE ON app.va
 --
 
 CREATE TRIGGER audit_work_models AFTER INSERT OR DELETE OR UPDATE ON app.work_models FOR EACH ROW EXECUTE FUNCTION audit.track();
+
+
+--
+-- Name: billing_profiles billing_profiles_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER billing_profiles_set_updated_at BEFORE UPDATE ON app.billing_profiles FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+
+--
+-- Name: clients clients_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER clients_sandbox_quota AFTER INSERT ON app.clients REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('50');
 
 
 --
@@ -4212,6 +5312,69 @@ CREATE TRIGGER flex_bookings_sandbox_quota AFTER INSERT ON app.flex_bookings REF
 
 
 --
+-- Name: invoice_documents invoice_documents_append_only; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoice_documents_append_only BEFORE DELETE OR UPDATE ON app.invoice_documents FOR EACH ROW EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: invoice_documents invoice_documents_guard; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoice_documents_guard BEFORE INSERT ON app.invoice_documents FOR EACH ROW EXECUTE FUNCTION app.guard_invoice_document();
+
+
+--
+-- Name: invoice_documents invoice_documents_no_truncate; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoice_documents_no_truncate BEFORE TRUNCATE ON app.invoice_documents FOR EACH STATEMENT EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: invoice_line_entries invoice_line_entries_guard; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoice_line_entries_guard BEFORE INSERT OR DELETE OR UPDATE ON app.invoice_line_entries FOR EACH ROW EXECUTE FUNCTION app.guard_invoice_child();
+
+
+--
+-- Name: invoice_lines invoice_lines_guard; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoice_lines_guard BEFORE INSERT OR DELETE OR UPDATE ON app.invoice_lines FOR EACH ROW EXECUTE FUNCTION app.guard_invoice_child();
+
+
+--
+-- Name: invoices invoices_guard; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoices_guard BEFORE DELETE OR UPDATE ON app.invoices FOR EACH ROW EXECUTE FUNCTION app.guard_invoice();
+
+
+--
+-- Name: invoices invoices_no_truncate; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoices_no_truncate BEFORE TRUNCATE ON app.invoices FOR EACH STATEMENT EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: invoices invoices_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoices_sandbox_quota AFTER INSERT ON app.invoices REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> ALL (ARRAY['zeit_system'::name, 'zeit_owner'::name]))) EXECUTE FUNCTION app.sandbox_quota('80');
+
+
+--
+-- Name: invoices invoices_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoices_set_updated_at BEFORE UPDATE ON app.invoices FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+
+--
 -- Name: month_closings month_closings_append_only; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -4254,6 +5417,13 @@ CREATE TRIGGER project_entries_no_truncate BEFORE TRUNCATE ON app.project_entrie
 
 
 --
+-- Name: project_entries project_entries_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER project_entries_sandbox_quota AFTER INSERT ON app.project_entries REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('20000');
+
+
+--
 -- Name: project_entries project_entries_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
 --
 
@@ -4261,10 +5431,38 @@ CREATE TRIGGER project_entries_set_updated_at BEFORE UPDATE ON app.project_entri
 
 
 --
+-- Name: project_members project_members_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER project_members_sandbox_quota AFTER INSERT ON app.project_members REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('1500');
+
+
+--
+-- Name: projects projects_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER projects_sandbox_quota AFTER INSERT ON app.projects REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('100');
+
+
+--
 -- Name: projects projects_set_updated_at; Type: TRIGGER; Schema: app; Owner: -
 --
 
 CREATE TRIGGER projects_set_updated_at BEFORE UPDATE ON app.projects FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
+
+
+--
+-- Name: rates rates_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER rates_sandbox_quota AFTER INSERT ON app.rates REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('200');
+
+
+--
+-- Name: tasks tasks_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER tasks_sandbox_quota AFTER INSERT ON app.tasks REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> 'zeit_owner'::name)) EXECUTE FUNCTION app.sandbox_quota('300');
 
 
 --
@@ -4293,6 +5491,13 @@ CREATE TRIGGER teams_set_updated_at BEFORE UPDATE ON app.teams FOR EACH ROW EXEC
 --
 
 CREATE TRIGGER tenants_guard_delete BEFORE DELETE ON app.tenants FOR EACH ROW EXECUTE FUNCTION app.guard_tenant_delete();
+
+
+--
+-- Name: tenants tenants_guard_retention; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER tenants_guard_retention BEFORE DELETE ON app.tenants FOR EACH ROW EXECUTE FUNCTION app.guard_tenant_retention();
 
 
 --
@@ -4411,7 +5616,14 @@ CREATE TRIGGER work_models_set_updated_at BEFORE UPDATE ON app.work_models FOR E
 -- Name: log log_append_only; Type: TRIGGER; Schema: audit; Owner: -
 --
 
-CREATE TRIGGER log_append_only BEFORE DELETE OR UPDATE ON audit.log FOR EACH ROW EXECUTE FUNCTION app.reject_change();
+CREATE TRIGGER log_append_only BEFORE DELETE ON audit.log FOR EACH ROW EXECUTE FUNCTION app.reject_change();
+
+
+--
+-- Name: log log_guard_update; Type: TRIGGER; Schema: audit; Owner: -
+--
+
+CREATE TRIGGER log_guard_update BEFORE UPDATE ON audit.log FOR EACH ROW EXECUTE FUNCTION audit.guard_log();
 
 
 --
@@ -4490,6 +5702,14 @@ ALTER TABLE ONLY app.absence_requests
 
 ALTER TABLE ONLY app.absence_requests
     ADD CONSTRAINT absence_requests_tenant_id_requested_by_fkey FOREIGN KEY (tenant_id, requested_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: billing_profiles billing_profiles_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.billing_profiles
+    ADD CONSTRAINT billing_profiles_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
 
 
 --
@@ -4637,6 +5857,142 @@ ALTER TABLE ONLY app.flex_bookings
 
 
 --
+-- Name: invoice_counters invoice_counters_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_counters
+    ADD CONSTRAINT invoice_counters_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_documents invoice_documents_tenant_id_created_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_documents
+    ADD CONSTRAINT invoice_documents_tenant_id_created_by_fkey FOREIGN KEY (tenant_id, created_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: invoice_documents invoice_documents_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_documents
+    ADD CONSTRAINT invoice_documents_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_documents invoice_documents_tenant_id_invoice_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_documents
+    ADD CONSTRAINT invoice_documents_tenant_id_invoice_id_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES app.invoices(tenant_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_line_entries invoice_line_entries_tenant_id_entry_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_line_entries
+    ADD CONSTRAINT invoice_line_entries_tenant_id_entry_id_fkey FOREIGN KEY (tenant_id, entry_id) REFERENCES app.project_entries(tenant_id, id);
+
+
+--
+-- Name: invoice_line_entries invoice_line_entries_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_line_entries
+    ADD CONSTRAINT invoice_line_entries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_line_entries invoice_line_entries_tenant_id_invoice_id_line_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_line_entries
+    ADD CONSTRAINT invoice_line_entries_tenant_id_invoice_id_line_id_fkey FOREIGN KEY (tenant_id, invoice_id, line_id) REFERENCES app.invoice_lines(tenant_id, invoice_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_client_id_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_client_id_project_id_fkey FOREIGN KEY (tenant_id, client_id, project_id) REFERENCES app.projects(tenant_id, client_id, id);
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_invoice_id_client_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_invoice_id_client_id_fkey FOREIGN KEY (tenant_id, invoice_id, client_id) REFERENCES app.invoices(tenant_id, id, client_id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoice_lines invoice_lines_tenant_id_project_id_task_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoice_lines
+    ADD CONSTRAINT invoice_lines_tenant_id_project_id_task_id_fkey FOREIGN KEY (tenant_id, project_id, task_id) REFERENCES app.tasks(tenant_id, project_id, id);
+
+
+--
+-- Name: invoices invoices_tenant_id_cancelled_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_cancelled_by_fkey FOREIGN KEY (tenant_id, cancelled_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: invoices invoices_tenant_id_client_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_client_id_fkey FOREIGN KEY (tenant_id, client_id) REFERENCES app.clients(tenant_id, id);
+
+
+--
+-- Name: invoices invoices_tenant_id_created_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_created_by_fkey FOREIGN KEY (tenant_id, created_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: invoices invoices_tenant_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: invoices invoices_tenant_id_issued_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_issued_by_fkey FOREIGN KEY (tenant_id, issued_by) REFERENCES app.users(tenant_id, id);
+
+
+--
+-- Name: invoices invoices_tenant_id_refers_to_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.invoices
+    ADD CONSTRAINT invoices_tenant_id_refers_to_id_fkey FOREIGN KEY (tenant_id, refers_to_id) REFERENCES app.invoices(tenant_id, id);
+
+
+--
 -- Name: month_closings month_closings_tenant_id_created_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: -
 --
 
@@ -4650,6 +6006,14 @@ ALTER TABLE ONLY app.month_closings
 
 ALTER TABLE ONLY app.month_closings
     ADD CONSTRAINT month_closings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES app.tenants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_entries project_entries_invoice_fk; Type: FK CONSTRAINT; Schema: app; Owner: -
+--
+
+ALTER TABLE ONLY app.project_entries
+    ADD CONSTRAINT project_entries_invoice_fk FOREIGN KEY (tenant_id, invoice_id) REFERENCES app.invoices(tenant_id, id) ON DELETE SET NULL (invoice_id);
 
 
 --
@@ -5048,6 +6412,13 @@ CREATE POLICY "acknowledge own notices" ON app.vacation_notices FOR UPDATE TO ze
 
 
 --
+-- Name: billing_profiles admins add billing profile; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "admins add billing profile" ON app.billing_profiles FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) = 'admin'::app.user_role));
+
+
+--
 -- Name: tenants admins change the tenant; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -5060,6 +6431,19 @@ CREATE POLICY "admins change the tenant" ON app.tenants FOR UPDATE TO zeit_app U
 
 CREATE POLICY "admins manage users" ON app.users TO zeit_app USING ((( SELECT app.role() AS role) = 'admin'::app.user_role));
 
+
+--
+-- Name: billing_profiles admins update billing profile; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "admins update billing profile" ON app.billing_profiles FOR UPDATE TO zeit_app USING ((( SELECT app.role() AS role) = 'admin'::app.user_role)) WITH CHECK ((( SELECT app.role() AS role) = 'admin'::app.user_role));
+
+
+--
+-- Name: billing_profiles; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.billing_profiles ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: project_entries book own project entries; Type: POLICY; Schema: app; Owner: -
@@ -5301,6 +6685,27 @@ CREATE POLICY "hr manages finding acks" ON app.finding_acks TO zeit_app USING ((
 
 
 --
+-- Name: invoice_line_entries hr manages invoice line entries; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages invoice line entries" ON app.invoice_line_entries TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: invoice_lines hr manages invoice lines; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages invoice lines" ON app.invoice_lines TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: invoices hr manages invoices; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr manages invoices" ON app.invoices TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
 -- Name: project_entries hr manages project entries; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -5350,6 +6755,13 @@ CREATE POLICY "hr manages work models" ON app.work_models TO zeit_app USING ((( 
 
 
 --
+-- Name: billing_profiles hr reads billing profile; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr reads billing profile" ON app.billing_profiles FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
 -- Name: month_closings hr reads closings; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -5361,6 +6773,20 @@ CREATE POLICY "hr reads closings" ON app.month_closings FOR SELECT TO zeit_app U
 --
 
 CREATE POLICY "hr reads contracts" ON app.contracts FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: invoice_counters hr reads invoice counters; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr reads invoice counters" ON app.invoice_counters FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: invoice_documents hr reads invoice documents; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr reads invoice documents" ON app.invoice_documents FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
 
 
 --
@@ -5397,6 +6823,43 @@ CREATE POLICY "hr removes future rates" ON app.rates FOR DELETE TO zeit_app USIN
 
 CREATE POLICY "hr sends notices" ON app.vacation_notices FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
 
+
+--
+-- Name: invoice_documents hr stores invoice documents; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "hr stores invoice documents" ON app.invoice_documents FOR INSERT TO zeit_app WITH CHECK ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+
+
+--
+-- Name: invoice_counters; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.invoice_counters ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: invoice_documents; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.invoice_documents ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: invoice_line_entries; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.invoice_line_entries ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: invoice_lines; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.invoice_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: invoices; Type: ROW SECURITY; Schema: app; Owner: -
+--
+
+ALTER TABLE app.invoices ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: time_entries leads apply corrections; Type: POLICY; Schema: app; Owner: -
@@ -5692,6 +7155,13 @@ CREATE POLICY "tenant fence" ON app.absence_requests AS RESTRICTIVE TO zeit_app 
 
 
 --
+-- Name: billing_profiles tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.billing_profiles AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
 -- Name: clients tenant fence; Type: POLICY; Schema: app; Owner: -
 --
 
@@ -5731,6 +7201,41 @@ CREATE POLICY "tenant fence" ON app.finding_acks AS RESTRICTIVE TO zeit_app USIN
 --
 
 CREATE POLICY "tenant fence" ON app.flex_bookings AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: invoice_counters tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.invoice_counters AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: invoice_documents tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.invoice_documents AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: invoice_line_entries tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.invoice_line_entries AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: invoice_lines tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.invoice_lines AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
+
+
+--
+-- Name: invoices tenant fence; Type: POLICY; Schema: app; Owner: -
+--
+
+CREATE POLICY "tenant fence" ON app.invoices AS RESTRICTIVE TO zeit_app USING ((tenant_id = ( SELECT app.tenant_id() AS tenant_id)));
 
 
 --
@@ -5899,7 +7404,7 @@ CREATE POLICY "append app events" ON audit.log FOR INSERT TO zeit_app WITH CHECK
 -- Name: log hr and admins read the trail; Type: POLICY; Schema: audit; Owner: -
 --
 
-CREATE POLICY "hr and admins read the trail" ON audit.log FOR SELECT TO zeit_app USING ((( SELECT app.role() AS role) >= 'hr'::app.user_role));
+CREATE POLICY "hr and admins read the trail" ON audit.log FOR SELECT TO zeit_app USING (((( SELECT app.role() AS role) = 'admin'::app.user_role) OR ((( SELECT app.role() AS role) = 'hr'::app.user_role) AND (table_name <> ALL (ARRAY['invoices'::text, 'invoice_lines'::text, 'invoice_line_entries'::text, 'invoice_documents'::text, 'invoice_counters'::text, 'rates'::text, 'clients'::text, 'billing_profiles'::text])))));
 
 
 --
@@ -5981,4 +7486,16 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260925000700'),
     ('20260926000000'),
     ('20260926000100'),
-    ('20260926000110');
+    ('20260926000110'),
+    ('20260926000120'),
+    ('20260926000200'),
+    ('20260926000900'),
+    ('20260926000910'),
+    ('20260926000920'),
+    ('20260926000930'),
+    ('20260926000940'),
+    ('20260926000950'),
+    ('20260926000960'),
+    ('20260926000970'),
+    ('20260926000980'),
+    ('20260926001000');

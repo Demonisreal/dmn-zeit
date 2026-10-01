@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@n
 import { apiErrorSchema, type ApiError, type ErrorCode } from '@zeit/shared';
 import type { Response } from 'express';
 import { DatabaseError } from 'pg';
+import { RenderBusyError, RETRY_AFTER_SECONDS } from '../documents/render-limit';
 import { fromDatabase } from '../db/errors';
 
 const codeByStatus: Partial<Record<number, ErrorCode>> = {
@@ -39,6 +40,19 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
 	catch(exception: unknown, host: ArgumentsHost) {
 		const response = host.switchToHttp().getResponse<Response>();
+		// D-02: a route without RenderLimitGuard (document() re-renders only rarely) still lands here
+		if (exception instanceof RenderBusyError) {
+			response.setHeader('Retry-After', RETRY_AFTER_SECONDS);
+			response
+				.status(503)
+				.json({
+					code: 'RENDER_BUSY',
+					message: 'Too many documents are rendering right now, try again shortly',
+					details: null
+				} satisfies ApiError);
+			return;
+		}
+
 		const known = toApiError(exception);
 		if (known) {
 			response.status(known.status).json(known.body);

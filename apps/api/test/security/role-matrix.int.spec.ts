@@ -122,6 +122,28 @@ const expected: Record<string, Access> = {
 	'POST /rates': 'hr',
 	'DELETE /rates/:id': 'hr',
 
+	'GET /billing/profile': 'hr',
+	'PATCH /billing/profile': 'admin',
+	'GET /billing/unbilled': 'hr',
+	'GET /billing/revenue': 'hr',
+
+	'GET /invoices': 'hr',
+	'POST /invoices/drafts': 'hr',
+	'GET /invoices/:id': 'hr',
+	'PATCH /invoices/:id': 'hr',
+	'DELETE /invoices/:id': 'hr',
+	'POST /invoices/:id/refresh': 'hr',
+	'POST /invoices/:id/lines': 'hr',
+	'PATCH /invoices/:id/lines/:lineId': 'hr',
+	'DELETE /invoices/:id/lines/:lineId': 'hr',
+	'GET /invoices/:id/preview.pdf': 'hr',
+	'POST /invoices/:id/issue': 'hr',
+	'POST /invoices/:id/cancel': 'hr',
+	'POST /invoices/:id/paid': 'hr',
+	'POST /invoices/:id/unpaid': 'hr',
+	'GET /invoices/:id/document': 'hr',
+	'GET /invoices/:id/time-report': 'hr',
+
 	'GET /compliance/findings': 'team_lead',
 	'POST /compliance/findings/ack': 'team_lead',
 	'GET /compliance/rule-versions': 'employee',
@@ -156,6 +178,7 @@ const expected: Record<string, Access> = {
 
 	'GET /exports/timesheet': 'employee',
 	'GET /exports/month-overview': 'hr',
+	'GET /exports/time-report': 'hr',
 
 	'GET /tenant': 'employee',
 	'PATCH /tenant': 'admin',
@@ -273,6 +296,28 @@ const expectedWorkspace: Record<string, Reach> = {
 	'POST /rates': 'both',
 	'DELETE /rates/:id': 'both',
 
+	'GET /billing/profile': 'both',
+	'PATCH /billing/profile': 'both',
+	'GET /billing/unbilled': 'both',
+	'GET /billing/revenue': 'both',
+
+	'GET /invoices': 'both',
+	'POST /invoices/drafts': 'both',
+	'GET /invoices/:id': 'both',
+	'PATCH /invoices/:id': 'both',
+	'DELETE /invoices/:id': 'both',
+	'POST /invoices/:id/refresh': 'both',
+	'POST /invoices/:id/lines': 'both',
+	'PATCH /invoices/:id/lines/:lineId': 'both',
+	'DELETE /invoices/:id/lines/:lineId': 'both',
+	'GET /invoices/:id/preview.pdf': 'both',
+	'POST /invoices/:id/issue': 'both',
+	'POST /invoices/:id/cancel': 'both',
+	'POST /invoices/:id/paid': 'both',
+	'POST /invoices/:id/unpaid': 'both',
+	'GET /invoices/:id/document': 'both',
+	'GET /invoices/:id/time-report': 'both',
+
 	'GET /compliance/findings': 'company',
 	'POST /compliance/findings/ack': 'company',
 	'GET /compliance/rule-versions': 'company',
@@ -307,6 +352,7 @@ const expectedWorkspace: Record<string, Reach> = {
 
 	'GET /exports/timesheet': 'company',
 	'GET /exports/month-overview': 'company',
+	'GET /exports/time-report': 'both',
 
 	'GET /tenant': 'both',
 	'PATCH /tenant': 'both',
@@ -462,6 +508,12 @@ describe('roles guard', () => {
 			route: 'DELETE /clients/:id',
 			below: 'hr',
 			send: (desk) => desk.delete(`/clients/${randomUUID()}`)
+		},
+		{ route: 'GET /invoices', below: 'team_lead', send: (desk) => desk.get('/invoices') },
+		{
+			route: 'PATCH /billing/profile',
+			below: 'hr',
+			send: (desk) => desk.patch('/billing/profile')
 		}
 	];
 

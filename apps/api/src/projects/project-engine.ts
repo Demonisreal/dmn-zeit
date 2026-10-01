@@ -80,7 +80,8 @@ export const weekOf = (monday: string): DateRange => ({
 const ruleOf = (project: ProjectMeta) =>
 	roundingFor(TENANT_ROUNDING, project.client, project.project).rule;
 
-function toBillingRate(rate: Rate): BillingRate {
+// exported for 10d, which prices unbilled time and drafts the same way outside a project week
+export function toBillingRate(rate: Rate): BillingRate {
 	return {
 		id: rate.id,
 		clientId: rate.clientId,

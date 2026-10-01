@@ -10,7 +10,7 @@ export const blankToNull = z.string().transform((text) => (text.trim() === '' ? 
 // a select cannot go back to "nothing chosen", so taking over the setting is an option of its own
 export const inherit = 'inherit';
 
-const increments = [1, 5, 6, 10, 15, 30, 60] as const;
+export const increments = [1, 5, 6, 10, 15, 30, 60] as const;
 
 export const incrementField = z
 	.string()
@@ -61,3 +61,16 @@ export const budgetField = optionalDurationField.pipe(
 		.min(1, { error: () => i18n.t('billing:projects.budgetMin') })
 		.nullable()
 );
+
+// "2" and "2,5" both count; the api takes a positive milli-quantity string, three decimals at most
+export const quantityField = z.string().transform((text, ctx) => {
+	const match = /^(\d{1,12})(?:[.,](\d{1,3}))?$/.exec(text.trim());
+	const milli = match ? Number(match[1]) * 1000 + Number((match[2] ?? '').padEnd(3, '0')) : 0;
+	if (milli <= 0) {
+		ctx.addIssue({ code: 'custom', message: i18n.t('billing:invoiceEditor.quantityInvalid') });
+		return z.NEVER;
+	}
+	return String(milli);
+});
+
+export const quantityToText = (milli: string) => String(Number(milli) / 1000).replace('.', ',');

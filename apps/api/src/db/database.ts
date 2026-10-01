@@ -29,12 +29,13 @@ parsers.setTypeParser(types.builtins.DATE, (text) => text);
 export const POOL = { max: 10, connectionTimeoutMillis: 5_000, idleTimeoutMillis: 30_000 };
 
 export class Database extends Kysely<DB> implements OnApplicationShutdown {
-	constructor(url: string) {
+	// the sandbox functions read app.demo_mode and refuse to seed anywhere else
+	constructor(url: string, demo = false) {
 		const pool = new Pool({
 			...POOL,
 			connectionString: url,
 			types: parsers,
-			options: '-c TimeZone=UTC'
+			options: `-c TimeZone=UTC -c app.demo_mode=${demo}`
 		});
 		// an idle client losing its connection would otherwise take the whole process down
 		pool.on('error', (error) => new Logger(Database.name).warn(`Idle client: ${error.message}`));

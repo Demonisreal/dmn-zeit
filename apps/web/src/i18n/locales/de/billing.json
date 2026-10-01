@@ -1,8 +1,13 @@
 {
 	"nav": {
 		"label": "Abrechnung",
-		"clients": "Kunden"
+		"invoices": "Rechnungen",
+		"clients": "Kunden",
+		"reports": "Stundennachweis",
+		"settings": "Einstellungen"
 	},
+	"from": "Von",
+	"to": "Bis",
 	"actions": "Aktionen",
 	"edit": "Bearbeiten",
 	"save": "Speichern",
@@ -11,6 +16,10 @@
 	"restricted": "gesperrt",
 	"inheritGeneral": "allgemeine Vorgabe",
 	"inheritClient": "wie beim Kunden",
+	"preview": {
+		"frameTitle": "PDF-Vorschau der Rechnung",
+		"downloadLink": "Rechnung als PDF herunterladen"
+	},
 	"rounding": {
 		"title": "Rundung",
 		"increment": "Rundungsraster",
@@ -160,5 +169,172 @@
 			"client": "Kein eigener Satz, es gilt der Standardsatz.",
 			"project": "Kein eigener Satz, es gilt der Satz des Kunden oder der Standardsatz."
 		}
+	},
+	"invoicesList": {
+		"title": "Rechnungen",
+		"lead": "Entwürfe, ausgestellte, bezahlte und stornierte Rechnungen.",
+		"new": "Neue Rechnung",
+		"number": "Nummer",
+		"client": "Kunde",
+		"issueDate": "Datum",
+		"dueDate": "Fälligkeit",
+		"amount": "Betrag",
+		"status": "Status",
+		"draftNumber": "Entwurf",
+		"overdue": "überfällig",
+		"statusFilter": "Status",
+		"allStatuses": "Alle Status",
+		"clientFilter": "Kunde",
+		"allClients": "Alle Kunden",
+		"statuses": {
+			"draft": "Entwurf",
+			"issued": "ausgestellt",
+			"paid": "bezahlt",
+			"cancelled": "storniert"
+		},
+		"noMatch": "Keine Rechnung passt zu den Filtern.",
+		"empty": {
+			"title": "Noch keine Rechnungen",
+			"text": "Eine Rechnung entsteht aus den nicht abgerechneten Zeiten eines Kunden."
+		}
+	},
+	"newInvoice": {
+		"title": "Neue Rechnung",
+		"lead": "Kunde und Zeitraum wählen. Nicht abgerechnete Zeiten werden zu Positionen gebündelt.",
+		"client": "Kunde",
+		"chooseClient": "Kunde wählen",
+		"loadingPreview": "Nicht abgerechnete Zeiten werden geladen …",
+		"nothingUnbilled": "Für diesen Kunden liegen keine nicht abgerechneten Zeiten vor.",
+		"minutes": "Zeit",
+		"amount": "Betrag",
+		"noRate": "kein Satz hinterlegt",
+		"oldestDay": "Ältester Tag",
+		"rangeUnordered": "Das Ende liegt vor dem Anfang",
+		"create": "Entwurf erstellen"
+	},
+	"reports": {
+		"title": "Stundennachweis",
+		"lead": "Projektzeiten eines Kunden als PDF oder CSV, höchstens 366 Tage.",
+		"client": "Kunde",
+		"allClients": "Alle Kunden",
+		"format": "Format",
+		"pdf": "PDF",
+		"csv": "CSV",
+		"download": "Herunterladen",
+		"rangeUnordered": "Das Ende liegt vor dem Anfang",
+		"rangeTooLong": "Höchstens 366 Tage"
+	},
+	"settings": {
+		"title": "Rechnungssteller",
+		"lead": "Anschrift, Steuerangaben und Voreinstellungen für alle Rechnungen.",
+		"legalName": "Firmierung",
+		"taxLegend": "Steuer",
+		"taxNumber": "Steuernummer",
+		"taxProfileLabel": "Steuerprofil",
+		"taxProfiles": {
+			"regular": "Regelbesteuerung",
+			"small_business": "Kleinunternehmer (§ 19 UStG)"
+		},
+		"previousYearRevenue": "Vorjahresumsatz",
+		"previousYearRevenueHint": "Netto in €, für die Grenzen des § 19 UStG",
+		"smallBusiness": {
+			"ok": "Vorjahresumsatz {{previous}}, dieses Jahr bisher {{issued}} ausgestellt und {{draft}} in Entwürfen. Die Grenzen des § 19 UStG sind eingehalten.",
+			"previous_year_exceeded": "Der Vorjahresumsatz von {{previous}} lag über 25.000 €. Die Kleinunternehmerregelung gilt dieses Jahr nicht mehr.",
+			"crosses_current_limit": "Mit den ausgestellten {{issued}} und den Entwürfen von {{draft}} nähert sich der laufende Umsatz der Grenze von 100.000 €."
+		},
+		"bankLegend": "Bankverbindung",
+		"iban": "IBAN",
+		"bic": "BIC",
+		"bankName": "Bank",
+		"ibanHint": "Eine Änderung der IBAN verlangt die erneute Bestätigung der Anmeldung.",
+		"invoiceLegend": "Rechnung",
+		"invoicePrefix": "Nummernkreis-Präfix",
+		"invoicePrefixHint": "Steht vor der laufenden Nummer, etwa RE oder INV",
+		"defaultFormat": "Standardformat",
+		"formats": {
+			"pdf": "PDF",
+			"zugferd": "ZUGFeRD",
+			"xrechnung": "XRechnung"
+		}
+	},
+	"invoiceEditor": {
+		"back": "Alle Rechnungen",
+		"draftLead": "Entwurf. Positionen und Zeitraum lassen sich noch ändern.",
+		"positions": "Positionen",
+		"refresh": "Aktualisieren",
+		"noLines": "Noch keine Positionen für diesen Zeitraum.",
+		"addItem": "Position hinzufügen",
+		"itemDescription": "Beschreibung",
+		"quantity": "Menge",
+		"quantityInvalid": "Menge größer als 0, mit bis zu drei Nachkommastellen",
+		"unit": "Einheit",
+		"unitPrice": "Einzelpreis",
+		"unitPriceHint": "Netto je Einheit, etwa 95 oder 95,50",
+		"taxCategory": "Steuersatz",
+		"units": {
+			"HUR": "Stunde",
+			"DAY": "Tag",
+			"C62": "Stück",
+			"LS": "Pauschale"
+		},
+		"taxCategories": {
+			"standard": "Standardsatz",
+			"reduced": "Ermäßigt",
+			"exempt": "Steuerfrei",
+			"reverse_charge": "Reverse Charge",
+			"outside_scope": "Nicht steuerbar",
+			"small_business": "Kleinunternehmer"
+		},
+		"derivation": "Herleitung",
+		"editItem": "Position bearbeiten",
+		"editLabel": "„{{description}}“ bearbeiten",
+		"removeLabel": "„{{description}}“ löschen",
+		"removeItem": "Löschen",
+		"removeItemTitle": "Position löschen?",
+		"removeItemText": "„{{description}}“ wird aus der Rechnung entfernt.",
+		"hints": {
+			"service_deadline_14a_1": "Bei dieser Leistung muss die Rechnung bis zum 15. Tag des Folgemonats gestellt werden (§ 14a Abs. 1 UStG)."
+		},
+		"blockers": {
+			"vat_id_missing": "In den Rechnungsangaben des Rechnungsstellers fehlt die USt-IdNr.",
+			"tax_number_missing": "In den Rechnungsangaben des Rechnungsstellers fehlt die Steuernummer."
+		},
+		"issue": "Ausstellen",
+		"issueTitle": "Rechnung ausstellen",
+		"issueWarning": "Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.",
+		"issueConfirm": "Jetzt ausstellen",
+		"format": "Format",
+		"formatLater": "folgt in einer späteren Version",
+		"discard": "Entwurf verwerfen",
+		"discardTitle": "Entwurf verwerfen?",
+		"discardText": "Der Entwurf wird gelöscht, die zugrunde liegenden Zeiten stehen danach wieder für eine andere Rechnung zur Verfügung."
+	},
+	"invoiceView": {
+		"back": "Alle Rechnungen",
+		"cancellationTag": "Stornorechnung",
+		"refersToOriginal": "Stornorechnung zu {{number}}.",
+		"refersToCancellation": "Storniert durch Stornorechnung {{number}}.",
+		"openReference": "Anzeigen",
+		"cancelReason": "Stornogrund: {{reason}}",
+		"download": "Dokument herunterladen",
+		"payment": "Zahlung",
+		"markPaid": "Als bezahlt markieren",
+		"markUnpaid": "Zahlung zurücknehmen",
+		"paidOn": "Bezahlt am {{date}}",
+		"cancelSection": "Storno",
+		"cancel": "Stornieren"
+	},
+	"cancelDialog": {
+		"title": "Rechnung {{number}} stornieren",
+		"body": "Es entsteht eine Stornorechnung mit eigener Nummer, die auf diese Rechnung verweist und sie vollständig aufhebt. Das lässt sich danach nicht mehr rückgängig machen.",
+		"reason": "Grund",
+		"reasonHint": "Mindestens 10 Zeichen, erscheint im Protokoll.",
+		"reasonTooShort": "Mindestens 10 Zeichen",
+		"confirm": "Stornorechnung ausstellen"
+	},
+	"paidDialog": {
+		"title": "Rechnung {{number}} als bezahlt markieren",
+		"date": "Bezahlt am",
+		"confirm": "Als bezahlt markieren"
 	}
 }

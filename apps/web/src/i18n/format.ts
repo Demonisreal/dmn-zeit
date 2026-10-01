@@ -78,6 +78,16 @@ export function formatCents(cents: string, lng: string) {
 	return numberFormat(lng, { style: 'currency', currency: 'EUR' }).format(Number(cents) / 100);
 }
 
+// basis points, 1900 = 19 %; trailing zeros drop so 0 % and 19 % print without decimals
+export function formatTaxRate(taxRateBp: number, lng: string) {
+	return numberFormat(lng, { style: 'percent', maximumFractionDigits: 2 }).format(taxRateBp / 10_000);
+}
+
+// invoice quantities travel as thousandths, 1500 = 1.5
+export function formatQuantity(quantityMilli: string, lng: string) {
+	return numberFormat(lng, { maximumFractionDigits: 3 }).format(Number(quantityMilli) / 1000);
+}
+
 export function formatDays(days: string, lng: string) {
 	return numberFormat(lng, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
 		Number(days)

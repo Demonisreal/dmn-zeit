@@ -138,7 +138,7 @@ export function ClientsPage({ role, solo }: Props) {
 
 	return (
 		<>
-			<BillingNav />
+			<BillingNav role={role} />
 			<Page>
 				<PageHead>
 					<div>

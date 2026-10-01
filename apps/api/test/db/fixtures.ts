@@ -92,12 +92,50 @@ export async function fillTenant(db: pg.Client, tenantId: string) {
 	// without a context the guard asks for the release of the project, hr books past it
 	await db.query('begin');
 	await db.query(`select set_config('app.role', 'hr', true)`);
-	await db.query(
+	const projectEntry = await insertId(
+		db,
 		`insert into app.project_entries (tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source)
-		 values ($1, $2, $3, $4, '2026-02-02 13:00+01', '2026-02-02 15:00+01', 'Belege Januar', 'manual')`,
+		 values ($1, $2, $3, $4, '2026-02-02 13:00+01', '2026-02-02 15:00+01', 'Belege Januar', 'manual') returning id`,
 		[tenantId, worker.employeeId, project, task]
 	);
 	await db.query('commit');
 
-	return { team, lead, worker, hr, entry, absence };
+	await db.query(
+		`insert into app.billing_profiles (tenant_id, legal_name, street, postal_code, city, tax_number, invoice_prefix)
+		 values ($1, 'Erika Muster', 'Musterweg 1', '48143', 'Münster', '133/8150/8159', 'RE')`,
+		[tenantId]
+	);
+	const invoice = await insertId(
+		db,
+		`insert into app.invoices (
+			tenant_id, client_id, service_from, service_to, payment_terms_days, format, tax_profile, created_by
+		 ) values ($1, $2, '2026-02-01', '2026-02-28', 14, 'pdf', 'regular', $3) returning id`,
+		[tenantId, client, hr.userId]
+	);
+	const line = await insertId(
+		db,
+		`insert into app.invoice_lines (
+			tenant_id, invoice_id, client_id, position, kind, project_id, description, minutes,
+			unit_price_cents, net_cents, tax_category, tax_rate_bp
+		 ) values ($1, $2, $3, 1, 'time', $4, 'Belege Januar', 120, 9500, 19000, 'standard', 1900) returning id`,
+		[tenantId, invoice, client, project]
+	);
+	await db.query(
+		`insert into app.invoice_line_entries (tenant_id, invoice_id, line_id, entry_id) values ($1, $2, $3, $4)`,
+		[tenantId, invoice, line, projectEntry]
+	);
+	// issuing needs the same session context a definer function reads for itself
+	await db.query('begin');
+	await db.query(`select set_config('app.tenant_id', $1, true), set_config('app.role', 'hr', true)`, [
+		tenantId
+	]);
+	await db.query('select app.issue_invoice($1)', [invoice]);
+	await db.query('commit');
+	await db.query(
+		`insert into app.invoice_documents (tenant_id, invoice_id, format, content, created_by)
+		 values ($1, $2, 'pdf', $3, $4)`,
+		[tenantId, invoice, Buffer.from('%PDF-1.4 Musterrechnung'), hr.userId]
+	);
+
+	return { team, lead, worker, hr, entry, absence, invoice };
 }

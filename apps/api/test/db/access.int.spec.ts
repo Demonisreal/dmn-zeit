@@ -280,6 +280,7 @@ describe('tenants', () => {
 	it('opens a sandbox for 24 hours, the rest of it goes in as zeit_app', async () => {
 		const id = randomUUID();
 		await withContext(app, { tenantId: id, role: 'admin' });
+		await app.query(`select set_config('app.demo_mode', 'true', false)`);
 		const { rows } = await app.query(
 			`select ops.sandbox_create($1, 'Musterbetrieb (Beispiel)', $2, 'NW', 600, 300, 'warn') as id`,
 			[id, `musterbetrieb-${id.slice(0, 8)}`]

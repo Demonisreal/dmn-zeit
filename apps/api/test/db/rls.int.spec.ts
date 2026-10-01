@@ -6,12 +6,18 @@ import { fillTenant } from './fixtures';
 const tables = [
 	'app.absence_days',
 	'app.absence_requests',
+	'app.billing_profiles',
 	'app.clients',
 	'app.contracts',
 	'app.correction_requests',
 	'app.employees',
 	'app.finding_acks',
 	'app.flex_bookings',
+	'app.invoice_counters',
+	'app.invoice_documents',
+	'app.invoice_line_entries',
+	'app.invoice_lines',
+	'app.invoices',
 	'app.month_closings',
 	'app.project_entries',
 	'app.project_members',
@@ -179,8 +185,9 @@ describe('row level security', () => {
 		expect(seen.rows[0].n).toBe(0);
 	});
 
-	// zeit_app has no insert on app.tenants at all, access.int.spec.ts covers that
-	it.each(tables.filter((table) => table !== 'app.tenants'))(
+	// zeit_app has no insert at all on app.tenants or app.invoice_counters, both write only through
+	// a security definer function, so there is no zeit_app-fillable column left to build a row from
+	it.each(tables.filter((table) => table !== 'app.tenants' && table !== 'app.invoice_counters'))(
 		'refuses rows for tenant b in %s',
 		async (table) => {
 			const { rows } = await superuser.query(

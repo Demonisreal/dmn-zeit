@@ -30,11 +30,13 @@ export const centsSchema = z.string().regex(/^-?\d{1,15}$/, 'format.cents');
 const CONTROL = /\p{Cc}/u;
 const CONTROL_BUT_NEWLINE = /(?!\n)\p{Cc}/u;
 // bidi overrides and isolates show text other than what is stored, u+2028/9 break lines
-const HIDDEN = /[\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
+// u+fffe/ffff are non-characters, a lone surrogate is a half-written codepoint (befund B8)
+const HIDDEN = /[\u2028\u2029\u202a-\u202e\u2066-\u2069\ufffe\uffff]/;
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
 // trim() keeps zero-width space and joiners; inside text they matter for emoji and scripts
 const EDGES = /^[\s\u200b-\u200d\ufeff]+|[\s\u200b-\u200d\ufeff]+$/g;
 
-function text(max: number, min: number, control: RegExp, prepare: (raw: string) => string) {
+function text(max: number, min: number, control: RegExp, prepare: (raw: string) => string, charset?: RegExp) {
 	return z
 		.string()
 		.transform((raw) => prepare(raw).normalize('NFC').replace(EDGES, ''))
@@ -44,13 +46,27 @@ function text(max: number, min: number, control: RegExp, prepare: (raw: string) 
 				.refine((clean) => clean.length > 0, { error: 'text.empty', abort: true })
 				.min(min)
 				.max(max)
-				.refine((clean) => !control.test(clean) && !HIDDEN.test(clean), 'text.controlChars')
+				.refine(
+					(clean) => !control.test(clean) && !HIDDEN.test(clean) && !LONE_SURROGATE.test(clean),
+					{ error: 'text.controlChars', abort: true }
+				)
+				.refine((clean) => charset === undefined || charset.test(clean), 'text.invoiceCharset')
 		);
 }
 
 export const plainText = (max: number, min = 1) => text(max, min, CONTROL, (raw) => raw);
 export const multilineText = (max: number, min = 1) =>
 	text(max, min, CONTROL_BUT_NEWLINE, (raw) => raw.replace(/\r\n?/g, '\n'));
+
+// I-06: the invoice font (DejaVu Sans) covers far more, but PDF and invoice data should show the same
+// character set - Basic Latin, Latin-1, Latin Extended-A, Euro, typographic quotes, bullet, ellipsis
+const INVOICE_CHARSET =
+	/^[\u0020-\u007e\u00a0-\u017f\u20ac\u2013\u2014\u2018\u2019\u201a\u201c\u201d\u201e\u2022\u2026]*$/u;
+const INVOICE_CHARSET_MULTILINE =
+	/^[\n\u0020-\u007e\u00a0-\u017f\u20ac\u2013\u2014\u2018\u2019\u201a\u201c\u201d\u201e\u2022\u2026]*$/u;
+export const invoicePlainText = (max: number, min = 1) => text(max, min, CONTROL, (raw) => raw, INVOICE_CHARSET);
+export const invoiceMultilineText = (max: number, min = 1) =>
+	text(max, min, CONTROL_BUT_NEWLINE, (raw) => raw.replace(/\r\n?/g, '\n'), INVOICE_CHARSET_MULTILINE);
 
 export const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
 export const displayNameSchema = plainText(80);

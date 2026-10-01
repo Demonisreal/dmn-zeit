@@ -1,8 +1,13 @@
 {
 	"nav": {
 		"label": "Billing",
-		"clients": "Clients"
+		"invoices": "Invoices",
+		"clients": "Clients",
+		"reports": "Time report",
+		"settings": "Settings"
 	},
+	"from": "From",
+	"to": "To",
 	"actions": "Actions",
 	"edit": "Edit",
 	"save": "Save",
@@ -11,6 +16,10 @@
 	"restricted": "locked",
 	"inheritGeneral": "general default",
 	"inheritClient": "same as the client",
+	"preview": {
+		"frameTitle": "PDF preview of the invoice",
+		"downloadLink": "Download the invoice as a PDF"
+	},
 	"rounding": {
 		"title": "Rounding",
 		"increment": "Rounding increment",
@@ -160,5 +169,172 @@
 			"client": "No rate of its own, the default rate applies.",
 			"project": "No rate of its own, the client's rate or the default rate applies."
 		}
+	},
+	"invoicesList": {
+		"title": "Invoices",
+		"lead": "Drafts, issued, paid and cancelled invoices.",
+		"new": "New invoice",
+		"number": "Number",
+		"client": "Client",
+		"issueDate": "Date",
+		"dueDate": "Due",
+		"amount": "Amount",
+		"status": "Status",
+		"draftNumber": "Draft",
+		"overdue": "overdue",
+		"statusFilter": "Status",
+		"allStatuses": "All statuses",
+		"clientFilter": "Client",
+		"allClients": "All clients",
+		"statuses": {
+			"draft": "draft",
+			"issued": "issued",
+			"paid": "paid",
+			"cancelled": "cancelled"
+		},
+		"noMatch": "No invoice matches these filters.",
+		"empty": {
+			"title": "No invoices yet",
+			"text": "An invoice is built from a client's unbilled time."
+		}
+	},
+	"newInvoice": {
+		"title": "New invoice",
+		"lead": "Choose a client and a period. Unbilled time is bundled into line items.",
+		"client": "Client",
+		"chooseClient": "Choose a client",
+		"loadingPreview": "Loading unbilled time …",
+		"nothingUnbilled": "No unbilled time for this client.",
+		"minutes": "Time",
+		"amount": "Amount",
+		"noRate": "no rate on file",
+		"oldestDay": "Oldest day",
+		"rangeUnordered": "The end lies before the start",
+		"create": "Create draft"
+	},
+	"reports": {
+		"title": "Time report",
+		"lead": "A client's project time as PDF or CSV, at most 366 days.",
+		"client": "Client",
+		"allClients": "All clients",
+		"format": "Format",
+		"pdf": "PDF",
+		"csv": "CSV",
+		"download": "Download",
+		"rangeUnordered": "The end lies before the start",
+		"rangeTooLong": "At most 366 days"
+	},
+	"settings": {
+		"title": "Invoicing profile",
+		"lead": "Address, tax details and defaults for every invoice.",
+		"legalName": "Legal name",
+		"taxLegend": "Tax",
+		"taxNumber": "Tax number",
+		"taxProfileLabel": "Tax profile",
+		"taxProfiles": {
+			"regular": "Standard taxation",
+			"small_business": "Small business (§ 19 UStG)"
+		},
+		"previousYearRevenue": "Previous year's revenue",
+		"previousYearRevenueHint": "Net, in €, for the § 19 UStG thresholds",
+		"smallBusiness": {
+			"ok": "Previous year's revenue was {{previous}}, this year {{issued}} issued so far and {{draft}} in drafts. Within the § 19 UStG thresholds.",
+			"previous_year_exceeded": "Last year's revenue of {{previous}} was above €25,000. The small business rule no longer applies this year.",
+			"crosses_current_limit": "With {{issued}} issued and {{draft}} in drafts, current revenue is approaching the €100,000 threshold."
+		},
+		"bankLegend": "Bank details",
+		"iban": "IBAN",
+		"bic": "BIC",
+		"bankName": "Bank",
+		"ibanHint": "Changing the IBAN asks for your sign-in to be confirmed again.",
+		"invoiceLegend": "Invoice",
+		"invoicePrefix": "Numbering prefix",
+		"invoicePrefixHint": "Goes before the running number, such as RE or INV",
+		"defaultFormat": "Default format",
+		"formats": {
+			"pdf": "PDF",
+			"zugferd": "ZUGFeRD",
+			"xrechnung": "XRechnung"
+		}
+	},
+	"invoiceEditor": {
+		"back": "All invoices",
+		"draftLead": "Draft. Line items and period can still be changed.",
+		"positions": "Line items",
+		"refresh": "Refresh",
+		"noLines": "No line items for this period yet.",
+		"addItem": "Add line item",
+		"itemDescription": "Description",
+		"quantity": "Quantity",
+		"quantityInvalid": "Quantity greater than 0, with up to three decimal places",
+		"unit": "Unit",
+		"unitPrice": "Unit price",
+		"unitPriceHint": "Net per unit, such as 95 or 95.50",
+		"taxCategory": "Tax rate",
+		"units": {
+			"HUR": "Hour",
+			"DAY": "Day",
+			"C62": "Piece",
+			"LS": "Lump sum"
+		},
+		"taxCategories": {
+			"standard": "Standard rate",
+			"reduced": "Reduced rate",
+			"exempt": "Tax-exempt",
+			"reverse_charge": "Reverse charge",
+			"outside_scope": "Outside the scope of VAT",
+			"small_business": "Small business"
+		},
+		"derivation": "Derivation",
+		"editItem": "Edit line item",
+		"editLabel": "Edit “{{description}}”",
+		"removeLabel": "Delete “{{description}}”",
+		"removeItem": "Delete",
+		"removeItemTitle": "Delete line item?",
+		"removeItemText": "“{{description}}” is removed from the invoice.",
+		"hints": {
+			"service_deadline_14a_1": "For this service, the invoice must be issued by the 15th day of the following month (§ 14a (1) UStG)."
+		},
+		"blockers": {
+			"vat_id_missing": "The invoicing party's own details are missing a VAT ID.",
+			"tax_number_missing": "The invoicing party's own details are missing a tax number."
+		},
+		"issue": "Issue",
+		"issueTitle": "Issue invoice",
+		"issueWarning": "The invoice now gets a number and can no longer be changed afterwards.",
+		"issueConfirm": "Issue now",
+		"format": "Format",
+		"formatLater": "coming in a later version",
+		"discard": "Discard draft",
+		"discardTitle": "Discard draft?",
+		"discardText": "The draft is deleted, the underlying time is then available again for another invoice."
+	},
+	"invoiceView": {
+		"back": "All invoices",
+		"cancellationTag": "Cancellation invoice",
+		"refersToOriginal": "Cancellation invoice for {{number}}.",
+		"refersToCancellation": "Cancelled by cancellation invoice {{number}}.",
+		"openReference": "Open",
+		"cancelReason": "Reason for cancellation: {{reason}}",
+		"download": "Download document",
+		"payment": "Payment",
+		"markPaid": "Mark as paid",
+		"markUnpaid": "Undo payment",
+		"paidOn": "Paid on {{date}}",
+		"cancelSection": "Cancellation",
+		"cancel": "Cancel invoice"
+	},
+	"cancelDialog": {
+		"title": "Cancel invoice {{number}}",
+		"body": "This creates a cancellation invoice with its own number that refers to this invoice and fully reverses it. This cannot be undone afterwards.",
+		"reason": "Reason",
+		"reasonHint": "At least 10 characters, appears in the audit log.",
+		"reasonTooShort": "At least 10 characters",
+		"confirm": "Issue cancellation invoice"
+	},
+	"paidDialog": {
+		"title": "Mark invoice {{number}} as paid",
+		"date": "Paid on",
+		"confirm": "Mark as paid"
 	}
 }

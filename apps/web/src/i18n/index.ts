@@ -103,9 +103,12 @@ z.config({
 });
 
 // own checks in @zeit/shared name an i18n key as their message, the built-in ones are mapped above
+// the dynamic key defeats t()'s overload resolution once the resource union grows this large
+const translate = i18n.t.bind(i18n) as (key: string, options?: Record<string, unknown>) => string;
+
 export const issueText = (message: string, params?: Record<string, unknown>) =>
 	(validationKeys as readonly string[]).includes(message)
-		? i18n.t(`validation.${message as ValidationKey}`, params ?? {})
+		? translate(`validation.${message as ValidationKey}`, params ?? {})
 		: message;
 
 export { i18n };

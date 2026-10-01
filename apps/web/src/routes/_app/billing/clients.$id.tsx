@@ -12,5 +12,12 @@ export const Route = createFileRoute('/_app/billing/clients/$id')({
 function ClientRoute() {
 	const { id } = Route.useParams();
 	const { session } = Route.useRouteContext();
-	return <ClientPage key={id} id={id} solo={session.tenant.workspace === 'solo'} />;
+	return (
+		<ClientPage
+			key={id}
+			id={id}
+			solo={session.tenant.workspace === 'solo'}
+			role={session.user.role}
+		/>
+	);
 }

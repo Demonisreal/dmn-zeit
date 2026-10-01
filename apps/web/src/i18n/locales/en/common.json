@@ -42,7 +42,9 @@
 			"entitlement": "Up to 99 days, at most one decimal",
 			"token": "The link is incomplete",
 			"totp": "Six digits from the authenticator app",
-			"recoveryCode": "Ten characters, like ABCDE-FGH23"
+			"recoveryCode": "Ten characters, like ABCDE-FGH23",
+			"iban": "Not a valid IBAN",
+			"vatId": "Not a valid VAT ID, e.g. DE123456789"
 		},
 		"range": {
 			"required": "The date range is missing",
@@ -73,9 +75,15 @@
 		"rate": {
 			"futureOnly": "Only a rate that has not taken effect yet can be removed"
 		},
+		"invoice": {
+			"rangeTooLong": "At most 366 days",
+			"tooManyLines": "At most {{max}} lines",
+			"taxCategoryMismatch": "This tax category does not match this invoice"
+		},
 		"text": {
 			"empty": "This field cannot be empty",
-			"controlChars": "No control or formatting characters allowed"
+			"controlChars": "No control or formatting characters allowed",
+			"invoiceCharset": "Only characters the invoice PDF can display are allowed"
 		},
 		"password": {
 			"common": "This password is on the list of common passwords. Please choose another one."

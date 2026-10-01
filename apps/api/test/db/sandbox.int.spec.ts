@@ -19,6 +19,7 @@ let app: pg.Client;
 beforeAll(async () => {
 	superuser = await connectAs('superuser');
 	app = await connectAs('app');
+	await app.query(`select set_config('app.demo_mode', 'true', false)`);
 });
 
 // one day per request, so none of them clash with another
@@ -64,6 +65,32 @@ describe('sandbox quota', () => {
 		const sandbox = await createTenant({ kind: 'sandbox' });
 		await expect(fillTenant(superuser, sandbox)).resolves.toBeDefined();
 	});
+
+	it('caps the clients of a sandbox and counts its project entries', async () => {
+		const sandbox = await createTenant({ kind: 'sandbox' });
+		const worker = await createPerson(sandbox);
+		await withContext(app, { tenantId: sandbox, role: 'hr' });
+		const addClients = (count: number) =>
+			app.query(
+				`insert into app.clients (tenant_id, name)
+				 select $1, 'Kunde ' || g from generate_series(1, $2::int) g returning id`,
+				[sandbox, count]
+			);
+
+		const { rows } = await addClients(50);
+		await expect(addClients(1)).rejects.toMatchObject({ code: 'ZT005' });
+		const project = await app.query(
+			`insert into app.projects (tenant_id, client_id, name) values ($1, $2, 'Beratung') returning id`,
+			[sandbox, rows[0].id]
+		);
+		await app.query(
+			`insert into app.project_entries (tenant_id, employee_id, project_id, started_at, ended_at, note, source)
+			 values ($1, $2, $3, '2026-02-02 08:00+01', '2026-02-02 09:00+01', 'Belege sortiert', 'manual')`,
+			[sandbox, worker.employeeId, project.rows[0].id]
+		);
+		expect(await countIn('app.clients', sandbox)).toBe(50);
+		expect(await countIn('app.project_entries', sandbox)).toBe(1);
+	});
 });
 
 describe('ops.sandbox_seed', () => {
@@ -77,7 +104,10 @@ describe('ops.sandbox_seed', () => {
 		expect(await countIn('app.time_entries', plan.tenant.id)).toBe(plan.entries.length);
 		expect(await countIn('app.absence_days', plan.tenant.id)).toBe(plan.absenceDays.length);
 		expect(await countIn('app.month_closings', plan.tenant.id)).toBe(plan.monthClosings.length);
+		expect(await countIn('app.project_entries', plan.tenant.id)).toBe(plan.projectEntries.length);
+		expect(await countIn('app.rates', plan.tenant.id)).toBe(plan.rates.length);
 		expect(await countIn('audit.log', plan.tenant.id)).toBe(0);
+		expect(await countIn('audit.log', plan.solo.tenant.id)).toBe(0);
 
 		const { rows } = await superuser.query(
 			`select r.id, r.status::text from app.absence_requests r where r.tenant_id = $1`,
@@ -154,6 +184,10 @@ describe('ops.sandbox_seed', () => {
 
 		expect(await countIn('app.time_entries', plan.tenant.id)).toBe(plan.entries.length);
 		expect(await countIn('app.absence_days', plan.tenant.id)).toBe(plan.absenceDays.length);
+		expect(await countIn('app.project_entries', plan.tenant.id)).toBe(plan.projectEntries.length);
+		expect(await countIn('app.project_entries', plan.solo.tenant.id)).toBe(
+			plan.solo.projectEntries.length
+		);
 		expect(await countIn('audit.log', plan.tenant.id)).toBe(0);
 	});
 
@@ -191,5 +225,127 @@ describe('ops.sandbox_seed', () => {
 			app.query(`select ops.sandbox_seed($1::jsonb, 'de')`, [JSON.stringify(plan)])
 		).rejects.toMatchObject({ code: '23505' });
 		expect(await countIn('app.time_entries', live)).toBe(0);
+	});
+});
+
+describe('ops.sandbox_seed solo workspace', () => {
+	const today = Temporal.Now.plainDateISO('Europe/Berlin');
+	const plan = generateDemo({ today, seed: 2609 });
+	// the story starts it at half past eight, a run before that would find it in the future
+	plan.solo.projectEntries.find((entry) => entry.endedAt === null)!.startedAt = new Date(
+		Date.now() - 10 * 60_000
+	).toISOString();
+
+	beforeAll(async () => {
+		await withContext(app, { tenantId: plan.tenant.id, role: 'admin' });
+		await app.query(`select ops.sandbox_seed($1::jsonb, 'en')`, [JSON.stringify(plan)]);
+	});
+
+	it('opens it next to the company, in the same group and with the same expiry', async () => {
+		const { rows } = await superuser.query(
+			`select id, workspace::text, kind::text, expires_at, sandbox_group
+			   from app.tenants where id = any($1) order by workspace`,
+			[[plan.tenant.id, plan.solo.tenant.id]]
+		);
+		expect(rows.map(({ id, workspace, kind }) => ({ id, workspace, kind }))).toEqual([
+			{ id: plan.tenant.id, workspace: 'company', kind: 'sandbox' },
+			{ id: plan.solo.tenant.id, workspace: 'solo', kind: 'sandbox' }
+		]);
+		expect(rows[0].sandbox_group).not.toBeNull();
+		expect(rows[1].sandbox_group).toBe(rows[0].sandbox_group);
+		expect(rows[1].expires_at).toEqual(rows[0].expires_at);
+	});
+
+	it('gives each seed a group of its own', async () => {
+		const other = generateDemo({ today, seed: 2610 });
+		await withContext(app, { tenantId: other.tenant.id, role: 'admin' });
+		await app.query(`select ops.sandbox_seed($1::jsonb, 'de')`, [JSON.stringify(other)]);
+
+		const { rows } = await superuser.query(
+			'select count(distinct sandbox_group)::int as groups from app.tenants where id = any($1)',
+			[[plan.tenant.id, other.tenant.id]]
+		);
+		expect(rows[0].groups).toBe(2);
+	});
+
+	it('seats the freelancer as the one admin of it, with her personnel record', async () => {
+		const { rows } = await superuser.query(
+			`select u.role::text, u.locale, u.status::text, e.personnel_no
+			   from app.users u join app.employees e on e.id = u.employee_id
+			  where u.tenant_id = $1`,
+			[plan.solo.tenant.id]
+		);
+		expect(rows).toEqual([{ role: 'admin', locale: 'en', status: 'demo', personnel_no: '1' }]);
+	});
+
+	it('writes clients, projects and project time into it', async () => {
+		expect(await countIn('app.clients', plan.solo.tenant.id)).toBe(plan.solo.clients.length);
+		expect(await countIn('app.tasks', plan.solo.tenant.id)).toBe(plan.solo.tasks.length);
+		expect(await countIn('app.project_entries', plan.solo.tenant.id)).toBe(
+			plan.solo.projectEntries.length
+		);
+		const { rows } = await superuser.query(
+			`select count(*)::int as running from app.project_entries
+			  where tenant_id = $1 and ended_at is null and source = 'seed'`,
+			[plan.solo.tenant.id]
+		);
+		expect(rows[0].running).toBe(1);
+	});
+
+	it('lets the freelancer stop the timer the seed left running', async () => {
+		const { rows } = await superuser.query(
+			'select id, employee_id from app.users where tenant_id = $1',
+			[plan.solo.tenant.id]
+		);
+		await withContext(app, {
+			tenantId: plan.solo.tenant.id,
+			userId: rows[0].id,
+			role: 'admin',
+			employeeId: rows[0].employee_id
+		});
+		const stopped = await app.query(
+			`update app.project_entries set ended_at = now()
+			  where ended_at is null and voided_at is null returning id`
+		);
+		expect(stopped.rowCount).toBe(1);
+	});
+});
+
+describe('outside the demo', () => {
+	const refused = { code: '42501', message: 'sandboxes are only seeded in the demo' };
+
+	it('opens and seeds no sandbox without app.demo_mode', async () => {
+		const plan = generateDemo({ today: Temporal.Now.plainDateISO('Europe/Berlin'), seed: 2611 });
+		const live = await connectAs('app');
+		await live.query(`select set_config('app.demo_mode', 'false', false)`);
+		await expect(
+			live.query(
+				`select ops.sandbox_create($1, 'Musterbetrieb (Beispiel)', $2, 'NW', null, null, 'none')`,
+				[plan.tenant.id, plan.tenant.slug]
+			)
+		).rejects.toMatchObject(refused);
+		await expect(
+			live.query(`select ops.sandbox_seed($1::jsonb, 'de')`, [JSON.stringify(plan)])
+		).rejects.toMatchObject(refused);
+		// a connection that never set the flag at all
+		await expect(
+			(await connectAs('app')).query(
+				`select ops.sandbox_create($1, 'Musterbetrieb (Beispiel)', $2, 'NW', null, null, 'none')`,
+				[plan.tenant.id, plan.tenant.slug]
+			)
+		).rejects.toMatchObject(refused);
+
+		// zeit_app has no grant on these two, the owner reaches them through zeit_system
+		const owner = await connectAs('owner');
+		await expect(
+			owner.query(`select ops.sandbox_seed_company($1::jsonb, 'de')`, [JSON.stringify(plan)])
+		).rejects.toMatchObject(refused);
+		await expect(
+			owner.query('select ops.sandbox_seed_book($1, $2::jsonb)', [
+				await createTenant(),
+				JSON.stringify(plan.solo)
+			])
+		).rejects.toMatchObject(refused);
+		expect(await countIn('app.employees', plan.tenant.id)).toBe(0);
 	});
 });

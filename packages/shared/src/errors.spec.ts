@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import { absencesQuerySchema, createAbsenceSchema } from './absences';
 import { tokenSchema } from './auth';
+import { createDraftSchema, ibanSchema, invoiceLineInputSchema, vatIdSchema } from './billing';
 import {
 	centsSchema,
 	dayCountSchema,
@@ -149,11 +150,36 @@ const failures: [ValidationKey, ZodType, unknown][] = [
 			startedAt: '2026-09-24T09:00:00+02:00',
 			endedAt: '2026-09-24T12:00:00+02:00'
 		}
+	],
+	['format.iban', ibanSchema, 'DE00123456789012345678'],
+	['format.vatId', vatIdSchema, 'DE12345'],
+	[
+		'text.invoiceCharset',
+		invoiceLineInputSchema,
+		{
+			description: 'Beratung 日本語',
+			quantityMilli: '1000',
+			unit: 'HUR',
+			unitPriceCents: '9500',
+			taxCategory: 'standard'
+		}
+	],
+	[
+		'invoice.rangeTooLong',
+		createDraftSchema,
+		{ clientId: entryId, from: '2025-01-01', to: '2026-06-01' }
 	]
 ];
 
-// password.common after the list of common passwords, rate.futureOnly against the tenant's today
-const raisedByApi: ValidationKey[] = ['password.common', 'rate.futureOnly'];
+// password.common after the list of common passwords, rate.futureOnly against the tenant's today,
+// invoice.tooManyLines only once a draft already has 500 lines, invoice.taxCategoryMismatch only
+// once client and profile are known
+const raisedByApi: ValidationKey[] = [
+	'password.common',
+	'rate.futureOnly',
+	'invoice.tooManyLines',
+	'invoice.taxCategoryMismatch'
+];
 
 describe('validation keys', () => {
 	it.each(failures)('%s comes out of the schema', (key, schema, input) => {

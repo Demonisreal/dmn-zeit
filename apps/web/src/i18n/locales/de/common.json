@@ -42,7 +42,9 @@
 			"entitlement": "Bis 99 Tage, höchstens eine Nachkommastelle",
 			"token": "Der Link ist unvollständig",
 			"totp": "Sechs Ziffern aus der Authenticator-App",
-			"recoveryCode": "Zehn Zeichen, wie ABCDE-FGH23"
+			"recoveryCode": "Zehn Zeichen, wie ABCDE-FGH23",
+			"iban": "Keine gültige IBAN",
+			"vatId": "Keine gültige USt-IdNr., z. B. DE123456789"
 		},
 		"range": {
 			"required": "Zeitraum fehlt",
@@ -73,9 +75,15 @@
 		"rate": {
 			"futureOnly": "Nur ein Satz, der noch nicht gilt, lässt sich löschen"
 		},
+		"invoice": {
+			"rangeTooLong": "Höchstens 366 Tage",
+			"tooManyLines": "Höchstens {{max}} Positionen",
+			"taxCategoryMismatch": "Diese Steuerkategorie passt nicht zu dieser Rechnung"
+		},
 		"text": {
 			"empty": "Dieses Feld darf nicht leer sein",
-			"controlChars": "Keine Steuer- oder Formatierungszeichen erlaubt"
+			"controlChars": "Keine Steuer- oder Formatierungszeichen erlaubt",
+			"invoiceCharset": "Nur Zeichen erlaubt, die das Rechnungs-PDF darstellen kann"
 		},
 		"password": {
 			"common": "Dieses Passwort steht auf der Liste häufiger Passwörter. Bitte ein anderes wählen."
