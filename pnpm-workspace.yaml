@@ -1,6 +1,9 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'tests/*'
+overrides:
+  multer: '>=2.3.0'
 allowBuilds:
   cpu-features: false
   esbuild: true

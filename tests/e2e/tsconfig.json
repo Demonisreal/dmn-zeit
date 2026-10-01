@@ -1,0 +1,9 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "esnext",
+		"types": ["node", "@playwright/test"],
+		"noEmit": true
+	},
+	"include": ["src", "playwright.config.ts"]
+}

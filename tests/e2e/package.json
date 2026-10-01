@@ -1,0 +1,16 @@
+{
+	"name": "@zeit/e2e",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"test": "playwright test",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@axe-core/playwright": "4.13.0",
+		"@playwright/test": "1.63.0",
+		"@types/node": "^26.6.2",
+		"otpauth": "9.5.2",
+		"typescript": "~6.0.3"
+	}
+}
