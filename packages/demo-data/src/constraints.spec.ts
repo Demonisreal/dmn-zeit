@@ -1,7 +1,7 @@
 import type { VacationEntryType } from '@zeit/shared';
 import { Temporal } from 'temporal-polyfill';
 import { describe, expect, it } from 'vitest';
-import { generateDemo } from './index';
+import { generateDemo, type ProjectBook } from './index';
 
 // the real inserts run in the api integration tests, this only holds the rows against the checks
 const today = Temporal.PlainDate.from('2026-09-24');
@@ -267,5 +267,133 @@ describe('generateDemo against the table constraints', () => {
 					!/^ARBZG_[0-9A-Z_]+$/.test(ack.ruleCode) || blank(ack.ruleVersion) || blank(ack.note)
 			)
 		).toEqual([]);
+	});
+});
+
+describe('generateDemo against the project tables', () => {
+	const books: { workspace: string; book: ProjectBook; staff: string[] }[] = [
+		{ workspace: 'company', book: plan, staff: plan.employees.map((employee) => employee.id) },
+		{ workspace: 'solo', book: plan.solo, staff: [plan.solo.employee.id] }
+	];
+
+	it('hands out every id once, across both workspaces', () => {
+		const ids = books.flatMap(({ book }) =>
+			[book.clients, book.projects, book.tasks, book.rates, book.projectEntries]
+				.flat()
+				.map((row) => row.id)
+		);
+		expect(duplicates(ids)).toEqual([]);
+	});
+
+	it.each(books)('keeps every reference inside the $workspace workspace', ({ book, staff }) => {
+		const clients = new Set(book.clients.map((client) => client.id));
+		const projects = new Map(book.projects.map((project) => [project.id, project]));
+		const tasks = new Map(book.tasks.map((task) => [task.id, task]));
+		const clientOf = (projectId: string | null) =>
+			projectId === null ? undefined : projects.get(projectId)?.clientId;
+
+		expect(book.projects.filter((project) => !clients.has(project.clientId))).toEqual([]);
+		expect(book.tasks.filter((task) => clientOf(task.projectId) !== task.clientId)).toEqual([]);
+		expect(
+			book.rates.filter(
+				(rate) =>
+					(rate.clientId !== null && !clients.has(rate.clientId)) ||
+					(rate.projectId !== null && clientOf(rate.projectId) !== rate.clientId) ||
+					(rate.taskId !== null && tasks.get(rate.taskId)?.projectId !== rate.projectId) ||
+					(rate.employeeId !== null && !staff.includes(rate.employeeId))
+			)
+		).toEqual([]);
+		expect(
+			book.projectEntries.filter(
+				(entry) =>
+					!staff.includes(entry.employeeId) ||
+					!projects.has(entry.projectId) ||
+					(entry.taskId !== null && tasks.get(entry.taskId)?.projectId !== entry.projectId)
+			)
+		).toEqual([]);
+	});
+
+	it.each(books)(
+		'fills clients, projects and rates of the $workspace workspace within their checks',
+		({ book }) => {
+			expect(
+				book.clients.filter(
+					(client) =>
+						blank(client.name) ||
+						blank(client.number) ||
+						!/^[A-Z]{2}$/.test(client.countryCode) ||
+						!['de', 'en'].includes(client.invoiceLocale) ||
+						(client.paymentTermsDays !== null &&
+							(client.paymentTermsDays < 0 || client.paymentTermsDays > 120)) ||
+						(client.roundingIncrementMin !== null &&
+							![1, 5, 6, 10, 15, 30, 60].includes(client.roundingIncrementMin))
+				)
+			).toEqual([]);
+			expect(duplicates(book.clients.flatMap((client) => client.number ?? []))).toEqual([]);
+			expect(
+				book.projects.filter(
+					(project) =>
+						blank(project.name) ||
+						blank(project.code) ||
+						(project.budgetMinutes !== null &&
+							(!Number.isInteger(project.budgetMinutes) || project.budgetMinutes <= 0))
+				)
+			).toEqual([]);
+			expect(duplicates(book.projects.flatMap((project) => project.code ?? []))).toEqual([]);
+			expect(book.tasks.filter((task) => blank(task.name))).toEqual([]);
+			expect(
+				book.rates.filter(
+					(rate) =>
+						!Number.isInteger(rate.rateCents) ||
+						rate.rateCents < 0 ||
+						rate.rateCents > 10_000_000 ||
+						(rate.taskId !== null && rate.projectId === null) ||
+						(rate.projectId !== null && rate.clientId === null)
+				)
+			).toEqual([]);
+			// unique nulls not distinct: one rate per dimension and day it takes effect
+			expect(
+				duplicates(
+					book.rates.map((rate) =>
+						[rate.clientId, rate.projectId, rate.taskId, rate.employeeId, rate.validFrom].join(' ')
+					)
+				)
+			).toEqual([]);
+		}
+	);
+
+	it.each(books)(
+		'lets no two project entries of a person in the $workspace workspace overlap and runs one timer each',
+		({ book, staff }) => {
+			expect(
+				book.projectEntries.filter(
+					(entry) =>
+						blank(entry.note) ||
+						(entry.endedAt !== null &&
+							Temporal.Instant.compare(instant(entry.endedAt), instant(entry.startedAt)) <= 0)
+				)
+			).toEqual([]);
+			const running = book.projectEntries.filter((entry) => entry.endedAt === null);
+			expect(running.length).toBeGreaterThan(0);
+			expect(duplicates(running.map((entry) => entry.employeeId))).toEqual([]);
+			for (const employeeId of staff) {
+				expect(
+					overlapping(
+						book.projectEntries.filter((entry) => entry.employeeId === employeeId),
+						(entry) => instant(entry.startedAt).epochMilliseconds,
+						(entry) => (entry.endedAt ? instant(entry.endedAt).epochMilliseconds : Infinity)
+					)
+				).toEqual([]);
+			}
+		}
+	);
+
+	it('opens the solo workspace under its own slug and mail address', () => {
+		expect(plan.solo.tenant.slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+		expect(plan.solo.tenant.slug).not.toBe(plan.tenant.slug);
+		expect(plan.users.map((user) => user.email.toLowerCase())).not.toContain(
+			plan.solo.user.email.toLowerCase()
+		);
+		expect(plan.solo.tenant.id).not.toBe(plan.tenant.id);
 	});
 });

@@ -229,7 +229,8 @@
 	font-size: 0.8125rem;
 }
 
-.others {
+.others,
+.solo {
 	margin: 0.25rem -0.25rem 0;
 	padding: 0.25rem 0.25rem 0;
 	border-top: 1px solid var(--edge);

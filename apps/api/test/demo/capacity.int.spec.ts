@@ -21,9 +21,10 @@ async function sandboxes(count: number, expiresIn = '1 hour') {
 	);
 }
 
+// a visitor's solo workspace rides along with the company, the cap counts the companies
 async function running() {
 	const { rows } = await demo.superuser.query(
-		`select count(*)::int as n from ops.active_tenants() where kind = 'sandbox'`
+		`select count(*)::int as n from ops.active_tenants() where kind = 'sandbox' and workspace = 'company'`
 	);
 	return rows[0].n as number;
 }

@@ -123,6 +123,7 @@ describe('ops.sandbox_create', () => {
 
 	beforeAll(async () => {
 		app = await connectAs('app');
+		await app.query(`select set_config('app.demo_mode', 'true', false)`);
 	});
 
 	it('takes neither kind nor expiry from the caller', async () => {

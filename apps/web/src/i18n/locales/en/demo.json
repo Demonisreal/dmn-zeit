@@ -38,7 +38,9 @@
 		"label": "Switch role",
 		"loading": "Loading roles",
 		"others": "Other people",
-		"noTeam": "No team"
+		"noTeam": "No team",
+		"solo": "Solo workspace",
+		"freelancer": "Freelancer"
 	},
 	"outbox": {
 		"title": "Outbox",

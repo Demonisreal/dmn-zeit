@@ -1,8 +1,21 @@
-import { add, fraction, parseDecimal, toDecimal } from '@zeit/rules';
+import {
+	add,
+	aggregate,
+	budgetStatus,
+	fraction,
+	parseDecimal,
+	projectCoverage,
+	taxTreatment,
+	timerHint,
+	toDecimal,
+	type EntrySpan,
+	type ProjectEntry,
+	type RoundingRule
+} from '@zeit/rules';
 import { Temporal } from 'temporal-polyfill';
 import { describe, expect, it } from 'vitest';
-import { dateOf } from './calendar';
-import { generateDemo, type DemoPlan, type PlanRow } from './index';
+import { dateOf, TZ } from './calendar';
+import { generateDemo, type DemoPlan, type PlanRow, type ProjectBook } from './index';
 
 const today = Temporal.PlainDate.from('2026-09-24');
 const plan = generateDemo({ today, seed: 7 });
@@ -275,4 +288,243 @@ describe('generateDemo requests', () => {
 		const days = plan.absenceDays.filter((day) => day.absenceId === cancelled[0]!.id);
 		expect(days.every((day) => day.supersededAt === cancelled[0]!.decidedAt)).toBe(true);
 	});
+});
+
+// the budget as the api reads it: rounded minutes of billable cells, per person, task and day
+function budgetStates(book: ProjectBook, rule: (projectId: string) => RoundingRule) {
+	const projects = new Map(book.projects.map((project) => [project.id, project]));
+	const cells = aggregate(
+		book.projectEntries.flatMap((entry): ProjectEntry[] =>
+			entry.endedAt === null
+				? []
+				: [
+						{
+							id: entry.id,
+							employeeId: entry.employeeId,
+							clientId: projects.get(entry.projectId)!.clientId,
+							projectId: entry.projectId,
+							taskId: entry.taskId,
+							workday: Temporal.PlainDate.from(localDay(entry.startedAt)),
+							billable: true,
+							start: Temporal.Instant.from(entry.startedAt),
+							end: Temporal.Instant.from(entry.endedAt)
+						}
+					]
+		),
+		{ rates: [], rounding: rule }
+	);
+	return book.projects.flatMap((project) => {
+		if (project.budgetMinutes === null) return [];
+		const used = cells
+			.filter((cell) => cell.projectId === project.id)
+			.reduce((sum, cell) => sum + cell.roundedMinutes, 0);
+		return [budgetStatus(used, project.budgetMinutes).state];
+	});
+}
+
+type Booked = { employeeId: string; startedAt: string; endedAt: string | null };
+
+const byDay = <Row extends Booked>(rows: readonly Row[]) => {
+	const days = new Map<string, Row[]>();
+	for (const row of rows) {
+		const key = `${row.employeeId} ${localDay(row.startedAt)}`;
+		days.set(key, [...(days.get(key) ?? []), row]);
+	}
+	return days;
+};
+
+const spanOf = (row: Booked): EntrySpan => ({
+	start: Temporal.Instant.from(row.startedAt),
+	end: row.endedAt === null ? null : Temporal.Instant.from(row.endedAt)
+});
+
+describe('generateDemo projects of the office', () => {
+	const morning = Temporal.ZonedDateTime.from(`${today}T09:00[${TZ}]`).toInstant();
+	const running = plan.projectEntries.filter((entry) => entry.endedAt === null);
+	const shift = plan.entries.find(
+		(entry) => entry.endedAt === null && localDay(entry.startedAt) === today.toString()
+	)!;
+
+	it('works for six made-up clients, each billed per half hour begun', () => {
+		expect(plan.clients).toHaveLength(6);
+		expect(plan.clients.filter((client) => !client.name.endsWith('(Beispiel)'))).toEqual([]);
+		expect(
+			plan.clients.filter(
+				(client) => client.roundingIncrementMin !== 30 || client.roundingMode !== 'up'
+			)
+		).toEqual([]);
+	});
+
+	it('prices with a default rate, rates per client and a senior rate on one project', () => {
+		const levels = plan.rates.map((rate) =>
+			rate.projectId !== null && rate.employeeId !== null
+				? 'project_employee'
+				: rate.clientId !== null
+					? 'client'
+					: 'default'
+		);
+		expect(new Set(levels)).toEqual(new Set(['default', 'client', 'project_employee']));
+	});
+
+	it('brings one closing near its budget and another beyond it', () => {
+		const rule = (projectId: string): RoundingRule => {
+			const { clientId } = plan.projects.find((project) => project.id === projectId)!;
+			const client = plan.clients.find((candidate) => candidate.id === clientId)!;
+			return { incrementMinutes: client.roundingIncrementMin!, mode: client.roundingMode! };
+		};
+		expect(budgetStates(plan, rule).sort()).toEqual(['exceeded', 'warn']);
+	});
+
+	it('leaves some of the stamped time without project', () => {
+		const booked = byDay(plan.projectEntries);
+		const from = [...booked.keys()].map((key) => key.split(' ')[1]!).sort()[0]!;
+		let worked = 0;
+		let unassigned = 0;
+		for (const [key, entries] of byDay(plan.entries)) {
+			if (key.split(' ')[1]! < from || key.endsWith(today.toString())) continue;
+			const coverage = projectCoverage((booked.get(key) ?? []).map(spanOf), entries.map(spanOf), {
+				now: morning,
+				timeZone: TZ
+			});
+			worked += coverage.workedMinutes;
+			unassigned += coverage.unassignedMinutes;
+		}
+		expect(unassigned / worked).toBeGreaterThan(0.04);
+		expect(unassigned / worked).toBeLessThan(0.11);
+	});
+
+	it('shows the coverage hints on three days of the story and nowhere else', () => {
+		const worked = byDay(plan.entries);
+		const hinted = [...byDay(plan.projectEntries)].flatMap(([key, entries]) => {
+			const { hints } = projectCoverage(entries.map(spanOf), (worked.get(key) ?? []).map(spanOf), {
+				now: morning,
+				timeZone: TZ
+			});
+			return hints.length > 0 ? [{ key, hints }] : [];
+		});
+		const lastShift = plan.entries.findLast(
+			(entry) => entry.employeeId === shift.employeeId && entry.endedAt !== null
+		)!;
+		const forgotten = running.find((entry) => entry.employeeId !== shift.employeeId)!;
+		const saturday = plan.projectEntries.find(
+			(entry) => Temporal.PlainDate.from(localDay(entry.startedAt)).dayOfWeek === 6
+		)!;
+		const keyOf = (row: Booked) => `${row.employeeId} ${localDay(row.startedAt)}`;
+
+		expect(hinted.map(({ key }) => key).sort()).toEqual(
+			[keyOf(lastShift), keyOf(forgotten), keyOf(saturday)].sort()
+		);
+		expect(
+			hinted.filter(
+				({ hints }) =>
+					!hints.includes('PROJECT_OVER_WORKED') || !hints.includes('PROJECT_OUTSIDE_WORK')
+			)
+		).toEqual([]);
+		expect(worked.get(keyOf(saturday))).toBeUndefined();
+	});
+
+	it('runs the timer of the employee persona since shortly after she clocked in', () => {
+		const own = running.filter((entry) => entry.employeeId === shift.employeeId);
+		expect(own).toHaveLength(1);
+		const late = Temporal.Instant.from(shift.startedAt).until(own[0]!.startedAt).total('minutes');
+		expect(late).toBeGreaterThanOrEqual(2);
+		expect(late).toBeLessThan(7);
+	});
+
+	it('leaves a colleague of the same team with a timer running since yesterday afternoon', () => {
+		const forgotten = running.filter((entry) => entry.employeeId !== shift.employeeId);
+		expect(forgotten).toHaveLength(1);
+		expect(forgotten[0]!.startedAt).toMatch(/T16:40:00\+0[12]:00$/);
+		expect(timerHint(Temporal.Instant.from(forgotten[0]!.startedAt), morning)).toBe(true);
+		const teamOf = (employeeId: string) =>
+			plan.employees.find((employee) => employee.id === employeeId)!.teamId;
+		expect(teamOf(forgotten[0]!.employeeId)).toBe(teamOf(shift.employeeId));
+	});
+
+	it('keeps both timers off the budgeted projects', () => {
+		const budgeted = new Set(
+			plan.projects.filter((project) => project.budgetMinutes !== null).map((project) => project.id)
+		);
+		expect(running.filter((entry) => budgeted.has(entry.projectId))).toEqual([]);
+	});
+});
+
+describe('generateDemo solo workspace', () => {
+	const { solo } = plan;
+
+	it('marks the freelancer and her clients as made up', () => {
+		expect(solo.tenant.name).toMatch(/\(Beispiel\)$/);
+		expect(solo.clients.filter((client) => !client.name.endsWith('(Beispiel)'))).toEqual([]);
+		expect(solo.employee.personnelNo).toBe('1');
+	});
+
+	it('works for an agency, a public client, a client abroad and a private person', () => {
+		const leitweg = solo.clients.filter((client) => client.buyerReference !== null);
+		expect(leitweg).toHaveLength(1);
+		const id = leitweg[0]!.buyerReference!;
+		expect(id).toMatch(/^\d{2,12}(-[A-Z0-9]{1,30})?-\d{2}$/);
+		// mod 97-10 like the iban, letters count from A = 10
+		const digits = id
+			.replaceAll('-', '')
+			.replace(/[A-Z]/g, (letter) => String(letter.charCodeAt(0) - 55));
+		expect(BigInt(digits) % 97n).toBe(1n);
+
+		const abroad = solo.clients.filter((client) => client.countryCode !== 'DE');
+		expect(abroad).toHaveLength(1);
+		expect(taxTreatment({ taxProfile: 'regular' }, abroad[0]!)).toBe('reverse_charge');
+		expect(abroad[0]!.invoiceLocale).toBe('en');
+
+		expect(solo.clients.filter((client) => !client.isBusiness)).toHaveLength(1);
+		expect(solo.clients.filter((client) => client.name.startsWith('Agentur'))).toHaveLength(1);
+	});
+
+	it('brings one project near its budget and another beyond it, whatever the rounding', () => {
+		const rules: RoundingRule[] = [
+			{ incrementMinutes: 1, mode: 'nearest' },
+			{ incrementMinutes: 15, mode: 'up' }
+		];
+		for (const rule of rules) {
+			expect(budgetStates(solo, () => rule).sort()).toEqual(['exceeded', 'warn']);
+		}
+	});
+
+	it('books quarter hours since the start of the year, with a task where the project has any', () => {
+		const finished = solo.projectEntries.filter((entry) => entry.endedAt !== null);
+		const quarter = (stamp: string) => /:(00|15|30|45):00\+0[12]:00$/.test(stamp);
+		expect(
+			finished.filter((entry) => !quarter(entry.startedAt) || !quarter(entry.endedAt!))
+		).toEqual([]);
+		expect(localDay(finished[0]!.startedAt).slice(0, 7)).toBe(`${today.year}-01`);
+		const withTasks = new Set(solo.tasks.map((task) => task.projectId));
+		expect(
+			finished.filter((entry) => withTasks.has(entry.projectId) && entry.taskId === null)
+		).toEqual([]);
+	});
+
+	it('runs her timer since half past eight today', () => {
+		const running = solo.projectEntries.filter((entry) => entry.endedAt === null);
+		expect(running).toHaveLength(1);
+		expect(running[0]!.startedAt).toMatch(/^2026-09-24T08:3\d:\d\d\+02:00$/);
+	});
+});
+
+describe('generateDemo projects on other days', () => {
+	it.each([
+		{ day: '2026-01-05', seed: 11 },
+		{ day: '2026-07-31', seed: 3107 },
+		{ day: '2026-09-01', seed: 7 }
+	])(
+		'keeps budgets and timers on $day',
+		({ day, seed }) => {
+			const demo = generateDemo({ today: Temporal.PlainDate.from(day), seed });
+			const halfHours = (): RoundingRule => ({ incrementMinutes: 30, mode: 'up' });
+			const quarters = (): RoundingRule => ({ incrementMinutes: 15, mode: 'up' });
+
+			expect(budgetStates(demo, halfHours).sort()).toEqual(['exceeded', 'warn']);
+			expect(budgetStates(demo.solo, quarters).sort()).toEqual(['exceeded', 'warn']);
+			expect(demo.projectEntries.filter((entry) => entry.endedAt === null)).toHaveLength(2);
+			expect(demo.solo.projectEntries.filter((entry) => entry.endedAt === null)).toHaveLength(1);
+		},
+		30_000
+	);
 });

@@ -31,9 +31,13 @@ describe('persona switch', () => {
 			'BeschäftigteJonas Brandt',
 			'TeamleitungKatrin Hölscher',
 			'PersonalverwaltungSabine Kortmann',
-			'AdministrationMara Lenz'
+			'AdministrationMara Lenz',
+			'FreelancerLena Vogt'
 		]);
 		expect(entries[0]).toHaveAttribute('aria-checked', 'true');
+		expect(within(menu).getByRole('group', { name: 'Solo-Bereich' })).toHaveTextContent(
+			'Solo-BereichFreelancerLena Vogt'
+		);
 		expect(entries[1]).toHaveAccessibleDescription('Katrin Hölscher');
 		expect(within(menu).getByRole('menuitem', { name: 'Weitere Personen' })).toHaveAttribute(
 			'aria-expanded',
@@ -56,7 +60,8 @@ describe('persona switch', () => {
 		).toEqual([
 			'FinanzbuchhaltungNils HagedornBeschäftigte',
 			'SteuerberatungLea SchwerdtfegerBeschäftigteTobias KämmererBeschäftigte',
-			'Ohne TeamUwe TiemannAdministration'
+			'Ohne TeamUwe TiemannAdministration',
+			'Solo-BereichFreelancerLena Vogt'
 		]);
 		const [lea] = within(within(menu).getByRole('group', { name: 'Steuerberatung' })).getAllByRole(
 			'menuitemradio'
@@ -68,7 +73,7 @@ describe('persona switch', () => {
 		await userEvent.click(others);
 
 		expect(others).toHaveAttribute('aria-expanded', 'false');
-		expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(4);
+		expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(5);
 	});
 
 	it('unfolds and switches with the keyboard alone', async () => {
@@ -113,6 +118,26 @@ describe('persona switch', () => {
 		await waitFor(() => expect(router.state.location.pathname).toBe('/inbox'));
 		expect(await screen.findByRole('heading', { name: 'Posteingang' })).toBeInTheDocument();
 		expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+	});
+
+	it('crosses into the solo workspace of the freelancer and marks her there', async () => {
+		const router = renderApp('/demo/outbox');
+
+		await userEvent.click(
+			await within(await openSwitch()).findByRole('menuitemradio', { name: 'Freelancer' })
+		);
+
+		expect(await screen.findByRole('button', { name: 'Lena Vogt' })).toBeInTheDocument();
+		await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+		const again = await openSwitch();
+		expect(await within(again).findByRole('menuitemradio', { name: 'Freelancer' })).toHaveAttribute(
+			'aria-checked',
+			'true'
+		);
+		expect(within(again).getByRole('menuitemradio', { name: 'Beschäftigte' })).toHaveAttribute(
+			'aria-checked',
+			'false'
+		);
 	});
 
 	it('takes hr to the month closing and the employee back to her week', async () => {

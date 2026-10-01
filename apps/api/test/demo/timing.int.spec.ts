@@ -38,10 +38,12 @@ async function timed() {
 
 async function entriesOf(tenantId: string) {
 	const { rows } = await demo.superuser.query(
-		'select count(*)::int as n from app.time_entries where tenant_id = $1',
+		`select (select count(*) from app.time_entries where tenant_id = $1)::int as time,
+		        (select count(*) from app.project_entries e join app.tenants t on t.id = e.tenant_id
+		          where t.sandbox_group = (select sandbox_group from app.tenants where id = $1))::int as project`,
 		[tenantId]
 	);
-	return rows[0].n as number;
+	return `${rows[0].time} time entries, ${rows[0].project} project entries`;
 }
 
 // every test file clones its own database from the template, all in the same container
@@ -78,9 +80,7 @@ describe('POST /api/demo/sandboxes timing', () => {
 			warm.push(await timed());
 		}
 		const ms = warm.map((run) => run.ms);
-		await annotate(
-			`warm: ${ms.join(' / ')} ms for ${await entriesOf(warm[0]!.tenantId)} time entries`
-		);
+		await annotate(`warm: ${ms.join(' / ')} ms for ${await entriesOf(warm[0]!.tenantId)}`);
 		expect(warm.map((run) => run.plans)).toEqual([0, 0, 0, 0, 0]);
 
 		skip(busy + (await otherTestFiles()) > 0, 'other test files were running, run this file alone');
@@ -94,8 +94,6 @@ describe('POST /api/demo/sandboxes timing', () => {
 		await prepared();
 		const peak = await timed();
 		expect(peak.plans).toBe(0);
-		await annotate(
-			`31 july, warm: ${peak.ms} ms for ${await entriesOf(peak.tenantId)} time entries`
-		);
+		await annotate(`31 july, warm: ${peak.ms} ms for ${await entriesOf(peak.tenantId)}`);
 	});
 });

@@ -27,7 +27,7 @@ async function leftIn(schemas: string[], column: string, ids: string[]) {
 	return left;
 }
 
-// 28 at once, the job purges them one call after the other
+// 31 at once with the solo workspaces, the job purges them one call after the other
 beforeAll(async () => {
 	demo = await startDemo();
 	// three with the whole story from the api, the others with a row in every tenant table
@@ -37,6 +37,13 @@ beforeAll(async () => {
 		await fillTenant(demo.superuser, tenantId);
 		expired.push(tenantId);
 	}
+	// the solo workspace of each visitor expires with the company
+	const solo = await demo.superuser.query<{ id: string }>(
+		`select s.id from app.tenants s join app.tenants c on c.sandbox_group = s.sandbox_group
+		  where c.id = any($1) and s.workspace = 'solo'`,
+		[expired]
+	);
+	expired.push(...solo.rows.map(({ id }) => id));
 	await demo.superuser.query(
 		`update app.tenants set expires_at = now() - interval '1 minute' where id = any($1)`,
 		[expired]

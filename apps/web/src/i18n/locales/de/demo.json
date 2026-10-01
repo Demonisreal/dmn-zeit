@@ -38,7 +38,9 @@
 		"label": "Rolle wechseln",
 		"loading": "Rollen werden geladen",
 		"others": "Weitere Personen",
-		"noTeam": "Ohne Team"
+		"noTeam": "Ohne Team",
+		"solo": "Solo-Bereich",
+		"freelancer": "Freelancer"
 	},
 	"outbox": {
 		"title": "Postausgang",

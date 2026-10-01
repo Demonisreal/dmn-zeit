@@ -27,6 +27,7 @@ const styles = css as Record<
 	| 'role'
 	| 'name'
 	| 'others'
+	| 'solo'
 	| 'more'
 	| 'fold'
 	| 'group'
@@ -50,7 +51,7 @@ const startPage = {
 } as const satisfies Record<Role, string>;
 
 function arrange(cast: Persona[]) {
-	const sorted = cast.toSorted(byName);
+	const sorted = cast.filter((persona) => persona.workspace === 'company').toSorted(byName);
 	// the persona in use keeps her place up top, the checked entry never hides in the fold
 	const main = roles.flatMap((role) => {
 		const own = sorted.filter((persona) => persona.role === role);
@@ -65,7 +66,8 @@ function arrange(cast: Persona[]) {
 		if (last && last[0]!.team?.id === persona.team?.id) last.push(persona);
 		else teams.push([persona]);
 	}
-	return { main, teams };
+	const solo = cast.filter((persona) => persona.workspace === 'solo').toSorted(byName);
+	return { main, teams, solo };
 }
 
 export function PersonaMenu() {
@@ -90,8 +92,8 @@ export function PersonaMenu() {
 	});
 
 	const cast = personas.data ?? [];
-	const { main, teams } = arrange(cast);
-	const current = main.find((persona) => persona.current);
+	const { main, teams, solo } = arrange(cast);
+	const current = cast.find((persona) => persona.current);
 
 	const toggle = (next: boolean) => {
 		// otherwise the last failed attempt still shows when the menu opens again
@@ -187,6 +189,28 @@ export function PersonaMenu() {
 								</MenuSection>
 							);
 						})}
+					{solo.length > 0 && (
+						// the freelancer lives in a workspace of her own, always in view below the office
+						<MenuSection id="solo" className={styles.solo}>
+							<Header className={styles.team}>{t('switch.solo')}</Header>
+							{solo.map((persona) => (
+								<MenuItem
+									key={persona.userId}
+									id={persona.userId}
+									textValue={t('switch.freelancer')}
+									className={styles.persona}
+									onAction={() => pick(persona)}
+								>
+									<Text slot="label" className={styles.role}>
+										{t('switch.freelancer')}
+									</Text>
+									<Text slot="description" className={styles.name}>
+										{persona.displayName}
+									</Text>
+								</MenuItem>
+							))}
+						</MenuSection>
+					)}
 				</Menu>
 				{change.isError && (
 					<p className={styles.error} role="alert">

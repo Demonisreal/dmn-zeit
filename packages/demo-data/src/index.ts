@@ -13,6 +13,7 @@ import type {
 	MonthClosingAction,
 	NoticeChannel,
 	Role,
+	RoundingMode,
 	Totals,
 	VacationEntryType,
 	WeekdayMinutes
@@ -21,8 +22,10 @@ import type { Temporal } from 'temporal-polyfill';
 import { calendarFor } from './calendar';
 import { FLEX_CAP, settle } from './flex';
 import { dayRows, openRequests, planLeave } from './leave';
+import { bookProjects } from './projects';
 import { Random } from './random';
 import { acknowledge, fixedShifts, forgottenLeave, lateShifts, timesheets } from './shifts';
+import { soloWorld } from './solo';
 import { hire } from './staff';
 import { bookVacation } from './vacation';
 
@@ -45,8 +48,68 @@ export type MonthSnapshot = {
 	>;
 };
 
+// clients and project time, the company and the solo workspace each get their own
+export type ProjectBook = {
+	clients: {
+		id: string;
+		number: string | null;
+		name: string;
+		street: string | null;
+		postalCode: string | null;
+		city: string | null;
+		countryCode: string;
+		isBusiness: boolean;
+		vatId: string | null;
+		email: string | null;
+		buyerReference: string | null;
+		invoiceLocale: Locale;
+		paymentTermsDays: number | null;
+		roundingIncrementMin: number | null;
+		roundingMode: RoundingMode | null;
+	}[];
+	projects: {
+		id: string;
+		clientId: string;
+		name: string;
+		code: string | null;
+		budgetMinutes: number | null;
+	}[];
+	tasks: { id: string; clientId: string; projectId: string; name: string }[];
+	rates: {
+		id: string;
+		clientId: string | null;
+		projectId: string | null;
+		taskId: string | null;
+		employeeId: string | null;
+		validFrom: string;
+		rateCents: number;
+	}[];
+	projectEntries: {
+		id: string;
+		employeeId: string;
+		projectId: string;
+		taskId: string | null;
+		startedAt: string;
+		endedAt: string | null;
+		note: string | null;
+	}[];
+};
+
+// the freelancer next door, one person who is admin of her own workspace
+export type SoloPlan = ProjectBook & {
+	tenant: { id: string; name: string; slug: string; state: FederalState };
+	employee: {
+		id: string;
+		personnelNo: string;
+		firstName: string;
+		lastName: string;
+		entryDate: string;
+	};
+	user: { id: string; email: string; displayName: string };
+};
+
 // rows as the database takes them: ids derived from the seed, dates and instants as iso strings
-export type DemoPlan = {
+export type DemoPlan = ProjectBook & {
 	tenant: {
 		id: string;
 		name: string;
@@ -190,6 +253,7 @@ export type DemoPlan = {
 		createdBy: string;
 		createdAt: string;
 	}[];
+	solo: SoloPlan;
 };
 
 export type PlanRow<K extends keyof DemoPlan> = DemoPlan[K] extends readonly (infer Row)[]
@@ -214,6 +278,9 @@ export function generateDemo({ today, seed }: DemoOptions): DemoPlan {
 	const absenceDays = dayRows(rng, calendar, leaves);
 	const { ledger, notices } = bookVacation(rng, cast, calendar, leaves, absenceDays);
 	const { bookings, closings } = settle(rng, cast, calendar, sheets, leaves, absenceDays, acks);
+	// drawn last, so the projects leave every row of the story above as it was
+	const book = bookProjects(rng, cast, calendar, sheets, leaves);
+	const solo = soloWorld(rng, calendar);
 
 	return {
 		tenant: {
@@ -238,6 +305,8 @@ export function generateDemo({ today, seed }: DemoOptions): DemoPlan {
 		vacationNotices: notices,
 		flexBookings: bookings,
 		monthClosings: closings,
-		findingAcks: acks
+		findingAcks: acks,
+		...book,
+		solo
 	};
 }

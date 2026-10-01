@@ -11,7 +11,7 @@ import type {
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 import { mockEmployees, teamIds } from './hr';
-import { mockSession } from './session';
+import { mockAccounts, mockSession } from './session';
 
 const fail = (status: number, code: Exclude<ErrorCode, 'VALIDATION'>, message: string) =>
 	HttpResponse.json({ code, message, details: null }, { status });
@@ -50,6 +50,9 @@ const castAs = (lastName: string, role: Role): Omit<Persona, 'current'> => {
 	};
 };
 
+// lena's solo workspace from mocks/session.ts, in the sandbox it sits next to the office
+const freelancer = mockAccounts.find((account) => account.world === 'solo')!.session;
+
 // the tax office from mocks/hr.ts, the extra names sort behind jonas so he stays the employee up top
 const cast: Omit<Persona, 'current'>[] = [
 	castAs('Brandt', 'employee'),
@@ -67,6 +70,14 @@ const cast: Omit<Persona, 'current'>[] = [
 		employee: null,
 		team: null,
 		workspace: 'company'
+	},
+	{
+		userId: freelancer.user.id,
+		displayName: freelancer.user.displayName,
+		role: 'admin',
+		employee: { id: freelancer.user.employeeId!, name: freelancer.user.displayName },
+		team: null,
+		workspace: 'solo'
 	}
 ];
 
@@ -83,7 +94,11 @@ const sessionAs = (member: CastMember, locale: Locale, expiresAt: string): Sessi
 		employeeId: member.employee?.id ?? null,
 		lastLoginAt: null
 	},
-	tenant: { ...mockSession.tenant, kind: 'sandbox', expiresAt },
+	tenant: {
+		...(member.workspace === 'solo' ? freelancer : mockSession).tenant,
+		kind: 'sandbox',
+		expiresAt
+	},
 	mode: 'demo',
 	leadsTeams: member.role === 'team_lead' ? [{ id: teamIds.tax, name: 'Steuerberatung' }] : [],
 	security: { enrollmentPending: false, reauthUntil: null },
