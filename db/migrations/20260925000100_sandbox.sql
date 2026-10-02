@@ -1,5 +1,4 @@
 -- migrate:up
--- no set clause, so the policies inline these instead of paying a call per row; pg_catalog pins the lookups
 create or replace function app.tenant_id()
 returns uuid
 language sql
@@ -36,11 +35,9 @@ as $$
   select nullif(pg_catalog.current_setting('app.role', true), '')::app.user_role
 $$;
 
--- the column test first, otherwise app.leads() runs for every seeded entry of a sandbox
 alter policy "leads apply corrections" on app.time_entries
   with check (source = 'correction' and app.leads(employee_id));
 
--- the jobs and the sandbox cap need every tenant, zeit_app itself only sees the one in its context
 create function ops.active_tenants()
 returns table (id uuid, kind app.tenant_kind)
 language sql
@@ -63,7 +60,6 @@ declare
   sandbox uuid;
   purged integer := 0;
 begin
-  -- one sandbox takes about 0.4 s, ten stay inside the 15 s statement_timeout; the job repeats while it gets ten
   for sandbox in
     select t.id
       from app.tenants t
@@ -71,7 +67,6 @@ begin
      order by t.expires_at
      limit 10
   loop
-    -- lifts app.reject_change for this tenant only, the journals and the trail go with it
     perform set_config('zeit.purge_tenant', sandbox::text, true);
     delete from app.tenants t where t.id = sandbox;
     delete from audit.log l where l.tenant_id = sandbox;
@@ -105,7 +100,6 @@ begin
   for sandbox in
     select t.id from app.tenants t where t.kind = 'sandbox' and t.expires_at <= now()
   loop
-    -- lifts app.reject_change for this tenant only, the journals and the trail go with it
     perform set_config('zeit.purge_tenant', sandbox::text, true);
     delete from app.tenants t where t.id = sandbox;
     delete from audit.log l where l.tenant_id = sandbox;

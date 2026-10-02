@@ -1,7 +1,6 @@
 import type { InvoiceKind, Locale } from '@zeit/shared';
 import { TEXTS } from '../einvoice/texts';
 
-// pure data, no rendering here; the documents worker (10d/10e) picks the entry for its own locale
 export const defaultIntroText: Record<Locale, string> = {
 	de: 'vielen Dank für die gute Zusammenarbeit. Anbei die Rechnung für die erbrachten Leistungen.',
 	en: 'thank you for the good cooperation. Please find attached the invoice for the services rendered.'
@@ -28,7 +27,6 @@ const notesIn = (locale: Locale): Record<string, string> => {
 	};
 };
 
-// rechnungen-recht.md §§ 3, 4, 9; exact wording of small_business_19 follows the recommended phrasing there
 export const legalNoteTexts: Record<Locale, Record<string, string>> = {
 	de: notesIn('de'),
 	en: notesIn('en')

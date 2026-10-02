@@ -1,5 +1,4 @@
 -- migrate:up
--- the snapshot holds sick days and balances of the whole tenant, everyone else reads the lock from employees
 drop policy "members read closings" on app.month_closings;
 
 create policy "hr reads closings" on app.month_closings for select to zeit_app
@@ -15,12 +14,10 @@ as $$
 declare
   minutes integer;
 begin
-  -- without employee or role in the context the check comes out null, not false
   if (p_employee_id = app.employee_id() or app.leads(p_employee_id) or app.role() >= 'hr') is not true then
     raise exception 'employee % is not visible', p_employee_id using errcode = 'insufficient_privilege';
   end if;
 
-  -- a december reopened and not closed again has no balance to carry over yet
   select case when c.action = 'close' then
            (c.snapshot -> 'employees' -> p_employee_id::text ->> 'flexBalanceMinutes')::integer
          end
@@ -49,7 +46,6 @@ begin
     raise exception 'employee % is not visible', p_employee_id using errcode = 'insufficient_privilege';
   end if;
 
-  -- only the one row, the rest of the snapshot stays with hr
   select case when c.action = 'close' then c.snapshot -> 'employees' -> p_employee_id::text end
     into figures
     from app.month_closings c
@@ -62,7 +58,6 @@ begin
 end;
 $$;
 
--- sick notes skip the approval, so a certificate sent twice would otherwise go straight through
 alter table app.absence_requests add constraint absence_requests_sick_no_overlap
   exclude using gist (employee_id with =, daterange(start_date, end_date, '[]') with &&)
   where (type = 'sick' and status in ('approved', 'cancel_pending'));

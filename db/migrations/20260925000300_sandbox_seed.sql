@@ -6,7 +6,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -23,14 +22,12 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
   if exists (
     select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
   ) then
     return null;
   end if;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;
@@ -65,7 +62,6 @@ begin
 end;
 $$;
 
--- takes the DemoPlan of @zeit/demo-data as it is, the tenant it writes into is always a new one
 create function ops.sandbox_seed(p_plan jsonb, p_locale text)
 returns void
 language plpgsql
@@ -105,7 +101,6 @@ begin
       as x (id uuid, "personnelNo" text, "firstName" text, "lastName" text, "teamId" uuid,
             "entryDate" date, "exitDate" date);
 
-  -- every persona speaks the language the visitor started the demo in
   insert into app.users (id, tenant_id, email, display_name, role, locale, status, employee_id)
   select x.id, tenant, x.email, x."displayName", x.role, p_locale, 'demo', x."employeeId"
     from jsonb_to_recordset(p_plan -> 'users')
@@ -148,14 +143,12 @@ begin
             "newStartedAt" timestamptz, "newEndedAt" timestamptz, reason text, "requestedBy" uuid,
             "createdAt" timestamptz);
 
-  -- guard_request_status only lets a request in as pending and then walks it along its transitions
   update app.correction_requests c
      set status = x.status, decided_by = x."decidedBy", decided_at = x."decidedAt"
     from jsonb_to_recordset(p_plan -> 'corrections')
       as x (id uuid, status app.correction_status, "decidedBy" uuid, "decidedAt" timestamptz)
    where c.tenant_id = tenant and c.id = x.id and x.status <> 'pending';
 
-  -- settled ones first, the overlap constraints only see open and approved requests
   foreach settled in array array[true, false] loop
     insert into app.absence_requests (
       id, tenant_id, employee_id, type, start_date, end_date, half_day_start, half_day_end,
@@ -171,7 +164,6 @@ begin
               "createdAt" timestamptz)
      where (x.status in ('rejected', 'withdrawn', 'cancelled')) = settled;
 
-    -- cancel_pending and cancelled go through approved first
     update app.absence_requests r
        set status = case when x.status in ('cancel_pending', 'cancelled') then 'approved' else x.status end,
            decided_by = x."decidedBy", decided_at = x."decidedAt", decision_note = x."decisionNote"
@@ -230,7 +222,6 @@ begin
       as x (id uuid, "employeeId" uuid, "workDate" date, "ruleCode" text, "ruleVersion" text,
             note text, "createdBy" uuid, "createdAt" timestamptz);
 
-  -- the cap_forfeit booking points at a closing that follows below, the foreign key is deferred
   insert into app.flex_bookings (
     id, tenant_id, employee_id, type, minutes, effective_date, reason, month_closing_id,
     created_by, created_at
@@ -242,7 +233,6 @@ begin
             "effectiveDate" date, reason text, "monthClosingId" uuid, "createdBy" uuid,
             "createdAt" timestamptz);
 
-  -- one statement per month, apply_month_closing counts the rows of its own statement as closed
   for i in 0 .. jsonb_array_length(p_plan -> 'monthClosings') - 1 loop
     insert into app.month_closings (id, tenant_id, month, action, reason, snapshot, created_by, created_at)
     select x.id, tenant, x.month, x.action, x.reason, x.snapshot, x."createdBy", x."createdAt"
@@ -260,7 +250,6 @@ grant insert on
 to zeit_system;
 grant select (id, tenant_id), update (status, decided_by, decided_at) on app.correction_requests to zeit_system;
 grant update (status, decided_by, decided_at, decision_note) on app.absence_requests to zeit_system;
--- for the call to ops.sandbox_create
 grant usage on schema ops to zeit_system;
 
 grant create on schema ops to zeit_system;
@@ -289,7 +278,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -306,7 +294,6 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;

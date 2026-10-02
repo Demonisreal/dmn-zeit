@@ -116,7 +116,6 @@ export class BillingStore {
 		return toProfile(row);
 	}
 
-	// active only, an admin who can no longer sign in should not get the warning either
 	async admins(trx: Trx): Promise<Admin[]> {
 		const rows = await trx
 			.selectFrom('app.users')
@@ -151,8 +150,6 @@ export class BillingStore {
 			.execute();
 	}
 
-	// entries not yet on any invoice, ended, not voided; the amount reuses the same rounding and rate
-	// resolution as the project week, so a preview here never disagrees with what a draft would book
 	async unbilled(
 		trx: Trx,
 		filter: { client?: string | undefined; to?: string | undefined }
@@ -274,7 +271,6 @@ export class BillingStore {
 			.sort((a, b) => a.clientName.localeCompare(b.clientName));
 	}
 
-	// gross of invoices and cancellations that carry a number this year, both kinds net each other out
 	async issuedThisYear(trx: Trx, year: number): Promise<bigint> {
 		const rows = await trx
 			.selectFrom('app.invoices')
@@ -285,7 +281,6 @@ export class BillingStore {
 		return rows.reduce((sum, row) => sum + BigInt(row.gross_cents), 0n);
 	}
 
-	// open drafts have no gross_cents yet (only app.issue_invoice fills it), so the lines are summed here
 	async openDraftLines(
 		trx: Trx
 	): Promise<{ netCents: bigint; taxCategory: string; taxRateBp: number }[]> {

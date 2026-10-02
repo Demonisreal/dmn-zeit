@@ -5,7 +5,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- a password change in between wins; the $argon2id$ check on the column guards the format
   with swapped as (
     update auth.credentials c set password_hash = p_new_hash
      where c.user_id = p_user_id and c.password_hash = p_old_hash
@@ -22,7 +21,6 @@ as $$
 declare
   own constant text[] := array['display_name', 'locale', 'updated_at', 'last_login_at'];
 begin
-  -- own row: name and language only, except invitation_accept activating the invited person
   if new.id = app.user_id()
     and to_jsonb(new) - own <> to_jsonb(old) - own
     and not (
@@ -61,7 +59,6 @@ begin
   returning t.user_id into account;
 
   if account is not null then
-    -- the trail names the invited person as the one who activated the account
     perform set_config('app.user_id', account::text, true),
             set_config('app.role', (select u.role::text from app.users u where u.id = account), true);
     perform auth.password_set(account, p_password_hash);
@@ -78,7 +75,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- counted before the code is checked, and once login_failed has locked the account nothing is left
   update auth.mfa_challenges m set attempts = m.attempts + 1
    where m.token_hash = p_token_hash
      and m.expires_at > now()
@@ -103,7 +99,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- the attempt is counted before the code is checked, so parallel guesses cannot slip past the limit
   update auth.mfa_challenges m set attempts = m.attempts + 1
    where m.token_hash = p_token_hash
      and m.expires_at > now()
@@ -145,7 +140,6 @@ as $$
 declare
   own constant text[] := array['display_name', 'locale', 'updated_at', 'last_login_at'];
 begin
-  -- on their own row people rename themselves or switch the language, admins included
   if new.id = app.user_id() and to_jsonb(new) - own <> to_jsonb(old) - own then
     raise exception 'only display name and locale can be changed on one''s own user'
       using errcode = 'insufficient_privilege';

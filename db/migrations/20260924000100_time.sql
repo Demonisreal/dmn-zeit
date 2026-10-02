@@ -10,7 +10,6 @@ create table app.time_entries (
   employee_id uuid not null,
   started_at timestamptz not null default now(),
   ended_at timestamptz,
-  -- the tenant zone is pinned to Europe/Berlin, so the workday is fixed once the entry starts
   workday date not null generated always as ((started_at at time zone 'Europe/Berlin')::date) stored,
   end_reason app.end_reason,
   source app.entry_source not null,
@@ -29,7 +28,6 @@ create table app.time_entries (
   check ((voided_at is null) = (voided_by_request_id is null))
 );
 
--- created ahead of the exclusion constraint, so a second running entry reports this index and not an overlap
 create unique index time_entries_one_open_idx on app.time_entries (employee_id)
   where ended_at is null and voided_at is null;
 
@@ -58,7 +56,6 @@ create table app.correction_requests (
   unique (tenant_id, id),
   unique (tenant_id, employee_id, id),
   foreign key (tenant_id, employee_id) references app.employees (tenant_id, id),
-  -- the entry has to belong to the same person, otherwise a direct correction could reach one's own times
   foreign key (tenant_id, employee_id, target_entry_id)
     references app.time_entries (tenant_id, employee_id, id),
   foreign key (tenant_id, requested_by) references app.users (tenant_id, id),
@@ -104,7 +101,6 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  -- workday is generated and still null in a before trigger
   fillable constant text[] := array['ended_at', 'end_reason', 'voided_at', 'voided_by_request_id', 'workday'];
 begin
   if tg_op = 'DELETE' then
@@ -114,7 +110,6 @@ begin
     raise exception 'time entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- a stamp takes the clock of the database, never a time sent by the client
   if new.source = 'clock' and (
     (tg_op = 'INSERT' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -144,7 +139,6 @@ set search_path = ''
 as $$
 begin
   if tg_op = 'INSERT' then
-    -- only a direct correction and a sick note skip the pending step
     if new.status::text <> 'pending' and not (
       new.status::text = 'approved'
       and (new.decided_by is not distinct from new.requested_by
@@ -162,7 +156,6 @@ begin
       using errcode = 'ZT003';
   end if;
 
-  -- confirming a sick note certificate counts as a decision too
   if exists (
     select 1
       from app.users u
@@ -221,7 +214,6 @@ create policy "read own entries" on app.time_entries for select to zeit_app
 create policy "stamp own entries" on app.time_entries for insert to zeit_app
   with check (employee_id = (select app.employee_id()) and source = 'clock');
 
--- voiding goes through a correction someone else approves
 create policy "end own running entry" on app.time_entries for update to zeit_app
   using (employee_id = (select app.employee_id()))
   with check (employee_id = (select app.employee_id()) and voided_at is null);

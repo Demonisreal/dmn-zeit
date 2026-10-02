@@ -19,7 +19,6 @@ import { ProjectWeekService } from './project-week.service';
 export class ProjectWeekController {
 	constructor(private readonly weeks: ProjectWeekService) {}
 
-	// any day picks its week, the answer names the monday in from
 	@Get('employees/:id/project-week')
 	week(
 		@CurrentSession() session: AuthSession,

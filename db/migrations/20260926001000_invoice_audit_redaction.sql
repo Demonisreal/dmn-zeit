@@ -1,7 +1,4 @@
 -- migrate:up
--- security review of 10d, P-01/P-03/P-05 (finding B5): audit.track() copied every column, so
--- seller/buyer (address, tax ids, iban, bic) landed in the append-only trail on every issue, and a
--- billing profile update logged the old and new iban/bic in the clear.
 create or replace function audit.track()
 returns trigger
 language plpgsql
@@ -9,7 +6,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns are never worth a trail entry, invoices and their PDF also drop a blob
   skipped constant text[] := case tg_table_name
     when 'invoices' then array['updated_at', 'last_login_at', 'seller', 'buyer']
     when 'invoice_documents' then array['updated_at', 'last_login_at', 'content']
@@ -28,7 +24,6 @@ begin
     new_row := to_jsonb(new) - skipped;
   end if;
 
-  -- a payment routing change stays in the trail, but only the last four digits of it (P-01/P-05)
   if tg_table_name = 'billing_profiles' then
     old_row := old_row || jsonb_strip_nulls(
       jsonb_build_object('iban', right(old_row ->> 'iban', 4), 'bic', right(old_row ->> 'bic', 4))
@@ -41,17 +36,14 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
   if exists (
     select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
   )
-    -- a row moved in from another tenant is no seed, whatever sandbox it lands in
     and (tg_op <> 'UPDATE' or old_row ->> 'tenant_id' is not distinct from new_row ->> 'tenant_id')
   then
     return null;
   end if;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;
@@ -86,7 +78,6 @@ begin
 end;
 $$;
 
--- P-03: "Dokument gespeichert" was the one row in the event table with no trigger behind it yet
 create trigger audit_invoice_documents
   after insert on app.invoice_documents
   for each row execute function audit.track();
@@ -101,7 +92,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -118,17 +108,14 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
   if exists (
     select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
   )
-    -- a row moved in from another tenant is no seed, whatever sandbox it lands in
     and (tg_op <> 'UPDATE' or old_row ->> 'tenant_id' is not distinct from new_row ->> 'tenant_id')
   then
     return null;
   end if;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;

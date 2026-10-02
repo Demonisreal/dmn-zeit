@@ -2,7 +2,6 @@ import { CanActivate, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Config } from '../config';
 
-// sandboxes and personas only exist on the demo instance, elsewhere the routes do not either
 @Injectable()
 export class InDemoGuard implements CanActivate {
 	private readonly demo: boolean;

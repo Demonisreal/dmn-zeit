@@ -1,5 +1,4 @@
 -- migrate:up
--- cut rather than hmac: the network still points at abuse, a hash over 2^32 ipv4 addresses is quickly reversed
 create function audit.ip_network(p_ip inet)
 returns inet
 language sql
@@ -15,7 +14,6 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- the one update allowed: the address cut down to its network, everything else untouched
   if to_jsonb(new) - 'ip' = to_jsonb(old) - 'ip' and new.ip = audit.ip_network(old.ip) then
     return new;
   end if;
@@ -23,7 +21,6 @@ begin
 end;
 $$;
 
--- app.reject_change keeps the deletes, the sandbox purge still goes through it
 drop trigger log_append_only on audit.log;
 create trigger log_append_only
   before delete on audit.log
@@ -32,11 +29,9 @@ create trigger log_guard_update
   before update on audit.log
   for each row execute function audit.guard_log();
 
--- only rows still carrying a full address, so the hourly run stays small once it has caught up
 create index log_ip_uncut_idx on audit.log (occurred_at)
   where ip <> audit.ip_network(ip);
 
--- the cleanup job (apps/api/src/jobs/cleanup.job.ts) calls this hourly next to auth.purge_expired
 create function ops.audit_ip_retention()
 returns integer
 language plpgsql
@@ -46,7 +41,6 @@ as $$
 declare
   cut integer;
 begin
-  -- a second container running the job at the same time just skips
   if not pg_try_advisory_xact_lock(hashtext('zeit:audit-ip-retention')) then
     return 0;
   end if;

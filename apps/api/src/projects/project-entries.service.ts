@@ -42,7 +42,6 @@ export class ProjectEntriesService {
 		});
 	}
 
-	// only hr books for someone else, rls allows nothing else, and the reason goes into the trail
 	create(
 		session: AuthSession,
 		input: CreateProjectEntryInput,
@@ -56,7 +55,6 @@ export class ProjectEntriesService {
 			if (!hasRole(session.role, 'hr')) {
 				throw new ForbiddenException('Only hr books time for someone else');
 			}
-			// someone from another tenant would otherwise only trip the foreign key, as a bare 409
 			if (!(await this.store.hasEmployee(trx, other.employeeId))) {
 				throw new NotFoundException('Employee not found');
 			}
@@ -66,7 +64,6 @@ export class ProjectEntriesService {
 		});
 	}
 
-	// leads read their team's entries but may not change them, rls then updates nothing
 	update(session: AuthSession, id: string, input: UpdateProjectEntryInput): Promise<ProjectEntry> {
 		return this.db.withTenant(session, async (trx) => {
 			const entry = await this.store.entry(trx, id);

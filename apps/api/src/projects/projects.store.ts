@@ -31,7 +31,6 @@ export type RateFilter = {
 	employee?: string | undefined;
 };
 
-// the check constraints hold both increment columns to the list of the schema
 function toClient(row: Selectable<AppClients>): Client {
 	return {
 		id: row.id,
@@ -192,7 +191,6 @@ export class ProjectsStore {
 		return row && toClient(row);
 	}
 
-	// 10d: an open draft still names this client, archiving now would confuse its buyer snapshot
 	async hasOpenDraft(trx: Trx, id: string): Promise<boolean> {
 		const row = await trx
 			.selectFrom('app.invoices')
@@ -203,7 +201,6 @@ export class ProjectsStore {
 		return row !== undefined;
 	}
 
-	// archiving twice keeps the first date
 	async archiveClient(trx: Trx, id: string): Promise<Client | undefined> {
 		const row = await trx
 			.updateTable('app.clients')
@@ -214,7 +211,6 @@ export class ProjectsStore {
 		return row && toClient(row);
 	}
 
-	// projects and rates keep a client in the books, it is only locked away then
 	async removeClient(trx: Trx, id: string): Promise<'deleted' | 'restricted' | undefined> {
 		const { numDeletedRows } = await trx
 			.deleteFrom('app.clients as c')
@@ -244,7 +240,6 @@ export class ProjectsStore {
 			.executeTakeFirst();
 		if (restricted.numUpdatedRows === 0n) return undefined;
 
-		// art. 18 gdpr: nobody books on a locked client any more, bookable_projects would show its name
 		await trx
 			.updateTable('app.projects')
 			.set({ archived_at: sql<string>`coalesce(archived_at, now())` })
@@ -304,7 +299,6 @@ export class ProjectsStore {
 			.execute();
 	}
 
-	// a second replacement running at the same time would otherwise mix both lists
 	lockProject(trx: Trx, id: string): Promise<{ clientId: string } | undefined> {
 		return trx
 			.selectFrom('app.projects')
@@ -426,7 +420,6 @@ export class ProjectsStore {
 		};
 	}
 
-	// archived projects included, app.projects itself is closed below hr
 	async labels(
 		trx: Trx,
 		projectIds: readonly string[]
@@ -440,7 +433,6 @@ export class ProjectsStore {
 		);
 	}
 
-	// the rounding of the client is left out, below hr only the project override is known
 	async bookable(trx: Trx): Promise<BookableRow[]> {
 		const { rows } = await sql<{
 			id: string;
@@ -462,7 +454,6 @@ export class ProjectsStore {
 		}));
 	}
 
-	// no row for a project of another tenant or an account without a personnel record
 	async budgetStatus(
 		trx: Trx,
 		projectId: string
@@ -487,7 +478,6 @@ export class ProjectsStore {
 		return rows.map(toRate);
 	}
 
-	// tenant and personal rates hang on no client and apply everywhere
 	async ratesFor(trx: Trx, clientIds: readonly string[]): Promise<Rate[]> {
 		const rows = await trx
 			.selectFrom('app.rates')
@@ -519,7 +509,6 @@ export class ProjectsStore {
 		return toRate(row);
 	}
 
-	// same day boundary as the policy "hr removes future rates"
 	rateStart(trx: Trx, id: string): Promise<{ future: boolean } | undefined> {
 		return trx
 			.selectFrom('app.rates')

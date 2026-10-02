@@ -13,25 +13,22 @@ const MM = 72 / 25.4;
 const mm = (value: number) => value * MM;
 
 const PAGE_WIDTH_MM = 210;
-const LEFT_MM = 25; // Fluchtlinie, DIN 5008/676 (Wikipedia "DIN 5008": Zeilen beginnen 2,5 cm vom linken Rand)
+const LEFT_MM = 25;
 const RIGHT_MM = 20;
 const CONTENT_WIDTH_MM = PAGE_WIDTH_MM - LEFT_MM - RIGHT_MM;
 
-// Form B (tiefgestelltes Anschriftfeld), Wikipedia "DIN 5008" und "DIN 676":
-// Rücksendeangabe 45 mm, Anschriftfeld ab 50 mm, Feldhöhe 45 mm (Fassung 2020, vorher 40 mm)
 const RETURN_ADDRESS_TOP_MM = 45;
 const ADDRESS_TOP_MM = 50;
 const ADDRESS_HEIGHT_MM = 45;
 const ADDRESS_WIDTH_MM = 85;
 
-const INFO_BLOCK_LEFT_MM = 125; // Spaltengrenze aus DIN 5008 (Wikipedia nennt sie für die Anlagenzeile)
+const INFO_BLOCK_LEFT_MM = 125;
 const INFO_BLOCK_TOP_MM = ADDRESS_TOP_MM;
 const INFO_BLOCK_WIDTH_MM = PAGE_WIDTH_MM - RIGHT_MM - INFO_BLOCK_LEFT_MM;
 
-const BODY_TOP_MM = 100; // knapp unter dem Anschriftfeld, keine Normvorgabe für Rechnungen
+const BODY_TOP_MM = 100;
 const FOLLOW_PAGE_TOP_MM = 25;
 
-// vom Auftrag vorgegeben: Falzmarken 105/210 mm, Lochmarke 148,5 mm (auch in "DIN 676" bestätigt)
 const FOLD_MARK_1_MM = 105;
 const FOLD_MARK_2_MM = 210;
 const PUNCH_MARK_MM = 148.5;
@@ -78,7 +75,6 @@ function drawSpecimenWatermark(doc: PDFKit.PDFDocument, locale: Locale, offsetMm
 	drawWatermark(doc, LABELS[locale].specimenWatermark, offsetMm + 4.5, 18);
 }
 
-// draft beats specimen in urgency, but a sandbox draft is both at once
 function drawWatermarks(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
 	if (invoice.status === 'draft' && invoice.specimen) {
 		drawWatermark(doc, labels.draftWatermark, -18);
@@ -139,7 +135,6 @@ function drawInfoBlock(doc: PDFKit.PDFDocument, invoice: Invoice, labels: Return
 	if (buyer.buyerReference) {
 		rows.push([isLeitwegId(buyer) ? labels.leitwegId : labels.buyerReference, buyer.buyerReference]);
 	}
-	// § 14a UStG: both parties' USt-IdNr. must appear on a reverse-charge invoice
 	if (buyer.vatId) rows.push([labels.buyerVatId, buyer.vatId]);
 	rows.push([
 		labels.servicePeriod,
@@ -191,7 +186,6 @@ function drawIntro(doc: PDFKit.PDFDocument, invoice: Invoice): void {
 	doc.moveDown();
 }
 
-// § 33 UStDV: bis 250 € brutto ohne Reverse Charge und ohne innergemeinschaftliche Lieferung
 function isSmallAmount(invoice: Invoice): boolean {
 	return isSmallAmountInvoice(BigInt(invoice.totals.grossCents), treatmentOf(invoice));
 }
@@ -351,16 +345,12 @@ function drawFooter(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnTyp
 				].filter(Boolean)
 			: [];
 
-	// an explicit height keeps this inside the reserved band instead of tripping pdfkit's own
-	// overflow check, which would otherwise start a new page right here every time
 	const footerHeight = mm(FOOTER_HEIGHT_MM);
 	doc.text(left.join('\n'), mm(LEFT_MM), y, { width: mm(50), height: footerHeight, lineGap: 1 });
 	doc.text(middle.join('\n'), mm(LEFT_MM) + mm(58), y, { width: mm(50), height: footerHeight, lineGap: 1 });
 	doc.text(right.join('\n'), mm(LEFT_MM) + mm(115), y, { width: mm(50), height: footerHeight, lineGap: 1 });
 }
 
-// footer, watermark and page number go on every page, drawn last so the flowing content never
-// has to know how many pages it ended up on
 function decoratePages(
 	doc: PDFKit.PDFDocument,
 	invoice: Invoice,
@@ -404,7 +394,6 @@ export function limitPages(doc: PDFKit.PDFDocument): void {
 }
 
 function applyMetadata(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
-	// I-07: no email, no uuid, only the values the customer already sees on the page itself
 	const number = invoice.number ?? '—';
 	doc.info.Title = invoice.specimen ? `${labels.specimenWatermark.split('–')[0]!.trim()} ${number}` : `${titleFor(invoice, labels)} ${number}`;
 	doc.info.Author = invoice.seller.legalName;
@@ -417,7 +406,6 @@ export async function buildInvoicePdf(invoice: Invoice): Promise<Buffer> {
 	const labels = labelsFor(invoice.locale);
 	const doc = new PDFDocument({
 		size: 'A4',
-		// bottom margin reserves the footer band, so a long position table never runs into it
 		margins: {
 			top: mm(FOLLOW_PAGE_TOP_MM),
 			bottom: mm(BOTTOM_MM + FOOTER_HEIGHT_MM),
@@ -442,7 +430,6 @@ export async function buildInvoicePdf(invoice: Invoice): Promise<Buffer> {
 	drawIntro(doc, invoice);
 
 	drawPositionsTable(doc, invoice, labels);
-	// § 33 UStDV verlangt Entgelt und Steuerbetrag in einer Summe mit Steuersatz auch bei Kleinbetragsrechnungen
 	drawTotals(doc, invoice, labels);
 	drawLegalNotes(doc, invoice);
 	drawClosing(doc, invoice);

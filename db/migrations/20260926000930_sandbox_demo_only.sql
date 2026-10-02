@@ -1,5 +1,4 @@
 -- migrate:up
--- the api sets app.demo_mode per connection, 'true' under APP_MODE=demo and 'false' otherwise
 create function ops.demo_only()
 returns void
 language plpgsql
@@ -12,7 +11,6 @@ begin
 end;
 $$;
 
--- sandbox_seed and sandbox_seed_company start with sandbox_create, so these two guard all four
 create or replace function ops.sandbox_create(
   p_id uuid,
   p_name text,
@@ -38,7 +36,6 @@ as $$
   returning id;
 $$;
 
--- body copied from 20260926000120, a change there has to be repeated here
 create or replace function ops.sandbox_seed_book(p_tenant uuid, p_book jsonb)
 returns void
 language plpgsql
@@ -78,7 +75,6 @@ begin
       as x (id uuid, "clientId" uuid, "projectId" uuid, "taskId" uuid, "employeeId" uuid,
             "validFrom" date, "rateCents" bigint);
 
-  -- guard_project_entry asks everyone below hr for a released project, the seed books for all of them
   perform set_config('app.role', 'admin', true);
   insert into app.project_entries (
     id, tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source
@@ -133,7 +129,6 @@ begin
       as x (id uuid, "clientId" uuid, "projectId" uuid, "taskId" uuid, "employeeId" uuid,
             "validFrom" date, "rateCents" bigint);
 
-  -- guard_project_entry asks everyone below hr for a released project, the seed books for all of them
   perform set_config('app.role', 'admin', true);
   insert into app.project_entries (
     id, tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source

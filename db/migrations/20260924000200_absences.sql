@@ -23,7 +23,6 @@ create table app.absence_requests (
   decided_by uuid,
   decided_at timestamptz,
   decision_note text,
-  -- § 9 BUrlG: vacation days come back only once hr has seen the certificate
   certificate_confirmed_at timestamptz,
   certificate_confirmed_by uuid,
   created_at timestamptz not null default now(),
@@ -36,7 +35,6 @@ create table app.absence_requests (
   foreign key (tenant_id, certificate_confirmed_by) references app.users (tenant_id, id),
   check (end_date >= start_date),
   check (start_date < end_date or not (half_day_start and half_day_end)),
-  -- sick notes need no approval
   check (status not in ('approved', 'rejected') or decided_by is not null or type = 'sick'),
   check ((decided_by is null) = (decided_at is null)),
   check (certificate_confirmed_at is null or type = 'sick'),
@@ -60,7 +58,6 @@ create table app.absence_days (
   target_minutes smallint not null check (target_minutes between 0 and 600),
   vacation_days numeric(4,2) not null default 0 check (vacation_days >= 0),
   superseded_at timestamptz,
-  -- the request that took the day over, e.g. a sick note during vacation; null on a cancellation
   superseded_by uuid,
   created_at timestamptz not null default now(),
   unique (tenant_id, id),
@@ -107,7 +104,6 @@ create table app.vacation_ledger (
   absence_id uuid,
   notice_id uuid,
   reason text check (btrim(reason) <> ''),
-  -- jobs run again after a crash, the key keeps them from booking the same entitlement twice
   dedupe_key text,
   created_by uuid,
   created_at timestamptz not null default now(),
@@ -128,7 +124,6 @@ create table app.vacation_ledger (
     else true
   end),
   check (entry_type not in ('taken', 'refund_sick', 'refund_cancel') or absence_id is not null),
-  -- leave only expires once the person was told about it
   check (entry_type <> 'expiry' or notice_id is not null),
   check (entry_type not in ('adjustment', 'manual') or reason is not null)
 );
@@ -143,7 +138,6 @@ create trigger absence_requests_set_updated_at
   before update on app.absence_requests
   for each row execute function app.set_updated_at();
 
--- a confirmed certificate on a closed month is fine, a changed status is not
 create trigger absence_requests_period_lock
   after insert or update of status on app.absence_requests
   for each row execute function app.enforce_period_lock('start_date');

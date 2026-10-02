@@ -1,9 +1,7 @@
 -- migrate:up
--- the company story stays where it was, ops.sandbox_seed now wraps it and adds projects and the solo workspace
 alter function ops.sandbox_seed(jsonb, text) rename to sandbox_seed_company;
 revoke all on function ops.sandbox_seed_company(jsonb, text) from zeit_app;
 
--- clients, projects, rates and project time of one workspace, the ProjectBook of @zeit/demo-data
 create function ops.sandbox_seed_book(p_tenant uuid, p_book jsonb)
 returns void
 language plpgsql
@@ -41,7 +39,6 @@ begin
       as x (id uuid, "clientId" uuid, "projectId" uuid, "taskId" uuid, "employeeId" uuid,
             "validFrom" date, "rateCents" bigint);
 
-  -- guard_project_entry asks everyone below hr for a released project, the seed books for all of them
   perform set_config('app.role', 'admin', true);
   insert into app.project_entries (
     id, tenant_id, employee_id, project_id, task_id, started_at, ended_at, note, source
@@ -63,13 +60,11 @@ as $$
 declare
   tenant constant uuid := (p_plan -> 'tenant' ->> 'id')::uuid;
   solo constant uuid := (p_plan -> 'solo' -> 'tenant' ->> 'id')::uuid;
-  -- never taken from the plan, nobody gets a tenant into the group of another visitor
   pair constant uuid := gen_random_uuid();
 begin
   perform ops.sandbox_seed_company(p_plan, p_locale);
   update app.tenants t set sandbox_group = pair where t.id = tenant;
 
-  -- expires with the company, the purge takes both on the same run
   insert into app.tenants (id, name, slug, state, workspace, kind, expires_at, sandbox_group)
   select solo, p_plan -> 'solo' -> 'tenant' ->> 'name', p_plan -> 'solo' -> 'tenant' ->> 'slug',
          (p_plan -> 'solo' -> 'tenant' ->> 'state')::app.federal_state, 'solo', 'sandbox', t.expires_at, pair
@@ -91,7 +86,6 @@ begin
 end;
 $$;
 
--- the company and the solo workspace of one visitor are one sandbox for the switch
 create or replace function ops.demo_switch_persona(
   p_session_token_hash bytea,
   p_target_user_id uuid,
@@ -103,7 +97,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- null when the session is gone, the tenant is no live sandbox or the target lives outside its group
   with old as (
     delete from auth.sessions s
      using app.users u, app.tenants t, app.users target, app.tenants tt
@@ -131,7 +124,6 @@ as $$
   returning id;
 $$;
 
--- everyone ops.demo_switch_persona would switch to, zeit_app only sees its own tenant
 create function ops.demo_personas()
 returns table (
   user_id uuid,
@@ -203,7 +195,6 @@ create trigger rates_sandbox_quota
   for each statement when (current_user <> 'zeit_owner')
   execute function app.sandbox_quota(200);
 
--- the seed of 31 july books about 14000 of them
 create trigger project_entries_sandbox_quota
   after insert on app.project_entries referencing new table as added
   for each statement when (current_user <> 'zeit_owner')
@@ -230,7 +221,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- null when the session is gone, the tenant is no live sandbox or the target lives elsewhere
   with old as (
     delete from auth.sessions s
      using app.users u, app.tenants t, app.users target

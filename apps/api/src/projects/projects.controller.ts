@@ -113,7 +113,6 @@ export class ProjectsController {
 		await this.projects.removeClient(session, clientId);
 	}
 
-	// ahead of projects/:id, the uuid pipe would answer these two with 400
 	@Get('projects/bookable')
 	@Roles('employee')
 	bookable(@CurrentSession() session: AuthSession): Promise<BookableProject[]> {

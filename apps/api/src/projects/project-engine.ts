@@ -28,7 +28,6 @@ import { Temporal } from 'temporal-polyfill';
 import { TIME_ZONE } from '../time/day-engine';
 import type { DateRange, EntryRow, Sheet } from '../time/time.store';
 
-// the tenant rounding profile comes with the billing profile in 10d, until then minutes stay as booked
 export const TENANT_ROUNDING: RoundingRule = { incrementMinutes: 1, mode: 'nearest' };
 
 export const NO_OVERRIDE: RoundingOverride = { incrementMinutes: null, mode: null };
@@ -80,7 +79,6 @@ export const weekOf = (monday: string): DateRange => ({
 const ruleOf = (project: ProjectMeta) =>
 	roundingFor(TENANT_ROUNDING, project.client, project.project).rule;
 
-// exported for 10d, which prices unbilled time and drafts the same way outside a project week
 export function toBillingRate(rate: Rate): BillingRate {
 	return {
 		id: rate.id,
@@ -93,7 +91,6 @@ export function toBillingRate(rate: Rate): BillingRate {
 	};
 }
 
-// a running entry counts up to now, the way summarizeWorkday closes it
 function billed(
 	rows: readonly ProjectEntry[],
 	catalog: Catalog,
@@ -116,7 +113,6 @@ function billed(
 	});
 }
 
-// the budget counts what the client pays for: rounded minutes of billable cells
 export function budgetOf(
 	project: ProjectMeta,
 	rows: readonly ProjectEntry[],
@@ -140,7 +136,6 @@ export function budgetOf(
 	};
 }
 
-// app.project_budget_status sums finished entries only, the running one counts up to now
 export function runningBudget(
 	finished: { budgetMinutes: number; usedMinutes: number },
 	running: ProjectEntry,
@@ -188,7 +183,6 @@ function weekCell(cell: Cell, rows: Map<string, ProjectEntry>, priced: boolean):
 				? String(roundDiv(BigInt(cell.roundedMinutes) * rate.cents, 60n))
 				: null,
 		billable: cell.billable,
-		// 10d tells a draft from an issued invoice, until then any invoice locks the cell as draft
 		lock: booked.some((entry) => entry.invoiceId !== null) ? 'draft' : 'none',
 		derivation: {
 			entries: booked.map(({ id, startedAt, endedAt }) => ({ id, startedAt, endedAt })),
@@ -214,7 +208,6 @@ export type WeekInput = {
 	monday: string;
 	rows: readonly ProjectEntry[];
 	catalog: Catalog;
-	// null for readers below hr: no rate is looked at and no amount leaves this function
 	rates: readonly Rate[] | null;
 	now: Date;
 };
@@ -251,7 +244,6 @@ export function projectWeek(input: WeekInput): Omit<ProjectWeek, 'coverage'> {
 	const weekRows = [...grouped.values()]
 		.map((row) => ({
 			...row,
-			// billable and non-billable time of one day are two cells, the sort keeps them together
 			cells: row.cells.toSorted(
 				(a, b) => a.date.localeCompare(b.date) || Number(b.billable) - Number(a.billable)
 			),

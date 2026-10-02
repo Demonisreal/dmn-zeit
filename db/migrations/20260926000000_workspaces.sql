@@ -1,10 +1,8 @@
 -- migrate:up
 create type app.workspace_kind as enum ('company', 'solo');
 
--- no column grant for workspace or sandbox_group: a company never turns into a solo workspace or back
 alter table app.tenants
   add column workspace app.workspace_kind not null default 'company',
-  -- company and solo sandbox of one visitor, the persona switch may cross between them
   add column sandbox_group uuid,
   add constraint tenants_sandbox_group_check check (sandbox_group is null or kind = 'sandbox');
 
@@ -12,7 +10,6 @@ alter table audit.log
   drop constraint log_source_check,
   add constraint log_source_check check (source in ('trigger', 'app', 'cli'));
 
--- reads the own tenant under its rls, the policies call it as an initplan
 create function app.workspace()
 returns app.workspace_kind
 language sql
@@ -23,7 +20,6 @@ as $$
   select t.workspace from app.tenants t where t.id = app.tenant_id()
 $$;
 
--- behind the WorkspaceGuard, a job or route that skips it still gets no hr row of a solo workspace
 create policy "company workspace" on app.teams as restrictive to zeit_app
   using ((select app.workspace()) = 'company');
 create policy "company workspace" on app.team_leads as restrictive to zeit_app
@@ -81,7 +77,6 @@ as $$
        and u.status in ('active', 'demo')
        and (t.expires_at is null or t.expires_at > now())
   ), touched as (
-    -- one write per session and minute keeps the idle window close enough without a write per request
     update auth.sessions s
        set idle_expires_at = least(now() + interval '12 hours', s.absolute_expires_at),
            last_seen_at = now()
@@ -94,7 +89,6 @@ as $$
     from hit;
 $$;
 
--- tenant_create writes the rows without a context for the new tenant, so the workspace comes from the row
 create function app.guard_solo_members()
 returns trigger
 language plpgsql
@@ -106,7 +100,6 @@ begin
     return new;
   end if;
 
-  -- one key for users and employees, an invitation and a new employee would otherwise both get through
   perform pg_advisory_xact_lock(hashtextextended('solo_members ' || new.tenant_id::text, 0));
 
   if tg_table_name = 'users' then
@@ -162,7 +155,6 @@ begin
   insert into app.tenants (id, name, slug, state, workspace)
   values (p_id, p_name, p_slug, p_state, p_workspace);
 
-  -- project entries and the trail hang on employee_id, so the solo person gets a personnel record
   if p_workspace = 'solo' then
     insert into app.employees (tenant_id, personnel_no, first_name, last_name, entry_date)
     values (p_id, '1', p_first_name, p_last_name, (now() at time zone 'Europe/Berlin')::date)
@@ -191,7 +183,6 @@ as $$
    where t.expires_at is null or t.expires_at > now();
 $$;
 
--- a solo person has no second admin, the operator resets the factors and sends the mail
 create function ops.mfa_reset_operator(p_email public.citext)
 returns table (user_id uuid, tenant_id uuid, display_name text, locale text, email public.citext)
 language plpgsql
@@ -209,7 +200,6 @@ begin
     return;
   end if;
 
-  -- auth.mfa_reset wants an admin of the target's tenant who is not the target
   perform set_config('app.tenant_id', target.tenant_id::text, true),
           set_config('app.user_id', '', true),
           set_config('app.role', 'admin', true);
@@ -230,7 +220,6 @@ begin
 end;
 $$;
 
--- deleting is barred for years by the retention, so the tenant stays and only its people lose access
 create function ops.tenant_archive(p_id uuid)
 returns void
 language plpgsql
@@ -301,7 +290,6 @@ drop function ops.tenant_create(
   uuid, text, text, app.federal_state, text, text, bytea, app.workspace_kind, text, text
 );
 
--- force rls leaves zeit_owner without any row, so the cli goes through here
 create function ops.tenant_create(
   p_id uuid,
   p_name text,
@@ -374,7 +362,6 @@ as $$
        and u.status in ('active', 'demo')
        and (t.expires_at is null or t.expires_at > now())
   ), touched as (
-    -- one write per session and minute keeps the idle window close enough without a write per request
     update auth.sessions s
        set idle_expires_at = least(now() + interval '12 hours', s.absolute_expires_at),
            last_seen_at = now()
@@ -408,7 +395,6 @@ drop policy "company workspace" on app.teams;
 
 drop function app.workspace();
 
--- fails while cli entries exist, the trail is append-only and stays as it is
 alter table audit.log
   drop constraint log_source_check,
   add constraint log_source_check check (source in ('trigger', 'app'));

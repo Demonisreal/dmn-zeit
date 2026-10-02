@@ -28,7 +28,6 @@ create table app.billing_profiles (
   contact_name text,
   contact_email public.citext,
   contact_phone text,
-  -- only entered merchants (§ 37a hgb) have one, most freelancers leave both blank
   register_court text,
   register_number text,
   invoice_prefix text not null default '' check (invoice_prefix ~ '^[A-Z0-9-]{0,10}$'),
@@ -65,7 +64,6 @@ create table app.invoices (
   locale text not null default 'de' check (locale in ('de', 'en')),
   format app.invoice_format not null,
   tax_profile app.tax_profile not null,
-  -- true only for invoices issued inside a sandbox tenant, never settable from outside app.issue_invoice
   specimen boolean not null default false,
   seller jsonb,
   buyer jsonb,
@@ -83,7 +81,6 @@ create table app.invoices (
   created_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  -- eight years from the end of the year of issue (§ 257 hgb, § 147 ao), null while still a draft
   retain_until date generated always as (make_date(number_year::integer + 8, 12, 31)) stored,
   unique (tenant_id, id),
   unique (tenant_id, id, client_id),
@@ -101,7 +98,6 @@ create table app.invoices (
   check ((kind = 'invoice') = (refers_to_id is null)),
   check (service_to >= service_from),
   check (status <> 'paid' or paid_on is not null),
-  -- a cancellation is never itself cancelled (R-08), it can only sit at issued or paid
   check (kind <> 'cancellation' or status <> 'cancelled'),
   check ((cancelled_at is null) = (cancelled_by is null)),
   check (cancelled_at is null or cancel_reason is not null)
@@ -109,7 +105,6 @@ create table app.invoices (
 
 create index invoices_tenant_status_idx on app.invoices (tenant_id, status);
 
--- at most one cancellation per invoice (R-08)
 create unique index invoices_one_cancellation_idx on app.invoices (tenant_id, refers_to_id)
   where kind = 'cancellation';
 
@@ -132,7 +127,6 @@ create table app.invoice_lines (
   net_cents bigint not null,
   tax_category app.tax_category not null,
   tax_rate_bp smallint not null check (tax_rate_bp between 0 and 10000),
-  -- how the line was built: cell keys, rounding, resolved rate, exactly like rules.linesFromCells
   derivation jsonb,
   created_at timestamptz not null default now(),
   unique (tenant_id, id),
@@ -174,28 +168,22 @@ create table app.invoice_documents (
   foreign key (tenant_id, created_by) references app.users (tenant_id, id)
 );
 
--- a deleted draft frees its bookings, an issued invoice keeps them locked (R-09)
 alter table app.project_entries add constraint project_entries_invoice_fk
   foreign key (tenant_id, invoice_id) references app.invoices (tenant_id, id) on delete set null (invoice_id);
 
--- supports app.project_budget_status, which sums ended, unvoided entries per project regardless of billing
 create index project_entries_budget_idx on app.project_entries (project_id)
   where ended_at is not null and voided_at is null;
 
--- closes a gap left open in stage 10c (bedrohungsmodell-rechnungen.md, T-04): a manual or seed entry
--- could still be booked with started_at/ended_at in the future, same errcode as the timer check above it
 create or replace function app.guard_project_entry()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 declare
-  -- workday is generated and still null in a before trigger
   bookkeeping constant text[] := array['updated_at', 'workday'];
   running constant text[] := array['ended_at', 'note', 'voided_at'];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -203,7 +191,6 @@ begin
     raise exception 'project entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- the timer takes the clock of the database, never a time sent by the client
   if (tg_op = 'INSERT' and new.source = 'timer' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and old.ended_at is null
       and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -217,7 +204,6 @@ begin
     raise exception 'a project entry cannot end in the future' using errcode = 'check_violation';
   end if;
 
-  -- the release is checked on the way onto a project only, a note on an archived one stays editable
   if (tg_op = 'INSERT' or new.project_id is distinct from old.project_id)
     and (app.role() >= 'hr') is not true
     and not app.bookable(new.project_id)
@@ -263,7 +249,6 @@ parallel safe
 set search_path = ''
 as $$
 begin
-  -- half away from zero, so a cancellation rounds as the exact mirror image of its invoice
   if 2 * abs(num % den) < abs(den) then
     return num / den;
   end if;
@@ -281,25 +266,20 @@ as $$
   select app.round_div(cents * basis_points, 10000);
 $$;
 
--- plain helpers, invoker rights; only app.issue_invoice (running as zeit_system) ever calls them
 revoke all on function app.round_div(bigint, bigint), app.percent_of(bigint, integer) from public;
 grant execute on function app.round_div(bigint, bigint), app.percent_of(bigint, integer) to zeit_system;
 
--- security invoker on purpose: as definer current_user would always be zeit_system and open the purge path
 create function app.guard_invoice()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 declare
-  -- retain_until is generated from number_year, itself frozen below; postgres recomputes it only
-  -- after before-row triggers run, so it still reads stale inside this one and needs the same pass
   movable constant text[] := array[
     'status', 'paid_on', 'cancelled_at', 'cancelled_by', 'cancel_reason', 'updated_at', 'retain_until'
   ];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -337,7 +317,6 @@ begin
 end;
 $$;
 
--- covers invoice_lines and invoice_line_entries: both stay writable only while the invoice is a draft
 create function app.guard_invoice_child()
 returns trigger
 language plpgsql
@@ -351,13 +330,10 @@ begin
    where i.tenant_id = coalesce(new.tenant_id, old.tenant_id)
      and i.id = coalesce(new.invoice_id, old.invoice_id);
 
-  -- not found means the invoice is gone too, which only happens cascading from a deleted draft
   if found and target.status <> 'draft' then
     raise exception '% belongs to an issued invoice', tg_table_name using errcode = 'ZT002';
   end if;
 
-  -- a line's category has to match the invoice's tax treatment (planung-projekte.md, risk 17):
-  -- a small-business invoice never carries a taxed or reverse-charge line and vice versa
   if tg_table_name = 'invoice_lines' and tg_op <> 'DELETE' then
     if target.tax_profile = 'small_business' and new.tax_category <> 'small_business' then
       raise exception 'a small-business invoice only takes small_business lines' using errcode = 'check_violation';
@@ -373,8 +349,6 @@ begin
 end;
 $$;
 
--- definer so the existence check sees the invoice regardless of rls; a cross-tenant row still
--- fails on the table's own tenant fence right after, with the usual 42501 instead of this errcode
 create function app.guard_invoice_document()
 returns trigger
 language plpgsql
@@ -382,7 +356,6 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- never trust a checksum the caller sends along (R-07)
   new.sha256 := sha256(new.content);
   if not exists (
     select 1 from app.invoices i
@@ -394,7 +367,6 @@ begin
 end;
 $$;
 
--- a live tenant with retained invoices survives even a superuser delete, sandboxes are untouched (R-04)
 create function app.guard_tenant_retention()
 returns trigger
 language plpgsql
@@ -428,7 +400,6 @@ declare
   seq integer;
   net_total bigint;
   tax_total bigint;
-  -- named v_ to avoid "column reference is ambiguous" against invoices.seller/buyer in the update below
   v_seller jsonb;
   v_buyer jsonb;
 begin
@@ -443,7 +414,6 @@ begin
 
   select t.kind into tenant_kind from app.tenants t where t.id = app.tenant_id();
 
-  -- X-03: a sandbox demo never accumulates more issued invoices than fit a walkthrough
   if tenant_kind = 'sandbox' and (
     select count(*) from app.invoices i where i.tenant_id = app.tenant_id() and i.status <> 'draft'
   ) >= 30 then
@@ -452,7 +422,6 @@ begin
 
   select * into client from app.clients c where c.tenant_id = app.tenant_id() and c.id = draft.client_id;
 
-  -- BR-CO-17: tax per rate group from the summed, already-rounded net amounts, never per line
   select coalesce(sum(g.net_cents), 0), coalesce(sum(app.percent_of(g.net_cents::bigint, g.tax_rate_bp::integer)), 0)
     into net_total, tax_total
     from (
@@ -463,7 +432,6 @@ begin
     ) g;
 
   if tenant_kind = 'sandbox' then
-    -- x-01: an invalid vat id and iban, so neither a tax office nor a bank ever acts on this
     prefix := 'MUSTER-';
     v_seller := jsonb_build_object(
       'legalName', 'Musterbetrieb Mira Beispiel', 'street', 'Musterstraße 1', 'postalCode', '10115',
@@ -495,7 +463,6 @@ begin
     'number', client.number
   );
 
-  -- the upsert locks the counter row until commit, a rollback after this hands the number back (adr 0003)
   insert into app.invoice_counters as c (tenant_id, year, last_seq)
   values (app.tenant_id(), year_num, 1)
   on conflict (tenant_id, year) do update set last_seq = c.last_seq + 1
@@ -547,7 +514,6 @@ begin
   if not found then
     raise exception 'invoice % not found', p_invoice_id using errcode = 'ZT003';
   end if;
-  -- neither a cancellation of a cancellation nor a second one for the same invoice (R-08)
   if original.kind = 'cancellation' then
     raise exception 'a cancellation cannot itself be cancelled' using errcode = 'ZT003';
   end if;
@@ -567,7 +533,6 @@ begin
     original.tax_profile, original.intro_text, original.closing_text, app.user_id()
   ) returning id into cancellation_id;
 
-  -- negated snapshots of the original's positions (0 - x, never -x, so a zero line stays zero)
   for src in select * from app.invoice_lines where tenant_id = original.tenant_id and invoice_id = original.id
   loop
     insert into app.invoice_lines (
@@ -593,7 +558,6 @@ begin
   update app.invoices set status = 'cancelled', cancelled_at = now(), cancelled_by = app.user_id(), cancel_reason = p_reason
    where id = original.id and tenant_id = original.tenant_id;
 
-  -- the abrechnungssperre lifts, the entries can be picked up by a new draft (R-09)
   update app.project_entries set invoice_id = null
    where tenant_id = original.tenant_id and invoice_id = original.id;
 
@@ -601,7 +565,6 @@ begin
 end;
 $$;
 
--- effective rounding per project for b/tl, without exposing client names or any other client data
 create function app.project_rounding(p_ids uuid[])
 returns table (
   project_id uuid,
@@ -667,11 +630,9 @@ create trigger tenants_guard_retention
   before delete on app.tenants
   for each row execute function app.guard_tenant_retention();
 
--- the counter and cancellation both re-read a full row, not just the tenant fence
 grant select on app.invoices to zeit_system;
 grant select (tenant_id) on app.invoices to zeit_system;
 
--- the generic quota also counts issued rows, so 50 open drafts plus the 30-issued cap fit under 80
 create trigger invoices_sandbox_quota
   after insert on app.invoices referencing new table as added
   for each statement when (current_user not in ('zeit_system', 'zeit_owner'))
@@ -745,7 +706,6 @@ create policy "hr reads invoice documents" on app.invoice_documents for select t
 create policy "hr stores invoice documents" on app.invoice_documents for insert to zeit_app
   with check ((select app.role()) >= 'hr');
 
--- only hr sees the invoice-adjacent side of the trail, the rest stays with admin (P-04)
 drop policy "hr and admins read the trail" on audit.log;
 create policy "hr and admins read the trail" on audit.log for select to zeit_app
   using (
@@ -766,10 +726,8 @@ grant update (
 
 grant select on app.invoice_counters to zeit_app;
 grant insert on app.invoice_counters to zeit_system;
--- the upsert reads the whole row back through the "c" alias (do update set ... returning c.last_seq)
 grant select, update (last_seq) on app.invoice_counters to zeit_system;
 
--- only the columns a draft is built from; number, dates, snapshots and sums come from app.issue_invoice
 grant select, delete on app.invoices to zeit_app;
 grant insert (
   tenant_id, client_id, service_from, service_to, payment_terms_days, locale, format, tax_profile,
@@ -779,7 +737,6 @@ grant update (
   client_id, service_from, service_to, payment_terms_days, locale, format, tax_profile,
   intro_text, closing_text, status, paid_on, cancelled_at, cancelled_by, cancel_reason
 ) on app.invoices to zeit_app;
--- the cancellation row app.invoice_cancel inserts, never id or tenant_id
 grant insert (
   tenant_id, kind, client_id, refers_to_id, service_from, service_to, payment_terms_days, locale,
   format, tax_profile, intro_text, closing_text, created_by
@@ -789,7 +746,6 @@ grant update (
   seller, buyer, specimen, issued_at, issued_by, cancelled_at, cancelled_by, cancel_reason
 ) on app.invoices to zeit_system;
 
--- draft lines stay editable, id/tenant_id/invoice_id/client_id never move once written
 grant select, insert, delete on app.invoice_lines, app.invoice_line_entries to zeit_app;
 grant update (
   position, kind, project_id, task_id, description, service_from, service_to, minutes,
@@ -800,7 +756,6 @@ grant select, insert on app.invoice_lines, app.invoice_line_entries to zeit_syst
 grant select, insert on app.invoice_documents to zeit_app;
 
 grant select on app.clients, app.projects, app.tasks, app.billing_profiles to zeit_system;
--- app.invoice_cancel frees the bookings a cancelled invoice held (R-09)
 grant select, update (invoice_id) on app.project_entries to zeit_system;
 
 grant create on schema app to zeit_system;
@@ -846,7 +801,6 @@ create policy "hr and admins read the trail" on audit.log for select to zeit_app
 drop index app.project_entries_budget_idx;
 alter table app.project_entries drop constraint project_entries_invoice_fk;
 
--- lives on app.tenants, which this migration does not drop, so it outlives its guard function otherwise
 drop trigger tenants_guard_retention on app.tenants;
 
 drop table app.invoice_documents;

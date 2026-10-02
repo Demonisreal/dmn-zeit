@@ -1,8 +1,6 @@
 -- migrate:up
--- a function belongs to the roles it is granted to, never to everybody
 alter default privileges for role zeit_owner revoke execute on functions from public;
 revoke execute on all functions in schema app, auth, audit, ops from public;
--- the policies run as zeit_app, audit.track and app.leads as zeit_system
 grant execute on function app.tenant_id(), app.user_id(), app.employee_id(), app.role()
   to zeit_app, zeit_system;
 
@@ -29,7 +27,6 @@ as $$
   select u.id, u.tenant_id, u.role, u.status, c.password_hash, coalesce(c.failed_count, 0), c.locked_until
     from app.users u
     left join auth.credentials c on c.user_id = u.id
-   -- search_path is empty, so the citext operator has to be named or = compares case-sensitively
    where u.email operator(public.=) p_email::public.citext
      and u.status = 'active';
 $$;
@@ -40,7 +37,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4 ... 64 minutes
   update auth.credentials c
      set failed_count = s.misses,
          last_failed_at = now(),
@@ -78,7 +74,6 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- a lock holds for passkeys too, and signing in does not lift it
   if exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now()) then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
@@ -107,7 +102,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- the open token of the same kind is overwritten, so only the newest link works
   insert into auth.tokens as t (user_id, kind, token_hash, expires_at)
   values (
     p_user_id, p_kind, p_token_hash,
@@ -185,7 +179,6 @@ begin
   end if;
 
   perform auth.password_set(account, p_password_hash);
-  -- this device included, the api opens a fresh session right after
   delete from auth.sessions s where s.user_id = account;
 end;
 $$;
@@ -205,7 +198,6 @@ as $$
 declare
   own constant text[] := array['display_name', 'locale', 'updated_at', 'last_login_at'];
 begin
-  -- on their own row people rename themselves or switch the language, admins included
   if new.id = app.user_id() and to_jsonb(new) - own <> to_jsonb(old) - own then
     raise exception 'only display name and locale can be changed on one''s own user'
       using errcode = 'insufficient_privilege';
@@ -265,7 +257,6 @@ begin
     raise exception 'team % is not visible', p_team_id using errcode = 'insufficient_privilege';
   end if;
 
-  -- colleagues learn that someone is away, not why
   return query
     select e.id, e.first_name || ' ' || e.last_name, d.date, d.portion,
            case when full_view then r.type::text end,
@@ -344,7 +335,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- the open token of the same kind is overwritten, so only the newest link works
   insert into auth.tokens as t (user_id, kind, token_hash, expires_at)
   values (p_user_id, p_kind, p_token_hash, now() + p_ttl)
   on conflict (user_id, kind) where used_at is null do update
@@ -401,7 +391,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- from the fifth miss in a row the account locks for 1, 2, 4 ... 64 minutes
   update auth.credentials c
      set failed_count = c.failed_count + 1,
          locked_until = case
@@ -429,7 +418,6 @@ as $$
   select u.id, u.tenant_id, u.role, u.status, c.password_hash, coalesce(c.failed_count, 0), c.locked_until
     from app.users u
     left join auth.credentials c on c.user_id = u.id
-   -- search_path is empty, so the citext operator has to be named or = compares case-sensitively
    where u.email operator(public.=) p_email::public.citext
      and u.status in ('active', 'invited');
 $$;

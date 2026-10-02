@@ -39,7 +39,6 @@ export class ProjectEntriesController {
 		return this.entries.page(session, employeeId, query);
 	}
 
-	// an employeeId in the body makes it a booking for someone else, which wants a reason
 	@Post('project-entries')
 	create(
 		@CurrentSession() session: AuthSession,

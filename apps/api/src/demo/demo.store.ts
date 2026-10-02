@@ -10,7 +10,6 @@ export type Attempt = { window: 'hour' | 'day'; hits: number; retryAfter: number
 export class DemoStore {
 	constructor(private readonly db: Database) {}
 
-	// zeit_app only sees its own tenant, the definer function counts all of them; a visitor's solo sandbox rides along
 	async activeSandboxes(): Promise<number> {
 		const { rows } = await sql<{ count: number }>`
 			select count(*)::int as count from ops.active_tenants()
@@ -18,7 +17,6 @@ export class DemoStore {
 		return rows[0]!.count;
 	}
 
-	// fixed windows opened by the first attempt, the day window ends at midnight with the address salt
 	async countAttempt(address: string): Promise<Attempt[]> {
 		const { rows } = await sql<Attempt>`
 			insert into ops.rate_limits as r (key, hits, expires_at)
@@ -33,12 +31,10 @@ export class DemoStore {
 		return rows;
 	}
 
-	// one statement is its own transaction, a seed failing halfway leaves no sandbox behind
 	async write(plan: DemoPlan, locale: Locale): Promise<void> {
 		await sql`select ops.sandbox_seed(${JSON.stringify(plan)}::jsonb, ${locale})`.execute(this.db);
 	}
 
-	// the company and the solo workspace of the visitor, the definer function looks past the tenant fence
 	async personas(trx: Trx, userId: string): Promise<Persona[]> {
 		const { rows } = await sql<{
 			user_id: string;
@@ -62,7 +58,6 @@ export class DemoStore {
 		}));
 	}
 
-	// false when the session is gone, the sandbox expired or the person belongs to another one
 	async switchPersona(
 		sessionHash: Buffer,
 		userId: string,

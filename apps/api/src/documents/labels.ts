@@ -1,7 +1,5 @@
 import type { InvoiceLineUnit, Locale, TaxCategory } from '@zeit/shared';
 
-// print-layout chrome only: invoice wording itself (intro/closing/legal notes) comes
-// already resolved per locale from invoices/texts.ts on the Invoice object
 export const LABELS = {
 	de: {
 		invoice: 'Rechnung',

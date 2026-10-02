@@ -1,5 +1,4 @@
 -- migrate:up
--- invitation_accept only takes invited people, so the way back in is a password_reset token and auth.password_reset
 create or replace function auth.mfa_reset(p_user_id uuid)
 returns void
 language plpgsql
@@ -21,7 +20,6 @@ begin
   delete from auth.mfa_challenges m where m.user_id = p_user_id;
   delete from auth.webauthn_challenges w where w.user_id = p_user_id;
   delete from auth.sessions s where s.user_id = p_user_id;
-  -- the old password alone must not lead to a fresh second factor, a new one needs the mailbox
   delete from auth.credentials c where c.user_id = p_user_id;
 end;
 $$;

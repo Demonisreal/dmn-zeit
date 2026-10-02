@@ -15,11 +15,9 @@ import { networkOf } from './address';
 import { DemoStore, type Attempt } from './demo.store';
 
 export const MAX_SANDBOXES = 300;
-// the purge job runs every quarter hour, that is when a slot can free up next
 const PURGE_SECONDS = 15 * 60;
 const LIMITS: Record<Attempt['window'], number> = { hour: 3, day: 10 };
 
-// the web reads the wait from the body, everyone else from the header
 function refuse(
 	response: Response,
 	status: HttpStatus,
@@ -33,27 +31,23 @@ function refuse(
 
 const freshPlan = (today: Temporal.PlainDate) => generateDemo({ today, seed: randomInt(2 ** 32) });
 
-// the story has the employee persona clocked in since about eight, the demo opens as that person
 function shiftOf(plan: DemoPlan, today: Temporal.PlainDate): PlanRow<'entries'> {
 	return plan.entries.find(
 		(entry) => entry.endedAt === null && entry.startedAt.startsWith(today.toString())
 	)!;
 }
 
-// the story clocks in at ten past eight, an earlier visitor finds the persona arrived minutes ago
 function clockInBefore(shift: { startedAt: string }, today: Temporal.PlainDate, now: Date) {
 	const instant = Temporal.Instant.fromEpochMilliseconds(now.getTime());
 	if (Temporal.Instant.compare(Temporal.Instant.from(shift.startedAt), instant) <= 0) return;
 
 	const start = instant.subtract({ seconds: randomInt(5 * 60, 15 * 60) });
-	// not back into yesterday, the shift would then count for yesterday's workday
 	const midnight = today.toZonedDateTime('Europe/Berlin').toInstant();
 	shift.startedAt = (Temporal.Instant.compare(start, midnight) < 0 ? midnight : start)
 		.toZonedDateTimeISO('Europe/Berlin')
 		.toString({ timeZoneName: 'never', smallestUnit: 'second' });
 }
 
-// a timer ahead of the visitor could never be stopped, the persona's goes back to her clock-in
 function timersBefore(
 	plan: DemoPlan,
 	shift: PlanRow<'entries'>,
@@ -83,7 +77,6 @@ export class DemoService {
 	) {}
 
 	async create(input: CreateSandboxInput, client: Client, response: Response): Promise<Session> {
-		// checked first, a full demo should not cost the visitor one of their tries
 		if ((await this.store.activeSandboxes()) >= MAX_SANDBOXES) {
 			throw refuse(
 				response,
@@ -110,13 +103,11 @@ export class DemoService {
 
 		const plan = this.planFor(today);
 		const shift = shiftOf(plan, today);
-		// a prepared plan can be hours old, what still lies ahead depends on the request
 		clockInBefore(shift, today, now);
 		timersBefore(plan, shift, today, now);
 		await this.store.write(plan, input.locale);
 		const starter = plan.users.find((user) => user.employeeId === shift.employeeId)!;
 		const session = await this.sessions.open(response, starter.id, client);
-		// runs once the answer is out, the next visitor then only waits for the database
 		setImmediate(() => this.prepare(today));
 		return session;
 	}
@@ -137,7 +128,6 @@ export class DemoService {
 		if (!switched) throw new NotFoundException('No persona with this id in the sandbox');
 
 		this.sessions.setCookie(response, token);
-		// resolve() and current() read the token from the request, from here on it is the new one
 		request.cookies[name] = token;
 		const session = await this.sessions.resolve(request);
 		return this.sessions.current(session!, request);
@@ -147,14 +137,12 @@ export class DemoService {
 		return this.db.withTenant(session, (trx) => this.store.outbox(trx));
 	}
 
-	// every plan is used once, a failed write takes its plan along
 	private planFor(today: Temporal.PlainDate): DemoPlan {
 		const ready = this.prepared?.day === today.toString() ? this.prepared.plan : undefined;
 		this.prepared = undefined;
 		return ready ?? freshPlan(today);
 	}
 
-	// runs outside any request, an exception here would take the whole process down
 	private prepare(today: Temporal.PlainDate) {
 		if (this.prepared?.day === today.toString()) return;
 		try {
@@ -164,7 +152,6 @@ export class DemoService {
 		}
 	}
 
-	// the salt only lives in memory and for one day, after that no stored hash leads back to an address
 	private addressKey(ip: string | null, day: string): string {
 		if (this.salt.day !== day) this.salt = { day, secret: randomBytes(32) };
 		return createHmac('sha256', this.salt.secret)

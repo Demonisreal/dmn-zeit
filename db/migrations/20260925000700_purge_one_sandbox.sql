@@ -15,7 +15,6 @@ as $$
    limit p_limit;
 $$;
 
--- one sandbox per call: a full one can take most of the statement timeout, and a failure only rolls back itself
 create function ops.purge_sandbox(p_id uuid)
 returns boolean
 language plpgsql
@@ -25,7 +24,6 @@ as $$
 declare
   purged boolean;
 begin
-  -- lifts app.reject_change for this tenant only, the journals and the trail go with it
   perform set_config('zeit.purge_tenant', p_id::text, true);
   delete from app.tenants t where t.id = p_id and t.kind = 'sandbox' and t.expires_at <= now();
   purged := found;
@@ -60,7 +58,6 @@ declare
   sandbox uuid;
   purged integer := 0;
 begin
-  -- one sandbox takes about 0.4 s, ten stay inside the 15 s statement_timeout; the job repeats while it gets ten
   for sandbox in
     select t.id
       from app.tenants t
@@ -68,7 +65,6 @@ begin
      order by t.expires_at
      limit 10
   loop
-    -- lifts app.reject_change for this tenant only, the journals and the trail go with it
     perform set_config('zeit.purge_tenant', sandbox::text, true);
     delete from app.tenants t where t.id = sandbox;
     delete from audit.log l where l.tenant_id = sandbox;

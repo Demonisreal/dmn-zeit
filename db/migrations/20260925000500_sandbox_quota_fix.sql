@@ -6,7 +6,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -23,17 +22,14 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
   if exists (
     select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
   )
-    -- a row moved in from another tenant is no seed, whatever sandbox it lands in
     and (tg_op <> 'UPDATE' or old_row ->> 'tenant_id' is not distinct from new_row ->> 'tenant_id')
   then
     return null;
   end if;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;
@@ -68,7 +64,6 @@ begin
 end;
 $$;
 
--- the seed counts as well, zeit_app reaches it with any plan; its 31 july peak stays well below each cap
 create or replace trigger time_entries_sandbox_quota
   after insert on app.time_entries referencing new table as added
   for each statement when (current_user <> 'zeit_owner')
@@ -197,7 +192,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -214,14 +208,12 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
   if exists (
     select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
   ) then
     return null;
   end if;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;

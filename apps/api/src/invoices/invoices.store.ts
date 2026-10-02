@@ -25,7 +25,6 @@ function userRef(id: string | null, name: string | null) {
 	return id === null ? null : { id, displayName: name! };
 }
 
-// the columns buildTimeLines needs, shared by "not yet on any invoice" and "already on this one"
 function entryRowQuery(trx: Trx) {
 	return trx
 		.selectFrom('app.project_entries as e')
@@ -141,7 +140,6 @@ export class InvoicesStore {
 		};
 	}
 
-	// the essentials an operation on an existing invoice needs before it touches its lines
 	essentials(trx: Trx, id: string, options: { lock?: boolean } = {}) {
 		return trx
 			.selectFrom('app.invoices')
@@ -224,14 +222,12 @@ export class InvoicesStore {
 			.executeTakeFirst();
 	}
 
-	// entries are locked for update here, a second draft over the same period cannot double-book them
 	async lockEntries(
 		trx: Trx,
 		clientId: string,
 		range: { from: string; to: string },
 		projectIds: readonly string[] | undefined
 	): Promise<UnbilledEntryRow[]> {
-		// locked first, on their own: postgres refuses "for update" once a left join to tasks joins in
 		const locked = await trx
 			.selectFrom('app.project_entries as e')
 			.innerJoin('app.projects as p', 'p.id', 'e.project_id')
@@ -251,8 +247,6 @@ export class InvoicesStore {
 		return entryRowQuery(trx).where('e.id', 'in', ids).execute() as Promise<UnbilledEntryRow[]>;
 	}
 
-	// a refresh recomputes every time line together with these, so a cell that already has a line rounds only once;
-	// locked on their own first, same as lockEntries above - "for update" refuses a left join to tasks
 	async linkedEntryRows(trx: Trx, invoiceId: string): Promise<UnbilledEntryRow[]> {
 		const locked = await trx
 			.selectFrom('app.project_entries')
@@ -320,7 +314,6 @@ export class InvoicesStore {
 		return (row?.max ?? 0) + 1;
 	}
 
-	// D-01: 500 Positionen je Entwurf
 	async lineCount(trx: Trx, invoiceId: string): Promise<number> {
 		const row = await trx
 			.selectFrom('app.invoice_lines')
@@ -339,7 +332,6 @@ export class InvoicesStore {
 		return Number(row?.count ?? 0);
 	}
 
-	// a refresh only adds the free positions to this count, its time lines are about to be replaced wholesale
 	async itemLineCount(trx: Trx, invoiceId: string): Promise<number> {
 		const row = await trx
 			.selectFrom('app.invoice_lines')
@@ -350,7 +342,6 @@ export class InvoicesStore {
 		return Number(row?.count ?? 0);
 	}
 
-	// drops every time line at once so a refresh can renumber 1..n without colliding with a free position's slot
 	async replaceTimeLines(
 		trx: Trx,
 		tenantId: string,
@@ -363,7 +354,6 @@ export class InvoicesStore {
 		await this.insertTimeLines(trx, tenantId, invoiceId, clientId, 1, lines);
 	}
 
-	// links the underlying time entries too, so the reservation and the line appear in the same commit
 	async insertTimeLines(
 		trx: Trx,
 		tenantId: string,
@@ -491,7 +481,6 @@ export class InvoicesStore {
 			.executeTakeFirst();
 	}
 
-	// frees the time this line held before the row (and its invoice_line_entries) disappear
 	async deleteLine(trx: Trx, invoiceId: string, lineId: string): Promise<boolean> {
 		const entries = await trx
 			.selectFrom('app.invoice_line_entries')
@@ -549,12 +538,10 @@ export class InvoicesStore {
 	}
 
 	async deleteDraft(trx: Trx, id: string): Promise<boolean> {
-		// the fk on project_entries frees them (on delete set null), lines cascade with the invoice
 		const deleted = await trx.deleteFrom('app.invoices').where('id', '=', id).executeTakeFirst();
 		return deleted.numDeletedRows > 0n;
 	}
 
-	// the caller re-reads the full model afterwards, this only confirms which row it landed on
 	async issue(trx: Trx, id: string): Promise<{ id: string } | undefined> {
 		const { rows } = await sql<{ id: string }>`select id from app.issue_invoice(${id}::uuid)`.execute(trx);
 		return rows[0];
@@ -600,7 +587,6 @@ export class InvoicesStore {
 		return sql`select app.store_invoice_document(${invoiceId}::uuid, ${format}, ${content})`.execute(trx);
 	}
 
-	// the frozen assignment of an issued invoice, never re-derived from project_entries afterwards
 	timeReportEntries(trx: Trx, invoiceId: string) {
 		return trx
 			.selectFrom('app.invoice_line_entries as le')

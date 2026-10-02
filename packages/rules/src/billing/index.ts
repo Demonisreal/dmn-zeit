@@ -14,7 +14,6 @@ export type RoundingRule = {
 	mode: RoundingMode;
 };
 
-// null takes the value of the level above
 export type RoundingOverride = {
 	incrementMinutes: number | null;
 	mode: RoundingMode | null;
@@ -25,7 +24,6 @@ export type Rounded = {
 	explanation: Explanation;
 };
 
-// a row without any dimension is the default rate of the tenant
 export type Rate = {
 	id: string;
 	clientId: string | null;
@@ -61,7 +59,6 @@ export type ResolvedRate = {
 	explanation: Explanation;
 };
 
-// a finished project entry, billable already resolved with isBillable
 export type ProjectEntry = Span & {
 	id: string;
 	employeeId: string;
@@ -99,7 +96,6 @@ export type Line = {
 	entryIds: readonly string[];
 };
 
-// free positions are built by the api, the sums only read these three fields
 export type TaxedAmount = Pick<Line, 'netCents' | 'taxCategory' | 'taxRateBp'>;
 
 export type TaxGroup = {
@@ -147,7 +143,6 @@ export type BudgetStatus = {
 	explanation: Explanation;
 };
 
-// the newest entry that has started by date; nothing billed predates the oldest one
 const inForce = <T extends { validFrom: Temporal.PlainDate }>(
 	sets: readonly T[],
 	date: Temporal.PlainDate
@@ -212,7 +207,6 @@ export const roundingFor = (
 	};
 };
 
-// the client's agreement binds before the personal rate, which is only the internal price list
 const RATE_LEVELS: readonly RateLevel[] = [
 	'task_employee',
 	'task',
@@ -224,7 +218,6 @@ const RATE_LEVELS: readonly RateLevel[] = [
 	'default'
 ];
 
-// the db checks keep the dimensions nested, a task rate always names its project and client
 const levelOf = (rate: Rate, query: RateQuery): RateLevel | null => {
 	const personal = rate.employeeId !== null;
 	if (personal && rate.employeeId !== query.employeeId) {
@@ -250,7 +243,6 @@ export const resolveRate = (rates: readonly Rate[], query: RateQuery): ResolvedR
 			continue;
 		}
 		const rank = RATE_LEVELS.indexOf(level);
-		// a more specific level wins even with an older rate, within a level the newest one counts
 		if (
 			!best ||
 			rank < best.rank ||
@@ -280,7 +272,6 @@ export const isBillable = (
 	project: { billable: boolean }
 ): boolean => entry.billable ?? task?.billable ?? project.billable;
 
-// the only place that rounds minutes, per cell and never per entry (T-06)
 export const aggregate = (
 	entries: readonly ProjectEntry[],
 	context: { rates: readonly Rate[]; rounding: (projectId: string) => RoundingRule }
@@ -328,14 +319,12 @@ export const aggregate = (
 	});
 };
 
-// cells without a rate are left out, the caller has to report them as a blocker
 export const linesFromCells = (cells: readonly Cell[], taxCategory: TaxCategory): Line[] => {
 	const lines = new Map<string, Omit<Line, 'netCents' | 'entryIds'> & { entryIds: string[] }>();
 	for (const cell of cells.toSorted((a, b) => Temporal.PlainDate.compare(a.date, b.date))) {
 		if (!cell.billable || !cell.rate) {
 			continue;
 		}
-		// the tax rate is part of the key, a line must not straddle a change like 1 July 2020
 		const taxRateBp = vatRateFor(taxCategory, cell.date);
 		const key = [cell.projectId, cell.taskId ?? '', cell.rate.cents, taxRateBp].join('|');
 		const line = lines.get(key);
@@ -363,7 +352,6 @@ export const linesFromCells = (cells: readonly Cell[], taxCategory: TaxCategory)
 	}));
 };
 
-// § 12 UStG; 16/5 % for the second half of 2020 (second corona tax relief act)
 export const VAT_RATES: readonly VatRates[] = [
 	{ validFrom: Temporal.PlainDate.from('2007-01-01'), standardBp: 1900, reducedBp: 700 },
 	{ validFrom: Temporal.PlainDate.from('2020-07-01'), standardBp: 1600, reducedBp: 500 },
@@ -378,7 +366,6 @@ export const vatRateFor = (category: TaxCategory, date: Temporal.PlainDate): num
 	return category === 'reduced' ? rates.reducedBp : 0;
 };
 
-// member states besides DE as of 2026, Greece as ISO GR (its vat ids say EL); recheck before go-live
 export const EU_COUNTRY_CODES: readonly string[] = [
 	'AT',
 	'BE',
@@ -408,7 +395,6 @@ export const EU_COUNTRY_CODES: readonly string[] = [
 	'SK'
 ];
 
-// reduced and exempt are chosen per free position, everything here applies to the whole invoice
 export const taxTreatment = (
 	profile: { taxProfile: TaxProfile },
 	client: { countryCode: string; isBusiness: boolean; vatId: string | null }
@@ -425,7 +411,6 @@ export const taxTreatment = (
 	return 'outside_scope';
 };
 
-// BR-CO-17: tax per group from the summed net amounts, never a sum of tax per line (open point 1)
 export const invoiceTotals = (lines: readonly TaxedAmount[]): Totals => {
 	const sums = new Map<string, TaxedAmount>();
 	for (const line of lines) {
@@ -477,19 +462,16 @@ export const invoiceTotals = (lines: readonly TaxedAmount[]): Totals => {
 	};
 };
 
-// 0 - x instead of -x, a line of zero minutes would otherwise turn into -0
 export const negateLines = (lines: readonly Line[]): Line[] =>
 	lines.map((line) => ({ ...line, minutes: 0 - line.minutes, netCents: -line.netCents }));
 
 export const SMALL_AMOUNT_LIMIT_CENTS = 25000n;
 
-// outside_scope stays eligible, rechnungen-recht.md says nothing about third countries here
 export const isSmallAmountInvoice = (grossCents: bigint, treatment: TaxCategory): boolean =>
 	treatment !== 'reverse_charge' &&
 	grossCents <= SMALL_AMOUNT_LIMIT_CENTS &&
 	grossCents >= -SMALL_AMOUNT_LIMIT_CENTS;
 
-// before 2025 the current-year limit was a forecast rather than a hard cap, nothing here predates it
 export const SMALL_BUSINESS_LIMITS: readonly SmallBusinessLimits[] = [
 	{
 		validFrom: Temporal.PlainDate.from('2025-01-01'),
@@ -530,7 +512,6 @@ export const smallBusinessCheck = (input: {
 	if (withDraftCents <= limits.currentYearCents) {
 		return { state: 'ok', explanation: { key: 'billing.small_business.ok', params } };
 	}
-	// every invoice after the crossing one keeps warning, only a cancellation can bring back ok
 	const key =
 		issuedThisYearCents > limits.currentYearCents
 			? 'billing.small_business.already_crossed'
@@ -572,7 +553,6 @@ export const invoiceForm = (input: {
 	if (treatment === 'reverse_charge') {
 		form.legalNotes.push('reverse_charge_13b');
 		form.hints.push('service_deadline_14a_1');
-		// § 14a Abs. 1 UStG wants both vat ids, the buyer's is already why it is reverse charge
 		if (!profile.hasVatId) {
 			form.blockers.push('vat_id_missing');
 		}
@@ -581,7 +561,6 @@ export const invoiceForm = (input: {
 		(!profile.hasVatId || treatment === 'outside_scope') &&
 		!smallAmount
 	) {
-		// § 33 UStDV drops the seller's tax number on invoices up to 250 euros
 		form.blockers.push('tax_number_missing');
 	}
 	if (!isComplete(seller)) {
@@ -601,7 +580,6 @@ export const invoiceForm = (input: {
 
 const WARN_AT = fraction(4, 5);
 
-// budgetMinutes is always positive, the table checks it
 export const budgetStatus = (usedMinutes: number, budgetMinutes: number): BudgetStatus => {
 	const ratio = fraction(usedMinutes, budgetMinutes);
 	const state =

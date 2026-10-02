@@ -1,4 +1,3 @@
-// @types/pdf-parse targets the package root, tests import the lib file directly (see pdf-parse.fixture.ts)
 declare module 'pdf-parse/lib/pdf-parse.js' {
 	type PdfParseResult = {
 		text: string;

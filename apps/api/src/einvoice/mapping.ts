@@ -42,7 +42,6 @@ const decimal = (value: bigint, places: number) => {
 const money = (cents: bigint) => decimal(cents, 2);
 
 function lineVatCategory(category: TaxCategory, rateBp: number): VatCategory {
-	// BR-O-5 bans the rate on a "not subject to VAT" line, BR-DE-14 still wants it in the breakdown
 	return category === 'outside_scope'
 		? { 'cbc:ID': 'O', 'cac:TaxScheme': VAT }
 		: {
@@ -102,7 +101,6 @@ function invoiceLine(line: EInvoiceLine, index: number, sign: bigint): UblLine {
 		'minutes' in quantity
 			? [BigInt(quantity.minutes) * 1000n, 'MIN' as const]
 			: [quantity.milli, quantity.unit];
-	// BR-27: the price is never negative, a discount carries its sign in the quantity
 	const direction = line.unitPriceCents < 0n ? -sign : sign;
 	const [name = '', ...rest] = line.description.trim().split('\n');
 	return {
@@ -128,7 +126,6 @@ function invoiceLine(line: EInvoiceLine, index: number, sign: bigint): UblLine {
 				line.unitPriceCents < 0n ? -line.unitPriceCents : line.unitPriceCents
 			),
 			'cbc:PriceAmount@currencyID': EUR,
-			// minutes against an hourly rate stay exact, 50 min are no clean fraction of an hour
 			...(unit === 'MIN' && {
 				'cbc:BaseQuantity': '60',
 				'cbc:BaseQuantity@unitCode': 'MIN' as const
@@ -139,7 +136,6 @@ function invoiceLine(line: EInvoiceLine, index: number, sign: bigint): UblLine {
 
 function sellerParty(invoice: EInvoice): SellerParty {
 	const { seller } = invoice;
-	// BR-O-2: no vat ids at all on a "not subject to VAT" invoice
 	const vatId = invoice.treatment === 'outside_scope' ? null : seller.vatId;
 	const taxIds = [
 		...(vatId !== null ? [{ 'cbc:CompanyID': vatId, 'cac:TaxScheme': VAT }] : []),
@@ -152,7 +148,6 @@ function sellerParty(invoice: EInvoice): SellerParty {
 			'cbc:EndpointID': seller.contactEmail,
 			'cbc:EndpointID@schemeID': 'EM' as const
 		}),
-		// BR-CO-26 does not count the tax number, without a vat id it has to be the seller identifier too
 		...(vatId === null &&
 			seller.taxNumber !== null && {
 				'cac:PartyIdentification': [{ 'cbc:ID': seller.taxNumber }]
@@ -202,7 +197,6 @@ function buyerParty(invoice: EInvoice): BuyerParty {
 function paymentMeans(invoice: EInvoice): Pick<Ubl, 'cac:PaymentMeans'> {
 	const { seller } = invoice;
 	if (invoice.kind === 'cancellation') {
-		// 97 "clearing between partners": the cancellation is settled against its invoice, nobody transfers
 		return { 'cac:PaymentMeans': [{ 'cbc:PaymentMeansCode': '97' }] };
 	}
 	if (seller.iban === null) {
@@ -228,7 +222,6 @@ function paymentMeans(invoice: EInvoice): Pick<Ubl, 'cac:PaymentMeans'> {
 export function toUbl(invoice: EInvoice): Invoice {
 	const texts = TEXTS[invoice.locale];
 	const { totals, buyer } = invoice;
-	// 381 with positive amounts rather than 380 with negative ones, adr 0004
 	const sign = invoice.kind === 'cancellation' ? -1n : 1n;
 	const notesText = notes(invoice);
 	const subtotals = totals.groups.map((group): Subtotal => ({
@@ -270,7 +263,6 @@ export function toUbl(invoice: EInvoice): Invoice {
 			}),
 			'cac:AccountingSupplierParty': { 'cac:Party': sellerParty(invoice) },
 			'cac:AccountingCustomerParty': { 'cac:Party': buyerParty(invoice) },
-			// CII requires the delivery block, the library only writes it with a child in it
 			'cac:Delivery': { 'cbc:ActualDeliveryDate': invoice.serviceTo.toString() },
 			...paymentMeans(invoice),
 			'cac:PaymentTerms': {

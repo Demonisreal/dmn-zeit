@@ -7,7 +7,6 @@ const AMOUNT: Record<Locale, Intl.NumberFormat> = {
 	en: new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 };
 
-// cents stay well inside Number's safe range for a single invoice, unlike totals across years
 export function formatCents(cents: string, locale: Locale): string {
 	return `${AMOUNT[locale].format(Number(BigInt(cents)) / 100)} €`;
 }

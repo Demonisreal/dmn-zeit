@@ -5,7 +5,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- counted before the code is checked, and once login_failed has locked the account nothing is left
   with counted as (
     update auth.mfa_challenges m set attempts = m.attempts + 1
      where m.token_hash = p_token_hash
@@ -27,7 +26,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- kept for callers that only need the person
   select a.user_id from auth.mfa_challenge_attempt_with_scope(p_token_hash) a;
 $$;
 
@@ -135,7 +133,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- counted before the code is checked, and once login_failed has locked the account nothing is left
   update auth.mfa_challenges m set attempts = m.attempts + 1
    where m.token_hash = p_token_hash
      and m.expires_at > now()

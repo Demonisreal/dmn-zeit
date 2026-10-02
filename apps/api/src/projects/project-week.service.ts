@@ -35,7 +35,6 @@ export class ProjectWeekService {
 			const projectIds = rows.map((row) => row.projectId);
 			const now = this.clock.now();
 
-			// rates stay in the database for everyone below hr, not merely unused
 			const priced = hasRole(session.role, 'hr');
 			const catalog = priced
 				? await this.projects.catalog(trx, projectIds)
@@ -52,7 +51,6 @@ export class ProjectWeekService {
 		});
 	}
 
-	// no join on rates anywhere here, leads read this route
 	summary(session: AuthSession, query: ProjectSummaryQuery): Promise<ProjectSummary> {
 		return this.db.withTenant(session, async (trx) => {
 			const rows = await this.entries.between(trx, query, { team: query.team });
@@ -67,7 +65,6 @@ export class ProjectWeekService {
 		});
 	}
 
-	// projects and clients are closed below hr, a project no longer bookable falls back to the column defaults
 	private async unpricedCatalog(trx: Trx, projectIds: readonly string[]): Promise<Catalog> {
 		const [labels, bookable] = await Promise.all([
 			this.projects.labels(trx, projectIds),

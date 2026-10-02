@@ -1,5 +1,4 @@
 -- migrate:up
--- the person comes from the session; session_create and token_issue keep p_user_id, before login there is none
 drop function auth.passkey_add(uuid, bytea, bytea, bigint, text[], uuid, boolean, text);
 drop function auth.totp_remove(uuid);
 
@@ -35,7 +34,6 @@ as $$
   select exists (select 1 from gone);
 $$;
 
--- totp_confirm still names the person itself, the first codes come with it
 create or replace function auth.totp_confirm(p_user_id uuid, p_step bigint, p_code_hashes bytea[])
 returns boolean
 language plpgsql
@@ -43,7 +41,6 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- the code that confirmed the secret is spent and cannot sign in afterwards
   update auth.totp t set confirmed_at = now(), last_used_step = p_step
    where t.user_id = p_user_id and t.confirmed_at is null;
   if not found then
@@ -107,7 +104,6 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- the code that confirmed the secret is spent and cannot sign in afterwards
   update auth.totp t set confirmed_at = now(), last_used_step = p_step
    where t.user_id = p_user_id and t.confirmed_at is null;
   if not found then

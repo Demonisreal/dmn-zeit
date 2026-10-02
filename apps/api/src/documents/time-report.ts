@@ -1,7 +1,5 @@
 import type { Locale } from '@zeit/shared';
 
-// deliberately narrower than exports/exports.service.ts#timesheetRows (befund B9): only the
-// billing-relevant project bookings of one customer/project, never absences or other customers
 export type TimeReportEntry = {
 	date: string;
 	projectName: string;

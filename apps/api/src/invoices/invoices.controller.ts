@@ -132,7 +132,6 @@ export class InvoicesController {
 		await this.invoices.deleteLine(session, invoiceId, lineId);
 	}
 
-	// D-03: a draft is never mistaken for a real invoice, frame-ancestors 'self' only for this route
 	@Get(':id/preview.pdf')
 	@UseGuards(RenderLimitGuard, UserRateLimitGuard)
 	@UserRateLimit('preview', 20)
@@ -203,8 +202,6 @@ export class InvoicesController {
 		return this.invoices.markUnpaid(session, invoiceId, client);
 	}
 
-	// usually served from storage (R-06); the rare on-demand re-render still hits the render queue,
-	// but the guard would also reject the common case, so RenderBusyError falls through to the filter
 	@Get(':id/document')
 	async document(
 		@CurrentSession() session: AuthSession,

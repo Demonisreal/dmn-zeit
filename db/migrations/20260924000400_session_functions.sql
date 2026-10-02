@@ -54,7 +54,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- null when the session is gone, the tenant is no live sandbox or the target lives elsewhere
   with old as (
     delete from auth.sessions s
      using app.users u, app.tenants t, app.users target
@@ -92,7 +91,6 @@ begin
   for sandbox in
     select t.id from app.tenants t where t.kind = 'sandbox' and t.expires_at <= now()
   loop
-    -- lifts app.reject_change for this tenant only, the journals and the trail go with it
     perform set_config('zeit.purge_tenant', sandbox::text, true);
     delete from app.tenants t where t.id = sandbox;
     delete from audit.log l where l.tenant_id = sandbox;

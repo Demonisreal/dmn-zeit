@@ -11,13 +11,11 @@ create table app.clients (
   postal_code text,
   city text,
   country_code char(2) not null default 'DE' check (country_code ~ '^[A-Z]{2}$'),
-  -- a consumer gets the late payment notice of § 286 bgb on the invoice
   is_business boolean not null default true,
   vat_id text,
   email public.citext,
   buyer_reference text,
   invoice_locale text not null default 'de' check (invoice_locale in ('de', 'en')),
-  -- invoice_format comes with app.invoice_format in the invoices migration of stage 10d
   payment_terms_days smallint check (payment_terms_days between 0 and 120),
   rounding_increment_min smallint check (rounding_increment_min in (1, 5, 6, 10, 15, 30, 60)),
   rounding_mode app.rounding_mode,
@@ -40,13 +38,11 @@ create table app.projects (
   budget_minutes integer check (budget_minutes > 0),
   rounding_increment_min smallint check (rounding_increment_min in (1, 5, 6, 10, 15, 30, 60)),
   rounding_mode app.rounding_mode,
-  -- project_members only count while this is false
   open_to_all boolean not null default true,
   archived_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (tenant_id, id),
-  -- tasks, rates and invoice lines reach a project only together with its client
   unique (tenant_id, client_id, id),
   unique (tenant_id, code),
   foreign key (tenant_id, client_id) references app.clients (tenant_id, id)
@@ -58,7 +54,6 @@ create table app.tasks (
   client_id uuid not null,
   project_id uuid not null,
   name text not null check (btrim(name) <> ''),
-  -- null: the project decides
   billable boolean,
   archived_at timestamptz,
   created_at timestamptz not null default now(),
@@ -92,7 +87,6 @@ create table app.rates (
   created_by uuid,
   created_at timestamptz not null default now(),
   unique (tenant_id, id),
-  -- a row without any dimension is the default rate of the tenant
   unique nulls not distinct (tenant_id, client_id, project_id, task_id, employee_id, valid_from),
   foreign key (tenant_id, client_id) references app.clients (tenant_id, id),
   foreign key (tenant_id, client_id, project_id) references app.projects (tenant_id, client_id, id),
@@ -113,10 +107,8 @@ create table app.project_entries (
   ended_at timestamptz,
   workday date not null generated always as ((started_at at time zone 'Europe/Berlin')::date) stored,
   note text check (btrim(note) <> ''),
-  -- null: the task decides, then the project
   billable boolean,
   source app.project_entry_source not null,
-  -- fk to app.invoices follows in stage 10d
   invoice_id uuid,
   voided_at timestamptz,
   created_by uuid,
@@ -132,7 +124,6 @@ create table app.project_entries (
   check (invoice_id is null or (ended_at is not null and voided_at is null))
 );
 
--- created ahead of the exclusion constraint, so a second running timer reports this index and not an overlap
 create unique index project_entries_one_running_idx on app.project_entries (employee_id)
   where ended_at is null and voided_at is null;
 
@@ -187,7 +178,6 @@ as $$
    order by c.name, p.name;
 $$;
 
--- archived projects included, old entries still need a name
 create function app.project_labels(p_ids uuid[])
 returns table (id uuid, project_name text, client_name text)
 language sql
@@ -202,19 +192,16 @@ as $$
      and p.tenant_id = app.tenant_id();
 $$;
 
--- security invoker on purpose: as definer current_user would always be zeit_system and open the purge path
 create function app.guard_project_entry()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 declare
-  -- workday is generated and still null in a before trigger
   bookkeeping constant text[] := array['updated_at', 'workday'];
   running constant text[] := array['ended_at', 'note', 'voided_at'];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -222,7 +209,6 @@ begin
     raise exception 'project entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- the timer takes the clock of the database, never a time sent by the client
   if (tg_op = 'INSERT' and new.source = 'timer' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and old.ended_at is null
       and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -230,7 +216,6 @@ begin
     raise exception 'timer entries start and end at now()' using errcode = 'check_violation';
   end if;
 
-  -- the release is checked on the way onto a project only, a note on an archived one stays editable
   if (tg_op = 'INSERT' or new.project_id is distinct from old.project_id)
     and (app.role() >= 'hr') is not true
     and not app.bookable(new.project_id)
@@ -323,7 +308,6 @@ alter table app.project_members enable row level security, force row level secur
 alter table app.rates enable row level security, force row level security;
 alter table app.project_entries enable row level security, force row level security;
 
--- no read policy for employees and leads, they get names through bookable_projects and project_labels
 create policy "tenant fence" on app.clients as restrictive to zeit_app
   using (tenant_id = (select app.tenant_id()));
 
@@ -357,7 +341,6 @@ create policy "hr reads rates" on app.rates for select to zeit_app
 create policy "hr adds rates" on app.rates for insert to zeit_app
   with check ((select app.role()) >= 'hr');
 
--- a rate already in effect may be priced into an invoice, only a future one goes
 create policy "hr removes future rates" on app.rates for delete to zeit_app
   using ((select app.role()) >= 'hr' and valid_from > (now() at time zone 'Europe/Berlin')::date);
 
@@ -385,7 +368,6 @@ grant update (
   number, name, street, postal_code, city, country_code, is_business, vat_id, email, buyer_reference,
   invoice_locale, payment_terms_days, rounding_increment_min, rounding_mode, archived_at, restricted_at
 ) on app.clients to zeit_app;
--- no client_id: tasks and rates hang on the pair of project and client
 grant update (name, code, billable, budget_minutes, rounding_increment_min, rounding_mode, open_to_all, archived_at)
   on app.projects to zeit_app;
 grant update (name, billable, archived_at) on app.tasks to zeit_app;

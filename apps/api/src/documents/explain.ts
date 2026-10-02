@@ -1,9 +1,6 @@
 import type { Explanation, Locale } from '@zeit/shared';
 import { formatHours } from './format';
 
-// turns the two explanation keys that survive into invoiceLineSchema.derivation into
-// a printable sentence; everything else (billing.totals, billing.totals.group) is
-// already visible as numbers in the tax summary table and needs no prose
 const ROUNDING_WORD: Record<string, Record<Locale, string>> = {
 	up: { de: 'aufgerundet', en: 'rounded up to' },
 	down: { de: 'abgerundet', en: 'rounded down to' },

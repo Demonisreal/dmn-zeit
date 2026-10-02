@@ -218,7 +218,6 @@ export class ProjectsService {
 		return this.db.withTenant(session, (trx) => this.store.insertRate(trx, session, input));
 	}
 
-	// the policy would silently delete nothing, this says why
 	removeRate(session: AuthSession, id: string): Promise<void> {
 		return this.db.withTenant(session, async (trx) => {
 			const { future } = found(await this.store.rateStart(trx, id), 'Rate');

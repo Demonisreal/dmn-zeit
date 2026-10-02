@@ -72,7 +72,6 @@ export class ProjectEntriesStore {
 			.execute();
 	}
 
-	// budgets reach over the whole life of a project, not just the week on screen
 	finished(trx: Trx, projectIds: readonly string[]): Promise<ProjectEntry[]> {
 		if (projectIds.length === 0) return Promise.resolve([]);
 		return trx
@@ -111,7 +110,6 @@ export class ProjectEntriesStore {
 		return employee !== undefined;
 	}
 
-	// started_at stays on its default, the guard trigger takes nothing but now() for a timer
 	async startTimer(
 		trx: Trx,
 		ctx: TenantContext,
@@ -193,7 +191,6 @@ export class ProjectEntriesStore {
 			.executeTakeFirst();
 	}
 
-	// the table trigger records the row, this event carries why hr booked it for someone else
 	async bookedForOther(
 		trx: Trx,
 		ctx: TenantContext,

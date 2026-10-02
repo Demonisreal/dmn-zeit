@@ -3,7 +3,6 @@ create extension btree_gist with schema public;
 create extension citext with schema public;
 
 revoke all on schema public from public;
--- the citext = lives in public; without usage a bare = on email quietly falls back to case-sensitive text
 grant usage on schema public to zeit_app, zeit_system;
 
 create schema app;
@@ -11,11 +10,9 @@ create schema auth;
 create schema audit;
 create schema ops;
 
--- usage on auth only lets zeit_app reach the security definer functions, the tables there get no grant
 grant usage on schema app, auth, audit, ops to zeit_app;
 grant usage on schema app, auth, audit to zeit_system;
 
--- declaration order is the role hierarchy, policies compare with >=
 create type app.user_role as enum ('employee', 'team_lead', 'hr', 'admin');
 create type app.user_status as enum ('invited', 'active', 'disabled', 'demo');
 create type app.federal_state as enum (
@@ -25,7 +22,6 @@ create type app.tenant_kind as enum ('live', 'sandbox');
 create type app.flex_cap_mode as enum ('none', 'forfeit_at_close', 'warn');
 create type auth.token_kind as enum ('invite', 'password_reset');
 
--- a set_config with is_local leaves an empty string behind once the transaction is over
 create function app.tenant_id()
 returns uuid
 language sql
@@ -88,7 +84,6 @@ create table app.tenants (
   flex_cap_plus_min integer check (flex_cap_plus_min >= 0),
   flex_cap_minus_min integer check (flex_cap_minus_min >= 0),
   flex_cap_mode app.flex_cap_mode not null default 'none',
-  -- month-day that exists in every year, read as Temporal.PlainMonthDay
   carryover_until text not null default '03-31' check (
     carryover_until ~ '^((0[1-9]|1[0-2])-(0[1-9]|1[0-9]|2[0-8])|(0[13-9]|1[0-2])-(29|30)|(0[13578]|1[02])-31)$'
   ),
@@ -107,7 +102,6 @@ create table app.users (
   role app.user_role not null default 'employee',
   locale text not null default 'de' check (locale in ('de', 'en')),
   status app.user_status not null default 'invited',
-  -- foreign key to app.employees follows together with that table
   employee_id uuid unique,
   last_login_at timestamptz,
   created_at timestamptz not null default now(),
@@ -175,7 +169,6 @@ create table ops.demo_outbox (
 
 create index demo_outbox_tenant_idx on ops.demo_outbox (tenant_id, created_at desc);
 
--- no foreign keys: the trail has to outlive the tenant, user and employee rows it talks about
 create table audit.log (
   id bigint generated always as identity primary key,
   tenant_id uuid not null,
@@ -215,7 +208,6 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- the sandbox purge is the only one allowed to delete, and only rows of the tenant it purges
   if tg_op = 'DELETE' then
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true) then
       return old;
@@ -241,7 +233,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -304,7 +295,6 @@ create policy "tenant fence" on app.tenants as restrictive to zeit_app
 create policy "members read their tenant" on app.tenants for select to zeit_app
   using (true);
 
--- the cli and the demo sandbox insert a tenant while the context already carries its new id
 create policy "admins create the tenant" on app.tenants for insert to zeit_app
   with check ((select app.role()) = 'admin');
 
@@ -320,7 +310,6 @@ create policy "read own user" on app.users for select to zeit_app
 create policy "hr and admins read all users" on app.users for select to zeit_app
   using ((select app.role()) >= 'hr');
 
--- role and employee link stay pinned, otherwise anyone could promote or re-link themselves
 create policy "update own user" on app.users for update to zeit_app
   using (id = (select app.user_id()))
   with check (
@@ -338,7 +327,6 @@ create policy "tenant fence" on audit.log as restrictive to zeit_app
 create policy "hr and admins read the trail" on audit.log for select to zeit_app
   using ((select app.role()) >= 'hr');
 
--- art. 15 gdpr access right
 create policy "read own trail" on audit.log for select to zeit_app
   using (subject_employee_id = (select app.employee_id()) or actor_user_id = (select app.user_id()));
 
@@ -367,7 +355,6 @@ as $$
   select u.id, u.tenant_id, u.role, u.status, c.password_hash, coalesce(c.failed_count, 0), c.locked_until
     from app.users u
     left join auth.credentials c on c.user_id = u.id
-   -- search_path is empty, so the citext operator has to be named or = compares case-sensitively
    where u.email operator(public.=) p_email::public.citext
      and u.status in ('active', 'invited');
 $$;
@@ -378,7 +365,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- from the fifth miss in a row the account locks for 1, 2, 4 ... 64 minutes
   update auth.credentials c
      set failed_count = c.failed_count + 1,
          locked_until = case
@@ -399,7 +385,6 @@ as $$
   on conflict (user_id) do update
     set password_hash = excluded.password_hash, failed_count = 0, locked_until = null;
 
-  -- choosing a password is what turns an invitation into an account
   update app.users u set status = 'active' where u.id = p_user_id and u.status = 'invited';
 $$;
 
@@ -464,7 +449,6 @@ as $$
        and u.status in ('active', 'demo')
        and (t.expires_at is null or t.expires_at > now())
   ), touched as (
-    -- one write per session and minute keeps the idle window close enough without a write per request
     update auth.sessions s
        set idle_expires_at = least(now() + interval '12 hours', s.absolute_expires_at),
            last_seen_at = now()
@@ -500,7 +484,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- the open token of the same kind is overwritten, so only the newest link works
   insert into auth.tokens as t (user_id, kind, token_hash, expires_at)
   values (p_user_id, p_kind, p_token_hash, now() + p_ttl)
   on conflict (user_id, kind) where used_at is null do update
@@ -544,7 +527,6 @@ grant select, insert, update on auth.credentials to zeit_system;
 grant select, insert, update, delete on auth.sessions, auth.tokens to zeit_system;
 grant insert on audit.log to zeit_system;
 
--- alter owner wants create on the schema for the new owner, but only for the moment of the handover
 grant create on schema auth, audit to zeit_system;
 alter function audit.track() owner to zeit_system;
 alter function auth.login_lookup(text) owner to zeit_system;

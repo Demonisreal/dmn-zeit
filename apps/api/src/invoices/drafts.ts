@@ -63,7 +63,6 @@ function ruleOf(client: RoundingOverride, project: RoundingOverride) {
 	return roundingFor(TENANT_ROUNDING, client, project).rule;
 }
 
-// entries are already locked "for update" by the caller; only the money math happens here, via rules
 export function buildTimeLines(input: {
 	entries: readonly UnbilledEntryRow[];
 	clientId: string;
@@ -101,7 +100,6 @@ export function buildTimeLines(input: {
 	});
 	const lines = linesFromCells(cells, taxCategory);
 
-	// a representative cell per (project, task, rate, tax rate) group, the same key linesFromCells groups by
 	const repByKey = new Map<string, Cell>();
 	const rawByKey = new Map<string, number>();
 	for (const cell of cells) {
@@ -251,7 +249,6 @@ export function liveBuyer(client: ClientRowForInvoice): BuyerSnapshot {
 	};
 }
 
-// a frozen invoice keeps no single "treatment" column, so this reads it back off tax_profile and the lines
 function inferTreatment(taxProfile: 'regular' | 'small_business', categories: readonly TaxCategory[]): TaxCategory {
 	if (taxProfile === 'small_business') return 'small_business';
 	if (categories.includes('reverse_charge')) return 'reverse_charge';
@@ -359,7 +356,6 @@ export function toInvoiceModel(ctx: {
 	];
 	const noteKeys =
 		reasons.length > 0 ? [...new Set([...form.legalNotes, 'exempt_reason'])] : form.legalNotes;
-	// the documents worker prints these as-is (labels.ts), so the key is resolved to text right here
 	const legalNotes = noteKeys.flatMap((key) =>
 		key === 'exempt_reason'
 			? reasons.map((reason) =>

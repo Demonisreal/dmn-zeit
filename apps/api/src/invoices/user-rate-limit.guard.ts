@@ -14,8 +14,6 @@ import { Database } from '../db/database';
 
 const LIMIT = 'userRateLimit';
 
-// bedrohungsmodell-rechnungen.md Abschnitt 10: the throttler guard runs before the session guard
-// and only ever sees an ip, so a per-user limit on drafts/issue/cancel needs its own guard here
 export const UserRateLimit = (name: string, limit: number, windowMinutes = 1) =>
 	SetMetadata(LIMIT, { name, limit, windowMinutes });
 

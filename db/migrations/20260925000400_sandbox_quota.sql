@@ -1,5 +1,4 @@
 -- migrate:up
--- once per statement, an absence alone writes up to 366 day rows; concurrent requests may overshoot a little
 create function app.sandbox_quota()
 returns trigger
 language plpgsql
@@ -34,7 +33,6 @@ alter function app.sandbox_quota() owner to zeit_system;
 revoke create on schema app from zeit_system;
 revoke all on function app.sandbox_quota() from public;
 
--- when sees the writing role: the seed (zeit_system) never counts, its 31 july peak stays well below each cap
 create trigger time_entries_sandbox_quota
   after insert on app.time_entries referencing new table as added
   for each statement when (current_user not in ('zeit_system', 'zeit_owner'))

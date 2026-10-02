@@ -17,7 +17,6 @@ create table app.employees (
   team_id uuid,
   entry_date date not null,
   exit_date date,
-  -- only the month closing writes this, zeit_app has no column grant for it
   closed_through date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -67,7 +66,6 @@ create table app.contracts (
   employee_id uuid not null,
   valid_from date not null,
   work_model_id uuid not null,
-  -- a copy, editing the work model later must not rewrite past targets
   min_mon smallint not null check (min_mon between 0 and 600),
   min_tue smallint not null check (min_tue between 0 and 600),
   min_wed smallint not null check (min_wed between 0 and 600),
@@ -86,7 +84,6 @@ create table app.contracts (
   foreign key (tenant_id, work_model_id) references app.work_models (tenant_id, id)
 );
 
--- security definer: the employees policies call this, reading employees under rls here would recurse
 create function app.leads(p_employee_id uuid)
 returns boolean
 language sql
@@ -104,7 +101,6 @@ as $$
   )
 $$;
 
--- after triggers only: a before trigger sees generated columns like time_entries.workday as null
 create function app.enforce_period_lock()
 returns trigger
 language plpgsql
@@ -143,7 +139,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';
@@ -160,7 +155,6 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;
@@ -295,7 +289,6 @@ create policy "hr reads contracts" on app.contracts for select to zeit_app
 create policy "hr adds contracts" on app.contracts for insert to zeit_app
   with check ((select app.role()) >= 'hr');
 
--- closed months always lie in the past, so a future contract is never locked
 create policy "hr removes future contracts" on app.contracts for delete to zeit_app
   using ((select app.role()) >= 'hr' and valid_from > (now() at time zone 'Europe/Berlin')::date);
 
@@ -335,7 +328,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  -- bookkeeping columns alone are not worth a trail entry
   skipped constant text[] := array['updated_at', 'last_login_at'];
   old_row jsonb := '{}';
   new_row jsonb := '{}';

@@ -16,7 +16,6 @@ type Texts = {
 	date: (day: Temporal.PlainDate) => string;
 };
 
-// the wording still has to pass the tax advisor, open point in rechnungen-recht.md
 export const TEXTS: Record<Locale, Texts> = {
 	de: {
 		reverseCharge: 'Steuerschuldnerschaft des Leistungsempfängers',
@@ -35,7 +34,6 @@ export const TEXTS: Record<Locale, Texts> = {
 			day.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 	},
 	en: {
-		// Risk 16: the German wording stays on English invoices, § 14a UStG asks for it
 		reverseCharge: 'Steuerschuldnerschaft des Leistungsempfängers / Reverse charge',
 		smallBusiness: 'VAT exempt small business under § 19 UStG, no VAT shown.',
 		outsideScope: 'Not taxable in Germany, place of supply abroad under § 3a (2) UStG.',

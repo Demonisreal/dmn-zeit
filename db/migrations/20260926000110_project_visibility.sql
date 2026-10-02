@@ -1,8 +1,6 @@
 -- migrate:up
--- a new return type cannot go through create or replace
 drop function app.bookable_projects();
 
--- project override only, below hr roundingFor never sees the client's and falls through to the tenant profile
 create function app.bookable_projects()
 returns table (
   id uuid,
@@ -32,7 +30,6 @@ as $$
    order by c.name, p.name;
 $$;
 
--- archived projects included, old entries still need a name
 create or replace function app.project_labels(p_ids uuid[])
 returns table (id uuid, project_name text, client_name text)
 language sql
@@ -40,7 +37,6 @@ stable
 security definer
 set search_path = ''
 as $$
-  -- a restricted client (art. 18 gdpr) keeps the row, old entries would lose their project otherwise
   select p.id,
          case when c.restricted_at is null or app.role() >= 'hr' then p.name else 'gesperrt' end,
          case when c.restricted_at is null or app.role() >= 'hr' then c.name else 'gesperrt' end
@@ -50,7 +46,6 @@ as $$
      and p.tenant_id = app.tenant_id();
 $$;
 
--- a rough figure for the timer header: whole minutes per entry, no rounding rule of the project
 create function app.project_budget_status(p_project_id uuid)
 returns table (budget_minutes integer, used_minutes integer)
 language sql

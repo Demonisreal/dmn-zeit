@@ -35,17 +35,14 @@ export type EInvoiceBuyer = {
 	countryCode: string;
 	vatId: string | null;
 	email: string | null;
-	// BT-10, a Leitweg-ID for public buyers
 	buyerReference: string | null;
 };
 
-// amounts as stored, a cancellation carries them negative
 export type EInvoiceLine = TaxedAmount & {
 	description: string;
 	serviceFrom: Temporal.PlainDate | null;
 	serviceTo: Temporal.PlainDate | null;
 	quantity: { minutes: number } | { milli: bigint; unit: ItemUnit };
-	// per hour on time lines
 	unitPriceCents: bigint;
 };
 
@@ -96,7 +93,6 @@ export async function renderXRechnung(invoice: EInvoice): Promise<string> {
 	return xml as string;
 }
 
-// the pdf comes from the invoice renderer, the library embeds factur-x.xml and turns it into PDF/A-3
 export async function renderZugferd(invoice: EInvoice, pdf: Uint8Array): Promise<Uint8Array> {
 	assertRenderable(invoice, 'zugferd');
 	const document = await service.generate(toUbl(invoice), {

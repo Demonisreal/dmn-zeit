@@ -1,13 +1,10 @@
 -- migrate:up
--- anyone who knows an address can run up the misses: the lock stays short, the api throttles per network
 create or replace function auth.login_failed(p_user_id uuid)
 returns timestamptz
 language sql
 security definer
 set search_path = ''
 as $$
-  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4, 8, then 15 minutes
-  -- only c is read again once the row lock is granted, a subquery would lose a parallel miss
   update auth.credentials c
      set failed_count = case when c.last_failed_at > now() - interval '24 hours' then c.failed_count else 0 end + 1,
          last_failed_at = now(),
@@ -45,20 +42,17 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- misses come from password guesses, a passkey with user verification is let past the lock
   if not p_bypass_lock
     and exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now())
   then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
 
-  -- a running lock stays, or every passkey login would hand the guesser five fresh tries
   update auth.credentials c set failed_count = 0, locked_until = null, last_failed_at = null
    where c.user_id = p_user_id
      and c.failed_count > 0
      and (c.locked_until is null or c.locked_until <= now());
 
-  -- without a second factor the session only reaches the enrollment endpoints, demo personas excepted
   insert into auth.sessions (
     user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent,
     enrollment_pending
@@ -107,7 +101,6 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- a lock holds for passkeys too, and signing in does not lift it
   if exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now()) then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
@@ -115,7 +108,6 @@ begin
   update auth.credentials c set failed_count = 0, locked_until = null, last_failed_at = null
    where c.user_id = p_user_id and c.failed_count > 0;
 
-  -- without a second factor the session only reaches the enrollment endpoints, demo personas excepted
   insert into auth.sessions (
     user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent,
     enrollment_pending
@@ -144,7 +136,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4 ... 64 minutes
   update auth.credentials c
      set failed_count = s.misses,
          last_failed_at = now(),

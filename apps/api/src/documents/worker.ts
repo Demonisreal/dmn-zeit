@@ -34,8 +34,6 @@ export async function renderJob(job: RenderJob): Promise<RenderedDocument[]> {
 	];
 }
 
-// same file runs the pool on the main thread and the pdfkit work on the worker thread it spawns,
-// so a single new Worker(__filename) always finds this module already compiled next to it
 export async function renderInWorker(job: RenderJob): Promise<RenderedDocument[]> {
 	return withRenderSlot(() => runInThread(job));
 }
@@ -78,7 +76,6 @@ if (!isMainThread && parentPort) {
 	renderJob(workerData as RenderJob)
 		.then((documents) => port.postMessage(documents))
 		.catch((error: unknown) => {
-			// rethrowing surfaces the failure through the worker's 'error' event on the main thread
 			throw error;
 		});
 }

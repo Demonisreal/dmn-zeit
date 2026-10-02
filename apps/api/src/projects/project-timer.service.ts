@@ -23,7 +23,6 @@ export class ProjectTimerService {
 		return this.db.withTenant(session, (trx) => this.current(trx, employeeId));
 	}
 
-	// both stamps are now() of one transaction, the old range ends exactly where the new one starts
 	start(session: AuthSession, input: StartTimerInput): Promise<ProjectTimer> {
 		const employeeId = employeeOf(session);
 		return this.db.withTenant(session, async (trx) => {
@@ -52,7 +51,6 @@ export class ProjectTimerService {
 	private async budget(trx: Trx, running: ProjectEntry, now: Date): Promise<BudgetStatus | null> {
 		const status = await this.projects.budgetStatus(trx, running.projectId);
 		if (!status || status.budgetMinutes === null) return null;
-		// project and tasks are closed below hr, the bookable list is the one place with their flags
 		const project = (await this.projects.bookable(trx)).find((p) => p.id === running.projectId);
 		const task = project?.tasks.find((t) => t.id === running.taskId) ?? null;
 		const billable = isBillable(running, task, project ?? { billable: true });

@@ -5,9 +5,7 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- the sandbox purge is the only one allowed to delete, and only rows of the tenant it purges
   if tg_op = 'DELETE' then
-    -- any role may set zeit.purge_tenant; the purge deletes as zeit_system, its cascades run as the table owner
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -24,11 +22,9 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  -- workday is generated and still null in a before trigger
   fillable constant text[] := array['ended_at', 'end_reason', 'voided_at', 'voided_by_request_id', 'workday'];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -36,7 +32,6 @@ begin
     raise exception 'time entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- a stamp takes the clock of the database, never a time sent by the client
   if new.source = 'clock' and (
     (tg_op = 'INSERT' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -58,7 +53,6 @@ begin
 end;
 $$;
 
--- every foreign key on app.tenants cascades, a live tenant would take its journals along
 create function app.guard_tenant_delete()
 returns trigger
 language plpgsql
@@ -76,7 +70,6 @@ create trigger tenants_guard_delete
   before delete on app.tenants
   for each row execute function app.guard_tenant_delete();
 
--- the api creates sandboxes through ops.sandbox_create, live tenants come from the cli as zeit_owner
 revoke insert on app.tenants from zeit_app;
 drop policy "admins create the tenant" on app.tenants;
 
@@ -104,7 +97,6 @@ as $$
   returning id;
 $$;
 
--- force rls leaves zeit_owner without any row, so the cli goes through here
 create function ops.tenant_create(
   p_id uuid,
   p_name text,
@@ -156,7 +148,6 @@ drop function ops.tenant_create(uuid, text, text, app.federal_state, text, text,
 drop function ops.sandbox_create(uuid, text, text, app.federal_state, integer, integer, app.flex_cap_mode);
 revoke insert on app.tenants, app.users from zeit_system;
 
--- the cli and the demo sandbox insert a tenant while the context already carries its new id
 create policy "admins create the tenant" on app.tenants for insert to zeit_app
   with check ((select app.role()) = 'admin');
 grant insert on app.tenants to zeit_app;
@@ -170,7 +161,6 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  -- workday is generated and still null in a before trigger
   fillable constant text[] := array['ended_at', 'end_reason', 'voided_at', 'voided_by_request_id', 'workday'];
 begin
   if tg_op = 'DELETE' then
@@ -180,7 +170,6 @@ begin
     raise exception 'time entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- a stamp takes the clock of the database, never a time sent by the client
   if new.source = 'clock' and (
     (tg_op = 'INSERT' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -208,7 +197,6 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- the sandbox purge is the only one allowed to delete, and only rows of the tenant it purges
   if tg_op = 'DELETE' then
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true) then
       return old;

@@ -390,10 +390,8 @@ declare
   previous date;
   through date;
 begin
-  -- two sessions closing the same tenant would otherwise both see the month as open
   perform pg_advisory_xact_lock(hashtextextended('month_closings ' || new.tenant_id::text, 0));
 
-  -- closed means one close more than reopens; the new row is already counted here
   with months as (
     select c.month,
            count(*) filter (where c.action = 'close') - count(*) filter (where c.action = 'reopen') as closes
@@ -547,12 +545,10 @@ CREATE FUNCTION app.flex_checkpoint(p_employee_id uuid, p_year integer) RETURNS 
 declare
   minutes integer;
 begin
-  -- without employee or role in the context the check comes out null, not false
   if (p_employee_id = app.employee_id() or app.leads(p_employee_id) or app.role() >= 'hr') is not true then
     raise exception 'employee % is not visible', p_employee_id using errcode = 'insufficient_privilege';
   end if;
 
-  -- a december reopened and not closed again has no balance to carry over yet
   select case when c.action = 'close' then
            (c.snapshot -> 'employees' -> p_employee_id::text ->> 'flexBalanceMinutes')::integer
          end
@@ -742,7 +738,6 @@ CREATE FUNCTION app.guard_invoice_document() RETURNS trigger
     SET search_path TO ''
     AS $$
 begin
-  -- never trust a checksum the caller sends along (R-07)
   new.sha256 := sha256(new.content);
   if not exists (
     select 1 from app.invoices i
@@ -766,7 +761,6 @@ CREATE FUNCTION app.guard_own_user() RETURNS trigger
 declare
   own constant text[] := array['display_name', 'locale', 'updated_at', 'last_login_at'];
 begin
-  -- own row: name and language only, except invitation_accept activating the invited person
   if new.id = app.user_id()
     and to_jsonb(new) - own <> to_jsonb(old) - own
     and not (
@@ -793,12 +787,10 @@ CREATE FUNCTION app.guard_project_entry() RETURNS trigger
     SET search_path TO ''
     AS $$
 declare
-  -- workday is generated and still null in a before trigger
   bookkeeping constant text[] := array['updated_at', 'workday'];
   running constant text[] := array['ended_at', 'note', 'voided_at'];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -806,7 +798,6 @@ begin
     raise exception 'project entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- the timer takes the clock of the database, never a time sent by the client
   if (tg_op = 'INSERT' and new.source = 'timer' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and old.ended_at is null
       and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -820,19 +811,16 @@ begin
     raise exception 'a project entry cannot end in the future' using errcode = 'check_violation';
   end if;
 
-  -- a booking nobody's clock confirmed stays inside one working day (bedrohungsmodell T-02)
   if new.source <> 'timer' and new.ended_at is not null and new.ended_at - new.started_at > interval '24 hours' then
     raise exception 'a manual or seeded entry cannot span more than 24 hours' using errcode = 'check_violation';
   end if;
 
-  -- correcting the end of an already-stopped timer entry means it is no longer the clock's record
   if tg_op = 'UPDATE' and old.source = 'timer' and new.source = old.source and old.ended_at is not null
     and (new.started_at is distinct from old.started_at or new.ended_at is distinct from old.ended_at)
   then
     new.source := 'manual';
   end if;
 
-  -- only hr decides whether an entry counts towards a bill, never the person booking it
   if (
     (tg_op = 'INSERT' and new.billable is not null)
     or (tg_op = 'UPDATE' and new.billable is distinct from old.billable)
@@ -840,7 +828,6 @@ begin
     raise exception 'only hr sets whether a project entry is billable' using errcode = 'insufficient_privilege';
   end if;
 
-  -- the release is checked on the way onto a project only, a note on an archived one stays editable
   if (tg_op = 'INSERT' or new.project_id is distinct from old.project_id)
     and (app.role() >= 'hr') is not true
     and not app.bookable(new.project_id)
@@ -866,7 +853,6 @@ begin
     raise exception 'owner and origin of a project entry stay fixed' using errcode = 'ZT002';
   end if;
 
-  -- source is frozen too, except for the one conversion handled above
   if new.source is distinct from old.source and not (old.source = 'timer' and new.source = 'manual') then
     raise exception 'a project entry cannot change how it was booked' using errcode = 'ZT002';
   end if;
@@ -942,7 +928,6 @@ CREATE FUNCTION app.guard_request_status() RETURNS trigger
     AS $$
 begin
   if tg_op = 'INSERT' then
-    -- only a direct correction and a sick note skip the pending step
     if new.status::text <> 'pending' and not (
       new.status::text = 'approved'
       and (new.decided_by is not distinct from new.requested_by
@@ -960,7 +945,6 @@ begin
       using errcode = 'ZT003';
   end if;
 
-  -- confirming a sick note certificate counts as a decision too
   if exists (
     select 1
       from app.users u
@@ -988,7 +972,6 @@ begin
     return new;
   end if;
 
-  -- one key for users and employees, an invitation and a new employee would otherwise both get through
   perform pg_advisory_xact_lock(hashtextextended('solo_members ' || new.tenant_id::text, 0));
 
   if tg_table_name = 'users' then
@@ -1053,11 +1036,9 @@ CREATE FUNCTION app.guard_time_entry() RETURNS trigger
     SET search_path TO ''
     AS $$
 declare
-  -- workday is generated and still null in a before trigger
   fillable constant text[] := array['ended_at', 'end_reason', 'voided_at', 'voided_by_request_id', 'workday'];
 begin
   if tg_op = 'DELETE' then
-    -- same rule as app.reject_change
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -1065,7 +1046,6 @@ begin
     raise exception 'time entries are voided, never deleted' using errcode = 'ZT002';
   end if;
 
-  -- a stamp takes the clock of the database, never a time sent by the client
   if new.source = 'clock' and (
     (tg_op = 'INSERT' and (new.started_at <> now() or new.ended_at is not null))
     or (tg_op = 'UPDATE' and new.ended_at is distinct from old.ended_at and new.ended_at <> now())
@@ -1466,7 +1446,6 @@ begin
     raise exception 'employee % is not visible', p_employee_id using errcode = 'insufficient_privilege';
   end if;
 
-  -- only the one row, the rest of the snapshot stays with hr
   select case when c.action = 'close' then c.snapshot -> 'employees' -> p_employee_id::text end
     into figures
     from app.month_closings c
@@ -1525,7 +1504,6 @@ CREATE FUNCTION app.project_labels(p_ids uuid[]) RETURNS TABLE(id uuid, project_
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- a restricted client (art. 18 gdpr) keeps the row, old entries would lose their project otherwise
   select p.id,
          case when c.restricted_at is null or app.role() >= 'hr' then p.name else 'gesperrt' end,
          case when c.restricted_at is null or app.role() >= 'hr' then c.name else 'gesperrt' end
@@ -1574,9 +1552,7 @@ CREATE FUNCTION app.reject_change() RETURNS trigger
     SET search_path TO ''
     AS $$
 begin
-  -- the sandbox purge is the only one allowed to delete, and only rows of the tenant it purges
   if tg_op = 'DELETE' then
-    -- any role may set zeit.purge_tenant; the purge deletes as zeit_system, its cascades run as the table owner
     if old.tenant_id::text = current_setting('zeit.purge_tenant', true)
       and current_user in ('zeit_system', 'zeit_owner') then
       return old;
@@ -1608,7 +1584,6 @@ CREATE FUNCTION app.round_div(num bigint, den bigint) RETURNS bigint
     SET search_path TO ''
     AS $$
 begin
-  -- half away from zero, so a cancellation rounds as the exact mirror image of its invoice
   if 2 * abs(num % den) < abs(den) then
     return num / den;
   end if;
@@ -1740,7 +1715,6 @@ begin
     raise exception 'team % is not visible', p_team_id using errcode = 'insufficient_privilege';
   end if;
 
-  -- colleagues learn that someone is away, not why
   return query
     select e.id, e.first_name || ' ' || e.last_name, d.date, d.portion,
            case when full_view then r.type::text end,
@@ -1801,7 +1775,6 @@ CREATE FUNCTION audit.guard_log() RETURNS trigger
     SET search_path TO ''
     AS $$
 begin
-  -- the one update allowed: the address cut down to its network, everything else untouched
   if to_jsonb(new) - 'ip' = to_jsonb(old) - 'ip' and new.ip = audit.ip_network(old.ip) then
     return new;
   end if;
@@ -1830,7 +1803,6 @@ CREATE FUNCTION audit.track() RETURNS trigger
     SET search_path TO ''
     AS $$
 declare
-  -- bookkeeping columns are never worth a trail entry, invoices and their PDF also drop a blob
   skipped constant text[] := case tg_table_name
     when 'invoices' then array['updated_at', 'last_login_at', 'seller', 'buyer']
     when 'invoice_documents' then array['updated_at', 'last_login_at', 'content']
@@ -1849,7 +1821,6 @@ begin
     new_row := to_jsonb(new) - skipped;
   end if;
 
-  -- a payment routing change stays in the trail, but only the last four digits of it (P-01/P-05)
   if tg_table_name = 'billing_profiles' then
     old_row := old_row || jsonb_strip_nulls(
       jsonb_build_object('iban', right(old_row ->> 'iban', 4), 'bic', right(old_row ->> 'bic', 4))
@@ -1862,17 +1833,14 @@ begin
   latest := case when tg_op = 'DELETE' then old_row else new_row end;
   tenant := (case when tg_table_name = 'tenants' then latest ->> 'id' else latest ->> 'tenant_id' end)::uuid;
 
-  -- the seed runs in the transaction that creates the sandbox; in here current_user is zeit_system for everyone
   if exists (
     select 1 from app.tenants t where t.id = tenant and t.kind = 'sandbox' and t.created_at = now()
   )
-    -- a row moved in from another tenant is no seed, whatever sandbox it lands in
     and (tg_op <> 'UPDATE' or old_row ->> 'tenant_id' is not distinct from new_row ->> 'tenant_id')
   then
     return null;
   end if;
 
-  -- rows cascading away with their tenant are the sandbox purge, which deletes the trail right after
   if tg_op = 'DELETE' and not exists (select 1 from app.tenants t where t.id = tenant) then
     return null;
   end if;
@@ -1931,7 +1899,6 @@ begin
     return false;
   end if;
 
-  -- any other half-finished session of this person was opened with the password alone
   delete from auth.sessions s where s.user_id = account and s.enrollment_pending;
   return true;
 end;
@@ -1976,7 +1943,6 @@ begin
   returning t.user_id into account;
 
   if account is not null then
-    -- the trail names the invited person as the one who activated the account
     perform set_config('app.user_id', account::text, true),
             set_config('app.role', (select u.role::text from app.users u where u.id = account), true);
     perform auth.password_set(account, p_password_hash);
@@ -1996,8 +1962,6 @@ CREATE FUNCTION auth.login_failed(p_user_id uuid) RETURNS timestamp with time zo
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- a streak ends after a day without misses; from the fifth miss the account locks for 1, 2, 4, 8, then 15 minutes
-  -- only c is read again once the row lock is granted, a subquery would lose a parallel miss
   update auth.credentials c
      set failed_count = case when c.last_failed_at > now() - interval '24 hours' then c.failed_count else 0 end + 1,
          last_failed_at = now(),
@@ -2021,7 +1985,6 @@ CREATE FUNCTION auth.login_lookup(p_email text) RETURNS TABLE(user_id uuid, tena
   select u.id, u.tenant_id, u.role, u.status, c.password_hash, coalesce(c.failed_count, 0), c.locked_until
     from app.users u
     left join auth.credentials c on c.user_id = u.id
-   -- search_path is empty, so the citext operator has to be named or = compares case-sensitively
    where u.email operator(public.=) p_email::public.citext
      and u.status = 'active';
 $$;
@@ -2035,7 +1998,6 @@ CREATE FUNCTION auth.mfa_challenge_attempt(p_token_hash bytea) RETURNS uuid
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- kept for callers that only need the person
   select a.user_id from auth.mfa_challenge_attempt_with_scope(p_token_hash) a;
 $$;
 
@@ -2048,7 +2010,6 @@ CREATE FUNCTION auth.mfa_challenge_attempt_with_scope(p_token_hash bytea) RETURN
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- counted before the code is checked, and once login_failed has locked the account nothing is left
   with counted as (
     update auth.mfa_challenges m set attempts = m.attempts + 1
      where m.token_hash = p_token_hash
@@ -2087,7 +2048,6 @@ CREATE FUNCTION auth.mfa_challenge_create(p_user_id uuid, p_token_hash bytea) RE
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- one open step per person, a fresh password login replaces the previous one
   delete from auth.mfa_challenges m where m.user_id = p_user_id;
   insert into auth.mfa_challenges (token_hash, user_id)
   values (p_token_hash, p_user_id)
@@ -2118,7 +2078,6 @@ begin
   delete from auth.mfa_challenges m where m.user_id = p_user_id;
   delete from auth.webauthn_challenges w where w.user_id = p_user_id;
   delete from auth.sessions s where s.user_id = p_user_id;
-  -- the old password alone must not lead to a fresh second factor, a new one needs the mailbox
   delete from auth.credentials c where c.user_id = p_user_id;
 end;
 $$;
@@ -2197,7 +2156,6 @@ CREATE FUNCTION auth.passkey_touch(p_passkey_id uuid, p_counter bigint, p_backed
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- a counter that does not move forward points to a cloned authenticator; some never count and stay at 0
   with touched as (
     update auth.passkeys k
        set counter = p_counter, backed_up = p_backed_up, last_used_at = now()
@@ -2240,9 +2198,7 @@ begin
   end if;
 
   perform auth.password_set(account, p_password_hash);
-  -- this device included, the api opens a fresh session right after
   delete from auth.sessions s where s.user_id = account;
-  -- a reset link sent before the change would otherwise still overwrite the new password
   delete from auth.tokens t where t.user_id = account and t.kind = 'password_reset' and t.used_at is null;
 end;
 $$;
@@ -2255,15 +2211,14 @@ $$;
 CREATE FUNCTION auth.password_rehash(p_user_id uuid, p_old_hash text, p_new_hash text) RETURNS boolean
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
-    AS $_$
-  -- a password change in between wins; the $argon2id$ check on the column guards the format
+    AS $$
   with swapped as (
     update auth.credentials c set password_hash = p_new_hash
      where c.user_id = p_user_id and c.password_hash = p_old_hash
     returning c.user_id
   )
   select exists (select 1 from swapped);
-$_$;
+$$;
 
 
 --
@@ -2309,7 +2264,6 @@ CREATE FUNCTION auth.password_set(p_user_id uuid, p_password_hash text) RETURNS 
   on conflict (user_id) do update
     set password_hash = excluded.password_hash, failed_count = 0, locked_until = null;
 
-  -- choosing a password is what turns an invitation into an account
   update app.users u set status = 'active' where u.id = p_user_id and u.status = 'invited';
 $$;
 
@@ -2379,20 +2333,17 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- misses come from password guesses, a passkey with user verification is let past the lock
   if not p_bypass_lock
     and exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now())
   then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
 
-  -- a running lock stays, or every passkey login would hand the guesser five fresh tries
   update auth.credentials c set failed_count = 0, locked_until = null, last_failed_at = null
    where c.user_id = p_user_id
      and c.failed_count > 0
      and (c.locked_until is null or c.locked_until <= now());
 
-  -- without a second factor the session only reaches the enrollment endpoints, demo personas excepted
   insert into auth.sessions (
     user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent,
     enrollment_pending
@@ -2443,7 +2394,6 @@ CREATE FUNCTION auth.session_resolve(p_token_hash bytea) RETURNS TABLE(session_i
        and u.status in ('active', 'demo')
        and (t.expires_at is null or t.expires_at > now())
   ), touched as (
-    -- one write per session and minute keeps the idle window close enough without a write per request
     update auth.sessions s
        set idle_expires_at = least(now() + interval '12 hours', s.absolute_expires_at),
            last_seen_at = now()
@@ -2570,7 +2520,6 @@ CREATE FUNCTION auth.token_issue(p_user_id uuid, p_kind auth.token_kind, p_token
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- the open token of the same kind is overwritten, so only the newest link works
   insert into auth.tokens as t (user_id, kind, token_hash, expires_at)
   values (
     p_user_id, p_kind, p_token_hash,
@@ -2590,7 +2539,6 @@ CREATE FUNCTION auth.totp_begin(p_user_id uuid, p_secret_enc bytea, p_key_versio
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- a pending secret is simply replaced, a confirmed one stays until it is removed on purpose
   with saved as (
     insert into auth.totp as t (user_id, secret_enc, key_version)
     values (p_user_id, p_secret_enc, p_key_version)
@@ -2613,7 +2561,6 @@ CREATE FUNCTION auth.totp_confirm(p_user_id uuid, p_step bigint, p_code_hashes b
     SET search_path TO ''
     AS $$
 begin
-  -- the code that confirmed the secret is spent and cannot sign in afterwards
   update auth.totp t set confirmed_at = now(), last_used_step = p_step
    where t.user_id = p_user_id and t.confirmed_at is null;
   if not found then
@@ -2665,7 +2612,6 @@ CREATE FUNCTION auth.totp_use_step(p_user_id uuid, p_step bigint) RETURNS boolea
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- a code counts once: its step has to lie after the last one used, parallel requests queue on the row
   with used as (
     update auth.totp t set last_used_step = p_step
      where t.user_id = p_user_id
@@ -2737,7 +2683,6 @@ CREATE FUNCTION ops.audit_ip_retention() RETURNS integer
 declare
   cut integer;
 begin
-  -- a second container running the job at the same time just skips
   if not pg_try_advisory_xact_lock(hashtext('zeit:audit-ip-retention')) then
     return 0;
   end if;
@@ -2799,7 +2744,6 @@ CREATE FUNCTION ops.demo_switch_persona(p_session_token_hash bytea, p_target_use
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO ''
     AS $$
-  -- null when the session is gone, the tenant is no live sandbox or the target lives outside its group
   with old as (
     delete from auth.sessions s
      using app.users u, app.tenants t, app.users target, app.tenants tt
@@ -2863,7 +2807,6 @@ begin
     return;
   end if;
 
-  -- auth.mfa_reset wants an admin of the target's tenant who is not the target
   perform set_config('app.tenant_id', target.tenant_id::text, true),
           set_config('app.user_id', '', true),
           set_config('app.role', 'admin', true);
@@ -2896,7 +2839,6 @@ CREATE FUNCTION ops.purge_sandbox(p_id uuid) RETURNS boolean
 declare
   purged boolean;
 begin
-  -- lifts app.reject_change for this tenant only, the journals and the trail go with it
   perform set_config('zeit.purge_tenant', p_id::text, true);
   delete from app.tenants t where t.id = p_id and t.kind = 'sandbox' and t.expires_at <= now();
   purged := found;
@@ -2941,13 +2883,11 @@ CREATE FUNCTION ops.sandbox_seed(p_plan jsonb, p_locale text) RETURNS void
 declare
   tenant constant uuid := (p_plan -> 'tenant' ->> 'id')::uuid;
   solo constant uuid := (p_plan -> 'solo' -> 'tenant' ->> 'id')::uuid;
-  -- never taken from the plan, nobody gets a tenant into the group of another visitor
   pair constant uuid := gen_random_uuid();
 begin
   perform ops.sandbox_seed_company(p_plan, p_locale);
   update app.tenants t set sandbox_group = pair where t.id = tenant;
 
-  -- expires with the company, the purge takes both on the same run
   insert into app.tenants (id, name, slug, state, workspace, kind, expires_at, sandbox_group)
   select solo, p_plan -> 'solo' -> 'tenant' ->> 'name', p_plan -> 'solo' -> 'tenant' ->> 'slug',
          (p_plan -> 'solo' -> 'tenant' ->> 'state')::app.federal_state, 'solo', 'sandbox', t.expires_at, pair
@@ -3147,7 +3087,6 @@ begin
       as x (id uuid, "personnelNo" text, "firstName" text, "lastName" text, "teamId" uuid,
             "entryDate" date, "exitDate" date);
 
-  -- every persona speaks the language the visitor started the demo in
   insert into app.users (id, tenant_id, email, display_name, role, locale, status, employee_id)
   select x.id, tenant, x.email, x."displayName", x.role, p_locale, 'demo', x."employeeId"
     from jsonb_to_recordset(p_plan -> 'users')
@@ -3190,14 +3129,12 @@ begin
             "newStartedAt" timestamptz, "newEndedAt" timestamptz, reason text, "requestedBy" uuid,
             "createdAt" timestamptz);
 
-  -- guard_request_status only lets a request in as pending and then walks it along its transitions
   update app.correction_requests c
      set status = x.status, decided_by = x."decidedBy", decided_at = x."decidedAt"
     from jsonb_to_recordset(p_plan -> 'corrections')
       as x (id uuid, status app.correction_status, "decidedBy" uuid, "decidedAt" timestamptz)
    where c.tenant_id = tenant and c.id = x.id and x.status <> 'pending';
 
-  -- settled ones first, the overlap constraints only see open and approved requests
   foreach settled in array array[true, false] loop
     insert into app.absence_requests (
       id, tenant_id, employee_id, type, start_date, end_date, half_day_start, half_day_end,
@@ -3213,7 +3150,6 @@ begin
               "createdAt" timestamptz)
      where (x.status in ('rejected', 'withdrawn', 'cancelled')) = settled;
 
-    -- cancel_pending and cancelled go through approved first
     update app.absence_requests r
        set status = case when x.status in ('cancel_pending', 'cancelled') then 'approved' else x.status end,
            decided_by = x."decidedBy", decided_at = x."decidedAt", decision_note = x."decisionNote"
@@ -3272,7 +3208,6 @@ begin
       as x (id uuid, "employeeId" uuid, "workDate" date, "ruleCode" text, "ruleVersion" text,
             note text, "createdBy" uuid, "createdAt" timestamptz);
 
-  -- the cap_forfeit booking points at a closing that follows below, the foreign key is deferred
   insert into app.flex_bookings (
     id, tenant_id, employee_id, type, minutes, effective_date, reason, month_closing_id,
     created_by, created_at
@@ -3284,7 +3219,6 @@ begin
             "effectiveDate" date, reason text, "monthClosingId" uuid, "createdBy" uuid,
             "createdAt" timestamptz);
 
-  -- one statement per month, apply_month_closing counts the rows of its own statement as closed
   for i in 0 .. jsonb_array_length(p_plan -> 'monthClosings') - 1 loop
     insert into app.month_closings (id, tenant_id, month, action, reason, snapshot, created_by, created_at)
     select x.id, tenant, x.month, x.action, x.reason, x.snapshot, x."createdBy", x."createdAt"
@@ -3340,7 +3274,6 @@ begin
   insert into app.tenants (id, name, slug, state, workspace)
   values (p_id, p_name, p_slug, p_state, p_workspace);
 
-  -- project entries and the trail hang on employee_id, so the solo person gets a personnel record
   if p_workspace = 'solo' then
     insert into app.employees (tenant_id, personnel_no, first_name, last_name, entry_date)
     values (p_id, '1', p_first_name, p_last_name, (now() at time zone 'Europe/Berlin')::date)

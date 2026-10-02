@@ -3,7 +3,6 @@ create type auth.webauthn_purpose as enum ('register', 'login', 'reauth');
 
 create table auth.totp (
   user_id uuid primary key references app.users (id) on delete cascade,
-  -- aes-256-gcm in the api, key_version names the DATA_ENCRYPTION_KEY it was sealed with
   secret_enc bytea not null,
   key_version smallint not null check (key_version > 0),
   confirmed_at timestamptz,
@@ -38,7 +37,6 @@ create index passkeys_user_idx on auth.passkeys (user_id);
 
 create table auth.webauthn_challenges (
   id uuid primary key default gen_random_uuid(),
-  -- a discoverable login does not know the person yet
   user_id uuid references app.users (id) on delete cascade,
   challenge bytea not null unique check (octet_length(challenge) between 16 and 64),
   purpose auth.webauthn_purpose not null,
@@ -93,7 +91,6 @@ as $$
        and u.status in ('active', 'demo')
        and (t.expires_at is null or t.expires_at > now())
   ), touched as (
-    -- one write per session and minute keeps the idle window close enough without a write per request
     update auth.sessions s
        set idle_expires_at = least(now() + interval '12 hours', s.absolute_expires_at),
            last_seen_at = now()
@@ -129,7 +126,6 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- a lock holds for passkeys too, and signing in does not lift it
   if exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now()) then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
@@ -137,7 +133,6 @@ begin
   update auth.credentials c set failed_count = 0, locked_until = null, last_failed_at = null
    where c.user_id = p_user_id and c.failed_count > 0;
 
-  -- without a second factor the session only reaches the enrollment endpoints, demo personas excepted
   insert into auth.sessions (
     user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent,
     enrollment_pending
@@ -185,7 +180,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- a pending secret is simply replaced, a confirmed one stays until it is removed on purpose
   with saved as (
     insert into auth.totp as t (user_id, secret_enc, key_version)
     values (p_user_id, p_secret_enc, p_key_version)
@@ -228,7 +222,6 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- the code that confirmed the secret is spent and cannot sign in afterwards
   update auth.totp t set confirmed_at = now(), last_used_step = p_step
    where t.user_id = p_user_id and t.confirmed_at is null;
   if not found then
@@ -248,7 +241,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- a code counts once: its step has to lie after the last one used, parallel requests queue on the row
   with used as (
     update auth.totp t set last_used_step = p_step
      where t.user_id = p_user_id
@@ -372,7 +364,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- a counter that does not move forward points to a cloned authenticator; some never count and stay at 0
   with touched as (
     update auth.passkeys k
        set counter = p_counter, backed_up = p_backed_up, last_used_at = now()
@@ -426,7 +417,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- one open step per person, a fresh password login replaces the previous one
   delete from auth.mfa_challenges m where m.user_id = p_user_id;
   insert into auth.mfa_challenges (token_hash, user_id)
   values (p_token_hash, p_user_id)
@@ -439,7 +429,6 @@ language sql
 security definer
 set search_path = ''
 as $$
-  -- the attempt is counted before the code is checked, so parallel guesses cannot slip past the limit
   update auth.mfa_challenges m set attempts = m.attempts + 1
    where m.token_hash = p_token_hash
      and m.expires_at > now()
@@ -488,7 +477,6 @@ begin
     return false;
   end if;
 
-  -- any other half-finished session of this person was opened with the password alone
   delete from auth.sessions s where s.user_id = account and s.enrollment_pending;
   return true;
 end;
@@ -629,7 +617,6 @@ begin
     raise exception 'user % may not sign in', p_user_id using errcode = '28000';
   end if;
 
-  -- a lock holds for passkeys too, and signing in does not lift it
   if exists (select 1 from auth.credentials c where c.user_id = p_user_id and c.locked_until > now()) then
     raise exception 'user % is locked', p_user_id using errcode = '28000';
   end if;
@@ -676,7 +663,6 @@ as $$
        and u.status in ('active', 'demo')
        and (t.expires_at is null or t.expires_at > now())
   ), touched as (
-    -- one write per session and minute keeps the idle window close enough without a write per request
     update auth.sessions s
        set idle_expires_at = least(now() + interval '12 hours', s.absolute_expires_at),
            last_seen_at = now()

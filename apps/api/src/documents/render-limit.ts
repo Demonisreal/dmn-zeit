@@ -1,5 +1,3 @@
-// shared in-process counters (D-02): worker.ts enforces the hard limit, render-limit.guard.ts
-// uses the same numbers to fail fast on the http route before a job is even queued
 export const MAX_CONCURRENT = 2;
 export const MAX_QUEUED = 10;
 export const RETRY_AFTER_SECONDS = 5;

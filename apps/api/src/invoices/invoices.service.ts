@@ -53,7 +53,6 @@ function einvoiceGaps(invoice: Invoice): string[] {
 	return invoice.format === 'pdf' ? [] : einvoiceBlockers(toEInvoice(invoice), invoice.format);
 }
 
-// D-01: at most 500 lines per draft, past that rendering turns into a page battle
 const MAX_LINES = 500;
 function tooManyLines() {
 	return new BadRequestException({
@@ -112,7 +111,6 @@ function treatmentFor(
 	});
 }
 
-// zod's .partial() keeps every key as "present but possibly undefined", unlike TS's own Partial<T>
 export type LinePatch = { [K in keyof InvoiceLineInput]?: InvoiceLineInput[K] | undefined };
 
 function minutesOf(startedAt: string, endedAt: string): number {
@@ -235,8 +233,6 @@ export class InvoicesService {
 		});
 	}
 
-	// picks up time that became unbilled after the draft was created, in the same period and client;
-	// a project filter given at creation is not persisted on the invoice, so a refresh looks at all projects
 	refresh(session: AuthSession, id: string): Promise<Invoice> {
 		return this.db.withTenant(session, async (trx) => {
 			const essentials = await this.lockedDraft(trx, id);
@@ -246,8 +242,6 @@ export class InvoicesService {
 			]);
 			if (freeEntries.length === 0) return this.model(trx, id);
 
-			// the draft's own time lines are rebuilt together with the newly found time, so a cell that
-			// already has a line (e.g. the same day, project and rate) is rounded once, not twice
 			const linkedEntries = await this.store.linkedEntryRows(trx, id);
 			const rates = await this.ratesFor(trx, essentials.clientId);
 			const lines = buildTimeLines({
@@ -445,7 +439,6 @@ export class InvoicesService {
 		const stored = await this.db.withTenant(session, (trx) => this.store.storedDocument(trx, essentials.id, format));
 		if (stored) return { ...stored, filename };
 
-		// R-06: rendered from the frozen snapshot on the invoice, never re-read from clients/billing_profiles
 		const model = await this.db.withTenant(session, (trx) => this.model(trx, essentials.id));
 		const rendered = await this.documents.renderInvoice(model);
 		const saved = await this.db.withTenant(session, async (trx) => {
@@ -465,8 +458,6 @@ export class InvoicesService {
 			const rendered = await this.documents.renderInvoice(model);
 			await this.db.withTenant(session, (trx) => this.saveDocuments(trx, model.id, rendered));
 		} catch (error) {
-			// the number is already assigned, the document is only its rendering and is retried lazily
-			// on the next GET /invoices/:id/document (planung-projekte.md, Ablauf beim Ausstellen)
 			this.logger.warn(`Could not render invoice ${model.id} after issuing: ${String(error)}`);
 		}
 	}
@@ -493,13 +484,8 @@ export class InvoicesService {
 		);
 	}
 
-	// a free position must not carry a category the client and profile rule out for the whole
-	// invoice (planung-projekte.md, Risiko 17); the client already offers only the matching choices,
-	// this is the server-side backstop
 	private async assertLineTaxCategory(trx: Trx, draft: DraftTax, category: TaxCategory): Promise<void> {
 		const treatment = await this.treatment(trx, draft);
-		// reverse_charge, outside_scope and small_business bind the whole invoice; only under
-		// 'standard' can a position pick its own category (standard, reduced or exempt)
 		const wholeInvoiceCategories: TaxCategory[] = ['reverse_charge', 'outside_scope', 'small_business'];
 		const mismatch =
 			treatment === 'standard' ? wholeInvoiceCategories.includes(category) : category !== treatment;

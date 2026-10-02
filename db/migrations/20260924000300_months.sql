@@ -32,7 +32,6 @@ create table app.flex_bookings (
   unique (tenant_id, id),
   unique (tenant_id, month_closing_id, employee_id),
   foreign key (tenant_id, employee_id) references app.employees (tenant_id, id),
-  -- deferred: the cap is booked while its month is still open, the closing row that locks it comes after
   foreign key (tenant_id, month_closing_id) references app.month_closings (tenant_id, id)
     deferrable initially deferred,
   foreign key (tenant_id, created_by) references app.users (tenant_id, id),
@@ -53,10 +52,8 @@ declare
   previous date;
   through date;
 begin
-  -- two sessions closing the same tenant would otherwise both see the month as open
   perform pg_advisory_xact_lock(hashtextextended('month_closings ' || new.tenant_id::text, 0));
 
-  -- closed means one close more than reopens; the new row is already counted here
   with months as (
     select c.month,
            count(*) filter (where c.action = 'close') - count(*) filter (where c.action = 'reopen') as closes
@@ -87,7 +84,6 @@ begin
 end;
 $$;
 
--- someone hired after a closing starts inside the closed range like everybody else
 create function app.inherit_closed_through()
 returns trigger
 language plpgsql
@@ -107,7 +103,6 @@ begin
 end;
 $$;
 
--- after insert, so the row security check runs before the sequence check
 create trigger month_closings_apply
   after insert on app.month_closings
   for each row execute function app.apply_month_closing();
