@@ -10,7 +10,7 @@ Working time, leave and flextime under German labour law (ArbZG, BUrlG) for smal
 
 ## Try it
 
-**Demo: `zeit-demo.dmn-software.com`** (not online yet, the deployment is still to come; until then run it locally, see [Running locally](#running-locally))
+**Demo: [zeit-demo.dmn-software.com](https://zeit-demo.dmn-software.com)**
 
 No account, no password. Click **"Start demo"** on the start page (the interface switches between German and English at the top). That creates a sandbox of your own: a made-up sample company (a tax office in North Rhine-Westphalia, twelve people in three teams, bookings since January, open requests, findings under the Working Hours Act) and, next to it, the solo workspace of a made-up freelancer with clients, projects and invoices. The demo opens in the employee role; **"Switch role"** leads on to team lead, HR, administration and the solo workspace, without a password.
 

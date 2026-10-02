@@ -10,7 +10,7 @@ Arbeitszeit, Urlaub und Gleitzeit nach ArbZG und BUrlG für kleine Betriebe, daz
 
 ## Ausprobieren
 
-**Demo: `zeit-demo.dmn-software.com`** (noch nicht online, der Deploy steht aus; bis dahin lokal, siehe [Lokal starten](#lokal-starten))
+**Demo: [zeit-demo.dmn-software.com](https://zeit-demo.dmn-software.com)**
 
 Kein Konto, kein Passwort. Auf der Startseite **„Demo starten“** klicken (oben lässt sich zwischen Deutsch und Englisch wechseln). Das legt eine eigene Sandbox an: einen erfundenen Musterbetrieb (Steuerbüro in NRW, zwölf Personen in drei Teams, Buchungen seit Januar, offene Anträge, Befunde nach dem Arbeitszeitgesetz) und daneben den Solo-Bereich einer erfundenen Freelancerin mit Kunden, Projekten und Rechnungen. Die Demo startet in der Rolle Beschäftigte, über **„Rolle wechseln“** geht es ohne Passwort zu Teamleitung, Personalverwaltung, Administration und in den Solo-Bereich.
 
