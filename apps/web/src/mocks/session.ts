@@ -1,7 +1,6 @@
 import type { Session } from '@zeit/shared';
 import type { ProjectWorld } from './projects';
 
-// own module so hr.ts and admin.ts can import it without a cycle through handlers.ts
 export const mockUser = { email: 'mara.lenz@example.com', password: 'richtiges-passwort' };
 
 export const mockSession: Session = {
@@ -28,7 +27,6 @@ export const mockSession: Session = {
 	csrfToken: 'mock-csrf-token'
 };
 
-// a freelancer runs the workspace alone: admin, with the one personnel record it allows
 const soloSession = (
 	name: string,
 	ids: { user: string; employee: string; tenant: string },
@@ -48,7 +46,6 @@ const soloSession = (
 
 const password = mockUser.password;
 
-// every account signs in with the same password, the world decides which projects the mocks serve
 export const mockAccounts: {
 	email: string;
 	password: string;

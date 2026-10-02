@@ -1,4 +1,3 @@
-/* positions on the left, the paper on the right; one column once the paper would get too narrow */
 .layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -47,7 +46,6 @@
 	gap: 0.25rem 1rem;
 }
 
-/* descriptions are multiline text, the breaks are part of what goes on the invoice */
 .desc {
 	flex: 1 1 16rem;
 	color: var(--white);

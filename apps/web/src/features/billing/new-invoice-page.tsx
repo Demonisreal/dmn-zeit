@@ -24,7 +24,6 @@ type Props = {
 	prefill: Prefill;
 };
 
-// the same first-of-month-to-today span the project week already suggests for "not yet billed"
 const defaultFrom = () => `${new Date().toISOString().slice(0, 7)}-01`;
 const defaultTo = () => new Date().toISOString().slice(0, 10);
 

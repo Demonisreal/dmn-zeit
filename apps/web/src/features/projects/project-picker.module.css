@@ -2,7 +2,6 @@
 	min-width: min(100%, 16rem);
 }
 
-/* same as VisuallyHidden, the label element itself has to stay for react-aria */
 .hidden {
 	position: absolute;
 	width: 1px;

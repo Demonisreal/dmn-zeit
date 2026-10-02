@@ -20,7 +20,6 @@ type Props = {
 	project: Project;
 };
 
-// only a company has more than one person to choose from, the api answers 404 in a solo workspace
 export function ProjectMembers({ project }: Props) {
 	const { t } = useTranslation('billing');
 	const errorText = useErrorText();
@@ -97,7 +96,6 @@ function MembersForm({ project, members, onDone }: FormProps) {
 	const employees = useQuery(employeesQuery());
 	const today = todayIso();
 
-	// someone who left keeps the place until it is taken away, the list only offers current staff
 	const candidates = new Map(members.map((member) => [member.employeeId, member.name]));
 	for (const employee of employees.data ?? []) {
 		if (!employee.exitDate || employee.exitDate >= today) {

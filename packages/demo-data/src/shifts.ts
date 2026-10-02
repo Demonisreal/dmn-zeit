@@ -29,17 +29,13 @@ import { leadOf, type Cast, type Person } from './staff';
 export type Special = {
 	person: Person;
 	date: Temporal.PlainDate;
-	// wall-clock minutes of that day, an end past 1440 runs into the next one
 	spans: (readonly [number, number])[];
-	// the last span is still running, its end is what the correction asks for
 	running?: true;
 };
 
 export type Sheet = {
 	entries: PlanRow<'entries'>[];
-	// per workday, a running entry counted up to the end its correction asks for
 	worked: Map<string, number>;
-	// finished entries only, what the compliance check sees
 	spans: Span[];
 };
 
@@ -74,7 +70,6 @@ export function fixedShifts(cast: Cast, calendar: Calendar): Special[] {
 	)!;
 
 	return [
-		// 10 h 40 min with a proper break, only § 3
 		{
 			person: cast.busy,
 			date: next(cast.busy, on(2, 16), 4),
@@ -83,7 +78,6 @@ export function fixedShifts(cast: Cast, calendar: Calendar): Special[] {
 				[810, 1135]
 			]
 		},
-		// until 22:00 and back at 07:15, 9 h 15 min of rest
 		{
 			person: cast.lead,
 			date: evening,
@@ -100,7 +94,6 @@ export function fixedShifts(cast: Cast, calendar: Calendar): Special[] {
 				[735, 915]
 			]
 		},
-		// 9 h 30 min with 30 min of break
 		{
 			person: cast.hr,
 			date: next(cast.hr, on(4, 20), 2),
@@ -109,7 +102,6 @@ export function fixedShifts(cast: Cast, calendar: Calendar): Special[] {
 				[780, 1065]
 			]
 		},
-		// 6 h 45 min in one go
 		{ person: cast.partTimer, date: next(cast.partTimer, on(5, 6), 3), spans: [[480, 885]] },
 		{
 			person: cast.leaver,
@@ -117,7 +109,6 @@ export function fixedShifts(cast: Cast, calendar: Calendar): Special[] {
 			spans: [[600, 840]]
 		},
 		{ person: cast.forgetful, date: corpusChristi.date, spans: [[540, 780]] },
-		// saturday 22:00 to sunday 04:00 over the change to summer time, five hours on the clock
 		{
 			person: cast.switcher,
 			date: lastWeekday(march, 7).subtract({ days: 1 }),
@@ -134,7 +125,6 @@ export function fixedShifts(cast: Cast, calendar: Calendar): Special[] {
 	];
 }
 
-// these need the leave plan, they go on days the person is actually at work
 export function lateShifts(
 	rng: Random,
 	cast: Cast,
@@ -164,7 +154,6 @@ export function lateShifts(
 
 	const early = pick(cast.capped, 5);
 	const start = cast.capped.arrival + rng.int(-10, 10);
-	// two hours short, this is what takes the capped lead from the cap down to 38 h
 	const short = targetOn(calendar, cast.capped.employment, early) - 120;
 
 	return [
@@ -178,7 +167,6 @@ export function lateShifts(
 			running: true
 		},
 		{ person: cast.capped, date: early, spans: [[start, start + short]] },
-		// 10 h 05 min in the open month, left unacknowledged
 		{
 			person: cast.busy,
 			date: pick(cast.busy, 2),
@@ -190,7 +178,6 @@ export function lateShifts(
 	];
 }
 
-// the capped lead builds the overtime up over the last closed quarter, so only that closing cuts it
 function cappedDrift(calendar: Calendar, month: Temporal.PlainYearMonth): number {
 	const back =
 		(calendar.lastClosed.year - month.year) * 12 + calendar.lastClosed.month - month.month;
@@ -205,7 +192,6 @@ export function timesheets(
 	leaves: readonly Leave[]
 ): Map<Person, Sheet> {
 	const sheets = new Map<Person, Sheet>();
-	// a story reaching back further than a year would open the steady drifters past the cap
 	const driftFrom = calendar.today.subtract({ years: 1 });
 	for (const person of cast.people) {
 		const { entryDate, exitDate } = person.employment;
@@ -228,7 +214,6 @@ export function timesheets(
 				: Temporal.PlainDate.compare(date, driftFrom) > 0
 					? person.drift
 					: 0;
-		// past the eight hours of § 3 an ordinary day would turn into a finding nobody wrote
 		const spread = (date: Temporal.PlainDate) =>
 			Math.min(
 				20,
@@ -237,18 +222,15 @@ export function timesheets(
 					driftOn(date)
 			);
 
-		// days paired at random cancel each other out, side by side the pattern would show
 		const jitter = new Map<string, number>();
 		const byMonth = new Map<string, Temporal.PlainDate[]>();
 		for (const date of ordinary) {
 			const month = date.toString().slice(0, 7);
 			byMonth.set(month, [...(byMonth.get(month) ?? []), date]);
 		}
-		// the days left over let the months differ, 20 minutes off in all or the forgetful hits the minus cap
 		let wander = 0;
 		for (const month of byMonth.values()) {
 			const shuffled = rng.shuffle(month);
-			// the capped lead has to meet the cap to the minute, an odd day of his stays at zero
 			const pairs = Math.floor(
 				(person === cast.capped ? shuffled.length : shuffled.length - 1) / 2
 			);
@@ -349,7 +331,6 @@ export function forgottenLeave(
 	};
 }
 
-// everything up to the last closed month is acknowledged, the open month keeps its findings
 export function acknowledge(
 	rng: Random,
 	cast: Cast,

@@ -36,7 +36,6 @@ export function ProjectTasks({ project, tasks }: Props) {
 		}
 	});
 
-	// archived tasks stay listed below the active ones, they still carry booked time
 	const sorted = tasks.toSorted(
 		(a, b) =>
 			Number(a.archivedAt !== null) - Number(b.archivedAt !== null) ||

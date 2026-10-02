@@ -14,14 +14,12 @@ import {
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 
-// sample company for working on the ui without the api: a tax office in NRW, names made up
 const person = (id: string, userId: string, name: string) => ({
 	id,
 	name,
 	user: { id: userId, displayName: name }
 });
 
-// same person as mockSession in handlers.ts
 const mara = person(
 	'8d41b7c2-0e5f-4a93-b6d8-2c7e9f13a054',
 	'3f6c2a9e-8b1d-4c57-9e0a-5d2b7f4a1c38',
@@ -64,7 +62,6 @@ const helin = person(
 );
 const sabine = { id: '5b004527-423c-4b82-89ae-323b702a9c62', displayName: 'Sabine Kortmann' };
 
-// names and leads are in mocks/hr.ts, it imports the ids from here to read the absences without a cycle
 export const teamIds = {
 	tax: 'e1f9ecbb-e6ff-4aa4-b29b-703459281a47',
 	payroll: 'c1b89b13-aeb6-4609-a49e-f1fe33512388',
@@ -98,7 +95,6 @@ const holidays: Holiday[] = [
 ];
 
 const DAY_MS = 86_400_000;
-// 39 hours over five days
 const DAY_MINUTES = 468;
 
 const addDays = (iso: string, days: number) =>
@@ -502,7 +498,6 @@ const ledgerEntry = (
 const notice2025 = 'e5a7c1d2-3b4f-4e8a-9c6d-2f1b8a7e4d30';
 const notice2026 = 'a3d9f2e1-7c4b-4a6e-8d5f-1e2c9b7a6f48';
 
-// the api books leave on the day it is approved, so these dates are decisions and not the leave itself
 const ledger2025: VacationLedgerEntry[] = [
 	ledgerEntry('0b7e4c1a-5d2f-4a8e-9b3c-6f1d2e8a7c40', 2025, 'entitlement', '30.00', '2025-01-01'),
 	ledgerEntry('1c8f5d2b-6e3a-4b9f-8c4d-7a2e3f9b8d51', 2025, 'taken', '-5.00', '2025-03-10', {
@@ -599,7 +594,6 @@ const invalid = (field: string, message: string, code = 'custom') =>
 const overlaps = (a: Range, b: Range) => a.startDate <= b.endDate && b.startDate <= a.endDate;
 const blocking: AbsenceStatus[] = ['pending', 'approved', 'cancel_pending'];
 
-// what the week and the timesheet mocks credit on a day, open requests count nothing yet
 export function absenceOn(employeeId: string, date: string) {
 	const found = absences
 		.filter(
@@ -609,7 +603,6 @@ export function absenceOn(employeeId: string, date: string) {
 				a.startDate <= date &&
 				a.endDate >= date
 		)
-		// a sick day inside leave is a sick day, § 9 BUrlG
 		.toSorted((a, b) => Number(b.type === 'sick') - Number(a.type === 'sick'))[0];
 	const portion = found && costOf(found).find((day) => day.date === date)?.portion;
 	return found && portion
@@ -617,17 +610,14 @@ export function absenceOn(employeeId: string, date: string) {
 		: null;
 }
 
-// leave left before the open requests, helin's matches her notice in mocks/hr.ts
 const leaveLeft: Record<string, number> = {
 	[deniz.id]: 25,
 	[lea.id]: 7.5,
 	[tobias.id]: 9,
 	[helin.id]: 6
 };
-// flextime as mocks/hr.ts counts it for september
 const flexBalance: Record<string, number> = { [jonas.id]: 1325 };
 
-// the inbox extras, worked out like forDecision in the api
 function withContext(a: Absence): Absence {
 	const cancelling = a.status === 'cancel_pending';
 	const team = Object.values(members).find((list) => list.some((m) => m.id === a.employee.id));
@@ -651,7 +641,6 @@ function withContext(a: Absence): Absence {
 				(o) => o.employee.id === a.employee.id && o.type === 'vacation' && o.status === 'pending'
 			)
 			.reduce((total, o) => total + Number(o.vacationDays), 0);
-		// an approved cancellation gives the days back
 		shown.remainingAfter = toDays(left - pending + (cancelling ? Number(a.vacationDays) : 0));
 	}
 	const balance = flexBalance[a.employee.id];
@@ -781,7 +770,6 @@ export const absenceHandlers = [
 		if (input.type !== 'sick' && clash) {
 			return fail(409, 'TIME_OVERLAP', 'Overlaps an existing request');
 		}
-		// sick leave is only reported, it never waits for a decision
 		const created = absence(
 			crypto.randomUUID(),
 			mara,
@@ -838,7 +826,6 @@ export const absenceHandlers = [
 		return decide<Absence>(absences, String(params.id), (a) => {
 			if (own(a)) return forbiddenOwn();
 			if (a.status === 'pending') return { ...a, status: 'rejected', ...decision(note) };
-			// a declined cancellation leaves the leave as it was approved
 			if (a.status === 'cancel_pending') return { ...a, status: 'approved', ...decision(note) };
 			return wrongState();
 		});
@@ -874,7 +861,6 @@ export const absenceHandlers = [
 		})
 	),
 
-	// only the decision side, own corrections belong to the time pages and their mocks
 	http.get('/api/corrections', ({ request }) => {
 		const params = new URL(request.url).searchParams;
 		const scope = params.get('scope') ?? 'mine';

@@ -7,7 +7,6 @@
 	white-space: nowrap;
 }
 
-/* the look of the status tags: hairline box, mono time, green only for what runs */
 .chip {
 	display: flex;
 	align-items: center;
@@ -52,7 +51,6 @@
 	font-size: 0.8125rem;
 }
 
-/* in the opened menu on phones there is room for the whole line */
 @media (max-width: 47.99rem) {
 	.chip {
 		flex-wrap: wrap;

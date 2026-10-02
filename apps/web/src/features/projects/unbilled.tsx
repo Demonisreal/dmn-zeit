@@ -9,7 +9,6 @@ type Props = {
 	unbilled: ProjectWeek['unbilled'];
 };
 
-// "create invoice" joins this list with the invoice editor in stage 10d, /billing/invoices/new does not exist yet
 export function Unbilled({ unbilled }: Props) {
 	const { t, i18n } = useTranslation('projects');
 	const titleId = useId();

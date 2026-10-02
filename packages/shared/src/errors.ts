@@ -27,7 +27,6 @@ export const errorCodes = [
 
 export type ErrorCode = (typeof errorCodes)[number];
 
-// messages of our own checks are i18n keys; zod's built-in messages the web localizes by code
 export const validationKeys = [
 	'format.date',
 	'format.month',
@@ -59,6 +58,7 @@ export const validationKeys = [
 	'rate.futureOnly',
 	'invoice.rangeTooLong',
 	'invoice.tooManyLines',
+	'invoice.tooManyEntries',
 	'invoice.taxCategoryMismatch',
 	'invoice.paidOnFuture',
 	'invoice.exemptionReasonRequired',
@@ -71,7 +71,6 @@ export type ValidationKey = (typeof validationKeys)[number];
 
 export const fieldIssueSchema = z.object({
 	field: z.string(),
-	// the zod issue code, e.g. too_small, invalid_format or custom
 	code: z.string(),
 	message: z.string(),
 	params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional()

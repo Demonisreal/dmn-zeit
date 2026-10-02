@@ -80,7 +80,6 @@ export function ClientsPage({ role, solo }: Props) {
 	} else if (shown.length === 0) {
 		list = <EmptyState title={t('clients.noMatch', { search: search.trim() })} />;
 	} else {
-		// the section around this already carries the "Kunden" landmark, a second one here duplicates it
 		list = (
 			<div className={styles.scroll} tabIndex={0}>
 				<Table label={t('clients.title')}>

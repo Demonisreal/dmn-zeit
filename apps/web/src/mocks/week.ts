@@ -26,17 +26,13 @@ import { http, HttpResponse } from 'msw';
 import type { z } from 'zod';
 import { absenceOn } from './absences';
 
-// sample company for working on the ui without the api: a tax office in NRW, names made up.
-// same person as mockSession in handlers.ts
 const employee = { id: '8d41b7c2-0e5f-4a93-b6d8-2c7e9f13a054', name: 'Mara Lenz' };
 const user = { id: '3f6c2a9e-8b1d-4c57-9e0a-5d2b7f4a1c38', displayName: 'Mara Lenz' };
 const katrin = { id: 'bb3deb4b-00e1-4c28-a4d6-de86c556bb22', displayName: 'Katrin Hölscher' };
 const sabine = { id: '5b004527-423c-4b82-89ae-323b702a9c62', displayName: 'Sabine Kortmann' };
 
 const zone = 'Europe/Berlin';
-// 39 hours over five days
 const TARGET = 468;
-// Mara's contract in hr.ts, it starts with her entry
 const CONTRACT_FROM = '2021-02-01';
 const RULES = 'arbzg-1994';
 
@@ -64,14 +60,12 @@ const todayIso = () => today(zone).toString();
 const addDays = (iso: string, days: number) => parseDate(iso).add({ days }).toString();
 const weekdayOf = (iso: string) => weekdays[getDayOfWeek(parseDate(iso), 'de-DE')]!;
 
-// minutes after local midnight, past 1440 lands on the next day
 function at(date: string, minute: number) {
 	const day = parseDate(date);
 	const local = new CalendarDateTime(day.year, day.month, day.day).add({ minutes: minute });
 	return toZoned(local, zone).toAbsoluteString();
 }
 
-// stable ids that carry their day, so a correction can find its entry again
 const entryId = (date: string, index: number) =>
 	`7a3c9e21-4b0d-4f6a-8c2e-${date.replaceAll('-', '')}${String(index).padStart(4, '0')}`;
 const dateOfEntry = (id: string) => {
@@ -79,7 +73,6 @@ const dateOfEntry = (id: string) => {
 	return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 };
 
-// an ordinary office day, a little different every date and always within the rules
 function usual(date: string): Plan {
 	const n = Number(date.slice(8)) + Number(date.slice(5, 7)) * 3;
 	const start = 450 + ((n * 7) % 35);
@@ -105,7 +98,6 @@ const finding = (
 	ack: null
 });
 
-// the current week tells the story: a short break, a late evening, too little rest before today
 function special(date: string) {
 	const offset = parseDate(date).compare(parseDate(startOfWeek(today(zone), 'de-DE').toString()));
 	switch (offset) {
@@ -156,7 +148,6 @@ export function resetMockWeek() {
 	const since = at(date, 8 * 60 + 14);
 	const monday = startOfWeek(today(zone), 'de-DE').toString();
 	store = {
-		// the demo persona has been clocked in since 08:14
 		today:
 			Date.parse(since) < Date.now()
 				? [
@@ -212,7 +203,6 @@ export function entriesOf(date: string, employeeId = employee.id): Entry[] {
 	if (date === todayIso()) return store.today;
 	if (date > todayIso() || holidays[date]?.[1] === 1) return [];
 	const day = special(date)?.plan ?? (['sat', 'sun'].includes(weekdayOf(date)) ? [] : usual(date));
-	// half a day off keeps the morning
 	const plan = away ? day.slice(0, 1) : day;
 	return plan.map(([from, to, source = 'clock'], i) => ({
 		id: entryId(date, i + 1),
@@ -223,7 +213,6 @@ export function entriesOf(date: string, employeeId = employee.id): Entry[] {
 	}));
 }
 
-// last day of the month before last, the demo closes months one behind
 const closedThrough = () =>
 	parseDate(todayIso()).set({ day: 1 }).subtract({ months: 1, days: 1 }).toString();
 
@@ -278,7 +267,6 @@ function dayOf(date: string, employeeId = employee.id): Day {
 					ack: store.acks.get(`${date}|${found.code}`) ?? null
 				}))
 			: [];
-	// future days count nothing yet, the week's difference runs through today like the flextime balance
 	const future = date > todayIso();
 
 	return {
@@ -413,7 +401,6 @@ export const weekHandlers = [
 	http.post('/api/clock/resume', stampTo(['on_break'], open)),
 	http.post('/api/clock/out', stampTo(['working', 'on_break'], close('leave'))),
 
-	// everybody gets the demo week, only their own absences from mocks/absences.ts differ
 	http.get('/api/employees/:id/days', ({ params, request }) => {
 		const search = new URL(request.url).searchParams;
 		const query = daysQuerySchema.safeParse({ from: search.get('from'), to: search.get('to') });
@@ -441,7 +428,6 @@ export const weekHandlers = [
 		HttpResponse.json(flexAccount(Number(new URL(request.url).searchParams.get('year'))))
 	),
 
-	// own requests only, the inbox side lives in absences.ts
 	http.get('/api/corrections', ({ request }) => {
 		const search = new URL(request.url).searchParams;
 		if ((search.get('scope') ?? 'mine') !== 'mine') return undefined;

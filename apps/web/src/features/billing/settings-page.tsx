@@ -29,7 +29,6 @@ import css from './form.module.css';
 
 const fields = updateBillingProfileSchema.shape;
 
-// stored as cents, shown for editing like the rate form shows a rate: comma, two places
 const centsToText = (value: string | null) =>
 	value === null ? '' : (Number(value) / 100).toFixed(2).replace('.', ',');
 

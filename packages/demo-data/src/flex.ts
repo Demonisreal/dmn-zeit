@@ -36,14 +36,12 @@ type BookingRow = PlanRow<'flexBookings'>;
 type ClosingRow = PlanRow<'monthClosings'>;
 type Day = DayMinutes & { date: Temporal.PlainDate };
 
-// the schema leaves a new tenant without any cap, these are the settings the web mocks show
 export const FLEX_CAP = {
 	plusMinutes: 2400,
 	minusMinutes: 600,
 	mode: 'forfeit_at_close'
 } as const satisfies FlexCap & { mode: CapMode };
 
-// the capped lead goes into the last closed month an hour below the cap
 const HEADROOM = 60;
 
 const CREDITED: readonly AbsenceStatus[] = ['approved', 'cancel_pending'];
@@ -66,7 +64,6 @@ const through = (days: readonly Day[], date: Temporal.PlainDate) =>
 		[]
 	);
 
-// close() of the api replayed month by month, with the opening balances chosen so the roster comes out
 export function settle(
 	rng: Random,
 	cast: Cast,
@@ -77,7 +74,6 @@ export function settle(
 	acks: readonly PlanRow<'findingAcks'>[]
 ): { bookings: BookingRow[]; closings: ClosingRow[] } {
 	const requests = new Map(leaves.map(({ row }) => [row.id, row]));
-	// time off costs the target, a pending request only shows on the day
 	const credited = absenceDays.flatMap((day) => {
 		const { type, status } = requests.get(day.absenceId)!;
 		return day.supersededAt === null && type !== 'time_off' && CREDITED.includes(status)
@@ -111,7 +107,6 @@ export function settle(
 					? 0
 					: person.balance - through(days, calendar.yesterday);
 		balances.set(person, opening);
-		// a newcomer starts at zero, and minutes <> 0 would refuse an empty opening anyway
 		if (opening === 0) continue;
 		bookings.push({
 			id: rng.uuid(),
@@ -149,7 +144,6 @@ export function settle(
 		const createdAt = iso(
 			local(nthBusinessDay(calendar, month.add({ months: 1 }), 3), rng.int(540, 660))
 		);
-		// a reform starts on one day, the first and the last day of the month see both sides of it
 		const snapshot: MonthSnapshot = {
 			ruleVersions: [...new Set([first, last].map((date) => ruleSetFor(date).version))],
 			employees: {}

@@ -10,7 +10,6 @@ export const stepsIn: Record<WorkspaceKind, readonly TourStep[]> = {
 	solo: tourSteps
 };
 
-// other features tick a step with markTourStep, or by setting zeit.demo.<step> to '1' themselves
 const stepKey = (step: TourStep) => `zeit.demo.${step}`;
 const foldKey = 'zeit.demo.tour';
 const listeners = new Set<() => void>();
@@ -28,7 +27,7 @@ function store(key: string, value: string | null) {
 		if (value === null) sessionStorage.removeItem(key);
 		else sessionStorage.setItem(key, value);
 	} catch {
-		// storage switched off, the tour then starts over after a reload
+		return;
 	}
 }
 
@@ -37,7 +36,6 @@ export function markTourStep(step: TourStep) {
 	for (const listener of listeners) listener();
 }
 
-// a new sandbox in the same tab must not inherit the ticks of the last one
 export function resetTour() {
 	for (const step of tourSteps) store(stepKey(step), null);
 	store(foldKey, null);

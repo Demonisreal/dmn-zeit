@@ -33,7 +33,6 @@ import { mockEmployees, teamIds } from './hr';
 import { mockSession } from './session';
 import { entriesOf } from './week';
 
-// company is mara's tax office from week.ts, the solo worlds are freelancers, all names made up
 export type ProjectWorld = 'company' | 'solo' | 'solo-empty' | 'solo-many';
 
 type RateLevel = 'default' | 'client' | 'project';
@@ -171,7 +170,6 @@ function manyProjects(): MockProject[] {
 	);
 }
 
-// ordinary work split into project parts, a little different every date
 function split(date: string, spans: [number, number][], picks: Slot[], skip: number) {
 	const n = Number(date.slice(8)) + Number(date.slice(5, 7)) * 7;
 	const parts: { from: number; to: number; pick: Slot }[] = [];
@@ -233,13 +231,11 @@ const entry = (
 function companyDay(date: string, picks: Slot[]): ProjectEntry[] {
 	const offset = parseDate(date).compare(parseDate(mondayOf(todayIso())));
 	if (date === todayIso()) {
-		// the clock runs since 08:14 in week.ts, the timer came a little later
 		const since = at(date, 8 * 60 + 31);
 		return Date.parse(since) < Date.now()
 			? [entry(entryId(date, 1), date, since, null, picks[0]!, 'timer')]
 			: [];
 	}
-	// a saturday with project time and no clock at all
 	if (offset === -2)
 		return [entry(entryId(date, 1), date, at(date, 600), at(date, 735), picks[3]!, 'manual')];
 	const work = entriesOf(date).filter((e) => e.endedAt !== null);
@@ -248,14 +244,11 @@ function companyDay(date: string, picks: Slot[]): ProjectEntry[] {
 		minuteOf(e.startedAt, date),
 		minuteOf(e.endedAt!, date)
 	]);
-	// monday leaves the first 45 minutes open, tuesday the usual quarter hour
 	const parts = split(date, spans, picks, offset === 0 ? 45 : 15);
 	const extra: typeof parts = [];
-	// monday: a client call during the stamped lunch break
 	if (offset === 0 && spans.length > 1) {
 		extra.push({ from: spans[0]![1] + 5, to: spans[0]![1] + 30, pick: picks[4]! });
 	}
-	// tuesday: an evening at the client's books after clocking out
 	if (offset === 1) {
 		const end = spans.at(-1)![1];
 		extra.push({ from: end + 30, to: end + 120, pick: picks[2]! });
@@ -292,7 +285,6 @@ function soloDay(date: string, picks: Slot[]): ProjectEntry[] {
 	);
 }
 
-// eight short slots a day walk through all projects, three weekdays are enough for more than 20 rows
 function manyDay(date: string, picks: Slot[], index: number): ProjectEntry[] {
 	const yesterday = addDays(todayIso(), -1);
 	if (date === todayIso()) return [];
@@ -306,7 +298,6 @@ function manyDay(date: string, picks: Slot[], index: number): ProjectEntry[] {
 			picks[(index * 8 + k) % picks.length]!
 		)
 	);
-	// forgotten yesterday at 16:40 and still running
 	if (date === yesterday) {
 		list.push(entry(entryId(date, 99), date, at(date, 16 * 60 + 40), null, picks[5]!, 'timer'));
 	}
@@ -358,7 +349,6 @@ export function resetMockProjects(
 					: [];
 	store = {
 		world,
-		// the api only computes amounts for hr and admin, a solo person is always admin
 		amounts: world !== 'company' || hasRole(role, 'hr'),
 		rounding:
 			world === 'company' ? { increment: 15, mode: 'nearest' } : { increment: 15, mode: 'up' },
@@ -366,7 +356,6 @@ export function resetMockProjects(
 		entries: seed(world, projects),
 		usedBefore: new Map()
 	};
-	// the seeded weeks are only the latest bookings, a budget they alone overrun grows in 10 h steps
 	for (const p of projects) {
 		if (!p.budget) continue;
 		const booked = billedMinutes(p.id, '0000-01-01', '9999-12-31');
@@ -594,7 +583,6 @@ const asProject = (p: MockProject): Project => ({
 	archivedAt: null
 });
 
-// the team lead's view: everyone in the team gets a share of mara's week, one colleague also the hints
 function summary(team: string | undefined, from: string, to: string): ProjectSummary {
 	const week = projectWeek(from);
 	const members = mockEmployees.filter((e) => e.teamId === (team ?? teamIds.tax) && !e.exitDate);

@@ -13,7 +13,6 @@
 	overflow-wrap: anywhere;
 }
 
-/* street, postcode and country on their own lines, as on an envelope */
 .address {
 	white-space: pre-line;
 }

@@ -1,4 +1,3 @@
-/* the paper is the one deliberately light surface in a dark app, it floats on the card behind it */
 .stage {
 	display: grid;
 	justify-items: center;
@@ -16,7 +15,6 @@
 	width: min(100%, 44rem);
 	min-width: 20rem;
 	margin: 0 auto;
-	/* 210 x 297 mm, same page as apps/api/src/documents/pdf.ts (PAGE_WIDTH_MM/PAGE_HEIGHT_MM) */
 	aspect-ratio: 210 / 297;
 	background: var(--white);
 	box-shadow:

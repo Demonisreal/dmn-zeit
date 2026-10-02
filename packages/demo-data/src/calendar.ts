@@ -6,7 +6,6 @@ export const TZ = 'Europe/Berlin';
 export type Calendar = {
 	today: Temporal.PlainDate;
 	yesterday: Temporal.PlainDate;
-	// the year the story plays in, bookings start on its 1 january
 	year: number;
 	start: Temporal.PlainDate;
 	previous: Temporal.PlainYearMonth;
@@ -17,7 +16,6 @@ export type Calendar = {
 };
 
 export function calendarFor(today: Temporal.PlainDate): Calendar {
-	// the story wants a closed first half year behind it, before august it plays in the year before
 	const year = today.month >= 8 ? today.year : today.year - 1;
 	const month = today.toPlainYearMonth();
 	const lastClosed = month.subtract({ months: 2 });
@@ -42,7 +40,6 @@ export function calendarFor(today: Temporal.PlainDate): Calendar {
 export const endOfMonth = (month: Temporal.PlainYearMonth): Temporal.PlainDate =>
 	month.toPlainDate({ day: month.daysInMonth });
 
-// wall-clock minutes past midnight, 1500 is 01:00 on the following day
 export const local = (date: Temporal.PlainDate, minutes: number, second = 0): Temporal.Instant =>
 	date
 		.add({ days: Math.floor(minutes / 1440) })
@@ -77,7 +74,6 @@ export const earlier = (a: Temporal.PlainDate, b: Temporal.PlainDate) =>
 export const later = (a: Temporal.PlainDate, b: Temporal.PlainDate) =>
 	Temporal.PlainDate.compare(a, b) >= 0 ? a : b;
 
-// iso weekday, 1 is monday
 export const weekdayFrom = (date: Temporal.PlainDate, weekday: number): Temporal.PlainDate =>
 	date.add({ days: (weekday - date.dayOfWeek + 7) % 7 });
 

@@ -17,7 +17,6 @@ type Props = {
 	withAmount: boolean;
 	employeeId: string;
 	own: boolean;
-	// line key and date, or line key and "week" for the breakdown of the sum
 	open: string | null;
 	onOpen: (key: string) => void;
 	expanded: boolean;

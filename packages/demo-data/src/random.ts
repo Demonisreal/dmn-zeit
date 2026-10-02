@@ -1,4 +1,3 @@
-// mulberry32; the seed runs through fnv-1a first, so floats and huge numbers spread like small integers
 export class Random {
 	private state: number;
 
@@ -18,7 +17,6 @@ export class Random {
 		return (t ^ (t >>> 14)) >>> 0;
 	}
 
-	// both ends included
 	int(min: number, max: number): number {
 		return min + Math.floor((this.uint32() / 2 ** 32) * (max - min + 1));
 	}
@@ -36,7 +34,6 @@ export class Random {
 		return copy;
 	}
 
-	// z.uuid() checks version and variant, so the bits have to say v4 like crypto.randomUUID()
 	uuid(): string {
 		const hex = Array.from({ length: 4 }, () => this.uint32().toString(16).padStart(8, '0')).join(
 			''

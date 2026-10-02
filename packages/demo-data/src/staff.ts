@@ -86,7 +86,6 @@ type Seat = {
 	carryover: string | null;
 };
 
-// who plays which scene is fixed, the seed only picks names, entry dates and clock times
 // prettier-ignore
 const ROSTER = [
 	{ key: 'lead', team: 0, role: 'team_lead', model: 'full', drift: 3, balance: 750, carryover: '2.00' },
@@ -97,7 +96,6 @@ const ROSTER = [
 	{ key: 'payrollLead', team: 1, role: 'team_lead', model: 'full', drift: 4, balance: 960, carryover: '3.00' },
 	{ key: 'hr', team: 1, role: 'hr', model: 'full', drift: 0, balance: 160, carryover: null },
 	{ key: 'switcher', team: 1, role: 'employee', model: 'full', drift: -2, balance: -110, carryover: null },
-	// the balance of the capped lead follows from the cap, see settle()
 	{ key: 'capped', team: 2, role: 'team_lead', model: 'full', drift: 0, balance: null, carryover: null },
 	{ key: 'newcomer', team: 2, role: 'employee', model: 'full', drift: 3, balance: null, carryover: null },
 	{ key: 'leaver', team: 2, role: 'employee', model: 'full', drift: -1, balance: 70, carryover: null },
@@ -112,11 +110,8 @@ export type Person = {
 	employee: PlanRow<'employees'>;
 	user: PlanRow<'users'>;
 	employment: Employment;
-	// minutes above target on an ordinary day
 	drift: number;
-	// balance wanted for the evening before today
 	balance: number | null;
-	// rest of last year's leave taken over from the old system
 	carryover: string | null;
 	arrival: number;
 };
@@ -143,7 +138,6 @@ export function hire(rng: Random, calendar: Calendar, tag: string): Cast {
 	const lastNames = rng.shuffle(LAST_NAMES);
 	const account = (i: number, role: Role, employeeId: string | null): PlanRow<'users'> => ({
 		id: rng.uuid(),
-		// the tag keeps addresses apart across sandboxes, app.users.email is unique over all tenants
 		email: `${mailbox(firstNames[i]!)}.${mailbox(lastNames[i]!)}+${tag}@example.test`,
 		displayName: `${firstNames[i]} ${lastNames[i]}`,
 		role,
@@ -229,7 +223,6 @@ export function hire(rng: Random, calendar: Calendar, tag: string): Cast {
 		};
 	});
 
-	// personnel numbers follow the entry dates like they would have been handed out
 	people
 		.toSorted((a, b) => Temporal.PlainDate.compare(a.employment.entryDate, b.employment.entryDate))
 		.forEach((person, i) => {
@@ -246,7 +239,6 @@ export function hire(rng: Random, calendar: Calendar, tag: string): Cast {
 	};
 }
 
-// nobody decides on their own requests, a lead's go to hr
 export function leadOf(cast: Cast, person: Person): PlanRow<'users'> {
 	const lead = cast.people.find(
 		(other) => other.team === person.team && other.user.role === 'team_lead'
@@ -254,6 +246,5 @@ export function leadOf(cast: Cast, person: Person): PlanRow<'users'> {
 	return lead === person ? cast.hr.user : lead.user;
 }
 
-// bookings on one's own account need a second person, for hr that is the admin
 export const officeOf = (cast: Cast, person: Person): PlanRow<'users'> =>
 	person === cast.hr ? cast.admin : cast.hr.user;

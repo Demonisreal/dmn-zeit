@@ -42,7 +42,6 @@ export type DemoOptions = {
 	seed: number;
 };
 
-// the shape MonthsService.close() writes, flex_checkpoint() reads the december one back
 export type MonthSnapshot = {
 	ruleVersions: string[];
 	employees: Record<
@@ -56,7 +55,6 @@ export type MonthSnapshot = {
 	>;
 };
 
-// clients and project time, the company and the solo workspace each get their own
 export type ProjectBook = {
 	clients: {
 		id: string;
@@ -215,7 +213,6 @@ export type BuyerSnapshot = {
 	number: string | null;
 };
 
-// the freelancer next door, one person who is admin of her own workspace
 export type SoloPlan = ProjectBook & {
 	tenant: { id: string; name: string; slug: string; state: FederalState };
 	employee: {
@@ -228,7 +225,6 @@ export type SoloPlan = ProjectBook & {
 	user: { id: string; email: string; displayName: string };
 };
 
-// rows as the database takes them: ids derived from the seed, dates and instants as iso strings
 export type DemoPlan = ProjectBook & {
 	tenant: {
 		id: string;
@@ -355,7 +351,6 @@ export type DemoPlan = ProjectBook & {
 	}[];
 	monthClosings: {
 		id: string;
-		// first day of the month, month_closings_month_check
 		month: string;
 		action: MonthClosingAction;
 		reason: string | null;
@@ -384,7 +379,6 @@ export function generateDemo({ today, seed }: DemoOptions): DemoPlan {
 	const rng = new Random(seed);
 	const calendar = calendarFor(today);
 	const tenantId = rng.uuid();
-	// slug and mail addresses are unique over all tenants, a piece of the tenant id keeps sandboxes apart
 	const tag = tenantId.slice(0, 8);
 	const cast = hire(rng, calendar, tag);
 
@@ -398,7 +392,6 @@ export function generateDemo({ today, seed }: DemoOptions): DemoPlan {
 	const absenceDays = dayRows(rng, calendar, leaves);
 	const { ledger, notices } = bookVacation(rng, cast, calendar, leaves, absenceDays);
 	const { bookings, closings } = settle(rng, cast, calendar, sheets, leaves, absenceDays, acks);
-	// drawn last, so the projects leave every row of the story above as it was
 	const book = bookProjects(rng, cast, calendar, sheets, leaves);
 	const solo = soloWorld(rng, calendar);
 

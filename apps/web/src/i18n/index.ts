@@ -18,7 +18,6 @@ import timeDe from './locales/de/time.json';
 import vacationDe from './locales/de/vacation.json';
 import weekDe from './locales/de/week.json';
 
-// German is the fallback and ships with the app, English and the area namespaces load on demand
 const bundled = {
 	common: commonDe,
 	auth: authDe,
@@ -45,7 +44,6 @@ const later = import.meta.glob<Record<string, unknown>>(
 	{ import: 'default' }
 );
 
-// with only language and namespace as parameters i18next awaits the returned promise
 const chunks = {
 	type: 'backend' as const,
 	read: (lng: string, ns: string) => later[`./locales/${lng}/${ns}.json`]!()
@@ -56,7 +54,6 @@ const storageKey = 'zeit.lang';
 export const isLocale = (tag: string): tag is Locale =>
 	(locales as readonly string[]).includes(tag);
 
-// before login there is no profile yet, so the last choice on this device or the browser decides
 function firstLanguage(): Locale {
 	const stored = localStorage.getItem(storageKey);
 	if (stored && isLocale(stored)) return stored;
@@ -85,7 +82,6 @@ export const i18nReady = i18n
 		initAsync: false
 	});
 
-// friendlier texts for the checks every form has, the zod locale covers the rest
 z.config({
 	customError: (issue) => {
 		if (issue.input === '') return i18n.t('validation.required');
@@ -102,8 +98,6 @@ z.config({
 	}
 });
 
-// own checks in @zeit/shared name an i18n key as their message, the built-in ones are mapped above
-// the dynamic key defeats t()'s overload resolution once the resource union grows this large
 const translate = i18n.t.bind(i18n) as (key: string, options?: Record<string, unknown>) => string;
 
 export const issueText = (message: string, params?: Record<string, unknown>) =>

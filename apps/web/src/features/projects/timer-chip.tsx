@@ -16,7 +16,6 @@ type Props = {
 	workspace: WorkspaceKind;
 };
 
-// the header on every page: only a running timer shows up, every change is read out once
 export function TimerChip({ workspace }: Props) {
 	const { t } = useTranslation('projects');
 	const timer = useQuery(timerQuery);
@@ -27,7 +26,6 @@ export function TimerChip({ workspace }: Props) {
 	const slot = running && describeSlot(bookable.data, running);
 	const what = slot ? `${slot.client} · ${slot.project}` : '';
 
-	// undefined until the first answer, so loading a page with a running timer stays silent
 	const state = timer.data ? (running ? `${running.entryId}|${running.hint}` : 'idle') : undefined;
 	const [seen, setSeen] = useState(state);
 	const [said, setSaid] = useState('');

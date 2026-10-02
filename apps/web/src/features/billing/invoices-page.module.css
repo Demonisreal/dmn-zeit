@@ -1,4 +1,3 @@
-/* the only navigating action styled as a button on this page, so it keeps the button look without react-aria's hover state */
 .newButton {
 	display: inline-flex;
 	align-items: center;

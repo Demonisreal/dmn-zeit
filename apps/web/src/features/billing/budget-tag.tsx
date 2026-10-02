@@ -3,7 +3,6 @@ import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Tag } from '../../components/ui/tag';
 
-// same tones as the budget list under the project week
 const tones = { ok: 'neutral', warn: 'warning', exceeded: 'error' } as const satisfies Record<
 	BudgetState,
 	string

@@ -68,7 +68,6 @@ const PROFILE: ProjectBook['billingProfile'] = {
 	defaultFormat: 'zugferd'
 };
 
-// minutes in total for these, whole quarter hours so no rounding rule moves the budgets
 const TARGETS: Partial<Record<ProjectKey, number>> = {
 	portal: 3750,
 	relaunch: 6180,
@@ -114,7 +113,6 @@ export function soloWorld(rng: Random, calendar: Calendar): SoloPlan {
 	const validFrom = `${year - 1}-01-01`;
 	const rates: PlanRow<'rates'>[] = [
 		{ clientId: null, rateCents: 9500 },
-		// framework agreement of the public client
 		{ clientId: clientId('city'), rateCents: 8900 },
 		{ clientId: clientId('studio'), rateCents: 11000 },
 		{ clientId: clientId('private'), rateCents: 7500 }
@@ -127,7 +125,6 @@ export function soloWorld(rng: Random, calendar: Calendar): SoloPlan {
 		...rate
 	}));
 
-	// two weeks off in august, now and then a day without billable work
 	const summer = weekdayFrom(Temporal.PlainDate.from({ year, month: 8, day: 10 }), 1);
 	const blocks: Block[] = [];
 	for (const date of eachDay(calendar.start, calendar.yesterday)) {
@@ -168,7 +165,6 @@ export function soloWorld(rng: Random, calendar: Calendar): SoloPlan {
 		return rng.int(0, 9) < 6 ? 'api' : 'upkeep';
 	};
 
-	// from yesterday backwards, so the budgeted projects are the ones still running
 	const entries: PlanRow<'projectEntries'>[] = [];
 	for (const block of blocks.toReversed()) {
 		const key = pick(block);

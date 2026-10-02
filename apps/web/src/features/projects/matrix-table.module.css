@@ -3,7 +3,6 @@
 	transition: opacity 150ms ease-out;
 }
 
-/* the previous week stays in view while the next one loads */
 .frame[data-stale] {
 	opacity: 0.6;
 }
@@ -14,12 +13,10 @@
 	}
 }
 
-/* days, sum and amount share one width, the name takes what is left */
 .fixed {
 	width: 5.75rem;
 }
 
-/* project names run long, they wrap instead of pushing the days out of view */
 .frame .name {
 	min-width: 9rem;
 	color: var(--white);
@@ -88,7 +85,6 @@
 	font-size: 0.8125rem;
 }
 
-/* the whole cell is the target, the figure keeps its place in the column */
 .cell {
 	min-height: 2rem;
 	margin: -0.25rem -0.375rem;
@@ -133,7 +129,6 @@
 	font-weight: 600;
 }
 
-/* the shared table draws the line above the sums on td only, the row labels here are th */
 .frame tfoot th {
 	border-top: 1px solid var(--line);
 	border-bottom: 0;

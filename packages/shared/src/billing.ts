@@ -25,7 +25,6 @@ import { locales } from './users';
 export const taxProfiles = ['regular', 'small_business'] as const;
 export type TaxProfile = (typeof taxProfiles)[number];
 
-// must equal rules.TaxCategory, see enum-contract.spec.ts
 export const taxCategories = [
 	'standard',
 	'reduced',
@@ -51,13 +50,10 @@ export type InvoiceLineKind = (typeof invoiceLineKinds)[number];
 export const invoiceLineUnits = ['HUR', 'DAY', 'C62', 'LS'] as const;
 export type InvoiceLineUnit = (typeof invoiceLineUnits)[number];
 
-// billing_profiles.country_code is checked to 'DE', there is no override
 const countryCodeSchema = z.literal('DE');
 
-// § 34a UStDV / DB check, the vat id of our own tenant is always german
 export const vatIdSchema = z.string().regex(/^DE[0-9]{9}$/, 'format.vatId');
 
-// mod-97 per ISO 7064, threat model I-01
 function ibanChecksumValid(iban: string): boolean {
 	const rearranged = iban.slice(4) + iban.slice(0, 4);
 	const digits = rearranged.replace(/[A-Z]/g, (letter) => String(letter.charCodeAt(0) - 55));
@@ -83,10 +79,8 @@ export const bicSchema = z
 	.transform((raw) => raw.replace(/\s+/g, '').toUpperCase())
 	.pipe(z.string().regex(/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/));
 
-// lands in file names, PDF and XML, N-02
 export const invoicePrefixSchema = z.string().regex(/^[A-Z0-9-]{0,10}$/);
 
-// quantity_milli is bigint too, same string encoding kysely gives cents
 const quantityMilliSchema = z.string().regex(/^-?\d{1,15}$/);
 const positiveQuantityMilliSchema = z.string().regex(/^[1-9]\d{0,8}$/);
 const unitPriceCentsSchema = z.string().regex(/^-?\d{1,9}$/, 'format.cents');
@@ -116,7 +110,6 @@ export const billingProfileSchema = z.object({
 	defaultFormat: z.enum(invoiceFormats)
 });
 
-// AD only (role table 1.4); no column for country_code, it never leaves 'DE'
 export const updateBillingProfileSchema = z.strictObject({
 	legalName: invoicePlainText(200),
 	street: invoicePlainText(120).nullable(),
@@ -171,7 +164,6 @@ export const revenueSchema = z.object({
 	})
 });
 
-// the from/to filter is optional, the 366-day cap only kicks in once both are given
 export const invoiceListQuerySchema = z
 	.strictObject({
 		status: queryList(invoiceStatuses),
@@ -276,7 +268,6 @@ export const invoiceTotalsSchema = z.object({
 	explanation: explanationSchema
 });
 
-// the id of the counterpart: the original on a cancellation, the cancellation on a cancelled invoice
 const invoiceRefSchema = z.object({
 	id: uuidSchema,
 	number: z.string().nullable(),
@@ -287,7 +278,6 @@ export const invoiceSchema = z.object({
 	id: uuidSchema,
 	kind: z.enum(invoiceKinds),
 	status: z.enum(invoiceStatuses),
-	// app.invoices.specimen (sandbox tenants only), drives the X-01 watermark in documents/pdf.ts
 	specimen: z.boolean(),
 	clientId: uuidSchema,
 	refersTo: invoiceRefSchema.nullable(),
@@ -324,7 +314,6 @@ export const invoiceSchema = z.object({
 	retainUntil: isoDateSchema.nullable()
 });
 
-// aggregation period has no fixed limit in the plan, 366 days keeps a fat-fingered range from stalling
 export const invoicePeriodIssue = (range: {
 	from: string;
 	to: string;
@@ -353,7 +342,6 @@ export const createDraftSchema = z
 	})
 	.superRefine(invoicePeriod);
 
-// only the fields a draft may still change; recipient and texts are re-pulled from the client
 export const updateDraftSchema = z
 	.strictObject({
 		clientId: uuidSchema,
@@ -370,7 +358,6 @@ export const updateDraftSchema = z
 		}
 	});
 
-// D-01: at most 500 lines per draft, checked by the service that counts existing lines
 export const invoiceLineInputSchema = z.strictObject({
 	description: invoiceMultilineText(1000),
 	quantityMilli: positiveQuantityMilliSchema,
@@ -380,7 +367,10 @@ export const invoiceLineInputSchema = z.strictObject({
 	exemptionReason: invoicePlainText(200).optional()
 });
 
-export const issueInvoiceSchema = z.strictObject({ format: z.enum(invoiceFormats) });
+export const issueInvoiceSchema = z.strictObject({
+	format: z.enum(invoiceFormats),
+	longTimersChecked: z.boolean().optional()
+});
 
 export const cancelInvoiceSchema = z.strictObject({ reason: reasonSchema });
 
@@ -396,7 +386,6 @@ export const timeReportQuerySchema = z
 	})
 	.superRefine(inRange(366));
 
-// the report tied to one invoice already knows its period, only the format is asked for
 export const invoiceTimeReportQuerySchema = z.strictObject({
 	format: z.enum(['pdf', 'csv'])
 });

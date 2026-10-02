@@ -16,7 +16,6 @@ import { mockAccounts, mockSession } from './session';
 const fail = (status: number, code: Exclude<ErrorCode, 'VALIDATION'>, message: string) =>
 	HttpResponse.json({ code, message, details: null }, { status });
 
-// request() only hands the body on, so the wait goes into details as well as into Retry-After
 const refuse = (
 	status: 429 | 503,
 	code: 'RATE_LIMITED' | 'SANDBOX_LIMIT',
@@ -30,7 +29,6 @@ const refuse = (
 
 const done = () => new HttpResponse(null, { status: 204 });
 
-// the team names from mocks/hr.ts
 const teams = [
 	{ id: teamIds.tax, name: 'Steuerberatung' },
 	{ id: teamIds.payroll, name: 'Lohnbuchhaltung' },
@@ -50,10 +48,8 @@ const castAs = (lastName: string, role: Role): Omit<Persona, 'current'> => {
 	};
 };
 
-// lena's solo workspace from mocks/session.ts, in the sandbox it sits next to the office
 const freelancer = mockAccounts.find((account) => account.world === 'solo')!.session;
 
-// the tax office from mocks/hr.ts, the extra names sort behind jonas so he stays the employee up top
 const cast: Omit<Persona, 'current'>[] = [
 	castAs('Brandt', 'employee'),
 	castAs('Hölscher', 'team_lead'),
@@ -62,7 +58,6 @@ const cast: Omit<Persona, 'current'>[] = [
 	castAs('Schwerdtfeger', 'employee'),
 	castAs('Kämmerer', 'employee'),
 	castAs('Hagedorn', 'employee'),
-	// the it contractor, like the sandbox admin an account without a personnel record
 	{
 		userId: '4e7b2d91-6c3f-4a58-b0e2-9d1f7a3c5b86',
 		displayName: 'Uwe Tiemann',
@@ -105,7 +100,6 @@ const sessionAs = (member: CastMember, locale: Locale, expiresAt: string): Sessi
 	csrfToken: `mock-csrf-demo-${member.userId.slice(0, 8)}`
 });
 
-// newest first, the api sorts and the page shows them as they come
 const seedOutbox = (): OutboxMail[] => [
 	{
 		id: '7c3d9a15-6e2b-4f07-b8c4-1a5e9d3f7b20',
@@ -158,7 +152,6 @@ export const resetMockDemo = (next: PublicConfig['mode'] = 'live') => {
 	outbox = seedOutbox();
 };
 
-// the api refuses by ip and at 300 active sandboxes, tests pick the answer directly
 export const refuseMockSandbox = (why: 'throttled' | 'full') => {
 	refusal = why;
 };
@@ -203,7 +196,6 @@ export const demoHandlers = [
 		session ? HttpResponse.json(outbox) : fail(401, 'UNAUTHENTICATED', 'No session')
 	),
 
-	// while a sandbox runs these answer instead of handlers.ts, which only knows mara's login
 	http.get('/api/auth/session', () => (session ? HttpResponse.json(session) : undefined)),
 
 	http.post('/api/auth/logout', () => {

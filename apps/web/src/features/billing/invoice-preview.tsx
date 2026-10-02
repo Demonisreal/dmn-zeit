@@ -11,7 +11,6 @@ type Props = {
 	refreshKey?: string | number;
 };
 
-// the iframe has no cross-origin error signal for a broken PDF, so a stuck load just offers a retry
 const SLOW_LOAD_MS = 6000;
 
 export function InvoicePreview({ invoiceId, variant, refreshKey }: Props) {

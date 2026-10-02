@@ -10,7 +10,6 @@ export type ProjectGroup = {
 	id: string;
 	name: string;
 	lines: Line[];
-	// one row without a task needs no second level, its cells open directly
 	single: boolean;
 	days: Map<string, number>;
 	total: number;
@@ -29,7 +28,6 @@ export function sumCents(amounts: (string | null)[]) {
 	return known.length === 0 ? null : String(known.reduce((sum, cents) => sum + Number(cents), 0));
 }
 
-// the api sends flat (project, task) rows, the matrix shows client, project and task below each other
 export function groupRows(week: ProjectWeek, lng: string): ClientGroup[] {
 	const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, lng);
 	const clients = new Map<string, Map<string, Line[]>>();
@@ -49,7 +47,6 @@ export function groupRows(week: ProjectWeek, lng: string): ClientGroup[] {
 			name,
 			projects: [...projects.values()]
 				.map((lines): ProjectGroup => {
-					// the part without a task comes first, the tasks follow by name
 					const sorted = lines.toSorted((a, b) =>
 						a.row.task === null ? -1 : b.row.task === null ? 1 : byName(a.row.task, b.row.task)
 					);

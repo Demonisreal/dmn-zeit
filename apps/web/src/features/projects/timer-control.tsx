@@ -16,7 +16,6 @@ import { sinceLabel } from './since';
 import styles from './timer-control.module.css';
 
 type Props = {
-	// in a company the red button belongs to the clock, the timer stays a side action there
 	workspace: WorkspaceKind;
 };
 
@@ -54,7 +53,6 @@ export function TimerControl({ workspace }: Props) {
 		);
 	}
 
-	// nothing to book on yet, the page explains that below
 	if (bookable.data.length === 0) return null;
 
 	const current = running ? slotKey(running) : '';

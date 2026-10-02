@@ -10,10 +10,8 @@ import { i18n, issueText } from '../../i18n';
 import { hasCode } from '../../lib/api/errors';
 import { optionalDurationField } from '../hr/duration';
 
-// an empty input is "not set", the api keeps null for it
 export const blankToNull = z.string().transform((text) => (text.trim() === '' ? null : text));
 
-// a select cannot go back to "nothing chosen", so taking over the setting is an option of its own
 export const inherit = 'inherit';
 
 export const increments = [1, 5, 6, 10, 15, 30, 60] as const;
@@ -50,7 +48,6 @@ export const roundingDefaults = (owner?: {
 	roundingMode: owner?.roundingMode ?? inherit
 });
 
-// "95" and "95,50" both count; the api takes whole cents as a string and no more than 100.000 €
 export const centsField = z.string().transform((text, ctx) => {
 	const match = /^(\d{1,6})(?:[.,](\d{1,2}))?$/.exec(text.trim());
 	const cents = match && Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
@@ -78,7 +75,6 @@ export const unitPriceField = z.string().transform((text, ctx) => {
 	return match[1] && cents > 0 ? `-${cents}` : String(cents);
 });
 
-// "2" and "2,5" both count; the api takes a positive milli-quantity string, three decimals at most
 export const quantityField = z.string().transform((text, ctx) => {
 	const match = /^(\d{1,6})(?:[.,](\d{1,3}))?$/.exec(text.trim());
 	const milli = match ? Number(match[1]) * 1000 + Number((match[2] ?? '').padEnd(3, '0')) : 0;

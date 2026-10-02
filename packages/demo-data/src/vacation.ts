@@ -28,10 +28,8 @@ type Booking = Pick<LedgerRow, 'bucketYear' | 'entryType' | 'days' | 'effectiveD
 	Partial<Pick<LedgerRow, 'absenceId' | 'noticeId' | 'reason' | 'dedupeKey' | 'createdBy'>>;
 
 const zero = fraction(0);
-// NOTICE_TEXT_VERSION of the api, the wording every notice sent from the app carries
 const NOTICE_TEXT = '2026-09-24';
 
-// the tenant keeps the default carryover_until of 03-31
 const deadlineOf = (year: number) => Temporal.PlainDate.from({ year: year + 1, month: 3, day: 31 });
 
 const latestNotice = (notices: readonly NoticeRow[], year: number) =>
@@ -40,7 +38,6 @@ const latestNotice = (notices: readonly NoticeRow[], year: number) =>
 		.toSorted((a, b) => byStamp(a.sentAt, b.sentAt))
 		.at(-1);
 
-// the same judgement the api makes: days kept for lack of a notice stay usable and are drawn last
 function judge(
 	year: number,
 	remaining: Fraction,
@@ -84,7 +81,6 @@ function perYear(allocations: readonly Allocation[]): Map<number, Fraction> {
 	return years;
 }
 
-// a day no bucket can pay counts against its own year, like charge() in the api
 function charge(days: readonly TakenDay[], payable: readonly Bucket[]): Map<number, Fraction> {
 	const { allocations } = allocate(days, payable);
 	const years = perYear(allocations);
@@ -111,7 +107,6 @@ function heldPerYear(own: readonly LedgerRow[]): Map<number, Fraction> {
 	return held;
 }
 
-// every booking is replayed in the order it happened, each one sees the ledger as it stood then
 export function bookVacation(
 	rng: Random,
 	cast: Cast,
@@ -171,7 +166,6 @@ export function bookVacation(
 					createdBy: officeOf(cast, person).id
 				})
 			);
-			// only this one was told about last year's rest, the others kept theirs by default
 			if (person === cast.noticed) {
 				const sent = Temporal.PlainDate.from({ year: year - 1, month: 10, day: 14 });
 				when(local(sent, rng.int(540, 660)), (at) =>
@@ -191,7 +185,6 @@ export function bookVacation(
 			const newYear = Temporal.PlainDate.from({ year: inYear, month: 1, day: 1 });
 			if (exitDate && Temporal.PlainDate.compare(exitDate, newYear) < 0) continue;
 			if (Temporal.PlainDate.compare(entryDate, newYear) <= 0) {
-				// the year opening job books at five past midnight
 				when(local(newYear, 5), (at) => {
 					const { rounded } = annualEntitlement(person.employment, inYear, newYear);
 					if (compare(rounded, zero) <= 0) return;
@@ -215,7 +208,6 @@ export function bookVacation(
 				);
 			}
 
-			// hr sends the notices for the running year in october
 			const sent = nthBusinessDay(
 				calendar,
 				Temporal.PlainYearMonth.from({ year: inYear, month: 10 }),
@@ -236,7 +228,6 @@ export function bookVacation(
 				});
 			}
 
-			// the expiry job's first night after the deadline
 			const due = Temporal.PlainDate.from({ year: inYear, month: 4, day: 1 });
 			if (Temporal.PlainDate.compare(due, today) <= 0) {
 				when(local(due, 120), (at) => {
@@ -317,7 +308,6 @@ export function bookVacation(
 						(notice) =>
 							Temporal.Instant.compare(Temporal.Instant.from(notice.sentAt), approvedAt) < 0
 					);
-					// which bucket paid which day is replayed with the deadlines of the approval day
 					const held = [...heldPerYear(paid)]
 						.sort(([a], [b]) => a - b)
 						.map(

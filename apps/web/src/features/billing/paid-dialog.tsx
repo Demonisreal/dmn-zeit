@@ -30,7 +30,6 @@ export function PaidDialog({ invoice, onClose }: Props) {
 		onSuccess: (next) => {
 			queryClient.setQueryData(invoiceQuery(next.id).queryKey, next);
 			close();
-			// the "als bezahlt markieren" trigger is replaced by the paid state, react-aria has nothing left to refocus
 			document.getElementById('main')?.focus();
 		}
 	});

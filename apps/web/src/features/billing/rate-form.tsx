@@ -30,7 +30,6 @@ const schema = z.object({
 
 type Props = {
 	scope: RatesScope;
-	// null in a solo workspace, one person needs no personal rate
 	employees: Employee[] | null;
 	onDone: () => void;
 };

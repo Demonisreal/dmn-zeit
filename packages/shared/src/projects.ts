@@ -20,7 +20,6 @@ export type RoundingMode = (typeof roundingModes)[number];
 export const projectEntrySources = ['timer', 'manual', 'seed'] as const;
 export type ProjectEntrySource = (typeof projectEntrySources)[number];
 
-// same raster as app.projects/app.clients, billing.ts reuses it for the billing profile
 export const roundingIncrementSchema = z.literal([1, 5, 6, 10, 15, 30, 60]);
 const countryCodeSchema = z.string().regex(/^[A-Z]{2}$/);
 
@@ -99,8 +98,6 @@ const vatIdOfCountry = (
 	}
 };
 
-// I-06: project/task names become a time line's description and the client name its buyer snapshot,
-// both end up on the invoice PDF, so all three stay within the invoice font's character set
 const clientName = invoicePlainText(120);
 const projectName = invoicePlainText(120);
 const taskName = invoicePlainText(80);
@@ -125,7 +122,6 @@ export const clientSchema = z.object({
 	restrictedAt: instantSchema.nullable()
 });
 
-// archiving and restricting have their own routes and never ride along in a patch
 const clientInput = z.strictObject({
 	number: invoicePlainText(20).nullable(),
 	name: clientName,
@@ -153,7 +149,6 @@ export const createClientSchema = clientInput
 	})
 	.superRefine(vatIdOfCountry);
 
-// not derived from the create schema, partial() would fill in its defaults on every patch
 export const updateClientSchema = clientInput.partial().superRefine(vatIdOfCountry);
 
 export const budgetStateSchema = z.enum(['ok', 'warn', 'exceeded']);
@@ -195,7 +190,6 @@ export const createProjectSchema = projectInput.partial().extend({
 	openToAll: z.boolean().default(true)
 });
 
-// rates reference (client, project), so a project stays with the client it was created for
 export const updateProjectSchema = projectInput.partial();
 
 export const taskSchema = z.object({
@@ -208,7 +202,6 @@ export const taskSchema = z.object({
 
 export const createTaskSchema = z.strictObject({
 	name: taskName,
-	// null leaves it to the project
 	billable: z.boolean().nullable().optional()
 });
 
@@ -260,7 +253,6 @@ export const createProjectEntrySchema = z
 		taskId: uuidSchema.optional(),
 		startedAt: instantSchema,
 		endedAt: instantSchema,
-		// zod alone would only answer "expected string" for the missing note
 		note: z
 			.string({ error: (iss) => (iss.input === undefined ? 'project.noteRequired' : undefined) })
 			.pipe(noteSchema),
@@ -268,7 +260,6 @@ export const createProjectEntrySchema = z
 	})
 	.refine(endsAfterStart, { error: 'project.endBeforeStart', path: ['endedAt'] });
 
-// employee, source and invoice are never writable here
 export const updateProjectEntrySchema = z
 	.strictObject({
 		projectId: uuidSchema,
@@ -354,7 +345,6 @@ export const projectWeekSchema = z.object({
 	rows: z.array(projectWeekRowSchema),
 	dayTotals: z.array(z.object({ date: isoDateSchema, ...sums })),
 	weekTotal: z.object(sums),
-	// null in a solo workspace, there is no clock to compare against
 	coverage: z.array(dayCoverageSchema).nullable(),
 	unbilled: z.array(
 		z.object({
@@ -370,7 +360,6 @@ export const projectSummaryQuerySchema = z
 	.strictObject({ team: uuidSchema.optional(), ...rangeShape })
 	.superRefine(inRange(62));
 
-// minutes only, team leads get to see no rates
 export const projectSummarySchema = z.array(
 	z.object({
 		employeeId: uuidSchema,

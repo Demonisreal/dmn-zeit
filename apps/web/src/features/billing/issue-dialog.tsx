@@ -25,7 +25,6 @@ import { invoiceQuery, issueInvoice } from './api';
 import { blockersOf } from './fields';
 import editorCss from './invoice-editor.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const dialog = dialogCss as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions', string>;
 const css = editorCss as Record<'formatGroup' | 'formatOption' | 'formatHint' | 'blockers', string>;
 const form = formCss as Record<'radio', string>;
@@ -51,7 +50,6 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 			close();
 			const session = queryClient.getQueryData(sessionQuery.queryKey);
 			if (session?.mode === 'demo' && session.tenant.workspace === 'solo') markTourStep('invoice');
-			// issuing swaps the whole editor for the read-only view, so the "Ausstellen" trigger is already gone
 			document.getElementById('main')?.focus();
 			await Promise.all(
 				[['invoices'], ['revenue'], ['unbilled']].map((queryKey) =>

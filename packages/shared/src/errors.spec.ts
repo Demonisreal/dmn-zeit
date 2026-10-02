@@ -183,6 +183,7 @@ const raisedByApi: ValidationKey[] = [
 	'password.common',
 	'rate.futureOnly',
 	'invoice.tooManyLines',
+	'invoice.tooManyEntries',
 	'invoice.taxCategoryMismatch',
 	'invoice.paidOnFuture',
 	'invoice.exemptionReasonRequired',

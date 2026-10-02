@@ -13,7 +13,6 @@ type Props = {
 	onDay: (date: string) => void;
 };
 
-// the sum spelled out day by day; on phones this is the only way to the days
 export function RowDetail({ line, days, withAmount, onDay }: Props) {
 	const { t, i18n } = useTranslation('projects');
 	const explain = useExplain();

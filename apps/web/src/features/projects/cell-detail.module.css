@@ -24,7 +24,6 @@
 	justify-self: stretch;
 }
 
-/* the day reads like the others in the list, only the underline says it opens */
 .day {
 	padding: 0;
 	border: 0;

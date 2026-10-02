@@ -14,7 +14,6 @@ type Props = {
 
 type Measure = 'workedMinutes' | 'unassignedMinutes' | 'outsideMinutes';
 
-// the clock's side of the week under the project sums; hints only, never a finding
 export function CoverageRows({ coverage, days, today, withAmount }: Props) {
 	const { t } = useTranslation('projects');
 	const byDate = new Map(coverage.map((day) => [day.date, day]));

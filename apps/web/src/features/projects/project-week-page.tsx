@@ -27,7 +27,6 @@ type Props = {
 	onWeek: (week: string | undefined) => void;
 };
 
-// the start page of a solo workspace and /projects in a company, only the clock beside it differs
 export function ProjectWeekPage({ session, week, onWeek }: Props) {
 	const { t, i18n } = useTranslation(['projects', 'week', 'nav']);
 	const today = todayIso();
@@ -90,7 +89,6 @@ function Week({ session, employeeId, monday, number }: WeekProps) {
 	const hr = hasRole(session.user.role, 'hr');
 	const bookable = useQuery(bookableQuery);
 	const timer = useQuery(timerQuery);
-	// the timer's cell only grows with a fresh answer, a minute matches what the matrix shows
 	const matrix = useQuery({
 		...projectWeekQuery(employeeId, monday),
 		placeholderData: keepPreviousData,

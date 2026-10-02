@@ -16,9 +16,7 @@ type Props = {
 	label: string;
 	week: ProjectWeek;
 	employeeId: string;
-	// own entries can be added, changed and struck from the detail
 	own: boolean;
-	// the team view leaves money out even for hr, who would get it from the api
 	amounts: boolean;
 	coverage: DayCoverage[] | null;
 	empty: string;
@@ -40,7 +38,6 @@ export function MatrixTable({
 	const today = todayIso();
 	const days = Array.from({ length: 7 }, (_, i) => addDays(week.from, i));
 	const clients = groupRows(week, lng);
-	// a handful of projects reads fine at once, a long list folds by client
 	const foldable = clients.reduce((sum, client) => sum + client.projects.length, 0) > 5;
 	const withAmount = amounts && week.weekTotal.amountCents !== null;
 	const columns = days.length + (withAmount ? 3 : 2);

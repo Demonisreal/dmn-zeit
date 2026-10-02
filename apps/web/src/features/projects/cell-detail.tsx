@@ -34,12 +34,10 @@ export function CellDetail({ cell, row, employeeId, own, withAmount }: Props) {
 	const lng = i18n.language;
 	const explain = useExplain();
 	const monday = mondayOf(cell.date);
-	// one request for the whole week, every other cell of it reads the notes from the cache
 	const entries = useQuery(projectEntriesQuery(employeeId, monday, addDays(monday, 6)));
 	const bookable = useQuery({ ...bookableQuery, enabled: own });
 	const running = cell.derivation.entries.some((entry) => entry.endedAt === null);
 	const now = useNow(running);
-	// 'add' or the id of the entry being changed
 	const [form, setForm] = useState<string | null>(null);
 	const [striking, setStriking] = useState<Stroke | null>(null);
 	const [done, setDone] = useState<'added' | 'changed' | 'voided' | null>(null);

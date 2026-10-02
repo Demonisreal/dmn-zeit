@@ -2,7 +2,6 @@ import type { Explanation } from '@zeit/shared';
 import { useTranslation } from 'react-i18next';
 import { formatCents, formatDate, formatMinutes } from '../../i18n/format';
 
-// the keys @zeit/rules writes for rounding, rates and budgets, each one needs a text in projects.json
 const known = [
 	'billing.rounding.up',
 	'billing.rounding.nearest',
@@ -23,14 +22,12 @@ const known = [
 const isKnown = (key: string): key is (typeof known)[number] =>
 	(known as readonly string[]).includes(key);
 
-// raw and rounded carry minutes without saying so in their names
 const minuteParams = new Set(['raw', 'rounded', 'usedMinutes', 'budgetMinutes']);
 
 export function useExplain() {
 	const { t, i18n } = useTranslation('projects');
 	const lng = i18n.language;
 	return ({ key, params }: Explanation) => {
-		// a rule newer than this build still shows up, only without wording
 		if (!isKnown(key)) return key;
 		const values = Object.fromEntries(
 			Object.entries(params).map(([name, raw]) => {

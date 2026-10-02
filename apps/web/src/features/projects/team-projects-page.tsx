@@ -32,7 +32,6 @@ type Props = {
 
 type Person = { id: string; name: string; minutes: number; coverage: DayCoverage[] };
 
-// the summary repeats the day coverage on every project row of a person, one copy is enough
 function people(summary: ProjectSummary): Person[] {
 	const byId = new Map<string, Person>();
 	for (const row of summary) {
@@ -55,7 +54,6 @@ export function TeamProjectsPage({ session, week, team, employee, onSearch }: Pr
 	const { t } = useTranslation(['projects', 'week', 'team']);
 	const hr = hasRole(session.user.role, 'hr');
 	const teams = useQuery({ ...teamsQuery, enabled: hr });
-	// hr picks from every team, a team lead from the teams they lead
 	const options = hr ? (teams.data ?? []) : session.leadsTeams;
 	const selected = team ?? options[0]?.id;
 	const monday = mondayOf(week ?? todayIso());

@@ -34,7 +34,6 @@ function at(date: string, time: string) {
 	return toZoned(local, zone).toAbsoluteString();
 }
 
-// the form keeps the berlin wall clock, the api instants
 export function valuesOf(entry: {
 	projectId: string;
 	taskId: string | null;
@@ -46,7 +45,6 @@ export function valuesOf(entry: {
 		slot: slotKey(entry),
 		date: dateOf(entry.startedAt),
 		start: formatTime(entry.startedAt, 'de'),
-		// an end on another day than the start would not fit the one date field
 		end:
 			entry.endedAt && dateOf(entry.endedAt) === dateOf(entry.startedAt)
 				? formatTime(entry.endedAt, 'de')
@@ -66,7 +64,6 @@ export function toCreate(form: EntryValues) {
 	};
 }
 
-// only what changed, so a note the timer wrote survives a corrected end
 export function toUpdate(form: EntryValues, before: EntryValues): UpdateProjectEntryInput {
 	const patch: UpdateProjectEntryInput = {};
 	if (form.slot !== before.slot) {
@@ -81,7 +78,6 @@ export function toUpdate(form: EntryValues, before: EntryValues): UpdateProjectE
 	return patch;
 }
 
-// field names of the api body mapped onto the form
 export const apiFields: Record<string, keyof EntryValues> = {
 	projectId: 'slot',
 	taskId: 'slot',
@@ -90,7 +86,6 @@ export const apiFields: Record<string, keyof EntryValues> = {
 	note: 'note'
 };
 
-// before is the entry as it was, without it the form books a new one and the note is required
 export const entrySchema = (before: EntryValues | null) =>
 	entryFormSchema.superRefine((form, ctx) => {
 		const flag = (path: keyof EntryValues, message: string) =>
@@ -104,7 +99,6 @@ export const entrySchema = (before: EntryValues | null) =>
 			if (!before && !form.note.trim()) flag('note', 'project.noteRequired');
 			return;
 		}
-		// the shared schemas answer end before start and the missing note with their own keys
 		const parsed = before
 			? updateProjectEntrySchema.safeParse({
 					...toUpdate(form, before),

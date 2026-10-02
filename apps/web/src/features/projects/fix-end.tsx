@@ -16,7 +16,6 @@ export type RunningTimer = Extract<ProjectTimer, { state: 'running' }>;
 
 type Fixing = { entryId: string; since: string; values: EntryValues };
 
-// past 12 hours the stop offers the real end, the api only takes it as a patch of the stopped entry
 export function useStop() {
 	const stop = useProjectMutation(stopTimer);
 	const [fixing, setFixing] = useState<Fixing | null>(null);
@@ -49,7 +48,6 @@ export function FixEndDialog({ fixing, projects, onClose }: Props) {
 			isDismissable
 			className={dialogStyles.overlay}
 		>
-			{/* date and both times side by side need more room than a confirmation */}
 			<Modal className={dialogStyles.modal} style={{ width: 'min(100%, 36rem)' }}>
 				<Dialog aria-label={t('fix.title')} className={dialogStyles.dialog}>
 					{fixing && (

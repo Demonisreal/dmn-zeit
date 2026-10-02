@@ -45,7 +45,6 @@ import lines from './invoice-lines.module.css';
 import { InvoicePreview } from './invoice-preview';
 import { IssueDialog } from './issue-dialog';
 
-// reduced and exempt are the only per-position choices, see taxTreatment in @zeit/rules
 const itemTaxCategories = ['standard', 'reduced', 'exempt'] as const;
 const lineFields = invoiceLineInputSchema.shape;
 
@@ -228,7 +227,6 @@ function ItemLineForm({
 type Props = {
 	invoice: Invoice;
 	role: Role;
-	// when the query last got an answer; line changes leave invoice.updatedAt alone
 	previewKey: number;
 };
 
@@ -248,7 +246,6 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 	const [issuing, setIssuing] = useState(false);
 	const [discarding, setDiscarding] = useState(false);
 
-	// a small business or an EU client with a VAT ID fixes the category for the whole invoice
 	const treatment = taxTreatment({ taxProfile: invoice.taxProfile }, invoice.buyer);
 	const taxChoices: readonly TaxCategory[] = treatment === 'standard' ? itemTaxCategories : [treatment];
 
@@ -281,7 +278,6 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 			setEditingLineId(null);
 		}
 	});
-	// a time position only lets its text change, the api refuses anything else
 	const editText = useMutation({
 		mutationFn: ({ lineId, description }: { lineId: string; description: string }) =>
 			updateLine(invoice.id, lineId, { description }),
@@ -301,7 +297,6 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 	const discard = useMutation({
 		mutationFn: () => deleteInvoice(invoice.id),
 		onSuccess: async () => {
-			// leave first, otherwise the refetch asks for the invoice that is gone
 			await navigate({ to: '/billing' });
 			await reload('revenue', 'unbilled');
 		}

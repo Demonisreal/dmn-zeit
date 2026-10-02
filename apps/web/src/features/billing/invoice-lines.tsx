@@ -33,7 +33,6 @@ export function LineExemption({ line }: { line: InvoiceLine }) {
 	);
 }
 
-// the figures under a position, time ones can open their derivation
 export function LineMeta({ line, open, onToggle, children }: MetaProps) {
 	const { t, i18n } = useTranslation('billing');
 	const lng = i18n.language;

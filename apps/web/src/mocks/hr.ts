@@ -38,8 +38,6 @@ import { mockSession } from './session';
 
 export { teamIds };
 
-// made-up tax office in NRW for working without the api, same people and ids as mocks/absences.ts
-
 const seq = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
 let nextSeq = 1000;
 const newId = () => seq(nextSeq++);
@@ -254,7 +252,6 @@ const seedWorkModels = (): WorkModel[] => [
 	},
 	{
 		id: workModelIds.threeDays,
-		// Tue-Thu, so Lea's sick note for 08.-10.09. falls entirely on working days
 		name: 'Teilzeit 3 Tage (Di–Do)',
 		minutes: week(0, 468, 468, 468, 0),
 		archivedAt: null
@@ -294,7 +291,6 @@ const contract = (
 
 const seedContracts = (): Contract[] => {
 	const special: Record<string, Contract[]> = {
-		// the change from five to three days on 1 July from the demo script
 		Schwerdtfeger: [
 			contract(byName('Schwerdtfeger'), '2018-08-01', workModelIds.old385),
 			contract(byName('Schwerdtfeger'), '2024-01-01', workModelIds.full39),
@@ -394,7 +390,6 @@ const seedFindings = (): Finding[] => [
 	),
 	finding('Oberdiek', '2026-09-06', 'ARBZG_9_SUNDAY'),
 	finding('Brandt', '2026-09-08', 'ARBZG_3_OVER_10', { minutes: 640 }),
-	// the tuesday of the week mock, 9:30 h with half an hour of break for everybody
 	finding('Aydın', '2026-09-22', 'ARBZG_4_BREAK_SHORT', { requiredMinutes: 45, actualMinutes: 30 }),
 	finding('Demir', '2026-09-11', 'ARBZG_5_REST_UNDER_11H', { restMinutes: 555 }),
 	finding('Lenz', '2026-09-15', 'ARBZG_3_OVER_8', { minutes: 530 })
@@ -416,7 +411,6 @@ export const ruleVersions: RuleSetInfo[] = [
 	}
 ];
 
-// public holidays in NRW, 24.12. and 31.12. only as company half days
 export const holidaysNw: Holiday[] = [
 	{ date: '2026-01-01', code: 'new_year', portion: 1 },
 	{ date: '2026-04-03', code: 'good_friday', portion: 1 },
@@ -536,7 +530,6 @@ const contractOn = (employeeId: string, day: string) =>
 		.filter((c) => c.employeeId === employeeId && c.validFrom <= day)
 		.sort((a, b) => b.validFrom.localeCompare(a.validFrom))[0];
 
-// summer time from april to october is close enough for sample stamps
 const offsetOf = (day: string) => {
 	const month = Number(day.slice(5, 7));
 	return month >= 4 && month <= 10 ? '+02:00' : '+01:00';
@@ -549,7 +542,6 @@ function timesheetOf(employee: Employee, month: string): Timesheet {
 	const days: Timesheet['days'] = [];
 	const last = lastDayOf(month);
 	const index = mockEmployees.findIndex((candidate) => candidate.id === employee.id);
-	// everyone keeps their own hours, the earliest start at quarter past seven
 	const start = 7 * 60 + 15 + ((index * 17) % 75);
 	for (let day = `${month}-01`; day <= last; day = addDays(day, 1)) {
 		const weekday = weekdays[(new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7]!;
@@ -561,13 +553,11 @@ function timesheetOf(employee: Employee, month: string): Timesheet {
 		const due = away ? target * (1 - away.portion) : target;
 		const past = day <= today();
 		const worked = due > 0 && past;
-		// some stay longer and some leave early, so the accounts drift apart
 		const extra = worked ? ((((Number(day.slice(8)) + index * 3) * 7) % 5) - 1 - (index % 3)) * 12 : 0;
 		const minutes = due + extra;
 		const offset = offsetOf(day);
 		const at = (minute: number) => `${day}T${clock(minute)}:00${offset}`;
 		let entries: Timesheet['days'][number]['entries'] = [];
-		// up to six hours go without a break
 		if (worked && minutes <= 360) entries = [{ startedAt: at(start), endedAt: at(start + minutes) }];
 		else if (worked) {
 			entries = [
@@ -656,7 +646,6 @@ function accountOf(employee: Employee, year: number): FlexAccount {
 	};
 }
 
-// what closing would cut off, the same two limits as applyCap in forfeit_at_close
 function capPreviewOf(month: string): MonthChecklist['capPreview'] {
 	return employees
 		.filter((e) => e.entryDate <= lastDayOf(month) && (!e.exitDate || e.exitDate >= `${month}-01`))
@@ -723,7 +712,6 @@ function seedAudit(): AuditEntry[] {
 	];
 	const staff = mockEmployees.filter((employee) => employee.exitDate === null);
 	const start = Date.parse('2026-09-23T16:40:00+02:00');
-	// roles are admin work and closings hr work, a team lead decides and approves in the own team only
 	const actorFor = (table: (typeof auditTables)[number], subject: Employee, actor: (typeof actors)[number]) => {
 		if (table === 'users') return actors[0]!;
 		if (table === 'month_closings') return actors[1]!;
@@ -1082,7 +1070,6 @@ export const hrHandlers = [
 		if (!checklist.closable) return fail(409, 'INVALID_STATE', 'Month cannot be closed');
 		const id = newId();
 		const at = new Date().toISOString();
-		// booked on the last day while the month is still open, the booking pulls back to the limit
 		for (const { employee, forfeitedMinutes } of checklist.capPreview) {
 			bookings.push({
 				id: newId(),

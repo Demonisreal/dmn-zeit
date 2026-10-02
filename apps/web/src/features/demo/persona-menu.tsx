@@ -18,7 +18,6 @@ import { sessionQuery } from '../../lib/api/auth';
 import { personasQuery, switchPersona } from '../../lib/api/demo';
 import css from './demo.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them typed as plain strings
 const styles = css as Record<
 	| 'caret'
 	| 'popover'
@@ -42,7 +41,6 @@ const byName = (a: Persona, b: Persona) => a.displayName.localeCompare(b.display
 const byTeam = (a: Persona, b: Persona) =>
 	a.team && b.team ? a.team.name.localeCompare(b.team.name) : Number(!a.team) - Number(!b.team);
 
-// each role lands where its part of the demo is waiting
 const startPage = {
 	employee: '/',
 	team_lead: '/inbox',
@@ -52,7 +50,6 @@ const startPage = {
 
 function arrange(cast: Persona[]) {
 	const sorted = cast.filter((persona) => persona.workspace === 'company').toSorted(byName);
-	// the persona in use keeps her place up top, the checked entry never hides in the fold
 	const main = roles.flatMap((role) => {
 		const own = sorted.filter((persona) => persona.role === role);
 		const pick = own.find((persona) => persona.current) ?? own[0];
@@ -60,7 +57,6 @@ function arrange(cast: Persona[]) {
 	});
 
 	const teams: Persona[][] = [];
-	// the sort is stable, so every team arrives as one run still ordered by name
 	for (const persona of sorted.filter((p) => !main.includes(p)).toSorted(byTeam)) {
 		const last = teams.at(-1);
 		if (last && last[0]!.team?.id === persona.team?.id) last.push(persona);
@@ -82,7 +78,6 @@ export function PersonaMenu() {
 		mutationFn: (persona: Persona) => switchPersona({ userId: persona.userId }),
 		onSuccess: async (_, persona) => {
 			await queryClient.invalidateQueries({ queryKey: sessionQuery.queryKey });
-			// everything else in the cache was loaded for the previous persona
 			queryClient.removeQueries({
 				predicate: (query) => query.queryKey[0] !== sessionQuery.queryKey[0]
 			});
@@ -96,7 +91,6 @@ export function PersonaMenu() {
 	const current = cast.find((persona) => persona.current);
 
 	const toggle = (next: boolean) => {
-		// otherwise the last failed attempt still shows when the menu opens again
 		if (next) change.reset();
 		setOpen(next);
 	};
@@ -117,7 +111,6 @@ export function PersonaMenu() {
 					selectionMode="single"
 					selectedKeys={current ? [current.userId] : []}
 					disallowEmptySelection
-					// stays open until the new session is there, a failed switch shows its error below
 					shouldCloseOnSelect={false}
 					disabledKeys={change.isPending ? cast.map((persona) => persona.userId) : []}
 					renderEmptyState={() => (
@@ -143,11 +136,7 @@ export function PersonaMenu() {
 						</MenuItem>
 					))}
 					{teams.length > 0 && (
-						<MenuSection
-							// a section of its own, so the toggle is a plain menuitem and not one more radio
-							selectionMode="none"
-							className={styles.others}
-						>
+						<MenuSection selectionMode="none" className={styles.others}>
 							<MenuItem
 								id="others"
 								textValue={t('switch.others')}
@@ -190,7 +179,6 @@ export function PersonaMenu() {
 							);
 						})}
 					{solo.length > 0 && (
-						// the freelancer lives in a workspace of her own, always in view below the office
 						<MenuSection id="solo" className={styles.solo}>
 							<Header className={styles.team}>{t('switch.solo')}</Header>
 							{solo.map((persona) => (

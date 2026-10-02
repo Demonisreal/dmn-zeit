@@ -20,7 +20,6 @@ import { leadOf, officeOf, type Cast, type Person } from './staff';
 export type Leave = {
 	person: Person;
 	row: PlanRow<'absences'>;
-	// kept apart for a cancelled request, the row only holds the last decision
 	approvedAt: Temporal.Instant | null;
 };
 
@@ -102,7 +101,6 @@ export function planLeave(
 		approve(leave, at(dateOf(asked).add({ days: rng.int(1, 3) })));
 		return leave;
 	};
-	// a day before and after a scene stays clear, a night shift should not end in someone's vacation
 	const blocked = (person: Person, start: Temporal.PlainDate, end: Temporal.PlainDate) => {
 		const from = start.subtract({ days: 1 }).toString();
 		const to = end.add({ days: 1 }).toString();
@@ -120,7 +118,6 @@ export function planLeave(
 		);
 	};
 
-	// last year's rest goes first; the lead's four days reach into this year's bucket
 	const leadWeek = weekdayFrom(on(2, 23), 1);
 	vacation(cast.lead, leadWeek, leadWeek.add({ days: 3 }));
 	const payrollWeek = weekdayFrom(on(3, 2), 1);
@@ -128,7 +125,6 @@ export function planLeave(
 	const noticedWeek = weekdayFrom(on(2, 9), 1);
 	vacation(cast.noticed, noticedWeek.add({ days: 3 }), noticedWeek.add({ days: 4 }));
 
-	// sick in the second week of a two-week vacation, the certificate gives the days back
 	const trip = weekdayFrom(on(5, 11), 1);
 	vacation(cast.payrollLead, trip, trip.add({ days: 11 }));
 	const fever = trip.add({ days: 9 });
@@ -162,7 +158,6 @@ export function planLeave(
 						Temporal.PlainDate.compare(monday, entryDate) < 0 ||
 						(exitDate && Temporal.PlainDate.compare(end, exitDate) > 0) ||
 						blocked(person, monday, end) ||
-						// the capped lead's last closed month has to carry its full overtime
 						(person === cast.capped &&
 							(monday.toPlainYearMonth().equals(calendar.lastClosed) ||
 								end.toPlainYearMonth().equals(calendar.lastClosed)))
@@ -176,7 +171,6 @@ export function planLeave(
 		}
 	}
 
-	// a few ordinary sick notes in the first half year, away from month ends and closings
 	for (const person of rng.shuffle(cast.people).slice(0, 4)) {
 		for (let attempt = 0; attempt < 10; attempt++) {
 			const start = on(1, 12).add({ days: rng.int(0, 150) });
@@ -197,7 +191,6 @@ export function planLeave(
 	return leaves;
 }
 
-// what sits in the lead's inbox today, plus the request that was turned down last week
 export function openRequests(
 	rng: Random,
 	cast: Cast,
@@ -229,7 +222,6 @@ export function openRequests(
 		targetOn(calendar, cast.partTimer.employment, date) > 0 &&
 		!isAway(leaves, cast.partTimer, date) &&
 		!specials.some((special) => special.person === cast.partTimer && special.date.equals(date));
-	// the forgotten entry blocks the previous month by itself when it lies there
 	const forgot = specials.find((special) => special.running)!.date;
 	if (forgot.toPlainYearMonth().equals(today.toPlainYearMonth())) {
 		const previous = eachDay(
@@ -264,7 +256,6 @@ export function dayRows(
 			person.employment,
 			calendar.holidays
 		);
-		// rejected and cancelled requests free their days again
 		const gone = !ACTIVE.includes(row.status);
 		for (const cost of costs.filter((day): day is Worked => day.portion > 0)) {
 			rows.push({
@@ -281,7 +272,6 @@ export function dayRows(
 		}
 	}
 
-	// a confirmed sick note takes over the vacation days beneath it, § 9 BUrlG
 	const vacations = new Set(
 		leaves.filter(({ row }) => row.type === 'vacation').map(({ row }) => row.id)
 	);

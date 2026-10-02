@@ -21,7 +21,6 @@ export const timerQuery = queryOptions({
 	queryFn: () => request('/project-timer', { schema: projectTimerSchema })
 });
 
-// the list changes with the billing pages, not while someone books time
 export const bookableQuery = queryOptions({
 	queryKey: ['projects', 'bookable'],
 	queryFn: () => request('/projects/bookable', { schema: z.array(bookableProjectSchema) }),
@@ -40,7 +39,6 @@ export const projectWeekQuery = (employeeId: string, from: string) =>
 			request(`/employees/${employeeId}/project-week?from=${from}`, { schema: projectWeekSchema })
 	});
 
-// a week of entries fits one page, the cursor only matters for longer ranges
 export const projectEntriesQuery = (employeeId: string, from: string, to: string) =>
 	queryOptions({
 		queryKey: ['project-entries', employeeId, from, to],
@@ -74,7 +72,6 @@ export const updateEntry = ({ id, ...input }: UpdateProjectEntryInput & { id: st
 
 export const voidEntry = (id: string) => request(`/project-entries/${id}/void`, { method: 'POST' });
 
-// timer, matrix, budgets and the team view all read the same entries
 export function useProjectMutation<T>(mutationFn: (input: T) => Promise<void>) {
 	const queryClient = useQueryClient();
 	return useMutation({

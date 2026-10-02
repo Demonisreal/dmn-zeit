@@ -11,7 +11,6 @@ import { bookableQuery, budgetsQuery } from './api';
 import { useExplain } from './explain';
 import styles from './summary.module.css';
 
-// the same tones as the ArbZG tags: amber from 80 %, red once it is exceeded
 const tones = { ok: 'neutral', warn: 'warning', exceeded: 'error' } as const satisfies Record<
 	BudgetState,
 	string

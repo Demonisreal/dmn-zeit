@@ -79,7 +79,6 @@
 	font-variant-numeric: tabular-nums;
 }
 
-/* a row of its own under the line, roles line up in one column */
 .tour {
 	display: grid;
 	flex-basis: 100%;
@@ -102,7 +101,6 @@
 	color: var(--muted);
 }
 
-/* round on purpose, a square box would pass for a checkbox you can click */
 .tick {
 	position: relative;
 	width: 0.875rem;
@@ -150,7 +148,6 @@
 	border-radius: 8px;
 	background: var(--card);
 	box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.7);
-	/* in the mobile panel react-aria flips or shifts the popover, it grows from the trigger either way */
 	transform-origin: var(--trigger-anchor-point);
 }
 
@@ -179,7 +176,6 @@
 	}
 }
 
-/* react-aria caps the popover at the room below the trigger, the list scrolls and the error stays in view */
 .menu {
 	min-height: 0;
 	padding: 0.25rem;
@@ -210,7 +206,6 @@
 	outline-offset: -2px;
 }
 
-/* red edge like today's row in the week table, it marks the persona in use */
 .persona[data-selected] {
 	box-shadow: inset 2px 0 var(--red);
 }
@@ -254,7 +249,6 @@
 	}
 }
 
-/* padding plus chevron and gap of the toggle, the team names line up with its label */
 .group {
 	padding-inline-start: 0.875rem;
 }
@@ -267,7 +261,6 @@
 	overflow-wrap: anywhere;
 }
 
-/* in a team the person leads, a step quieter than the four roles up top */
 .group .name {
 	color: var(--text);
 	font-size: inherit;
@@ -347,7 +340,6 @@
 	overflow-wrap: anywhere;
 }
 
-/* the subject comes first for screen readers, on wide screens the time moves left like a log */
 @media (min-width: 48rem) {
 	.mail {
 		grid-template-columns: 9.5rem minmax(0, 1fr);

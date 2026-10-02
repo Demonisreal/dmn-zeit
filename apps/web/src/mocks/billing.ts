@@ -33,8 +33,6 @@ import { mockEmployees } from './hr';
 import type { ProjectWorld } from './projects';
 import { mockSession } from './session';
 
-// clients, projects and tasks carry the ids of mocks/projects.ts, so the week and the timer link here
-
 type MockProject = Omit<Project, 'budget'> & {
 	budgetMinutes: number | null;
 	usedMinutes: number;
@@ -90,7 +88,6 @@ const buyerOf = (owner: Client) => ({
 	number: owner.number
 });
 
-// draft by default, issued/paid/cancelled invoices come with the fields that status implies
 type InvoiceRest = Partial<Invoice> & { dueInDays?: number };
 
 function invoice(n: number, owner: Client, profile: BillingProfile, rest: InvoiceRest = {}): Invoice {
@@ -250,7 +247,6 @@ type World = {
 	unbilled: Unbilled;
 };
 
-// mara's tax office: the clients of the project week plus a long name, one without projects, one archived
 function companyWorld(): World {
 	const clients = [
 		client(1, 'Bäckerei Hagen GmbH (Beispiel)', {
@@ -286,7 +282,6 @@ function companyWorld(): World {
 			archivedAt: '2026-03-31T16:00:00+02:00'
 		})
 	];
-	// StBVV Zeitgebühr, see the open question in planung-projekte.md ("Musterbetrieb ist ein Steuerbüro")
 	const profile = profileFor('Musterbetrieb Steuerkanzlei (Beispiel)', {
 		street: 'Kanzleiring 4',
 		postalCode: '44135',
@@ -511,7 +506,6 @@ const agencyJobs = [
 	'Wartungsvertrag 2026'
 ];
 
-// the clients of the busy week plus an agency with a project per job, more than 20 of them
 function manyWorld(): World {
 	const names = [
 		'Kanzlei Rehberg (Beispiel)',
@@ -553,7 +547,6 @@ const worlds: Record<ProjectWorld, () => World> = {
 	company: companyWorld,
 	solo: soloWorld,
 	'solo-many': manyWorld,
-	// a freshly invited freelancer, nothing set up yet
 	'solo-empty': () => ({
 		clients: [],
 		projects: [],
@@ -648,12 +641,10 @@ const replaceInvoice = (next: Invoice) => {
 	return HttpResponse.json(next);
 };
 
-// mirrors packages/rules vatRateFor closely enough for the mock, the real rate history stays server-side
 const rateBpFor = (category: string) => (category === 'standard' ? 1900 : category === 'reduced' ? 700 : 0);
 
 const flipSign = (digits: string) => String(-BigInt(digits));
 
-// line changes do not touch the invoice row, so updatedAt stays as it is, same as the invoices_set_updated_at trigger
 function recalcTotals(inv: Invoice): Invoice {
 	const totals = invoiceTotals(
 		inv.lines.map((line) => ({
@@ -691,7 +682,6 @@ const nextInvoiceNumber = (year: number) => {
 
 type Defined<T> = { [K in keyof T]?: Exclude<T[K], undefined> };
 
-// the api drops undefined keys of a patch, the spread would overwrite with them
 const defined = <T extends object>(patch: T) =>
 	Object.fromEntries(
 		Object.entries(patch).filter(([, value]) => value !== undefined)
@@ -744,7 +734,6 @@ export const billingHandlers = [
 		return replaceClient({ ...found, archivedAt: found.archivedAt ?? now() });
 	}),
 
-	// like the store: without projects and rates it goes for good, otherwise it is only locked away
 	http.delete('/api/clients/:id', ({ params }) => {
 		const found = findClient(params.id);
 		if (!found) return fail(404, 'NOT_FOUND', 'Client not found');

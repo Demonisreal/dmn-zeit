@@ -11,7 +11,6 @@ import { hasCode } from '../../lib/api/errors';
 import styles from './demo.module.css';
 import { resetTour } from './tour';
 
-// request() leaves the Retry-After header behind, the api repeats the wait in details
 const waitSchema = z.object({ retryAfter: z.number().int().positive() });
 
 export function DemoStart() {

@@ -23,7 +23,6 @@ import { RateForm } from './rate-form';
 import { own, queryScope, type RatesScope } from './rates-scope';
 import css from './rates-table.module.css';
 
-// the rate took effect between loading and deleting, the api names the rule in the details
 const tookEffect = (err: unknown) =>
 	hasCode(err, 'INVALID_STATE') &&
 	!Array.isArray(err.details) &&
@@ -80,7 +79,6 @@ export function RatesTable({ scope, solo }: Props) {
 				b.validFrom.localeCompare(a.validFrom)
 		);
 
-	// per level and person the latest rate that has started is the one in force today
 	const current = new Map<string, Rate>();
 	for (const rate of shown) {
 		if (rate.validFrom <= today && !current.has(keyOf(rate))) current.set(keyOf(rate), rate);

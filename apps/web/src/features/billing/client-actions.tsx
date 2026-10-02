@@ -42,7 +42,6 @@ export function ClientActions({ client, canDelete }: Props) {
 		remove.reset();
 	};
 
-	// a restricted client stays in the books as it is, nothing left to do here
 	if (client.restrictedAt) return null;
 
 	return (

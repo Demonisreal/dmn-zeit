@@ -16,7 +16,6 @@ import field from '../../components/ui/field.module.css';
 import select from '../../components/ui/select-field.module.css';
 import css from './project-picker.module.css';
 
-// react-aria refuses className={undefined}, naming the classes keeps them plain strings
 const fieldStyles = field as Record<'field' | 'label' | 'input' | 'error', string>;
 const selectStyles = select as Record<'caret' | 'popover' | 'list' | 'option', string>;
 const styles = css as Record<
@@ -26,7 +25,6 @@ const styles = css as Record<
 
 export type Slot = { projectId: string; taskId: string | null };
 
-// one key per project and per task, the combobox knows only strings
 export const slotKey = ({ projectId, taskId }: Slot) =>
 	taskId ? `${projectId}/${taskId}` : projectId;
 
@@ -57,7 +55,6 @@ type Props = {
 	onChange: (key: string) => void;
 	onBlur?: () => void;
 	error?: string | undefined;
-	// in the timer head the group label already says what the field is for
 	hideLabel?: boolean;
 	isDisabled?: boolean;
 };

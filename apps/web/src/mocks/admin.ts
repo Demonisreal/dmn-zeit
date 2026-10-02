@@ -13,8 +13,6 @@ import type { ZodError } from 'zod';
 import { mockSession } from './session';
 import { holidaysNw, mockEmployees } from './hr';
 
-// accounts of the made-up tax office from mocks/hr.ts, mara is the one mockSession signs in as
-
 const fail = (status: number, code: Exclude<ErrorCode, 'VALIDATION'>, message: string) =>
 	HttpResponse.json({ code, message, details: null }, { status });
 
@@ -104,7 +102,6 @@ export const resetMockAdmin = () => {
 
 const findUser = (id: unknown) => users.find((user) => user.id === id);
 
-// only nrw is kept as data, the optional holidays and half days still follow the settings
 function holidaysOf(year: number): Holiday[] {
 	const local: Holiday[] = tenant.holidayOptions.includes('assumption_day')
 		? [{ date: `${year}-08-15`, code: 'assumption_day', portion: 1 }]

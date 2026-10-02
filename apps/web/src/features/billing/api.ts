@@ -35,7 +35,6 @@ const memberSchema = z.object({ employeeId: uuidSchema, name: z.string() });
 
 export type ProjectMember = z.infer<typeof memberSchema>;
 
-// archived ones come along, the list filters itself and can tell "none yet" from "all archived"
 export const clientsQuery = queryOptions({
 	queryKey: ['clients'],
 	queryFn: () =>
@@ -58,7 +57,6 @@ export const archiveClient = (id: string) => request(`/clients/${id}/archive`, {
 
 export const removeClient = (id: string) => request(`/clients/${id}`, { method: 'DELETE' });
 
-// the keys sit under ['projects'] with bookable and budgets, so the timer sees a new project right away
 export const projectsQuery = (client?: string) =>
 	queryOptions({
 		queryKey: ['projects', { client: client ?? null }],
@@ -194,7 +192,6 @@ export const revenueQuery = (year: number) =>
 		queryFn: () => request(withSearch('/billing/revenue', { year }), { schema: revenueSchema })
 	});
 
-// planung-projekte.md Abschnitt 4, GET /exports/time-report; download link, not through request() (no json body)
 export const timeReportUrl = (filter: {
 	client?: string | undefined;
 	from: string;

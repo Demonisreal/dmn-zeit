@@ -15,7 +15,6 @@ import editorCss from './invoice-editor.module.css';
 
 const styles = css as Record<'overlay' | 'modal' | 'dialog' | 'body' | 'actions', string>;
 
-// mirrors reasonSchema (multilineText(1000, 10)), the api checks it again either way
 const MIN_REASON = 10;
 
 type Props = {
@@ -37,7 +36,6 @@ export function CancelDialog({ invoice, onClose }: Props) {
 			if (invoice) await queryClient.invalidateQueries({ queryKey: invoiceQuery(invoice.id).queryKey });
 			await queryClient.invalidateQueries({ queryKey: ['invoices'] });
 			close();
-			// the cancel section vanishes once the status flips, so the trigger react-aria wants to refocus is gone
 			document.getElementById('main')?.focus();
 		}
 	});

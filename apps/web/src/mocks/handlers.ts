@@ -50,11 +50,9 @@ const checkNewPassword = (token: string, password: string) => {
 };
 
 export const handlers = [
-	// the security handlers answer /auth/mfa*, /security* and the passkey-only login, everything else falls through
 	...securityHandlers,
 	...weekHandlers,
 	...projectHandlers,
-	// after the project handlers, which answer /projects/bookable and /projects/budgets first
 	...billingHandlers,
 	...absenceHandlers,
 	...hrHandlers,
@@ -104,7 +102,6 @@ export const handlers = [
 
 	http.post('/api/auth/invitations/accept', async ({ request }) => {
 		const { token, password } = (await request.json()) as AcceptInvitationInput;
-		// accepting always leaves the setup state, the person still has to register a second factor
 		return (
 			checkNewPassword(token, password) ??
 			HttpResponse.json({

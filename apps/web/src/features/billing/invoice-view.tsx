@@ -40,7 +40,6 @@ export function InvoiceView({ invoice }: Props) {
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invoices'] })
 	});
 
-	// a cancellation invoice is never paid, it only reverses the original
 	const payable = invoice.kind === 'invoice' && invoice.status !== 'cancelled';
 	const overdue =
 		payable && invoice.status === 'issued' && invoice.dueDate !== null && invoice.dueDate < todayIso();

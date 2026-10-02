@@ -10,7 +10,6 @@ import type { Cast, Person } from './staff';
 
 type Work = 'books' | 'payroll' | 'closing';
 
-// the three teams of the office, each works on its own kind of project
 const WORK: readonly Work[] = ['books', 'payroll', 'closing'];
 
 const TASKS: Record<Work, readonly string[]> = {
@@ -29,11 +28,9 @@ const CLIENTS = [
 	{ code: 'SON', name: 'Pflegedienst Sonnenhof gGmbH (Beispiel)', street: 'Massener Straße 33', postalCode: '59423', city: 'Unna', work: ['payroll', 'closing'] }
 ] as const;
 
-// time fee of § 13 StBVV: every half hour begun counts in full
 const ROUNDING = { increment: 30, mode: 'up' } as const;
 const rounded = (minutes: number) => roundMinutes(minutes, ROUNDING).minutes;
 
-// the story wants one closing near its budget and one beyond; booking stops once the mark is reached
 const BUDGETS: Partial<Record<string, { minutes: number; stopAt: number }>> = {
 	'HAG-JA': { minutes: 40 * 60, stopAt: 34 * 60 },
 	'LIN-JA': { minutes: 30 * 60, stopAt: 31.5 * 60 }
@@ -52,7 +49,6 @@ type Part = Running & { end: Temporal.Instant };
 const minutesOf = (start: Temporal.Instant, end: Temporal.Instant) =>
 	Math.round(start.until(end).total('minutes'));
 
-// offsets from the start of a stamped span; a few minutes at the edges stay without project
 function split(rng: Random, length: number, exact: boolean): [number, number][] {
 	const lead = exact ? 0 : rng.int(0, 6);
 	const tail = exact ? 0 : rng.int(0, 8);
@@ -141,7 +137,6 @@ export function bookProjects(
 		{ clientId: null, projectId: null, rateCents: 9600, employeeId: null },
 		{ clientId: byCode('RUE-FIBU').clientId, projectId: null, rateCents: 10200, employeeId: null },
 		{ clientId: byCode('SON-LOHN').clientId, projectId: null, rateCents: 8800, employeeId: null },
-		// the closing of the bakery goes through the senior of the team
 		{
 			clientId: byCode('HAG-JA').clientId,
 			projectId: byCode('HAG-JA').id,
@@ -150,7 +145,6 @@ export function bookProjects(
 		}
 	].map((rate) => ({ id: rng.uuid(), taskId: null, validFrom, ...rate }));
 
-	// project time starts with the previous month, a whole year of it takes the sandbox past 1.5 s
 	const from = calendar.previous.toPlainDate({ day: 1 });
 	const spans = cast.people
 		.flatMap((person) =>
@@ -166,7 +160,6 @@ export function bookProjects(
 		.filter((span) => Temporal.PlainDate.compare(dateOf(span.start), from) >= 0)
 		.sort((a, b) => Temporal.Instant.compare(a.start, b.start));
 
-	// the persona's last working day before today books more project time than she was clocked in
 	const overDay = lastDay(sheets.get(cast.worker)!);
 	const used = new Map<string, number>();
 	const cells = new Map<string, number>();
@@ -195,7 +188,6 @@ export function bookProjects(
 			});
 
 			if (project.stopAt === null) continue;
-			// the same cell the project week and the budget read: person, task and day, rounded once
 			const cell = `${span.person.employee.id} ${task.id} ${dateOf(start).toString()}`;
 			const before = cells.get(cell) ?? 0;
 			const raw = before + minutesOf(start, end);
@@ -209,7 +201,6 @@ export function bookProjects(
 	const last = parts.findLast((part) => part.person === cast.worker)!;
 	last.end = last.end.add({ minutes: rng.int(35, 50) });
 
-	// one colleague left the timer running yesterday, the other booked a saturday without clocking in
 	const busyLater =
 		Temporal.PlainDate.compare(
 			lastDay(sheets.get(cast.busy)!),

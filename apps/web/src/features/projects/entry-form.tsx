@@ -21,7 +21,6 @@ import { ProjectPicker } from './project-picker';
 type Props = {
 	projects: BookableProject[];
 	initial: EntryValues;
-	// set to change that entry, without it the form books a new one
 	entryId?: string | undefined;
 	title: string;
 	onDone: () => void;
@@ -38,7 +37,6 @@ export function EntryForm({ projects, initial, entryId, title, onDone, onCancel 
 	});
 	const [start, end] = useWatch({ control, name: ['start', 'end'] });
 
-	// the resolver has already run the shared schema, parsing again only gives the api its type
 	const save = useProjectMutation((form: EntryValues) =>
 		editing
 			? updateEntry({ id: entryId, ...toUpdate(form, initial) })
@@ -57,7 +55,6 @@ export function EntryForm({ projects, initial, entryId, title, onDone, onCancel 
 			}
 		});
 
-	// field issues already sit under their fields, everything else gets one line above the buttons
 	const refusal = (err: Error) => {
 		if (
 			hasCode(err, 'VALIDATION') &&

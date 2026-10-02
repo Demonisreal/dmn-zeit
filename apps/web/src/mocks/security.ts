@@ -13,7 +13,6 @@ import type {
 } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
 
-// a second made up account that signs in with password and second factor
 export const mockMfaUser = { email: 'deniz.aydin@example.com', password: 'richtiges-passwort' };
 export const mockTotpCode = '123456';
 export const mockRecoveryCode = 'K7M2Q-XP4RD';
@@ -42,7 +41,6 @@ export const mockMfaSession: Session = {
 	csrfToken: 'mock-csrf-token-mfa'
 };
 
-// what the browser hands back, the mock api never checks a signature
 export const mockAssertion = {
 	id: 'o3mm9u6vuaVeN4wRgDTidR5oL6ufLTCrE9ISVYbOGUc',
 	rawId: 'o3mm9u6vuaVeN4wRgDTidR5oL6ufLTCrE9ISVYbOGUc',
@@ -93,7 +91,6 @@ const creationOptions = {
 	authenticatorSelection: { residentKey: 'required', userVerification: 'required' }
 };
 
-// looks like the output of the qrcode package, but encodes nothing
 const totpSetup: TotpSetup = {
 	otpauthUri:
 		'otpauth://totp/DMN%20Zeit:mara.lenz%40example.com?issuer=DMN%20Zeit&secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&algorithm=SHA1&digits=6&period=30',
@@ -157,7 +154,6 @@ let passkeys = passkeysAtStart;
 let recoveryLeft = 7;
 let sessions = sessionsAtStart;
 
-// 'none' is an account straight from the invitation, still without a second factor
 export const resetMockSecurity = (factors: 'enrolled' | 'none' = 'enrolled') => {
 	mfaPending = false;
 	mfaAttempts = 0;
@@ -191,7 +187,6 @@ const confirmReauth = () => {
 	return HttpResponse.json({ reauthUntil });
 };
 
-// like the api: a wrong factor counts as an attempt, the fifth one ends the pending sign-in
 const secondStep = (matches: boolean) => {
 	if (!mfaPending) {
 		return fail(
@@ -210,7 +205,6 @@ const secondStep = (matches: boolean) => {
 };
 
 export const securityHandlers = [
-	// answers only for the account with a second factor, every other login falls through
 	http.post('/api/auth/login', async ({ request }) => {
 		const { email, password } = (await request.clone().json()) as LoginInput;
 		if (email !== mockMfaUser.email) return;
@@ -240,7 +234,6 @@ export const securityHandlers = [
 
 	http.post('/api/auth/reauth', async ({ request }) => {
 		const { password, code } = (await request.json()) as ReauthInput;
-		// same password as mockUser in handlers.ts
 		if (password !== 'richtiges-passwort' || code !== mockTotpCode) {
 			return fail(403, 'INVALID_CREDENTIALS', 'The code or passkey did not match');
 		}

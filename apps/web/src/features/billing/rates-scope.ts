@@ -6,7 +6,6 @@ export type RatesScope =
 	| { kind: 'client'; clientId: string }
 	| { kind: 'project'; clientId: string; projectId: string; tasks: Task[] };
 
-// each page lists only its own level, the more general rates show on the page above
 export const own = (scope: RatesScope) => (rate: Rate) =>
 	scope.kind === 'default'
 		? rate.clientId === null && rate.employeeId === null

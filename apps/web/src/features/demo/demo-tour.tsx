@@ -39,16 +39,13 @@ export function DemoTour({ role, workspace, expiresAt }: Props) {
 	const marks = useTourMarks();
 	const steps = stepsIn[workspace];
 
-	// a sandbox lives 24 hours, so this is when it was set up
 	const created = Date.parse(expiresAt) - 24 * 3_600_000;
 	const today = parseDate(todayIso());
-	// the seed closes through the month before last, so the month before the start is still open
 	const month = shiftMonth(
 		toCalendarDate(fromAbsolute(created, 'Europe/Berlin')).toString().slice(0, 7),
 		-1
 	);
 
-	// the api allows 366 days, most of them ahead where leave gets booked
 	const requests = useInfiniteQuery(
 		absencesQuery({
 			scope: hasRole(role, 'team_lead') ? 'all' : 'mine',
@@ -66,7 +63,6 @@ export function DemoTour({ role, workspace, expiresAt }: Props) {
 		close: checklist.data?.closed === true
 	};
 
-	// the next persona may not see what this one saw, the tick has to outlast the switch
 	useEffect(() => {
 		for (const step of tourSteps) if (seen[step]) markTourStep(step);
 	}, [seen.request, seen.approve, seen.close]);
