@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
-import type { Clock as ClockState, EndReason } from '@zeit/shared';
+import type { Clock as ClockState } from '@zeit/shared';
 import { Clock } from '../common/clock';
 import type { AuthSession } from '../common/session.guard';
 import { Database, type Trx } from '../db/database';
@@ -41,12 +41,23 @@ export class ClockService {
 		});
 	}
 
-	end(session: AuthSession, reason: EndReason): Promise<ClockState> {
+	pause(session: AuthSession): Promise<ClockState> {
 		const employeeId = employeeOf(session);
 		return this.db.withTenant(session, async (trx) => {
-			if (!(await this.store.endRunning(trx, employeeId, reason))) {
+			if (!(await this.store.endRunning(trx, employeeId, 'break'))) {
 				throw new ConflictException('Not clocked in');
 			}
+			return this.current(trx, employeeId);
+		});
+	}
+
+	clockOut(session: AuthSession): Promise<ClockState> {
+		const employeeId = employeeOf(session);
+		return this.db.withTenant(session, async (trx) => {
+			const left =
+				(await this.store.endRunning(trx, employeeId, 'leave')) ||
+				(await this.store.leaveBreak(trx, employeeId, localDate(this.clock.now())));
+			if (!left) throw new ConflictException('Not clocked in');
 			return this.current(trx, employeeId);
 		});
 	}

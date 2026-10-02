@@ -303,6 +303,24 @@ export class TimeStore {
 		return ended.numUpdatedRows > 0n;
 	}
 
+	async leaveBreak(trx: Trx, employeeId: string, workday: string): Promise<boolean> {
+		const last = trx
+			.selectFrom('app.time_entries')
+			.select('id')
+			.where('employee_id', '=', employeeId)
+			.where('voided_at', 'is', null)
+			.where('workday', '=', workday)
+			.orderBy('started_at', 'desc')
+			.limit(1);
+		const ended = await trx
+			.updateTable('app.time_entries')
+			.set({ end_reason: 'leave' })
+			.where('id', '=', last)
+			.where('end_reason', '=', 'break')
+			.executeTakeFirst();
+		return ended.numUpdatedRows > 0n;
+	}
+
 	async flexBookings(
 		trx: Trx,
 		employeeIds: readonly string[],

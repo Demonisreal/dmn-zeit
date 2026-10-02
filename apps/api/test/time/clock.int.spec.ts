@@ -53,6 +53,32 @@ describe('clock', () => {
 		]);
 	});
 
+	it('ends the day at the start of the break when the person leaves from it', async () => {
+		const { browser, employeeId } = await worker();
+		await browser.post('/clock/in');
+		const onBreak = await browser.post('/clock/break');
+
+		const out = await browser.post('/clock/out');
+		expect(out.status).toBe(200);
+		expect(out.body).toEqual({
+			state: 'off',
+			workday: onBreak.body.workday,
+			workedMinutes: onBreak.body.workedMinutes
+		});
+
+		const again = await browser.post('/clock/out');
+		expect(again.status).toBe(409);
+		expect(again.body).toMatchObject({ code: 'INVALID_STATE', message: 'Not clocked in' });
+		expect((await browser.post('/clock/resume')).status).toBe(409);
+
+		const { rows } = await api.superuser.query(
+			`select end_reason, ended_at = $2::timestamptz as at_break
+			   from app.time_entries where employee_id = $1`,
+			[employeeId, onBreak.body.since]
+		);
+		expect(rows).toEqual([{ end_reason: 'leave', at_break: true }]);
+	});
+
 	it('refuses to clock in twice', async () => {
 		const { browser } = await worker();
 		await browser.post('/clock/in');

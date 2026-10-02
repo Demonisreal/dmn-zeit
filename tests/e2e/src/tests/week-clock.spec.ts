@@ -7,29 +7,27 @@ test.beforeEach(async ({ signIn, page }) => {
 });
 
 test(
-	'Kommen, Pause und Gehen im Wochenbuch mit aufgeklappter Herleitung',
+	'Kommen, Pause, Weiter und Gehen, dann Gehen aus der Pause, mit aufgeklappter Herleitung',
 	{ tag: '@mobile' },
 	async ({ page }) => {
 		const clock = page.getByRole('group', { name: 'Stempeln' });
 		// the panel shows the new state at once but drops presses until the refetch behind it is done
-		const settled = () => expect(clock).not.toHaveAttribute('aria-busy', 'true');
+		const press = async (name: string, state: string | RegExp) => {
+			await clock.getByRole('button', { name }).click();
+			await expect(clock.getByText(state)).toBeVisible();
+			await expect(clock).not.toHaveAttribute('aria-busy', 'true');
+			await expect(clock.getByText(state)).toBeVisible();
+		};
 		await expect(clock.getByText('Nicht eingestempelt')).toBeVisible();
 
-		await clock.getByRole('button', { name: 'Kommen' }).click();
-		await expect(clock.getByText(/^Läuft seit/)).toBeVisible();
-		await settled();
+		await press('Kommen', /^Läuft seit/);
+		await press('Pause', /^Pause seit/);
+		await press('Weiter', /^Läuft seit/);
+		await press('Gehen', 'Nicht eingestempelt');
 
-		await clock.getByRole('button', { name: 'Pause' }).click();
-		await expect(clock.getByText(/^Pause seit/)).toBeVisible();
-		await settled();
-
-		await clock.getByRole('button', { name: 'Weiter' }).click();
-		await expect(clock.getByText(/^Läuft seit/)).toBeVisible();
-		await settled();
-
-		await clock.getByRole('button', { name: 'Gehen' }).click();
-		await settled();
-		await expect(clock.getByText('Nicht eingestempelt')).toBeVisible();
+		await press('Kommen', /^Läuft seit/);
+		await press('Pause', /^Pause seit/);
+		await press('Gehen', 'Nicht eingestempelt');
 
 		await page
 			.locator('tr[data-current]')

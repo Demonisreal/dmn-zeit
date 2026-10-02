@@ -139,8 +139,28 @@ describe('time entries', () => {
 			[entry]
 		);
 		await expect(
-			app.query(`update app.time_entries set end_reason = 'leave' where id = $1`, [entry])
+			app.query(`update app.time_entries set ended_at = now() where id = $1`, [entry])
 		).rejects.toMatchObject({ code: 'ZT002' });
+	});
+
+	it('turns a break into the end of the day, but not back', async () => {
+		await withContext(app, worker.context);
+		const entry = await insertId(
+			app,
+			`insert into app.time_entries (tenant_id, employee_id, source) values ($1, $2, 'clock') returning id`,
+			[tenant, worker.employeeId]
+		);
+		await app.query(
+			`update app.time_entries set ended_at = now(), end_reason = 'break' where id = $1`,
+			[entry]
+		);
+
+		await app.query(`update app.time_entries set end_reason = 'leave' where id = $1`, [entry]);
+		for (const change of [`end_reason = 'break'`, 'end_reason = null']) {
+			await expect(
+				app.query(`update app.time_entries set ${change} where id = $1`, [entry])
+			).rejects.toMatchObject({ code: 'ZT002' });
+		}
 	});
 
 	it('does not let a person void their own entry', async () => {

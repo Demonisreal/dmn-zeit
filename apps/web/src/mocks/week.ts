@@ -340,6 +340,8 @@ const close = (reason: 'break' | 'leave') => (now: string) => {
 	const last = store.today.at(-1);
 	if (last && !last.endedAt)
 		store.today[store.today.length - 1] = { ...last, endedAt: now, endReason: reason };
+	else if (last && reason === 'leave')
+		store.today[store.today.length - 1] = { ...last, endReason: reason };
 };
 
 function flexAccount(year: number): FlexAccount {

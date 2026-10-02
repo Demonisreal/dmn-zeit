@@ -47,6 +47,21 @@ describe('stamping', () => {
 		expect(within(clock).getByRole('button', { name: 'Gehen' })).toBeInTheDocument();
 	});
 
+	it('clocks out straight from a break', async () => {
+		renderApp('/');
+		const clock = await clockGroup();
+
+		await userEvent.click(within(clock).getByRole('button', { name: 'Pause' }));
+		expect(await within(clock).findByText('Pause seit 10:30')).toBeInTheDocument();
+		await settled(clock);
+
+		await userEvent.click(within(clock).getByRole('button', { name: 'Gehen' }));
+		expect(await within(clock).findByText('Nicht eingestempelt')).toBeInTheDocument();
+		await settled(clock);
+		expect(within(clock).getByText('Nicht eingestempelt')).toBeInTheDocument();
+		expect(within(clock).getByRole('button', { name: 'Kommen' })).toBeInTheDocument();
+	});
+
 	it('shows the new state at once and takes it back when the server refuses', async () => {
 		let release!: () => void;
 		const answered = new Promise<void>((resolve) => (release = resolve));

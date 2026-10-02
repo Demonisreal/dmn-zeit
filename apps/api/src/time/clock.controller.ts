@@ -30,7 +30,7 @@ export class ClockController {
 	@Post('break')
 	@HttpCode(200)
 	pause(@CurrentSession() session: AuthSession, @Body(empty) _body: object): Promise<Clock> {
-		return this.clock.end(session, 'break');
+		return this.clock.pause(session);
 	}
 
 	@Post('resume')
@@ -42,6 +42,6 @@ export class ClockController {
 	@Post('out')
 	@HttpCode(200)
 	clockOut(@CurrentSession() session: AuthSession, @Body(empty) _body: object): Promise<Clock> {
-		return this.clock.end(session, 'leave');
+		return this.clock.clockOut(session);
 	}
 }

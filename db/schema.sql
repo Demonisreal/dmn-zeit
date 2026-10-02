@@ -1056,7 +1056,9 @@ begin
   if tg_op = 'UPDATE' and (
     to_jsonb(new) - fillable <> to_jsonb(old) - fillable
     or (old.ended_at is not null
-      and (new.ended_at, new.end_reason) is distinct from (old.ended_at, old.end_reason))
+      and (new.ended_at, new.end_reason) is distinct from (old.ended_at, old.end_reason)
+      and (new.ended_at, old.end_reason, new.end_reason)
+        is distinct from (old.ended_at, 'break'::app.end_reason, 'leave'::app.end_reason))
     or (old.voided_at is not null
       and (new.voided_at, new.voided_by_request_id) is distinct from (old.voided_at, old.voided_by_request_id))
   ) then
@@ -7794,4 +7796,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260926001301'),
     ('20260926001302'),
     ('20260926001303'),
-    ('20260926001304');
+    ('20260926001304'),
+    ('20260926001305');

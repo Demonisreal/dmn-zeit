@@ -1,12 +1,36 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../mocks/server';
 import { renderApp } from '../../test/render-app';
 import { clientIds, signInForBilling } from './testing';
 
+afterEach(() => vi.useRealTimers());
+
 describe('new invoice', () => {
+	it('takes the berlin date for the default period, also shortly after midnight', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-31T23:30:00Z'));
+		let period: unknown;
+		server.use(
+			http.post('/api/invoices/drafts', async ({ request }) => {
+				period = await request.json();
+				return HttpResponse.json(
+					{ code: 'INVALID_STATE', message: 'No unbilled time in this period', details: null },
+					{ status: 409 }
+				);
+			})
+		);
+		signInForBilling();
+		renderApp(`/billing/invoices/new?client=${clientIds.hagen}`);
+
+		await userEvent.click(await screen.findByRole('button', { name: 'Entwurf erstellen' }));
+
+		await screen.findByText('Im Zeitraum gibt es keine abrechenbare Zeit mit hinterlegtem Satz.');
+		expect(period).toEqual({ clientId: clientIds.hagen, from: '2026-11-01', to: '2026-11-01' });
+	});
+
 	it('holds back a period longer than 366 days at the end date', async () => {
 		signInForBilling();
 		renderApp(`/billing/invoices/new?client=${clientIds.hagen}&from=2025-01-01&to=2026-01-02`);

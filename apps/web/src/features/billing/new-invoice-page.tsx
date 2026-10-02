@@ -10,6 +10,7 @@ import { SelectField } from '../../components/ui/select-field';
 import { issueText } from '../../i18n';
 import { formatCents, formatDate, formatMinutes } from '../../i18n/format';
 import { hasCode } from '../../lib/api/errors';
+import { currentMonth, todayIso } from '../../lib/dates';
 import { useErrorText } from '../hr/error-text';
 import { DateInputField } from '../hr/ui/date-field';
 import styles from '../hr/ui/page.module.css';
@@ -24,19 +25,19 @@ type Props = {
 	prefill: Prefill;
 };
 
-const defaultFrom = () => `${new Date().toISOString().slice(0, 7)}-01`;
-const defaultTo = () => new Date().toISOString().slice(0, 10);
-
 export function NewInvoicePage({ role, prefill }: Props) {
 	const { t, i18n } = useTranslation('billing');
 	const navigate = useNavigate();
 	const errorText = useErrorText();
 	const [clientId, setClientId] = useState(prefill.client ?? '');
-	const [from, setFrom] = useState(prefill.from ?? defaultFrom());
-	const [to, setTo] = useState(prefill.to ?? defaultTo());
+	const [from, setFrom] = useState(prefill.from ?? `${currentMonth()}-01`);
+	const [to, setTo] = useState(prefill.to ?? todayIso());
 
 	const clients = useQuery(clientsQuery);
-	const unbilled = useQuery({ ...unbilledQuery({ client: clientId, to }), enabled: clientId !== '' });
+	const unbilled = useQuery({
+		...unbilledQuery({ client: clientId, to }),
+		enabled: clientId !== ''
+	});
 	const preview = unbilled.data?.find((row) => row.clientId === clientId);
 
 	const draft = useMutation({
