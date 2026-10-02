@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import type request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DocumentsService } from '../../src/documents/documents.service';
+import { pdfParse } from '../../src/documents/pdf-parse.fixture';
 import { startApi, type Api } from '../auth/api';
 import { embeddedInvoice } from '../einvoice/fixtures';
 import { signedIn, type Desk } from '../helpers/desk';

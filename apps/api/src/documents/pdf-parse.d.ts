@@ -1,4 +1,4 @@
-// @types/pdf-parse targets the package root, tests import the lib file directly (see pdf.spec.ts)
+// @types/pdf-parse targets the package root, tests import the lib file directly (see pdf-parse.fixture.ts)
 declare module 'pdf-parse/lib/pdf-parse.js' {
 	type PdfParseResult = {
 		text: string;
@@ -12,7 +12,7 @@ declare module 'pdf-parse/lib/pdf-parse.js' {
 	};
 	type PdfPage = { getTextContent(): Promise<{ items: PdfTextItem[] }> };
 	function pdfParse(
-		data: Buffer,
+		data: Uint8Array,
 		options?: { pagerender?: (page: PdfPage) => Promise<string> }
 	): Promise<PdfParseResult>;
 	export default pdfParse;

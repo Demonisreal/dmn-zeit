@@ -1,6 +1,5 @@
-// see pdf.spec.ts for why the package root is avoided
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { describe, expect, it } from 'vitest';
+import { pdfParse } from './pdf-parse.fixture';
 import { buildTimeReportPdf } from './time-report-pdf';
 import { timeReportFixture } from './time-report.fixture';
 

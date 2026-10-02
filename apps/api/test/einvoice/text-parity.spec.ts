@@ -1,8 +1,8 @@
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { roundDiv } from '@zeit/rules';
 import type { BillingProfile, Invoice } from '@zeit/shared';
 import { describe, expect, it } from 'vitest';
 import { buildInvoicePdf } from '../../src/documents/pdf';
+import { pdfParse } from '../../src/documents/pdf-parse.fixture';
 import { renderXRechnung } from '../../src/einvoice/einvoice';
 import { toEInvoice } from '../../src/einvoice/from-invoice';
 import { TEXTS } from '../../src/einvoice/texts';

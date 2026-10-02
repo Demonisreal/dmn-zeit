@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import type request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pdfParse } from '../../src/documents/pdf-parse.fixture';
 import { MAX_CONCURRENT, MAX_QUEUED, withRenderSlot } from '../../src/documents/render-limit';
 import { renderInWorker, type RenderJob } from '../../src/documents/worker';
 import { InvoicesStore } from '../../src/invoices/invoices.store';

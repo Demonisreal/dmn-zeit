@@ -1,7 +1,7 @@
 import { invoiceSchema, type Invoice, type InvoicePage, type Persona } from '@zeit/shared';
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { Temporal } from 'temporal-polyfill';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pdfParse } from '../../src/documents/pdf-parse.fixture';
 import type { RenderJob } from '../../src/documents/worker';
 import { expectContract, type Browser } from '../auth/api';
 import { openSandbox, startDemo, type Demo } from './sandbox';

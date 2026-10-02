@@ -1,9 +1,8 @@
-// pdf-parse's package root runs a debug demo when required without a module.parent (as vitest does)
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { describe, expect, it } from 'vitest';
 import { legalNoteTexts } from '../invoices/texts';
 import { invoiceFixture, invoiceLineFixture, taxGroupFixture } from './invoice.fixture';
 import { buildInvoicePdf } from './pdf';
+import { pdfParse } from './pdf-parse.fixture';
 
 // pdfkit wraps long cells onto several lines, pdf-parse then hands them back with real line
 // breaks in between; tests compare against the wrapped-free reading of the page

@@ -1,9 +1,9 @@
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import type { Invoice } from '@zeit/shared';
 import PDFDocument from 'pdfkit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { invoiceFixture, invoiceLineFixture, taxGroupFixture } from './invoice.fixture';
 import { buildInvoicePdf } from './pdf';
+import { pdfParse } from './pdf-parse.fixture';
 import { MAX_PAGES, PageLimitError } from './render-limit';
 import { buildTimeReportPdf } from './time-report-pdf';
 import { timeReportFixture } from './time-report.fixture';
