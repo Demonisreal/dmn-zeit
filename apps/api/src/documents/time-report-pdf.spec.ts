@@ -19,7 +19,14 @@ describe('buildTimeReportPdf', () => {
 		const buffer = await buildTimeReportPdf(
 			timeReportFixture({
 				entries: [
-					{ date: '2026-08-04', projectName: 'Relaunch', taskName: null, note: null, minutes: 60, billable: true }
+					{
+						date: '2026-08-04',
+						projectName: 'Relaunch',
+						taskName: null,
+						note: null,
+						minutes: 60,
+						billable: true
+					}
 				]
 			})
 		);

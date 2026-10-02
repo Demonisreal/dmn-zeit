@@ -1,5 +1,11 @@
 import { isDeepStrictEqual } from 'node:util';
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+	BadRequestException,
+	ConflictException,
+	Injectable,
+	Logger,
+	NotFoundException
+} from '@nestjs/common';
 import { isBillable, longTimerEntries, roundDiv, vatRateFor } from '@zeit/rules';
 import { invoicePeriodIssue } from '@zeit/shared';
 import type {
@@ -110,13 +116,21 @@ function lineKey(line: TimeLineKey): string {
 
 function sameLines(fresh: readonly TimeLineKey[], stored: readonly TimeLineKey[]): boolean {
 	const keys = stored.map(lineKey).toSorted();
-	return fresh.length === keys.length && fresh.map(lineKey).toSorted().every((key, i) => key === keys[i]);
+	return (
+		fresh.length === keys.length &&
+		fresh
+			.map(lineKey)
+			.toSorted()
+			.every((key, i) => key === keys[i])
+	);
 }
 
 export type LinePatch = { [K in keyof InvoiceLineInput]?: InvoiceLineInput[K] | undefined };
 
 function minutesOf(startedAt: string, endedAt: string): number {
-	return Math.round(Temporal.Instant.from(startedAt).until(Temporal.Instant.from(endedAt)).total('minutes'));
+	return Math.round(
+		Temporal.Instant.from(startedAt).until(Temporal.Instant.from(endedAt)).total('minutes')
+	);
 }
 
 @Injectable()
@@ -168,7 +182,12 @@ export class InvoicesService {
 
 			const rates = await this.ratesFor(trx, input.clientId);
 			const treatment = treatmentFor(profile, clientRow);
-			const lines = buildTimeLines({ entries, clientId: input.clientId, rates, taxCategory: treatment });
+			const lines = buildTimeLines({
+				entries,
+				clientId: input.clientId,
+				rates,
+				taxCategory: treatment
+			});
 			if (lines.length === 0) {
 				throw invalidState('None of the unbilled time in this period has a rate yet');
 			}
@@ -200,7 +219,10 @@ export class InvoicesService {
 			});
 			await this.store.insertTimeLines(trx, session.tenantId, invoiceId, input.clientId, 1, lines);
 			await this.store.linkEntries(trx, entryIds, invoiceId);
-			await this.store.logEvent(trx, session, client, { action: 'invoice.draft_created', rowId: invoiceId });
+			await this.store.logEvent(trx, session, client, {
+				action: 'invoice.draft_created',
+				rowId: invoiceId
+			});
 			return this.model(trx, invoiceId);
 		});
 	}
@@ -247,10 +269,16 @@ export class InvoicesService {
 				this.billing.profile(trx)
 			]);
 			const treatment = treatmentFor(profile, clientRow);
-			const taxChanged = treatment !== essentials.taxTreatment || profile.taxProfile !== essentials.taxProfile;
+			const taxChanged =
+				treatment !== essentials.taxTreatment || profile.taxProfile !== essentials.taxProfile;
 			const [linkedEntries, freeEntries, rates, stored] = await Promise.all([
 				this.store.linkedEntryRows(trx, id),
-				this.store.lockEntries(trx, essentials.clientId, { from: essentials.serviceFrom, to: essentials.serviceTo }, undefined),
+				this.store.lockEntries(
+					trx,
+					essentials.clientId,
+					{ from: essentials.serviceFrom, to: essentials.serviceTo },
+					undefined
+				),
 				this.ratesFor(trx, essentials.clientId),
 				this.store.timeLineKeys(trx, id)
 			]);
@@ -272,9 +300,19 @@ export class InvoicesService {
 			}
 
 			if (taxChanged) {
-				await this.store.updateDraftMeta(trx, id, { tax_profile: profile.taxProfile, tax_treatment: treatment });
+				await this.store.updateDraftMeta(trx, id, {
+					tax_profile: profile.taxProfile,
+					tax_treatment: treatment
+				});
 			}
-			await this.store.replaceTimeLines(trx, session.tenantId, id, essentials.clientId, lines, entryIds);
+			await this.store.replaceTimeLines(
+				trx,
+				session.tenantId,
+				id,
+				essentials.clientId,
+				lines,
+				entryIds
+			);
 			await this.store.linkEntries(trx, entryIds, id);
 			return this.model(trx, id);
 		});
@@ -288,19 +326,34 @@ export class InvoicesService {
 			}
 			await this.assertLineTaxCategory(trx, essentials, input.taxCategory);
 			assertExemption(input.taxCategory, input.exemptionReason ?? null);
-			const taxRateBp = vatRateFor(input.taxCategory, Temporal.PlainDate.from(essentials.serviceTo));
+			const taxRateBp = vatRateFor(
+				input.taxCategory,
+				Temporal.PlainDate.from(essentials.serviceTo)
+			);
 			const netCents = roundDiv(BigInt(input.quantityMilli) * BigInt(input.unitPriceCents), 1000n);
 			const position = await this.store.nextPosition(trx, id);
-			const row = await this.store.insertItemLine(trx, session.tenantId, id, essentials.clientId, position, {
-				...input,
-				netCents,
-				taxRateBp
-			});
+			const row = await this.store.insertItemLine(
+				trx,
+				session.tenantId,
+				id,
+				essentials.clientId,
+				position,
+				{
+					...input,
+					netCents,
+					taxRateBp
+				}
+			);
 			return toLineModel(row);
 		});
 	}
 
-	updateLine(session: AuthSession, id: string, lineId: string, patch: LinePatch): Promise<InvoiceLine> {
+	updateLine(
+		session: AuthSession,
+		id: string,
+		lineId: string,
+		patch: LinePatch
+	): Promise<InvoiceLine> {
 		return this.db.withTenant(session, async (trx) => {
 			const essentials = await this.lockedDraft(trx, id);
 			const line = found(await this.store.line(trx, id, lineId), 'Invoice line');
@@ -309,7 +362,10 @@ export class InvoicesService {
 				const onlyText = Object.keys(patch).every((key) => key === 'description');
 				if (!onlyText) throw invalidState('Only the text of a time-based line can be changed');
 				if (patch.description === undefined) return toLineModel(line);
-				const updated = found(await this.store.updateTimeLineText(trx, lineId, patch.description), 'Invoice line');
+				const updated = found(
+					await this.store.updateTimeLineText(trx, lineId, patch.description),
+					'Invoice line'
+				);
 				return toLineModel(updated);
 			}
 
@@ -345,7 +401,8 @@ export class InvoicesService {
 	deleteLine(session: AuthSession, id: string, lineId: string): Promise<void> {
 		return this.db.withTenant(session, async (trx) => {
 			await this.lockedDraft(trx, id);
-			if (!(await this.store.deleteLine(trx, id, lineId))) throw new NotFoundException('Invoice line not found');
+			if (!(await this.store.deleteLine(trx, id, lineId)))
+				throw new NotFoundException('Invoice line not found');
 		});
 	}
 
@@ -362,7 +419,12 @@ export class InvoicesService {
 		return this.documents.renderInvoicePdf(model);
 	}
 
-	async issue(session: AuthSession, id: string, input: IssueInvoiceInput, client: Client): Promise<Invoice> {
+	async issue(
+		session: AuthSession,
+		id: string,
+		input: IssueInvoiceInput,
+		client: Client
+	): Promise<Invoice> {
 		const checked = await this.db.withTenant(session, async (trx) => {
 			await this.lockedDraft(trx, id);
 			if ((await this.store.entryCount(trx, id)) > MAX_ENTRIES) {
@@ -374,7 +436,8 @@ export class InvoicesService {
 				draft.hints.includes('long_timer_entry') && !input.longTimersChecked
 					? [...draft.blockers, 'long_timer_entry']
 					: draft.blockers;
-			if (blockers.length > 0) throw invalidState('This invoice is missing required fields', { blockers });
+			if (blockers.length > 0)
+				throw invalidState('This invoice is missing required fields', { blockers });
 			return draft;
 		});
 		await this.documents.renderInvoice(checked);
@@ -384,15 +447,25 @@ export class InvoicesService {
 			if (!isDeepStrictEqual(await this.model(trx, id), checked)) {
 				throw invalidState('The draft changed while it was being checked');
 			}
-			if (!(await this.store.issue(trx, id))) throw invalidState('The invoice is no longer a draft');
-			await this.store.logEvent(trx, session, client, { action: 'invoice.issued', rowId: id, diff: { format: input.format } });
+			if (!(await this.store.issue(trx, id)))
+				throw invalidState('The invoice is no longer a draft');
+			await this.store.logEvent(trx, session, client, {
+				action: 'invoice.issued',
+				rowId: id,
+				diff: { format: input.format }
+			});
 			return this.model(trx, id);
 		});
 		await this.renderAndStore(session, model);
 		return model;
 	}
 
-	async cancel(session: AuthSession, id: string, input: CancelInvoiceInput, client: Client): Promise<Invoice> {
+	async cancel(
+		session: AuthSession,
+		id: string,
+		input: CancelInvoiceInput,
+		client: Client
+	): Promise<Invoice> {
 		const cancellation = await this.db.withTenant(session, async (trx) => {
 			const row = await this.store.cancel(trx, id, input.reason);
 			if (!row) throw invalidState('This invoice cannot be cancelled');
@@ -412,15 +485,25 @@ export class InvoicesService {
 		return cancellation;
 	}
 
-	markPaid(session: AuthSession, id: string, input: MarkPaidInput, client: Client): Promise<Invoice> {
-		if (input.paidOn > localDate(this.clock.now())) throw invalidField('paidOn', 'invoice.paidOnFuture');
+	markPaid(
+		session: AuthSession,
+		id: string,
+		input: MarkPaidInput,
+		client: Client
+	): Promise<Invoice> {
+		if (input.paidOn > localDate(this.clock.now()))
+			throw invalidField('paidOn', 'invoice.paidOnFuture');
 		return this.db.withTenant(session, async (trx) => {
 			const essentials = found(await this.store.essentials(trx, id), 'Invoice');
 			if (essentials.kind === 'cancellation') throw invalidState('A cancellation is never paid');
 			if (essentials.status !== 'issued' || !(await this.store.setPaid(trx, id, input.paidOn))) {
 				throw invalidState('Only an issued invoice can be marked paid');
 			}
-			await this.store.logEvent(trx, session, client, { action: 'invoice.paid', rowId: id, diff: { paidOn: input.paidOn } });
+			await this.store.logEvent(trx, session, client, {
+				action: 'invoice.paid',
+				rowId: id,
+				diff: { paidOn: input.paidOn }
+			});
 			return this.model(trx, id);
 		});
 	}
@@ -437,13 +520,19 @@ export class InvoicesService {
 	}
 
 	async document(session: AuthSession, id: string): Promise<InvoiceFile> {
-		const essentials = found(await this.db.withTenant(session, (trx) => this.store.essentials(trx, id)), 'Invoice');
+		const essentials = found(
+			await this.db.withTenant(session, (trx) => this.store.essentials(trx, id)),
+			'Invoice'
+		);
 		if (essentials.status === 'draft') throw new NotFoundException('Invoice document not found');
 		return this.file(session, essentials, essentials.format === 'zugferd' ? 'zugferd' : 'pdf');
 	}
 
 	async xml(session: AuthSession, id: string): Promise<InvoiceFile> {
-		const essentials = found(await this.db.withTenant(session, (trx) => this.store.essentials(trx, id)), 'Invoice');
+		const essentials = found(
+			await this.db.withTenant(session, (trx) => this.store.essentials(trx, id)),
+			'Invoice'
+		);
 		if (essentials.status === 'draft' || essentials.format !== 'xrechnung') {
 			throw new NotFoundException('Invoice XML not found');
 		}
@@ -458,7 +547,9 @@ export class InvoicesService {
 		const name = documentNames[essentials.locale as Locale][essentials.kind];
 		const filename = `${name}-${essentials.number!.replace(/[^\w-]/g, '_')}.${format === 'xrechnung_cii' ? 'xml' : 'pdf'}`;
 
-		const stored = await this.db.withTenant(session, (trx) => this.store.storedDocument(trx, essentials.id, format));
+		const stored = await this.db.withTenant(session, (trx) =>
+			this.store.storedDocument(trx, essentials.id, format)
+		);
 		if (stored) return { ...stored, filename };
 
 		const model = await this.db.withTenant(session, (trx) => this.model(trx, essentials.id));
@@ -470,9 +561,15 @@ export class InvoicesService {
 		return { ...found(saved, 'Invoice document'), filename };
 	}
 
-	async timeReport(session: AuthSession, id: string, format: 'pdf' | 'csv'): Promise<Buffer | Download> {
+	async timeReport(
+		session: AuthSession,
+		id: string,
+		format: 'pdf' | 'csv'
+	): Promise<Buffer | Download> {
 		const report = await this.db.withTenant(session, (trx) => this.timeReportOf(trx, id));
-		return format === 'pdf' ? this.documents.renderTimeReportPdf(report) : this.documents.renderTimeReportCsv(report);
+		return format === 'pdf'
+			? this.documents.renderTimeReportPdf(report)
+			: this.documents.renderTimeReportCsv(report);
 	}
 
 	private async renderAndStore(session: AuthSession, model: Invoice): Promise<void> {
@@ -506,9 +603,17 @@ export class InvoicesService {
 		);
 	}
 
-	private async assertLineTaxCategory(trx: Trx, draft: DraftTax, category: TaxCategory): Promise<void> {
+	private async assertLineTaxCategory(
+		trx: Trx,
+		draft: DraftTax,
+		category: TaxCategory
+	): Promise<void> {
 		const treatment = await this.treatment(trx, draft);
-		const wholeInvoiceCategories: TaxCategory[] = ['reverse_charge', 'outside_scope', 'small_business'];
+		const wholeInvoiceCategories: TaxCategory[] = [
+			'reverse_charge',
+			'outside_scope',
+			'small_business'
+		];
 		const mismatch =
 			treatment === 'standard' ? wholeInvoiceCategories.includes(category) : category !== treatment;
 		if (mismatch) throw invalidField('taxCategory', 'invoice.taxCategoryMismatch', { category });
@@ -537,13 +642,18 @@ export class InvoicesService {
 			locale: model.locale,
 			specimen: model.specimen,
 			client: { name: model.buyer.name, number: model.buyer.number },
-			project: projectIds.size === 1 && first ? { name: first.projectName, code: first.projectCode ?? '' } : null,
+			project:
+				projectIds.size === 1 && first
+					? { name: first.projectName, code: first.projectCode ?? '' }
+					: null,
 			period: { from: model.serviceFrom, to: model.serviceTo },
 			generatedAt: new Date().toISOString(),
 			entries,
 			totals: {
 				minutes: entries.reduce((sum, entry) => sum + entry.minutes, 0),
-				billableMinutes: entries.filter((entry) => entry.billable).reduce((sum, entry) => sum + entry.minutes, 0)
+				billableMinutes: entries
+					.filter((entry) => entry.billable)
+					.reduce((sum, entry) => sum + entry.minutes, 0)
 			}
 		};
 	}
@@ -551,7 +661,9 @@ export class InvoicesService {
 	private async model(trx: Trx, id: string): Promise<Invoice> {
 		const row = found(await this.store.get(trx, id), 'Invoice');
 		const [clientRow, profile] = await Promise.all([
-			this.store.clientForInvoice(trx, row.invoice.client_id).then((client) => found(client, 'Client')),
+			this.store
+				.clientForInvoice(trx, row.invoice.client_id)
+				.then((client) => found(client, 'Client')),
 			this.billing.profile(trx)
 		]);
 		const invoice = toInvoiceModel({ ...row, client: clientRow, profile });

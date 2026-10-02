@@ -105,7 +105,11 @@ export class BillingStore {
 		return tenant.kind === 'sandbox';
 	}
 
-	async upsert(trx: Trx, tenantId: string, input: UpdateBillingProfileInput): Promise<BillingProfile> {
+	async upsert(
+		trx: Trx,
+		tenantId: string,
+		input: UpdateBillingProfileInput
+	): Promise<BillingProfile> {
 		const columns = profileColumns(input);
 		const row = await trx
 			.insertInto('app.billing_profiles')
@@ -287,7 +291,11 @@ export class BillingStore {
 		const rows = await trx
 			.selectFrom('app.invoice_lines as l')
 			.innerJoin('app.invoices as i', 'i.id', 'l.invoice_id')
-			.select(['l.net_cents as netCents', 'l.tax_category as taxCategory', 'l.tax_rate_bp as taxRateBp'])
+			.select([
+				'l.net_cents as netCents',
+				'l.tax_category as taxCategory',
+				'l.tax_rate_bp as taxRateBp'
+			])
 			.where('i.status', '=', 'draft')
 			.execute();
 		return rows.map((row) => ({

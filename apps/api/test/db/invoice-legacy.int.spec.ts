@@ -201,7 +201,9 @@ describe('tax profile of a draft', () => {
 		const sandbox = await office('sandbox');
 		await seedBillingProfile(superuser, sandbox.tenant);
 		await switchToSmallBusiness(sandbox.tenant);
-		expect(await issue(sandbox.hr, (await draftOf(sandbox.tenant, sandbox.client)).id)).toMatchObject({
+		expect(
+			await issue(sandbox.hr, (await draftOf(sandbox.tenant, sandbox.client)).id)
+		).toMatchObject({
 			status: 'issued',
 			tax_profile: 'regular'
 		});

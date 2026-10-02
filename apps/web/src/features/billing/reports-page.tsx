@@ -87,7 +87,12 @@ export function ReportsPage({ role, filter, onFilter }: Props) {
 					) : (
 						<p className={styles.actions}>
 							<a
-								href={timeReportUrl({ client: filter.client, from: filter.from, to: filter.to, format })}
+								href={timeReportUrl({
+									client: filter.client,
+									from: filter.from,
+									to: filter.to,
+									format
+								})}
 								download
 							>
 								{t('reports.download')}

@@ -25,10 +25,9 @@ export class UserRateLimitGuard implements CanActivate {
 	) {}
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
-		const options = this.reflector.get<{ name: string; limit: number; windowMinutes: number } | undefined>(
-			LIMIT,
-			context.getHandler()
-		);
+		const options = this.reflector.get<
+			{ name: string; limit: number; windowMinutes: number } | undefined
+		>(LIMIT, context.getHandler());
 		if (!options) return true;
 
 		const request = context.switchToHttp().getRequest<Request>();

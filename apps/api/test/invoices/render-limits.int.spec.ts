@@ -54,7 +54,11 @@ async function longDraft() {
 	return { tenant, admin, draftId };
 }
 
-const pageLimit = { code: 'PAGE_LIMIT', message: 'Document runs past 50 pages', details: { maxPages: 50 } };
+const pageLimit = {
+	code: 'PAGE_LIMIT',
+	message: 'Document runs past 50 pages',
+	details: { maxPages: 50 }
+};
 
 describe('documents past the page limit', () => {
 	it('are counted before the number goes out, a draft past 50 pages stays a draft', async () => {

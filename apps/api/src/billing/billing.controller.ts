@@ -1,9 +1,5 @@
 import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
-import {
-	revenueQuerySchema,
-	unbilledQuerySchema,
-	updateBillingProfileSchema
-} from '@zeit/shared';
+import { revenueQuerySchema, unbilledQuerySchema, updateBillingProfileSchema } from '@zeit/shared';
 import type {
 	BillingProfile,
 	Revenue,

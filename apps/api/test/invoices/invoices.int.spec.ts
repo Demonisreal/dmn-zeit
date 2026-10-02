@@ -24,14 +24,21 @@ beforeAll(async () => {
 	api = await startApi();
 	tenant = await createTenant();
 	hr = await signedIn(api, (await createPerson(tenant, { role: 'hr' })).userId);
-	admin = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId, { reauth: true });
+	admin = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId, {
+		reauth: true
+	});
 	worker = await createPerson(tenant);
 });
 
 afterAll(() => api.app.close());
 
 async function newClient(name: string) {
-	const answer = await hr.post('/clients', { name, street: 'Hafenstraße 12', postalCode: '20359', city: 'Hamburg' });
+	const answer = await hr.post('/clients', {
+		name,
+		street: 'Hafenstraße 12',
+		postalCode: '20359',
+		city: 'Hamburg'
+	});
 	expect(answer.status).toBe(201);
 	return answer.body;
 }
@@ -71,10 +78,18 @@ describe('drafts', () => {
 		expect(draft.body.lines).toHaveLength(1);
 		expect(draft.body.lines[0]).toMatchObject({ kind: 'time', minutes: 120, netCents: '12000' });
 		// standard 19% vat on the one line's net amount
-		expect(draft.body.totals).toMatchObject({ netCents: '12000', taxCents: '2280', grossCents: '14280' });
+		expect(draft.body.totals).toMatchObject({
+			netCents: '12000',
+			taxCents: '2280',
+			grossCents: '14280'
+		});
 
 		// the booked entry is reserved, a second draft over the same period finds nothing left
-		const empty = await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-01', to: '2026-09-30' });
+		const empty = await hr.post('/invoices/drafts', {
+			clientId: client.id,
+			from: '2026-09-01',
+			to: '2026-09-30'
+		});
 		expect(empty.status).toBe(409);
 		expect(empty.body.code).toBe('INVALID_STATE');
 	});
@@ -84,7 +99,11 @@ describe('drafts', () => {
 		const project = await billedProject(client.id, '5000');
 		await bookTime('2026-09-02T09:00:00+02:00', '2026-09-02T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-02', to: '2026-09-02' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-02',
+				to: '2026-09-02'
+			})
 		).body;
 
 		const line = await hr.post(`/invoices/${draft.id}/lines`, {
@@ -99,10 +118,14 @@ describe('drafts', () => {
 		expect(line.body.netCents).toBe('10000');
 
 		const timeLineId = draft.lines[0].id;
-		const blocked = await hr.patch(`/invoices/${draft.id}/lines/${timeLineId}`, { unitPriceCents: '1' });
+		const blocked = await hr.patch(`/invoices/${draft.id}/lines/${timeLineId}`, {
+			unitPriceCents: '1'
+		});
 		expect(blocked.status).toBe(409);
 
-		const renamed = await hr.patch(`/invoices/${draft.id}/lines/${timeLineId}`, { description: 'Umsetzung Sept.' });
+		const renamed = await hr.patch(`/invoices/${draft.id}/lines/${timeLineId}`, {
+			description: 'Umsetzung Sept.'
+		});
 		expect(renamed.body.description).toBe('Umsetzung Sept.');
 
 		const removed = await hr.delete(`/invoices/${draft.id}/lines/${line.body.id}`);
@@ -114,11 +137,19 @@ describe('drafts', () => {
 	it('refuses a free position whose tax category does not match the invoice treatment', async () => {
 		// planung-projekte.md, Risiko 17: an EU B2B client with a vat id makes the whole invoice reverse charge
 		const client = await newClient('Brandt Reverse B.V.');
-		await hr.patch(`/clients/${client.id}`, { countryCode: 'NL', isBusiness: true, vatId: 'NL123456789B01' });
+		await hr.patch(`/clients/${client.id}`, {
+			countryCode: 'NL',
+			isBusiness: true,
+			vatId: 'NL123456789B01'
+		});
 		const project = await billedProject(client.id, '9000');
 		await bookTime('2026-09-12T09:00:00+02:00', '2026-09-12T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-12', to: '2026-09-12' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-12',
+				to: '2026-09-12'
+			})
 		).body;
 
 		const mismatched = await hr.post(`/invoices/${draft.id}/lines`, {
@@ -148,13 +179,21 @@ describe('drafts', () => {
 
 	it('rounds a workday once even when a refresh picks up more time of that day', async () => {
 		const client = (
-			await hr.post('/clients', { name: 'Rundung KG', roundingIncrementMin: 15, roundingMode: 'up' })
+			await hr.post('/clients', {
+				name: 'Rundung KG',
+				roundingIncrementMin: 15,
+				roundingMode: 'up'
+			})
 		).body;
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-08T09:00:00+02:00', '2026-09-08T09:05:00+02:00', project.id);
 
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-08', to: '2026-09-08' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-08',
+				to: '2026-09-08'
+			})
 		).body;
 		expect(draft.lines).toHaveLength(1);
 		expect(draft.lines[0].minutes).toBe(15);
@@ -172,13 +211,21 @@ describe('drafts', () => {
 		const project = await billedProject(client.id, '4000');
 		await bookTime('2026-09-03T09:00:00+02:00', '2026-09-03T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-03', to: '2026-09-03' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-03',
+				to: '2026-09-03'
+			})
 		).body;
 
 		expect((await hr.delete(`/invoices/${draft.id}`)).status).toBe(204);
 		expect((await hr.get(`/invoices/${draft.id}`)).status).toBe(404);
 
-		const again = await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-03', to: '2026-09-03' });
+		const again = await hr.post('/invoices/drafts', {
+			clientId: client.id,
+			from: '2026-09-03',
+			to: '2026-09-03'
+		});
 		expect(again.status).toBe(201);
 	});
 
@@ -187,17 +234,30 @@ describe('drafts', () => {
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-14T09:00:00+02:00', '2026-09-14T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-14', to: '2026-09-14' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-14',
+				to: '2026-09-14'
+			})
 		).body;
-		const fee = { description: 'Prüfungsgebühr', quantityMilli: '1000', unit: 'LS', unitPriceCents: '15000' };
+		const fee = {
+			description: 'Prüfungsgebühr',
+			quantityMilli: '1000',
+			unit: 'LS',
+			unitPriceCents: '15000'
+		};
 		const add = (fields: object) => hr.post(`/invoices/${draft.id}/lines`, { ...fee, ...fields });
 		const refused = (message: string) =>
 			expect.objectContaining({
 				status: 400,
-				body: expect.objectContaining({ details: [{ field: 'exemptionReason', code: 'custom', message }] })
+				body: expect.objectContaining({
+					details: [{ field: 'exemptionReason', code: 'custom', message }]
+				})
 			});
 
-		expect(await add({ taxCategory: 'exempt' })).toEqual(refused('invoice.exemptionReasonRequired'));
+		expect(await add({ taxCategory: 'exempt' })).toEqual(
+			refused('invoice.exemptionReasonRequired')
+		);
 		expect(await add({ taxCategory: 'standard', exemptionReason: '§ 4 Nr. 21 UStG' })).toEqual(
 			refused('invoice.exemptionReasonUnexpected')
 		);
@@ -206,23 +266,34 @@ describe('drafts', () => {
 		const exempt = await add({ taxCategory: 'exempt', exemptionReason: '§ 4 Nr. 21 UStG' });
 		expect(exempt.status).toBe(201);
 		expectContract(invoiceLineSchema, exempt.body);
-		expect(exempt.body).toMatchObject({ taxCategory: 'exempt', taxRateBp: 0, exemptionReason: '§ 4 Nr. 21 UStG' });
+		expect(exempt.body).toMatchObject({
+			taxCategory: 'exempt',
+			taxRateBp: 0,
+			exemptionReason: '§ 4 Nr. 21 UStG'
+		});
 		expect((await hr.get(`/invoices/${draft.id}`)).body.legalNotes).toContain(
 			'Umsatzsteuerbefreiung: § 4 Nr. 21 UStG'
 		);
 
-		const edit = (fields: object) => hr.patch(`/invoices/${draft.id}/lines/${exempt.body.id}`, fields);
+		const edit = (fields: object) =>
+			hr.patch(`/invoices/${draft.id}/lines/${exempt.body.id}`, fields);
 		expect((await edit({ taxCategory: 'standard' })).body).toMatchObject({
 			taxCategory: 'standard',
 			taxRateBp: 1900,
 			exemptionReason: null
 		});
-		expect(await edit({ taxCategory: 'exempt' })).toEqual(refused('invoice.exemptionReasonRequired'));
-		expect((await edit({ taxCategory: 'exempt', exemptionReason: '§ 4 Nr. 22a UStG' })).body).toMatchObject({
+		expect(await edit({ taxCategory: 'exempt' })).toEqual(
+			refused('invoice.exemptionReasonRequired')
+		);
+		expect(
+			(await edit({ taxCategory: 'exempt', exemptionReason: '§ 4 Nr. 22a UStG' })).body
+		).toMatchObject({
 			taxCategory: 'exempt',
 			exemptionReason: '§ 4 Nr. 22a UStG'
 		});
-		expect((await edit({ description: 'Kursgebühr' })).body.exemptionReason).toBe('§ 4 Nr. 22a UStG');
+		expect((await edit({ description: 'Kursgebühr' })).body.exemptionReason).toBe(
+			'§ 4 Nr. 22a UStG'
+		);
 	});
 
 	it('takes the tax treatment of the new client when an emptied draft changes hands', async () => {
@@ -230,19 +301,38 @@ describe('drafts', () => {
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-15T09:00:00+02:00', '2026-09-15T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-15', to: '2026-09-15' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-15',
+				to: '2026-09-15'
+			})
 		).body;
 		const abroad = await newClient('Brandt Umzug B.V.');
-		await hr.patch(`/clients/${abroad.id}`, { countryCode: 'NL', isBusiness: true, vatId: 'NL123456789B01' });
+		await hr.patch(`/clients/${abroad.id}`, {
+			countryCode: 'NL',
+			isBusiness: true,
+			vatId: 'NL123456789B01'
+		});
 
 		await hr.delete(`/invoices/${draft.id}/lines/${draft.lines[0].id}`);
 		expect((await hr.patch(`/invoices/${draft.id}`, { clientId: abroad.id })).status).toBe(200);
 
-		const line = { description: 'Anfahrt', quantityMilli: '1000', unit: 'DAY', unitPriceCents: '5000' };
-		const standard = await hr.post(`/invoices/${draft.id}/lines`, { ...line, taxCategory: 'standard' });
+		const line = {
+			description: 'Anfahrt',
+			quantityMilli: '1000',
+			unit: 'DAY',
+			unitPriceCents: '5000'
+		};
+		const standard = await hr.post(`/invoices/${draft.id}/lines`, {
+			...line,
+			taxCategory: 'standard'
+		});
 		expect(standard.status).toBe(400);
 		expect(standard.body.details[0].message).toBe('invoice.taxCategoryMismatch');
-		const reverse = await hr.post(`/invoices/${draft.id}/lines`, { ...line, taxCategory: 'reverse_charge' });
+		const reverse = await hr.post(`/invoices/${draft.id}/lines`, {
+			...line,
+			taxCategory: 'reverse_charge'
+		});
 		expect(reverse.status).toBe(201);
 	});
 
@@ -251,16 +341,24 @@ describe('drafts', () => {
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-13T09:00:00+02:00', '2026-09-13T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-13', to: '2026-09-13' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-13',
+				to: '2026-09-13'
+			})
 		).body;
 
 		const tooLong = await hr.patch(`/invoices/${draft.id}`, { from: '2025-09-12' });
 		expect(tooLong.status).toBe(400);
-		expect(tooLong.body.details).toEqual([{ field: 'to', code: 'custom', message: 'invoice.rangeTooLong' }]);
+		expect(tooLong.body.details).toEqual([
+			{ field: 'to', code: 'custom', message: 'invoice.rangeTooLong' }
+		]);
 
 		const unordered = await hr.patch(`/invoices/${draft.id}`, { from: '2026-09-14' });
 		expect(unordered.status).toBe(400);
-		expect(unordered.body.details).toEqual([{ field: 'to', code: 'custom', message: 'range.unordered' }]);
+		expect(unordered.body.details).toEqual([
+			{ field: 'to', code: 'custom', message: 'range.unordered' }
+		]);
 
 		const longest = await hr.patch(`/invoices/${draft.id}`, { from: '2025-09-13' });
 		expect(longest.status).toBe(200);
@@ -272,7 +370,11 @@ describe('drafts', () => {
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-10T09:00:00+02:00', '2026-09-10T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-10', to: '2026-09-10' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-10',
+				to: '2026-09-10'
+			})
 		).body;
 
 		// fills the draft to the D-01 cap with one statement instead of 499 POSTs: positions 2..500,
@@ -328,7 +430,11 @@ describe('issuing', () => {
 		const project = await billedProject(client.id, '8000');
 		await bookTime('2026-09-04T09:00:00+02:00', '2026-09-04T13:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-04', to: '2026-09-04' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-04',
+				to: '2026-09-04'
+			})
 		).body;
 
 		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
@@ -341,8 +447,13 @@ describe('issuing', () => {
 		expect(blocked.status).toBe(409);
 		expect(blocked.body.code).toBe('INVALID_STATE');
 
-		const withoutReauth = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId);
-		expect((await withoutReauth.post(`/invoices/${draft.id}/issue`, { format: 'pdf' })).status).toBe(403);
+		const withoutReauth = await signedIn(
+			api,
+			(await createPerson(tenant, { role: 'admin' })).userId
+		);
+		expect(
+			(await withoutReauth.post(`/invoices/${draft.id}/issue`, { format: 'pdf' })).status
+		).toBe(403);
 
 		const paid = await hr.post(`/invoices/${draft.id}/paid`, { paidOn: '2026-09-10' });
 		expect(paid.status).toBe(200);
@@ -360,12 +471,22 @@ describe('issuing', () => {
 	it('refuses to issue a reverse-charge invoice without a seller vat id', async () => {
 		// § 14a Abs. 1 UStG: reverse charge needs both vat ids, the seller's billing profile has none here
 		const client = await newClient('Voisin SARL');
-		await hr.patch(`/clients/${client.id}`, { countryCode: 'FR', isBusiness: true, vatId: 'FR12345678901' });
-		await api.superuser.query(`update app.clients set invoice_format = 'pdf' where id = $1`, [client.id]);
+		await hr.patch(`/clients/${client.id}`, {
+			countryCode: 'FR',
+			isBusiness: true,
+			vatId: 'FR12345678901'
+		});
+		await api.superuser.query(`update app.clients set invoice_format = 'pdf' where id = $1`, [
+			client.id
+		]);
 		const project = await billedProject(client.id, '9000');
 		await bookTime('2026-09-05T09:00:00+02:00', '2026-09-05T10:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-05', to: '2026-09-05' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-05',
+				to: '2026-09-05'
+			})
 		).body;
 		expect(draft.blockers).toContain('vat_id_missing');
 
@@ -380,7 +501,11 @@ describe('issuing', () => {
 		const project = await billedProject(client.id, '5000');
 		await bookTime('2026-09-06T09:00:00+02:00', '2026-09-06T11:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-06', to: '2026-09-06' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-06',
+				to: '2026-09-06'
+			})
 		).body;
 		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
 		expect(issued.body.cancellation).toBeNull();
@@ -405,7 +530,11 @@ describe('issuing', () => {
 		expect(cancelled.body.cancellation).toBeNull();
 
 		// storno frees the booked time, a new draft over the same period picks it up again
-		const again = await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-06', to: '2026-09-06' });
+		const again = await hr.post('/invoices/drafts', {
+			clientId: client.id,
+			from: '2026-09-06',
+			to: '2026-09-06'
+		});
 		expect(again.status).toBe(201);
 	});
 
@@ -414,7 +543,11 @@ describe('issuing', () => {
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-11T09:00:00+02:00', '2026-09-11T11:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-11', to: '2026-09-11' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-11',
+				to: '2026-09-11'
+			})
 		).body;
 		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
 		expect(issued.status).toBe(200);
@@ -436,7 +569,11 @@ describe('another tenant', () => {
 		const project = await billedProject(client.id, '7000');
 		await bookTime('2026-09-09T09:00:00+02:00', '2026-09-09T11:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-09', to: '2026-09-09' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-09',
+				to: '2026-09-09'
+			})
 		).body;
 		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
 		expect(issued.status).toBe(200);
@@ -447,7 +584,10 @@ describe('another tenant', () => {
 		});
 		const routes: [string, () => Promise<{ status: number }>][] = [
 			['GET invoice', () => stranger.get(`/invoices/${issued.body.id}`)],
-			['PATCH invoice', () => stranger.patch(`/invoices/${issued.body.id}`, { introText: 'Fremd' })],
+			[
+				'PATCH invoice',
+				() => stranger.patch(`/invoices/${issued.body.id}`, { introText: 'Fremd' })
+			],
 			['GET document', () => stranger.get(`/invoices/${issued.body.id}/document`)]
 		];
 		for (const [route, send] of routes) {
@@ -462,7 +602,11 @@ describe('documents', () => {
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-07T09:00:00+02:00', '2026-09-07T11:00:00+02:00', project.id);
 		const draft = (
-			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-07', to: '2026-09-07' })
+			await hr.post('/invoices/drafts', {
+				clientId: client.id,
+				from: '2026-09-07',
+				to: '2026-09-07'
+			})
 		).body;
 
 		const preview = await hr.get(`/invoices/${draft.id}/preview.pdf`);

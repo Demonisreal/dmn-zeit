@@ -377,9 +377,10 @@ describe('project entries', () => {
 			 values ($1, $2, $3, 'timer') returning id`,
 			[tenant, worker.employeeId, project]
 		);
-		await app.query(`update app.project_entries set ended_at = now(), note = 'Startseite' where id = $1`, [
-			entry
-		]);
+		await app.query(
+			`update app.project_entries set ended_at = now(), note = 'Startseite' where id = $1`,
+			[entry]
+		);
 
 		// the running timer already claimed now(), pushing the start back is the only safe correction here
 		const corrected = await app.query(

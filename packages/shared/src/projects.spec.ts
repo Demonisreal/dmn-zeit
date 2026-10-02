@@ -177,13 +177,10 @@ describe('leitweg id', () => {
 		'04011000-123-4',
 		'Best. 2026-118-07',
 		'PO 2026-118-07'
-	])(
-		'takes the order number %s as free text',
-		(buyerReference) => {
-			expect(leitwegIdValid(buyerReference)).toBe(false);
-			expect(updateClientSchema.parse({ buyerReference })).toEqual({ buyerReference });
-		}
-	);
+	])('takes the order number %s as free text', (buyerReference) => {
+		expect(leitwegIdValid(buyerReference)).toBe(false);
+		expect(updateClientSchema.parse({ buyerReference })).toEqual({ buyerReference });
+	});
 });
 
 describe('createProjectEntrySchema', () => {

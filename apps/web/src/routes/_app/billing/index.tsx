@@ -28,7 +28,9 @@ function InvoicesRoute() {
 		<InvoicesPage
 			role={session.user.role}
 			filter={search}
-			onFilter={(next) => void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })}
+			onFilter={(next) =>
+				void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })
+			}
 		/>
 	);
 }

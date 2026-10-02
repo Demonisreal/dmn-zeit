@@ -50,7 +50,12 @@ function drawCropMarks(doc: PDFKit.PDFDocument): void {
 	doc.restore();
 }
 
-export function drawWatermark(doc: PDFKit.PDFDocument, text: string, offsetMm: number, size = 20): void {
+export function drawWatermark(
+	doc: PDFKit.PDFDocument,
+	text: string,
+	offsetMm: number,
+	size = 20
+): void {
 	doc.save();
 	doc.rotate(-45, { origin: [mm(PAGE_WIDTH_MM) / 2, mm(PAGE_HEIGHT_MM) / 2] });
 	doc
@@ -75,7 +80,11 @@ function drawSpecimenWatermark(doc: PDFKit.PDFDocument, locale: Locale, offsetMm
 	drawWatermark(doc, LABELS[locale].specimenWatermark, offsetMm + 4.5, 18);
 }
 
-function drawWatermarks(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function drawWatermarks(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	if (invoice.status === 'draft' && invoice.specimen) {
 		drawWatermark(doc, labels.draftWatermark, -18);
 		drawSpecimenWatermark(doc, invoice.locale, 18);
@@ -88,7 +97,11 @@ function drawWatermarks(doc: PDFKit.PDFDocument, invoice: Invoice, labels: Retur
 
 function returnAddressLine(invoice: Invoice): string {
 	const { seller } = invoice;
-	return [seller.legalName, seller.street, [seller.postalCode, seller.city].filter(Boolean).join(' ')]
+	return [
+		seller.legalName,
+		seller.street,
+		[seller.postalCode, seller.city].filter(Boolean).join(' ')
+	]
 		.filter(Boolean)
 		.join(' · ');
 }
@@ -118,14 +131,21 @@ function drawAddressField(doc: PDFKit.PDFDocument, invoice: Invoice): void {
 		});
 }
 
-function drawInfoBlock(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function drawInfoBlock(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	const { buyer } = invoice;
 	const rows: [string, string][] = [];
 	if (invoice.number) rows.push([labels.invoiceNumber, invoice.number]);
 	if (invoice.issueDate) rows.push([labels.date, formatDate(invoice.issueDate, invoice.locale)]);
 	if (buyer.number) rows.push([labels.customerNumber, buyer.number]);
 	if (buyer.buyerReference) {
-		rows.push([isLeitwegId(buyer) ? labels.leitwegId : labels.buyerReference, buyer.buyerReference]);
+		rows.push([
+			isLeitwegId(buyer) ? labels.leitwegId : labels.buyerReference,
+			buyer.buyerReference
+		]);
 	}
 	if (buyer.vatId) rows.push([labels.buyerVatId, buyer.vatId]);
 	rows.push([
@@ -154,17 +174,27 @@ function titleFor(invoice: Invoice, labels: ReturnType<typeof labelsFor>): strin
 	return labels.invoice;
 }
 
-function drawTitle(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function drawTitle(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	doc.y = mm(BODY_TOP_MM);
 	doc.x = mm(LEFT_MM);
-	doc.font(BOLD_FONT).fontSize(16).fillColor('#000000').text(titleFor(invoice, labels), { width: mm(CONTENT_WIDTH_MM) });
+	doc
+		.font(BOLD_FONT)
+		.fontSize(16)
+		.fillColor('#000000')
+		.text(titleFor(invoice, labels), { width: mm(CONTENT_WIDTH_MM) });
 	const { refersTo } = invoice;
 	if (invoice.kind === 'cancellation' && refersTo?.number && refersTo.issueDate) {
 		const issued = formatDate(refersTo.issueDate, invoice.locale);
 		doc
 			.font(REGULAR_FONT)
 			.fontSize(10)
-			.text(TEXTS[invoice.locale].cancels(refersTo.number, issued), { width: mm(CONTENT_WIDTH_MM) });
+			.text(TEXTS[invoice.locale].cancels(refersTo.number, issued), {
+				width: mm(CONTENT_WIDTH_MM)
+			});
 	}
 	if (isSmallAmount(invoice)) {
 		doc.font(REGULAR_FONT).fontSize(9).fillColor('#555555').text(labels.smallAmountInvoice);
@@ -174,7 +204,11 @@ function drawTitle(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType
 
 function drawIntro(doc: PDFKit.PDFDocument, invoice: Invoice): void {
 	if (!invoice.introText) return;
-	doc.font(REGULAR_FONT).fontSize(10).fillColor('#000000').text(invoice.introText, { width: mm(CONTENT_WIDTH_MM) });
+	doc
+		.font(REGULAR_FONT)
+		.fontSize(10)
+		.fillColor('#000000')
+		.text(invoice.introText, { width: mm(CONTENT_WIDTH_MM) });
 	doc.moveDown();
 }
 
@@ -211,17 +245,27 @@ function descriptionCell(line: InvoiceLine, locale: Locale): string {
 	return derivation ? `${line.description}\n${derivation}` : line.description;
 }
 
-function drawPositionsTable(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function drawPositionsTable(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	const locale = invoice.locale;
 	const withTax = invoice.taxProfile !== 'small_business';
-	const head = (text: string, x: 'left' | 'right' = 'left') => ({ text, font: { family: 'bold' }, align: { x } });
+	const head = (text: string, x: 'left' | 'right' = 'left') => ({
+		text,
+		font: { family: 'bold' },
+		align: { x }
+	});
 	const right = (text: string) => ({ text, align: { x: 'right' as const } });
 
 	doc.font(REGULAR_FONT).fontSize(9).fillColor('#000000');
 	doc.table({
 		position: { x: mm(LEFT_MM) },
 		maxWidth: mm(CONTENT_WIDTH_MM),
-		columnStyles: withTax ? [mm(55), mm(25), mm(25), mm(25), mm(35)] : [mm(80), mm(25), mm(25), mm(35)],
+		columnStyles: withTax
+			? [mm(55), mm(25), mm(25), mm(25), mm(35)]
+			: [mm(80), mm(25), mm(25), mm(35)],
 		defaultStyle: { padding: 4, border: [0, 0, 0.5, 0], borderColor: '#cccccc' },
 		data: [
 			[
@@ -250,7 +294,9 @@ function totalsRows(invoice: Invoice, labels: ReturnType<typeof labelsFor>): Tot
 	if (invoice.taxProfile === 'small_business') return [[labels.invoiceAmount, gross, true]];
 
 	const rateOf = (group: TaxGroup) =>
-		group.taxRateBp > 0 ? formatTaxRate(group.taxRateBp) : (labels.untaxed[group.taxCategory] ?? formatTaxRate(0));
+		group.taxRateBp > 0
+			? formatTaxRate(group.taxRateBp)
+			: (labels.untaxed[group.taxCategory] ?? formatTaxRate(0));
 	return [
 		...invoice.taxGroups.map((group): TotalsRow => [
 			`${labels.subtotalNet} ${rateOf(group)}`,
@@ -268,7 +314,11 @@ function totalsRows(invoice: Invoice, labels: ReturnType<typeof labelsFor>): Tot
 	];
 }
 
-function drawTotals(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function drawTotals(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	const rows = totalsRows(invoice, labels);
 	doc.font(REGULAR_FONT).fontSize(10).fillColor('#000000');
 	const step = doc.currentLineHeight(true) + 3;
@@ -302,10 +352,18 @@ function drawLegalNotes(doc: PDFKit.PDFDocument, invoice: Invoice): void {
 function drawClosing(doc: PDFKit.PDFDocument, invoice: Invoice): void {
 	if (!invoice.closingText) return;
 	doc.x = mm(LEFT_MM);
-	doc.font(REGULAR_FONT).fontSize(10).fillColor('#000000').text(invoice.closingText, { width: mm(CONTENT_WIDTH_MM) });
+	doc
+		.font(REGULAR_FONT)
+		.fontSize(10)
+		.fillColor('#000000')
+		.text(invoice.closingText, { width: mm(CONTENT_WIDTH_MM) });
 }
 
-function drawFooter(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function drawFooter(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	const { seller } = invoice;
 	const y = mm(FOOTER_TOP_MM);
 	const payable = invoice.kind === 'invoice';
@@ -316,7 +374,9 @@ function drawFooter(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnTyp
 		seller.street,
 		[seller.postalCode, seller.city].filter(Boolean).join(' '),
 		seller.taxNumber ? `${labels.taxNumber}: ${seller.taxNumber}` : null,
-		seller.vatId && invoice.treatment !== 'outside_scope' ? `${labels.vatId}: ${seller.vatId}` : null,
+		seller.vatId && invoice.treatment !== 'outside_scope'
+			? `${labels.vatId}: ${seller.vatId}`
+			: null,
 		seller.registerCourt && seller.registerNumber
 			? labels.registerEntry(seller.registerCourt, seller.registerNumber)
 			: null
@@ -324,7 +384,10 @@ function drawFooter(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnTyp
 
 	const middle =
 		payable && invoice.dueDate
-			? [labels.paymentTerms(invoice.paymentTermsDays), labels.dueDate(formatDate(invoice.dueDate, invoice.locale))]
+			? [
+					labels.paymentTerms(invoice.paymentTermsDays),
+					labels.dueDate(formatDate(invoice.dueDate, invoice.locale))
+				]
 			: [];
 
 	const right =
@@ -339,8 +402,16 @@ function drawFooter(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnTyp
 
 	const footerHeight = mm(FOOTER_HEIGHT_MM);
 	doc.text(left.join('\n'), mm(LEFT_MM), y, { width: mm(50), height: footerHeight, lineGap: 1 });
-	doc.text(middle.join('\n'), mm(LEFT_MM) + mm(58), y, { width: mm(50), height: footerHeight, lineGap: 1 });
-	doc.text(right.join('\n'), mm(LEFT_MM) + mm(115), y, { width: mm(50), height: footerHeight, lineGap: 1 });
+	doc.text(middle.join('\n'), mm(LEFT_MM) + mm(58), y, {
+		width: mm(50),
+		height: footerHeight,
+		lineGap: 1
+	});
+	doc.text(right.join('\n'), mm(LEFT_MM) + mm(115), y, {
+		width: mm(50),
+		height: footerHeight,
+		lineGap: 1
+	});
 }
 
 function decoratePages(
@@ -366,7 +437,13 @@ function decoratePages(
 	}
 }
 
-const XML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' };
+const XML_ESCAPES: Record<string, string> = {
+	'&': '&amp;',
+	'<': '&lt;',
+	'>': '&gt;',
+	'"': '&quot;',
+	"'": '&apos;'
+};
 const xmlText = (text: string) => text.replace(/[&<>"']/g, (char) => XML_ESCAPES[char]!);
 
 export function escapeXmp(doc: PDFKit.PDFDocument): void {
@@ -385,9 +462,15 @@ export function limitPages(doc: PDFKit.PDFDocument): void {
 	});
 }
 
-function applyMetadata(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnType<typeof labelsFor>): void {
+function applyMetadata(
+	doc: PDFKit.PDFDocument,
+	invoice: Invoice,
+	labels: ReturnType<typeof labelsFor>
+): void {
 	const number = invoice.number ?? '—';
-	doc.info.Title = invoice.specimen ? `${labels.specimenWatermark.split('–')[0]!.trim()} ${number}` : `${titleFor(invoice, labels)} ${number}`;
+	doc.info.Title = invoice.specimen
+		? `${labels.specimenWatermark.split('–')[0]!.trim()} ${number}`
+		: `${titleFor(invoice, labels)} ${number}`;
 	doc.info.Author = invoice.seller.legalName;
 	doc.info.Creator = 'dmn-zeit';
 	doc.info.CreationDate = invoice.issuedAt ? new Date(invoice.issuedAt) : new Date();

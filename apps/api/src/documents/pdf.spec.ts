@@ -36,14 +36,22 @@ describe('buildInvoicePdf', () => {
 	});
 
 	it('marks a sandbox invoice with the specimen watermark (X-01)', async () => {
-		const buffer = await buildInvoicePdf(invoiceFixture({ specimen: true, number: 'MUSTER-2026-0001' }));
+		const buffer = await buildInvoicePdf(
+			invoiceFixture({ specimen: true, number: 'MUSTER-2026-0001' })
+		);
 		const { text } = await pdfParse(buffer);
 		expect(flat(text)).toContain('Musterrechnung – keine Rechnung im Sinne des § 14 UStG');
 	});
 
 	it('shows both watermarks for a sandbox draft', async () => {
 		const buffer = await buildInvoicePdf(
-			invoiceFixture({ status: 'draft', specimen: true, number: null, issueDate: null, dueDate: null })
+			invoiceFixture({
+				status: 'draft',
+				specimen: true,
+				number: null,
+				issueDate: null,
+				dueDate: null
+			})
 		);
 		const { text } = await pdfParse(buffer);
 		expect(flat(text)).toContain('Entwurf – keine Rechnung');
@@ -68,7 +76,9 @@ describe('buildInvoicePdf', () => {
 		const buffer = await buildInvoicePdf(
 			invoiceFixture({
 				treatment: 'reverse_charge',
-				lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })],
+				lines: [
+					invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })
+				],
 				taxGroups: [
 					{
 						taxCategory: 'reverse_charge',
@@ -95,7 +105,9 @@ describe('buildInvoicePdf', () => {
 		const buffer = await buildInvoicePdf(
 			invoiceFixture({
 				treatment: 'reverse_charge',
-				lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })],
+				lines: [
+					invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })
+				],
 				legalNotes: ['Steuerschuldnerschaft des Leistungsempfängers / Reverse charge']
 			})
 		);
@@ -110,7 +122,9 @@ describe('buildInvoicePdf', () => {
 			invoiceFixture({
 				locale: 'en',
 				treatment: 'reverse_charge',
-				lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })],
+				lines: [
+					invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })
+				],
 				legalNotes: [legalNoteTexts.en.reverse_charge_13b!]
 			})
 		);
@@ -167,14 +181,20 @@ describe('buildInvoicePdf', () => {
 	});
 
 	it('sets a german title for a specimen invoice', async () => {
-		const buffer = await buildInvoicePdf(invoiceFixture({ specimen: true, number: 'MUSTER-2026-0001' }));
+		const buffer = await buildInvoicePdf(
+			invoiceFixture({ specimen: true, number: 'MUSTER-2026-0001' })
+		);
 		const { info } = await pdfParse(buffer);
 		expect(info.Title).toBe('Musterrechnung MUSTER-2026-0001');
 	});
 
 	it('paginates and numbers pages when positions overflow one page', async () => {
 		const many = Array.from({ length: 60 }, (_, index) =>
-			invoiceLineFixture({ id: `line-${index}`, position: index + 1, description: `Position ${index + 1}` })
+			invoiceLineFixture({
+				id: `line-${index}`,
+				position: index + 1,
+				description: `Position ${index + 1}`
+			})
 		);
 		const buffer = await buildInvoicePdf(invoiceFixture({ lines: many }));
 		const { text, numpages } = await pdfParse(buffer);
@@ -204,7 +224,9 @@ describe('buildInvoicePdf', () => {
 				issuedBy: null
 			});
 			const [issuedPages, draftPages] = await Promise.all(
-				[issued, draft].map(async (invoice) => (await pdfParse(await buildInvoicePdf(invoice))).numpages)
+				[issued, draft].map(
+					async (invoice) => (await pdfParse(await buildInvoicePdf(invoice))).numpages
+				)
 			);
 			expect({ count, pages: draftPages }).toEqual({ count, pages: issuedPages });
 		}

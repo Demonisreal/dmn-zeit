@@ -77,7 +77,10 @@ export class InvoicesController {
 	}
 
 	@Get(':id')
-	get(@CurrentSession() session: AuthSession, @Param('id', id) invoiceId: string): Promise<Invoice> {
+	get(
+		@CurrentSession() session: AuthSession,
+		@Param('id', id) invoiceId: string
+	): Promise<Invoice> {
 		return this.invoices.get(session, invoiceId);
 	}
 
@@ -102,7 +105,10 @@ export class InvoicesController {
 	@HttpCode(200)
 	@UseGuards(UserRateLimitGuard)
 	@UserRateLimit('refresh', 10)
-	refresh(@CurrentSession() session: AuthSession, @Param('id', id) invoiceId: string): Promise<Invoice> {
+	refresh(
+		@CurrentSession() session: AuthSession,
+		@Param('id', id) invoiceId: string
+	): Promise<Invoice> {
 		return this.invoices.refresh(session, invoiceId);
 	}
 

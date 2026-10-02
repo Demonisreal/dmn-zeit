@@ -32,7 +32,9 @@ function ReportsRoute() {
 				from: search.from ?? `${todayIso().slice(0, 7)}-01`,
 				to: search.to ?? todayIso()
 			}}
-			onFilter={(next) => void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })}
+			onFilter={(next) =>
+				void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })
+			}
 		/>
 	);
 }

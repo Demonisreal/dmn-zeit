@@ -80,7 +80,9 @@ export function formatCents(cents: string, lng: string) {
 
 // basis points, 1900 = 19 %; trailing zeros drop so 0 % and 19 % print without decimals
 export function formatTaxRate(taxRateBp: number, lng: string) {
-	return numberFormat(lng, { style: 'percent', maximumFractionDigits: 2 }).format(taxRateBp / 10_000);
+	return numberFormat(lng, { style: 'percent', maximumFractionDigits: 2 }).format(
+		taxRateBp / 10_000
+	);
 }
 
 // invoice quantities travel as thousandths, 1500 = 1.5

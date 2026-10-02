@@ -168,14 +168,19 @@ describe('tax check of a draft (§ 14c UStG)', () => {
 	};
 
 	it('finds nothing on a correctly taxed draft', () => {
-		expect(blockersOf([consulting, { ...travel, tax_category: 'reduced', tax_rate_bp: 700 }])).toEqual([]);
+		expect(
+			blockersOf([consulting, { ...travel, tax_category: 'reduced', tax_rate_bp: 700 }])
+		).toEqual([]);
 	});
 
 	it('names a wrong rate once, however many positions carry it', () => {
 		const stale = { tax_rate_bp: 1600 };
-		expect(blockersOf([{ ...consulting, ...stale }, { ...travel, ...stale }])).toEqual([
-			'tax_rate_mismatch'
-		]);
+		expect(
+			blockersOf([
+				{ ...consulting, ...stale },
+				{ ...travel, ...stale }
+			])
+		).toEqual(['tax_rate_mismatch']);
 	});
 
 	it('measures a time position by its own last day and a free one by the period', () => {
@@ -203,20 +208,20 @@ describe('tax check of a draft (§ 14c UStG)', () => {
 	});
 
 	it('refuses a small business position on a regular invoice', () => {
-		expect(blockersOf([{ ...consulting, tax_category: 'small_business', tax_rate_bp: 0 }])).toContain(
-			'tax_profile_mismatch'
-		);
+		expect(
+			blockersOf([{ ...consulting, tax_category: 'small_business', tax_rate_bp: 0 }])
+		).toContain('tax_profile_mismatch');
 	});
 
 	it('refuses an invoice that comes out negative', () => {
-		expect(blockersOf([{ ...consulting, unit_price_cents: '-10000', net_cents: '-10000' }])).toEqual([
-			'total_negative'
-		]);
+		expect(
+			blockersOf([{ ...consulting, unit_price_cents: '-10000', net_cents: '-10000' }])
+		).toEqual(['total_negative']);
 	});
 
 	it('leaves an issued invoice alone', () => {
-		expect(blockersOf([{ ...consulting, tax_rate_bp: 1600 }], { invoice: { status: 'issued' } })).toEqual(
-			[]
-		);
+		expect(
+			blockersOf([{ ...consulting, tax_rate_bp: 1600 }], { invoice: { status: 'issued' } })
+		).toEqual([]);
 	});
 });

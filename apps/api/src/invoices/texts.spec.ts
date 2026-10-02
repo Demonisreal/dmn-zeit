@@ -14,7 +14,12 @@ describe('invoice texts', () => {
 	});
 
 	it('carries a text for every legal note key rules.invoiceForm can produce', () => {
-		const keys = ['small_business_19', 'reverse_charge_13b', 'late_payment_286_consumer', 'exempt_reason'];
+		const keys = [
+			'small_business_19',
+			'reverse_charge_13b',
+			'late_payment_286_consumer',
+			'exempt_reason'
+		];
 		for (const locale of ['de', 'en'] as const) {
 			for (const key of keys) {
 				expect(legalNoteTexts[locale][key], `${locale}.${key}`).toBeTruthy();

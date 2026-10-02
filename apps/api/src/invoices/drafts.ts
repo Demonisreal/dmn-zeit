@@ -109,7 +109,9 @@ export function buildTimeLines(input: {
 		if (!repByKey.has(key)) repByKey.set(key, cell);
 		rawByKey.set(key, (rawByKey.get(key) ?? 0) + cell.rawMinutes);
 	}
-	const timesOf = new Map(entries.map((row) => [row.id, { startedAt: row.startedAt, endedAt: row.endedAt }]));
+	const timesOf = new Map(
+		entries.map((row) => [row.id, { startedAt: row.startedAt, endedAt: row.endedAt }])
+	);
 
 	return lines.map((line) => {
 		const key = [line.projectId, line.taskId ?? '', line.rateCents, line.taxRateBp].join('|');
@@ -121,7 +123,9 @@ export function buildTimeLines(input: {
 			kind: 'time',
 			projectId: line.projectId,
 			taskId: line.taskId,
-			description: labels.taskName ? `${labels.projectName} – ${labels.taskName}` : labels.projectName,
+			description: labels.taskName
+				? `${labels.projectName} – ${labels.taskName}`
+				: labels.projectName,
 			serviceFrom: line.serviceFrom.toString(),
 			serviceTo: line.serviceTo.toString(),
 			minutes: line.minutes,
@@ -249,7 +253,10 @@ export function liveBuyer(client: ClientRowForInvoice): BuyerSnapshot {
 	};
 }
 
-function inferTreatment(taxProfile: 'regular' | 'small_business', categories: readonly TaxCategory[]): TaxCategory {
+function inferTreatment(
+	taxProfile: 'regular' | 'small_business',
+	categories: readonly TaxCategory[]
+): TaxCategory {
 	if (taxProfile === 'small_business') return 'small_business';
 	if (categories.includes('reverse_charge')) return 'reverse_charge';
 	if (categories.includes('outside_scope')) return 'outside_scope';

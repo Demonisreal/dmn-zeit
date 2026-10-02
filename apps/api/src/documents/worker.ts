@@ -1,4 +1,10 @@
-import { isMainThread, parentPort, Worker, workerData, type ResourceLimits } from 'node:worker_threads';
+import {
+	isMainThread,
+	parentPort,
+	Worker,
+	workerData,
+	type ResourceLimits
+} from 'node:worker_threads';
 import type { Invoice, InvoiceFormat } from '@zeit/shared';
 import { toEInvoice } from '../einvoice/from-invoice';
 import { buildInvoicePdf } from './pdf';

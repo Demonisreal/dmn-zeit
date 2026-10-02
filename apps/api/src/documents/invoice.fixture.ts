@@ -18,11 +18,16 @@ const line = (overrides: Partial<InvoiceLine> = {}): InvoiceLine => ({
 	taxRateBp: 1900,
 	exemptionReason: null,
 	derivation: {
-		entries: [{ id: 'e1', startedAt: '2026-08-04T08:00:00+02:00', endedAt: '2026-08-04T16:00:00+02:00' }],
+		entries: [
+			{ id: 'e1', startedAt: '2026-08-04T08:00:00+02:00', endedAt: '2026-08-04T16:00:00+02:00' }
+		],
 		rounding: { key: 'billing.rounding.up', params: { raw: 473, increment: 15, rounded: 480 } },
 		rate: {
 			cents: '9500',
-			explanation: { key: 'billing.rate.client', params: { cents: '9500', validFrom: '2026-01-01' } }
+			explanation: {
+				key: 'billing.rate.client',
+				params: { cents: '9500', validFrom: '2026-01-01' }
+			}
 		}
 	},
 	...overrides

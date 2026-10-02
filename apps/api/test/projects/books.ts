@@ -44,6 +44,9 @@ export async function invoice(db: pg.Client, entryId: string) {
 		 values ($1, $2, current_date, current_date, 14, 'pdf', 'regular') returning id`,
 		[rows[0]!.tenant_id, rows[0]!.client_id]
 	);
-	await db.query('update app.project_entries set invoice_id = $1 where id = $2', [draftId, entryId]);
+	await db.query('update app.project_entries set invoice_id = $1 where id = $2', [
+		draftId,
+		entryId
+	]);
 	await db.query('commit');
 }

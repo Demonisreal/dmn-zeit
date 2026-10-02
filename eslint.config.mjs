@@ -7,7 +7,7 @@ const rawSql =
 const rawHtml = 'Writing HTML strings into the DOM opens the door to XSS. Render through React.';
 
 export default defineConfig(
-	{ ignores: ['**/dist/', '**/coverage/', 'apps/api/src/db/schema.generated.ts'] },
+	{ ignores: ['**/dist/', '**/coverage/', '.claude/', 'apps/api/src/db/schema.generated.ts'] },
 	js.configs.recommended,
 	tseslint.configs.recommended,
 	{

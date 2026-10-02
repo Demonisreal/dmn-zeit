@@ -468,14 +468,19 @@ describe('tax treatment of a draft whose client changed', () => {
 			'reverse_charge'
 		]);
 		expect(booked.draft.blockers).toEqual([]);
-		const moved = await admin.patch(`/clients/${booked.client.id}`, { countryCode: 'DE', vatId: null });
+		const moved = await admin.patch(`/clients/${booked.client.id}`, {
+			countryCode: 'DE',
+			vatId: null
+		});
 		expect(moved.status).toBe(200);
 		return { tenant, admin, draft: booked.draft };
 	}
 
 	it('refuses the reverse-charge issue once the client is German and numbers nothing', async () => {
 		const { tenant, admin, draft } = await movedToGermany('2026-09-24');
-		expect((await admin.get(`/invoices/${draft.id}`)).body.blockers).toContain('tax_treatment_stale');
+		expect((await admin.get(`/invoices/${draft.id}`)).body.blockers).toContain(
+			'tax_treatment_stale'
+		);
 
 		const refused = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
 		expect(refused.status).toBe(409);
@@ -580,7 +585,9 @@ describe('refresh of a draft', () => {
 		const { tenant, admin } = await office();
 		const { client, draft, workerDesk } = await bookedDraft(tenant, admin, '2026-09-27');
 		const lineId = draft.lines[0].id;
-		await admin.patch(`/invoices/${draft.id}/lines/${lineId}`, { description: 'Relaunch Startseite' });
+		await admin.patch(`/invoices/${draft.id}/lines/${lineId}`, {
+			description: 'Relaunch Startseite'
+		});
 		const internal = (
 			await admin.post('/projects', { clientId: client.id, name: 'Intern', billable: false })
 		).body;
@@ -922,7 +929,9 @@ describe('overdue in the list', () => {
 		const late = await issuedInvoice(tenant, admin, clientId);
 		const original = await issuedInvoice(tenant, admin, clientId);
 		const cancellation = (
-			await admin.post(`/invoices/${original.id}/cancel`, { reason: 'Doppelt gestellt, bitte ignorieren' })
+			await admin.post(`/invoices/${original.id}/cancel`, {
+				reason: 'Doppelt gestellt, bitte ignorieren'
+			})
 		).body;
 
 		await api.superuser.query('begin');

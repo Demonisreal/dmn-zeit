@@ -53,7 +53,9 @@ export function PaidDialog({ invoice, onClose }: Props) {
 				<Dialog role="alertdialog" aria-modal="true" className={styles.dialog}>
 					{invoice && (
 						<>
-							<Heading slot="title">{t('paidDialog.title', { number: invoice.number ?? '' })}</Heading>
+							<Heading slot="title">
+								{t('paidDialog.title', { number: invoice.number ?? '' })}
+							</Heading>
 							<DateInputField
 								label={t('paidDialog.date')}
 								value={paidOn}

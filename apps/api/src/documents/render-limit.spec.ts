@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { activeCount, MAX_CONCURRENT, MAX_QUEUED, queueDepth, RenderBusyError, withRenderSlot } from './render-limit';
+import {
+	activeCount,
+	MAX_CONCURRENT,
+	MAX_QUEUED,
+	queueDepth,
+	RenderBusyError,
+	withRenderSlot
+} from './render-limit';
 
 // a job that only finishes once its own resolve() is called, so tests can hold a slot open
 function deferred() {

@@ -199,7 +199,9 @@ export class InvoicesStore {
 				sql<boolean>`i.due_date < (now() at time zone 'Europe/Berlin')::date
 					and i.status = 'issued' and i.kind = 'invoice'`.as('overdue')
 			])
-			.$if(filter.status !== undefined, (qb) => qb.where('i.status', 'in', filter.status! as never[]))
+			.$if(filter.status !== undefined, (qb) =>
+				qb.where('i.status', 'in', filter.status! as never[])
+			)
 			.$if(filter.client !== undefined, (qb) => qb.where('i.client_id', '=', filter.client!))
 			.$if(filter.from !== undefined, (qb) => qb.where('i.service_to', '>=', filter.from!))
 			.$if(filter.to !== undefined, (qb) => qb.where('i.service_from', '<=', filter.to!));
@@ -370,7 +372,11 @@ export class InvoicesStore {
 			.where('invoice_id', '=', invoiceId)
 			.$if(entryIds.length > 0, (qb) => qb.where('id', 'not in', entryIds))
 			.execute();
-		await trx.deleteFrom('app.invoice_lines').where('invoice_id', '=', invoiceId).where('kind', '=', 'time').execute();
+		await trx
+			.deleteFrom('app.invoice_lines')
+			.where('invoice_id', '=', invoiceId)
+			.where('kind', '=', 'time')
+			.execute();
 		await this.insertTimeLines(trx, tenantId, invoiceId, clientId, 1, lines);
 	}
 
@@ -385,7 +391,11 @@ export class InvoicesStore {
 				'l.unit_price_cents as unitPriceCents',
 				'l.tax_category as taxCategory',
 				'l.tax_rate_bp as taxRateBp',
-				sql<string[]>`coalesce(array_agg(le.entry_id::text) filter (where le.entry_id is not null), '{}')`.as('entryIds')
+				sql<
+					string[]
+				>`coalesce(array_agg(le.entry_id::text) filter (where le.entry_id is not null), '{}')`.as(
+					'entryIds'
+				)
 			])
 			.where('l.invoice_id', '=', invoiceId)
 			.where('l.kind', '=', 'time')
@@ -588,7 +598,9 @@ export class InvoicesStore {
 	}
 
 	async issue(trx: Trx, id: string): Promise<{ id: string } | undefined> {
-		const { rows } = await sql<{ id: string }>`select id from app.issue_invoice(${id}::uuid)`.execute(trx);
+		const { rows } = await sql<{
+			id: string;
+		}>`select id from app.issue_invoice(${id}::uuid)`.execute(trx);
 		return rows[0];
 	}
 
@@ -629,7 +641,9 @@ export class InvoicesStore {
 	}
 
 	saveDocument(trx: Trx, invoiceId: string, format: string, content: Buffer) {
-		return sql`select app.store_invoice_document(${invoiceId}::uuid, ${format}, ${content})`.execute(trx);
+		return sql`select app.store_invoice_document(${invoiceId}::uuid, ${format}, ${content})`.execute(
+			trx
+		);
 	}
 
 	timeReportEntries(trx: Trx, invoiceId: string) {

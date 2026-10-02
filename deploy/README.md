@@ -35,22 +35,26 @@ Für jede Instanz (`demo` und `live` getrennt ausführen):
 6. `docker compose -f deploy/<instanz>/compose.yml up -d`
 7. Nur bei `live`, vor dem ersten Login: ersten Mandanten anlegen, über den eigenen CLI-Dienst
    (Profil `cli`, läuft nicht mit `up`, verbindet als `zeit_owner`):
+
    ```
    docker compose -f deploy/live/compose.yml run --rm zeit-live-cli \
      tenant:create --name "<Firma>" --slug <slug> --state <Bundesland, z. B. NW> \
        --admin-email <erste Administration> --admin-name "<Name>"
    ```
+
    Der Befehl gibt den Einladungslink aus, gültig 7 Tage.
 
    Einen Solo-Bereich (Freiberufler, genau eine Person, ohne Stempeln, Urlaub und Personal)
    legt derselbe Befehl mit `--workspace solo` an. Dann sind Vor- und Nachname Pflicht, daraus
    entsteht der Personalstamm; `--admin-name` darf fehlen und wird aus beiden gebildet:
+
    ```
    docker compose -f deploy/live/compose.yml run --rm zeit-live-cli \
      tenant:create --workspace solo \
        --name "<Firma oder Name>" --slug <slug> --state <Bundesland, z. B. NW> \
        --admin-email <E-Mail> --first-name "<Vorname>" --last-name "<Nachname>"
    ```
+
    Der Mandantentyp lässt sich danach nicht mehr ändern.
 
 Der Migrationsdienst (`zeit-<instanz>-migrate`) läuft dabei automatisch vor der API
@@ -70,6 +74,7 @@ Zurück kommt die Person nur über einen Link zum Passwortsetzen, 30 Minuten gü
 hat kein Internet (Befund M6), die Hinweis-Mail über Resend geht deshalb nicht raus — die
 Konsole gibt dann den Link aus, ihn selbst an die Person weitergeben. Ist er abgelaufen, holt
 sie sich über „Passwort vergessen“ einen neuen:
+
 ```
 docker compose -f deploy/live/compose.yml run --rm zeit-live-cli user:mfa-reset --email <E-Mail>
 ```
@@ -77,6 +82,7 @@ docker compose -f deploy/live/compose.yml run --rm zeit-live-cli user:mfa-reset 
 Mandanten archivieren: sperrt alle Nutzer und beendet ihre Sitzungen, gelöscht wird nichts
 (Aufbewahrungsfristen). Die ID liefert `select id, slug from app.tenants;` als `postgres` in
 `docker compose -f deploy/live/compose.yml exec zeit-live-db psql -U postgres -d zeit`:
+
 ```
 docker compose -f deploy/live/compose.yml run --rm zeit-live-cli tenant:archive --id <uuid>
 ```
@@ -94,7 +100,7 @@ docker compose -f deploy/live/compose.yml run --rm zeit-live-cli tenant:archive 
    docker buildx build --platform linux/amd64 -f apps/web/Dockerfile -t zeit-web:$IMAGE_TAG --load .
    ```
 3. Vor dem Übertragen scannen, z. B. `trivy image zeit-api:$IMAGE_TAG` und `trivy image
-   zeit-web:$IMAGE_TAG` (dieselben Regeln wie im CI-Job `docker`, severity HIGH,CRITICAL).
+zeit-web:$IMAGE_TAG` (dieselben Regeln wie im CI-Job `docker`, severity HIGH,CRITICAL).
 4. Auf den Server übertragen, ohne Registry dazwischen:
    ```
    docker save zeit-api:$IMAGE_TAG zeit-web:$IMAGE_TAG | ssh <server> docker load
@@ -193,7 +199,7 @@ Angriffe (siehe Absatz oben).
 - **Verbindungslimits:** `deploy/host/docker-user-limits.service` trägt `connlimit`- und
   `hashlimit`-Regeln in `DOCKER-USER` ein (Verbindungen je Quelladresse begrenzen, Rate neuer
   Verbindungen begrenzen). `<WAN_IF>` durch das echte Interface ersetzen (`ip route show
-  default` zeigt es an), danach `systemctl enable --now docker-user-limits.service`. Läuft nach
+default` zeigt es an), danach `systemctl enable --now docker-user-limits.service`. Läuft nach
   `docker.service`, weil `DOCKER-USER` erst existiert, sobald Docker gestartet ist.
 - **SYN-Cookies:** `net.ipv4.tcp_syncookies` sollte auf den meisten Distributionen schon `1`
   sein, vor dem Livegang trotzdem mit `sysctl net.ipv4.tcp_syncookies` prüfen und nötigenfalls
@@ -240,7 +246,7 @@ Restore:
    kommt aus dem Passwortmanager, nie aus dem Server selbst (der hat sie nicht).
 2. `zeit-live-web` und `zeit-live-api` stoppen, `zeit-live-db` allein hochfahren.
 3. `pg_restore` im laufenden `zeit-live-db`-Container als `postgres` ausführen, `--clean
-   --if-exists --single-transaction`.
+--if-exists --single-transaction`.
 4. Restliche Dienste wieder hochfahren.
 
 Der Dump läuft als eigene Rolle `zeit_backup` (nur lesend, `BYPASSRLS`), nicht als `zeit_owner`
@@ -256,7 +262,7 @@ direkt.
 - **Anwendung:** vorheriges Image-Tag in `IMAGE_TAG` eintragen, dann
   `docker compose -f deploy/<instanz>/compose.yml up -d --no-build --no-deps zeit-<instanz>-api`
   (bzw. `zeit-<instanz>-web`). Das alte Image muss dafür noch lokal vorhanden sein (`docker
-  image ls`), sonst vorher erneut per `docker save`/`docker load` übertragen. Kein Migrationslauf
+image ls`), sonst vorher erneut per `docker save`/`docker load` übertragen. Kein Migrationslauf
   nötig, solange sich das Schema nicht geändert hat.
 - **Datenbank:** nur zurückrollen, wenn die Migration das vorsieht (`dbmate rollback`).
   Riskant, sobald die neue Anwendung bereits Daten im neuen Schema geschrieben hat — dann

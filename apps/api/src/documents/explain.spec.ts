@@ -3,7 +3,10 @@ import { rateText, roundingText } from './explain';
 
 describe('roundingText', () => {
 	it('describes an upward rounding in german', () => {
-		const text = roundingText({ key: 'billing.rounding.up', params: { raw: 2247, increment: 15, rounded: 2310 } }, 'de');
+		const text = roundingText(
+			{ key: 'billing.rounding.up', params: { raw: 2247, increment: 15, rounded: 2310 } },
+			'de'
+		);
 		expect(text).toBe('37:27 Std. erfasst, je Tag auf 15 Min. aufgerundet');
 	});
 

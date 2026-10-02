@@ -126,9 +126,10 @@ export async function fillTenant(db: pg.Client, tenantId: string) {
 	);
 	// issuing needs the same session context a definer function reads for itself
 	await db.query('begin');
-	await db.query(`select set_config('app.tenant_id', $1, true), set_config('app.role', 'hr', true)`, [
-		tenantId
-	]);
+	await db.query(
+		`select set_config('app.tenant_id', $1, true), set_config('app.role', 'hr', true)`,
+		[tenantId]
+	);
 	await db.query('select app.issue_invoice($1)', [invoice]);
 	await db.query('commit');
 	await db.query(

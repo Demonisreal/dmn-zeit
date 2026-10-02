@@ -553,12 +553,15 @@ function timesheetOf(employee: Employee, month: string): Timesheet {
 		const due = away ? target * (1 - away.portion) : target;
 		const past = day <= today();
 		const worked = due > 0 && past;
-		const extra = worked ? ((((Number(day.slice(8)) + index * 3) * 7) % 5) - 1 - (index % 3)) * 12 : 0;
+		const extra = worked
+			? ((((Number(day.slice(8)) + index * 3) * 7) % 5) - 1 - (index % 3)) * 12
+			: 0;
 		const minutes = due + extra;
 		const offset = offsetOf(day);
 		const at = (minute: number) => `${day}T${clock(minute)}:00${offset}`;
 		let entries: Timesheet['days'][number]['entries'] = [];
-		if (worked && minutes <= 360) entries = [{ startedAt: at(start), endedAt: at(start + minutes) }];
+		if (worked && minutes <= 360)
+			entries = [{ startedAt: at(start), endedAt: at(start + minutes) }];
 		else if (worked) {
 			entries = [
 				{ startedAt: at(start), endedAt: at(start + 240) },
@@ -712,7 +715,11 @@ function seedAudit(): AuditEntry[] {
 	];
 	const staff = mockEmployees.filter((employee) => employee.exitDate === null);
 	const start = Date.parse('2026-09-23T16:40:00+02:00');
-	const actorFor = (table: (typeof auditTables)[number], subject: Employee, actor: (typeof actors)[number]) => {
+	const actorFor = (
+		table: (typeof auditTables)[number],
+		subject: Employee,
+		actor: (typeof actors)[number]
+	) => {
 		if (table === 'users') return actors[0]!;
 		if (table === 'month_closings') return actors[1]!;
 		if (actor.role !== 'team_lead') return actor;
@@ -1104,7 +1111,8 @@ export const hrHandlers = [
 		}
 		const id = newId();
 		const capped = bookings.filter(
-			(booking) => booking.type === 'cap_forfeit' && booking.effectiveDate === lastDayOf(closedMonth)
+			(booking) =>
+				booking.type === 'cap_forfeit' && booking.effectiveDate === lastDayOf(closedMonth)
 		);
 		for (const booking of capped) {
 			bookings.push({
@@ -1152,7 +1160,10 @@ export const hrHandlers = [
 				const sheet = timesheetOf(employee, month);
 				const away = (type: 'vacation' | 'sick') =>
 					sheet.days
-						.reduce((total, day) => total + (day.absence?.type === type ? day.absence.portion : 0), 0)
+						.reduce(
+							(total, day) => total + (day.absence?.type === type ? day.absence.portion : 0),
+							0
+						)
 						.toFixed(2);
 				return {
 					employee: sheet.employee,

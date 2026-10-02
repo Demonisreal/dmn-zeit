@@ -193,14 +193,16 @@ describe('billing lock on project entries', () => {
 
 		await app.query(`select app.invoice_cancel($1, 'Kunde storniert den Auftrag')`, [invoiceId]);
 
-		const freed = await superuser.query('select invoice_id from app.project_entries where id = $1', [
-			entryId
-		]);
+		const freed = await superuser.query(
+			'select invoice_id from app.project_entries where id = $1',
+			[entryId]
+		);
 		expect(freed.rows[0].invoice_id).toBeNull();
 
-		const edited = await app.query(`update app.project_entries set note = 'Wieder frei' where id = $1`, [
-			entryId
-		]);
+		const edited = await app.query(
+			`update app.project_entries set note = 'Wieder frei' where id = $1`,
+			[entryId]
+		);
 		expect(edited.rowCount).toBe(1);
 	});
 });

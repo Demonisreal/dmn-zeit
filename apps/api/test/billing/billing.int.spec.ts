@@ -43,7 +43,9 @@ beforeAll(async () => {
 	api = await startApi();
 	tenant = await createTenant();
 	hr = await signedIn(api, (await createPerson(tenant, { role: 'hr' })).userId);
-	admin = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId, { reauth: true });
+	admin = await signedIn(api, (await createPerson(tenant, { role: 'admin' })).userId, {
+		reauth: true
+	});
 	const { rows } = await api.superuser.query(
 		`select extract(year from now() at time zone 'Europe/Berlin')::int as y`
 	);
@@ -61,7 +63,11 @@ describe('billing profile', () => {
 		const answer = await hr.get('/billing/profile');
 		expect(answer.status).toBe(200);
 		expectContract(billingProfileSchema, answer.body);
-		expect(answer.body).toMatchObject({ legalName: '', taxProfile: 'regular', paymentTermsDays: 14 });
+		expect(answer.body).toMatchObject({
+			legalName: '',
+			taxProfile: 'regular',
+			paymentTermsDays: 14
+		});
 	});
 
 	it('upserts the profile, mails every admin on an iban change and protects the field', async () => {

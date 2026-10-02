@@ -1,7 +1,19 @@
-import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+	CanActivate,
+	ExecutionContext,
+	HttpException,
+	HttpStatus,
+	Injectable
+} from '@nestjs/common';
 import type { ApiError } from '@zeit/shared';
 import type { Response } from 'express';
-import { activeCount, MAX_CONCURRENT, MAX_QUEUED, queueDepth, RETRY_AFTER_SECONDS } from './render-limit';
+import {
+	activeCount,
+	MAX_CONCURRENT,
+	MAX_QUEUED,
+	queueDepth,
+	RETRY_AFTER_SECONDS
+} from './render-limit';
 
 @Injectable()
 export class RenderLimitGuard implements CanActivate {

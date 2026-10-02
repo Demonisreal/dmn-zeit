@@ -410,7 +410,11 @@ describe('specimen watermark (X-01)', () => {
 	const GERMAN = 'Musterrechnung – keine Rechnung im Sinne des § 14 UStG';
 	const ENGLISH = 'Specimen invoice – not an invoice within the meaning of § 14 UStG';
 	const lines = Array.from({ length: 40 }, (_, index) =>
-		invoiceLineFixture({ id: `line-${index}`, position: index + 1, description: `Position ${index + 1}` })
+		invoiceLineFixture({
+			id: `line-${index}`,
+			position: index + 1,
+			description: `Position ${index + 1}`
+		})
 	);
 	const specimen = (locale: Invoice['locale']) =>
 		render(invoiceFixture({ specimen: true, number: 'MUSTER-2026-0001', lines, locale }));
@@ -420,7 +424,10 @@ describe('specimen watermark (X-01)', () => {
 		const { runs } = await specimen('de');
 		expect(pagesOf(runs).length).toBeGreaterThan(1);
 		for (const page of pagesOf(runs)) {
-			expect(runs.filter((run) => run.page === page && run.text === GERMAN), `page ${page}`).toHaveLength(1);
+			expect(
+				runs.filter((run) => run.page === page && run.text === GERMAN),
+				`page ${page}`
+			).toHaveLength(1);
 		}
 		expect(runs.some((run) => run.text === ENGLISH)).toBe(false);
 	});
@@ -439,7 +446,14 @@ describe('specimen watermark (X-01)', () => {
 
 	it('shows draft and both specimen lines on an english sandbox draft, none of them cut off at the edge', async () => {
 		const { runs, text } = await render(
-			invoiceFixture({ status: 'draft', specimen: true, number: null, issueDate: null, dueDate: null, locale: 'en' })
+			invoiceFixture({
+				status: 'draft',
+				specimen: true,
+				number: null,
+				issueDate: null,
+				dueDate: null,
+				locale: 'en'
+			})
 		);
 		expect(text).toContain('Draft – not an invoice');
 		for (const wording of [GERMAN, ENGLISH]) {
@@ -458,28 +472,36 @@ describe('page limit (D-01)', () => {
 
 	const positions = (count: number) =>
 		Array.from({ length: count }, (_, index) =>
-			invoiceLineFixture({ id: `line-${index}`, position: index + 1, description: `Position ${index + 1}` })
+			invoiceLineFixture({
+				id: `line-${index}`,
+				position: index + 1,
+				description: `Position ${index + 1}`
+			})
 		);
 	const addPage = () =>
 		vi.spyOn((PDFDocument as unknown as { prototype: PDFKit.PDFDocument }).prototype, 'addPage');
 
 	it('still renders 500 short positions within 50 pages', async () => {
-		const { numpages } = await pdfParse(await buildInvoicePdf(invoiceFixture({ lines: positions(500) })));
+		const { numpages } = await pdfParse(
+			await buildInvoicePdf(invoiceFixture({ lines: positions(500) }))
+		);
 		expect(numpages).toBeLessThanOrEqual(MAX_PAGES);
 	});
 
 	it('gives up on an invoice at page 51 instead of laying out the rest', async () => {
 		const pages = addPage();
-		await expect(buildInvoicePdf(invoiceFixture({ lines: positions(2000) }))).rejects.toBeInstanceOf(
-			PageLimitError
-		);
+		await expect(
+			buildInvoicePdf(invoiceFixture({ lines: positions(2000) }))
+		).rejects.toBeInstanceOf(PageLimitError);
 		expect(pages).toHaveBeenCalledTimes(MAX_PAGES + 1);
 	});
 
 	it('gives up on a time report at page 51 the same way', async () => {
 		const entries = Array.from({ length: 2000 }, () => timeReportFixture().entries[0]!);
 		const pages = addPage();
-		await expect(buildTimeReportPdf(timeReportFixture({ entries }))).rejects.toBeInstanceOf(PageLimitError);
+		await expect(buildTimeReportPdf(timeReportFixture({ entries }))).rejects.toBeInstanceOf(
+			PageLimitError
+		);
 		expect(pages).toHaveBeenCalledTimes(MAX_PAGES + 1);
 	});
 });

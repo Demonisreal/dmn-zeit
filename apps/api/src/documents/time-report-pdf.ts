@@ -43,7 +43,9 @@ export async function buildTimeReportPdf(report: TimeReport): Promise<Buffer> {
 	doc.font(REGULAR_FONT).fontSize(10).fillColor('#333333').text(subjectLine(report, labels));
 	doc
 		.fontSize(9)
-		.text(`${formatDate(report.period.from, report.locale)} – ${formatDate(report.period.to, report.locale)}`);
+		.text(
+			`${formatDate(report.period.from, report.locale)} – ${formatDate(report.period.to, report.locale)}`
+		);
 	doc.moveDown();
 
 	doc.table({

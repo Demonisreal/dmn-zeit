@@ -736,7 +736,11 @@ describe('stored documents', () => {
 			['bom', 'xrechnung_cii', bom]
 		] as const) {
 			const stored = app
-				.query('select app.store_invoice_document($1, $2, $3)', [invoices[invoice], format, content])
+				.query('select app.store_invoice_document($1, $2, $3)', [
+					invoices[invoice],
+					format,
+					content
+				])
 				.then(
 					() => 'stored',
 					(error: { code: string }) => error.code
