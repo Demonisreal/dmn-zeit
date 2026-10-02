@@ -10,6 +10,14 @@ export async function fillTime(scope: Locator, hhmm: string) {
 	await hour.pressSequentially(hhmm.replace(':', ''));
 }
 
+// a labelled date field renders as a group too, "Von"/"Bis" on the new invoice page
+export async function fillDate(scope: Locator, iso: string) {
+	const [year, month, day] = iso.split('-');
+	const first = scope.getByRole('spinbutton').first();
+	await first.click();
+	await first.pressSequentially(`${day}${month}${year}`);
+}
+
 // the range picker names its own segments "Tag, Startdatum" / "Tag, Enddatum", ddmmyyyy in one go
 export async function fillDateRange(page: Page, startIso: string, endIso: string) {
 	await typeDate(page, 'Startdatum', startIso);

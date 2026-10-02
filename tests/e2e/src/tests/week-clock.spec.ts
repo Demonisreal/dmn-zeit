@@ -1,7 +1,8 @@
 import { expect, seed, test } from '../fixtures';
 
 test.beforeEach(async ({ signIn, page }) => {
-	await signIn(seed.company.teamLead);
+	const { teamLead, secondEmployee } = seed.company;
+	await signIn(test.info().project.name === 'mobile' ? secondEmployee : teamLead);
 	await page.goto('/');
 });
 
@@ -10,15 +11,24 @@ test(
 	{ tag: '@mobile' },
 	async ({ page }) => {
 		const clock = page.getByRole('group', { name: 'Stempeln' });
+		// the panel shows the new state at once but drops presses until the refetch behind it is done
+		const settled = () => expect(clock).not.toHaveAttribute('aria-busy', 'true');
 		await expect(clock.getByText('Nicht eingestempelt')).toBeVisible();
 
 		await clock.getByRole('button', { name: 'Kommen' }).click();
 		await expect(clock.getByText(/^Läuft seit/)).toBeVisible();
+		await settled();
 
 		await clock.getByRole('button', { name: 'Pause' }).click();
 		await expect(clock.getByText(/^Pause seit/)).toBeVisible();
+		await settled();
+
+		await clock.getByRole('button', { name: 'Weiter' }).click();
+		await expect(clock.getByText(/^Läuft seit/)).toBeVisible();
+		await settled();
 
 		await clock.getByRole('button', { name: 'Gehen' }).click();
+		await settled();
 		await expect(clock.getByText('Nicht eingestempelt')).toBeVisible();
 
 		await page

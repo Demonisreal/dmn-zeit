@@ -5,13 +5,13 @@ const month = '2026-08';
 // cest in august is utc+2
 const blockerSpan = { startedAt: '2026-08-10T06:00:00.000Z', endedAt: '2026-08-10T14:30:00.000Z' };
 
-async function submitCorrection(employeeId: string) {
-	const { employee } = seed.company;
+async function submitCorrection() {
+	const { secondEmployee } = seed.company;
 	const api = new ApiClient(seed.baseURL);
-	await api.login(employee.email, employee.password, employee.totpSecret);
+	await api.useSession(secondEmployee.session!);
 	await api.post('/corrections', {
 		action: 'add',
-		employeeId,
+		employeeId: secondEmployee.employeeId,
 		...blockerSpan,
 		reason: 'Für den Monatsabschluss-Test absichtlich offen gelassen.'
 	});
@@ -22,8 +22,8 @@ test('Monatsabschluss meldet einen Blocker, sperrt Buchungen erst danach', async
 	page,
 	signIn
 }) => {
-	const { hr, employee } = seed.company;
-	await submitCorrection(employee.employeeId!);
+	const { hr } = seed.company;
+	await submitCorrection();
 
 	await signIn(hr);
 	await page.goto(`/hr/months/${month}`);
@@ -33,10 +33,10 @@ test('Monatsabschluss meldet einen Blocker, sperrt Buchungen erst danach', async
 
 	await page.goto('/inbox');
 	await page
-		.getByRole('group', { name: /^Erik Beschäftigt, Nachtrag/ })
+		.getByRole('group', { name: /^Zoe Zweit, Nachtrag/ })
 		.getByRole('button', { name: 'Genehmigen' })
 		.click();
-	await expect(page.getByText(/Antrag von Erik Beschäftigt genehmigt/)).toBeVisible();
+	await expect(page.getByText(/Antrag von Zoe Zweit genehmigt/)).toBeVisible();
 
 	await page.goto(`/hr/months/${month}`);
 	await expect(page.getByRole('button', { name: 'Monat abschließen' })).toBeEnabled();
@@ -44,7 +44,7 @@ test('Monatsabschluss meldet einen Blocker, sperrt Buchungen erst danach', async
 	await page.getByRole('alertdialog').getByRole('button', { name: 'Monat abschließen' }).click();
 	await expect(page.getByText(/Abgeschlossen bis einschließlich/)).toBeVisible();
 
-	const locked = await submitCorrection(employee.employeeId!).then(
+	const locked = await submitCorrection().then(
 		() => null,
 		(error: unknown) => error
 	);

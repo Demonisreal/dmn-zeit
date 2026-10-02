@@ -1,13 +1,14 @@
 import { PASSWORD } from '../seed/constants';
-import { totpCode } from '../totp';
+import { STEP_MS, totpCode } from '../totp';
 import { expect, seed, test } from '../fixtures';
 
 test(
 	'Einladung annehmen und Authenticator-App einrichten',
 	{ tag: '@mobile' },
 	async ({ page }) => {
-		const { invitee } = seed.company;
-		await page.goto(`/invite#t=${invitee.inviteToken}`);
+		const { invitee, mobileInvitee } = seed.company;
+		const { inviteToken } = test.info().project.name === 'mobile' ? mobileInvitee : invitee;
+		await page.goto(`/invite#t=${inviteToken}`);
 
 		await expect(page.getByRole('heading', { name: 'Passwort festlegen' })).toBeVisible();
 		await page.getByLabel('Neues Passwort').fill(PASSWORD);
@@ -22,27 +23,29 @@ test(
 		await page.getByRole('button', { name: 'Bestätigen' }).click();
 
 		await expect(page.getByRole('heading', { name: 'Wiederherstellungscodes' })).toBeVisible();
-		await page.getByRole('checkbox', { name: /sicheren Ort gespeichert/ }).check();
+		await page.getByText(/sicheren Ort gespeichert/).click();
 		await page.getByRole('button', { name: 'Weiter' }).click();
 
 		// the invitee has no personnel record yet, the week page says so instead of showing a clock
 		await expect(page).toHaveURL(seed.baseURL + '/');
-		await expect(
-			page.getByRole('heading', { name: 'Zu diesem Konto gibt es keinen Personalstamm' })
-		).toBeVisible();
+		await expect(page.getByText('Zu diesem Konto gibt es keinen Personalstamm')).toBeVisible();
 	}
 );
 
 test('Anmeldung mit Passwort und Authenticator-Code', { tag: '@mobile' }, async ({ page }) => {
-	const { employee } = seed.company;
+	// the seeded session already used this authenticator step, and desktop and mobile run side by side
+	const { employee, teamLead } = seed.company;
+	const persona = test.info().project.name === 'mobile' ? teamLead : employee;
 	await page.goto('/login');
-	await page.getByLabel('E-Mail').fill(employee.email);
-	await page.getByLabel('Passwort').fill(employee.password);
-	await page.getByRole('button', { name: 'Anmelden' }).click();
+	await page.getByLabel('E-Mail').fill(persona.email);
+	await page.getByLabel('Passwort').fill(persona.password);
+	await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
 
-	await expect(page).toHaveURL(/\/login\/verify$/);
+	await expect(page).toHaveURL(/\/login\/verify\?/);
 	await expect(page.getByRole('heading', { name: 'Anmeldung bestätigen' })).toBeVisible();
-	await page.getByLabel('Code aus der App').fill(totpCode(employee.totpSecret));
+	await page
+		.getByLabel('Code aus der App')
+		.fill(totpCode(persona.totpSecret, new Date(Date.now() + STEP_MS)));
 	await page.getByRole('button', { name: 'Bestätigen' }).click();
 
 	await expect(page).toHaveURL(seed.baseURL + '/');

@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { expect, seed, test } from '../fixtures';
 
 async function scan(page: Page) {
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 	const results = await new AxeBuilder({ page }).analyze();
 	expect(results.violations, JSON.stringify(results.violations, null, '\t')).toEqual([]);
 }

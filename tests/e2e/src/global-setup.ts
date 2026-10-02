@@ -1,9 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FullConfig } from '@playwright/test';
+import { ApiClient } from './api-client';
 import { seedCompany } from './seed/company';
-import { seedSolo } from './seed/solo';
+import { seedInvoicing, seedSolo } from './seed/solo';
 import type { Seed } from './seed/types';
+import { untilNextStep } from './totp';
 
 const seedFile = path.join(__dirname, '../.tmp/seed.json');
 
@@ -34,8 +36,22 @@ export default async function globalSetup(config: FullConfig) {
 	const run = Date.now().toString(36);
 	const company = await seedCompany(baseURL, run);
 	const solo = await seedSolo(baseURL, run);
+	const invoicing = await seedInvoicing(baseURL, run);
 
-	const seed: Seed = { baseURL, company, solo };
+	// the onboarding above used up the current authenticator step of every persona
+	await untilNextStep();
+	const { admin, hr, teamLead, employee, secondEmployee } = company;
+	await Promise.all(
+		[admin, hr, teamLead, employee, secondEmployee, solo.owner, invoicing.owner].map(
+			async (persona) => {
+				const api = new ApiClient(baseURL);
+				await api.login(persona.email, persona.password, persona.totpSecret);
+				persona.session = api.sessionCookie();
+			}
+		)
+	);
+
+	const seed: Seed = { baseURL, company, solo, invoicing };
 	await mkdir(path.dirname(seedFile), { recursive: true });
 	await writeFile(seedFile, JSON.stringify(seed, null, '\t'));
 }

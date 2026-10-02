@@ -95,6 +95,12 @@ export class ApiClient {
 		return this.refreshCsrf();
 	}
 
+	// continues a session global-setup opened, see Persona.session
+	useSession(token: string) {
+		this.cookies.set('zeit_sid', token);
+		return this.refreshCsrf();
+	}
+
 	async acceptInvitation(token: string, password: string) {
 		await this.post('/auth/invitations/accept', { token, password });
 		return this.refreshCsrf();

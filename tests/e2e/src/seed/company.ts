@@ -18,11 +18,12 @@ async function onboard(
 	role: Role,
 	employeeId: string | null,
 	token: string
-): Promise<Persona> {
+) {
 	const api = new ApiClient(baseURL);
 	await api.acceptInvitation(token, PASSWORD);
 	const totpSecret = await api.setUpTotp();
-	return { email, password: PASSWORD, totpSecret, role, employeeId };
+	const persona: Persona = { email, password: PASSWORD, totpSecret, role, employeeId };
+	return { persona, api };
 }
 
 // the january job books this normally, a person hired today has to get its 2026 bucket by hand
@@ -49,10 +50,13 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 		'--admin-name',
 		'Anke Admin'
 	]);
-	const admin = await onboard(baseURL, adminEmail, 'admin', null, tokenFromInviteLink(output));
-
-	const api = new ApiClient(baseURL);
-	await api.login(admin.email, admin.password, admin.totpSecret);
+	const { persona: admin, api } = await onboard(
+		baseURL,
+		adminEmail,
+		'admin',
+		null,
+		tokenFromInviteLink(output)
+	);
 	const tenant = await api.get<{ id: string }>('/tenant');
 
 	const { id: workModelId } = await api.post<{ id: string }>('/work-models', {
@@ -85,6 +89,15 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 		contract
 	});
 
+	const secondEmployeeRecord = await api.post<{ id: string }>('/employees', {
+		personnelNo: 'PW-2ND',
+		firstName: 'Zoe',
+		lastName: 'Zweit',
+		teamId,
+		entryDate: '2026-01-01',
+		contract
+	});
+
 	const teamLeadUser = await api.post<{ id: string; email: string }>('/users', {
 		email: `teamlead+${run}@pw.e2e.test`,
 		displayName: 'Tanja Teamleitung',
@@ -96,6 +109,12 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 		displayName: 'Erik Beschäftigt',
 		role: 'employee',
 		employeeId: employeeEmployee.id
+	});
+	const secondEmployeeUser = await api.post<{ id: string; email: string }>('/users', {
+		email: `second+${run}@pw.e2e.test`,
+		displayName: 'Zoe Zweit',
+		role: 'employee',
+		employeeId: secondEmployeeRecord.id
 	});
 	const hrUser = await api.post<{ id: string; email: string }>('/users', {
 		email: `hr+${run}@pw.e2e.test`,
@@ -109,13 +128,24 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 		role: 'employee',
 		employeeId: null
 	});
+	const mobileInviteeUser = await api.post<{ id: string; email: string }>('/users', {
+		email: `invite-mobile+${run}@pw.e2e.test`,
+		displayName: 'Mara Neu',
+		role: 'employee',
+		employeeId: null
+	});
 
 	await api.put(`/teams/${teamId}/leads`, { userIds: [teamLeadUser.id] });
 
 	seedEntitlement(tenant.id, teamLeadEmployee.id);
 	seedEntitlement(tenant.id, employeeEmployee.id);
 
-	const [teamLead, employee, hr] = await Promise.all([
+	const [
+		{ persona: teamLead },
+		{ persona: employee },
+		{ persona: secondEmployee },
+		{ persona: hr }
+	] = await Promise.all([
 		onboard(
 			baseURL,
 			teamLeadUser.email,
@@ -130,6 +160,13 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 			employeeEmployee.id,
 			mintInviteToken(employeeUser.id)
 		),
+		onboard(
+			baseURL,
+			secondEmployeeUser.email,
+			'employee',
+			secondEmployeeRecord.id,
+			mintInviteToken(secondEmployeeUser.id)
+		),
 		onboard(baseURL, hrUser.email, 'hr', null, mintInviteToken(hrUser.id))
 	]);
 
@@ -142,9 +179,15 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 		hr,
 		teamLead,
 		employee,
+		secondEmployee,
 		invitee: {
 			email: inviteeUser.email,
 			inviteToken: mintInviteToken(inviteeUser.id),
+			role: 'employee'
+		},
+		mobileInvitee: {
+			email: mobileInviteeUser.email,
+			inviteToken: mintInviteToken(mobileInviteeUser.id),
 			role: 'employee'
 		}
 	};
