@@ -14,6 +14,7 @@ const blockers = [
 	'buyer_address_incomplete',
 	'tax_profile_mismatch',
 	'tax_treatment_stale',
+	'tax_profile_changed',
 	'tax_category_mismatch',
 	'tax_rate_mismatch',
 	'total_negative',

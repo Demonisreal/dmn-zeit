@@ -89,4 +89,82 @@ describe('new invoice', () => {
 
 		expect(await screen.findByText('Höchstens 500 Positionen')).toBeInTheDocument();
 	});
+
+	describe('period start from the unbilled time', () => {
+		let period: unknown;
+		const refuseDraft = () =>
+			server.use(
+				http.post('/api/invoices/drafts', async ({ request }) => {
+					period = await request.json();
+					return HttpResponse.json(
+						{ code: 'INVALID_STATE', message: 'No unbilled time in this period', details: null },
+						{ status: 409 }
+					);
+				})
+			);
+		const draftPeriod = async () => {
+			await userEvent.click(screen.getByRole('button', { name: 'Entwurf erstellen' }));
+			await screen.findByText('Im Zeitraum gibt es keine abrechenbare Zeit mit hinterlegtem Satz.');
+			return period;
+		};
+
+		it('moves the start back to the oldest open day when coming from a client', async () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-09-24T10:00:00Z'));
+			refuseDraft();
+			signInForBilling();
+			renderApp(`/billing/invoices/new?client=${clientIds.brinkmann}`);
+
+			await screen.findByText('Ältester Tag');
+			expect(screen.queryByText(/außerhalb des Zeitraums/)).not.toBeInTheDocument();
+			expect(await draftPeriod()).toEqual({
+				clientId: clientIds.brinkmann,
+				from: '2026-08-24',
+				to: '2026-09-24'
+			});
+		});
+
+		it('stops at 366 days before the end', async () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-09-24T10:00:00Z'));
+			refuseDraft();
+			server.use(
+				http.get('/api/billing/unbilled', () =>
+					HttpResponse.json([
+						{
+							clientId: clientIds.brinkmann,
+							clientName: 'Autohaus Brinkmann KG (Beispiel)',
+							minutes: 60,
+							amountCents: '11000',
+							oldestDay: '2025-01-10'
+						}
+					])
+				)
+			);
+			signInForBilling();
+			renderApp(`/billing/invoices/new?client=${clientIds.brinkmann}`);
+
+			expect(
+				await screen.findByText('Ältere offene Zeiten ab 10.01. liegen außerhalb des Zeitraums.')
+			).toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: /^Ab / })).not.toBeInTheDocument();
+			expect(await draftPeriod()).toMatchObject({ from: '2025-09-24', to: '2026-09-24' });
+		});
+
+		it('keeps a chosen start and offers the older time with one press', async () => {
+			refuseDraft();
+			signInForBilling();
+			renderApp(
+				`/billing/invoices/new?client=${clientIds.brinkmann}&from=2026-09-01&to=2026-09-24`
+			);
+
+			expect(
+				await screen.findByText('Ältere offene Zeiten ab 24.08. liegen außerhalb des Zeitraums.')
+			).toBeInTheDocument();
+			await userEvent.click(screen.getByRole('button', { name: 'Ab 24.08.' }));
+
+			expect(screen.queryByText(/außerhalb des Zeitraums/)).not.toBeInTheDocument();
+			expect(await draftPeriod()).toMatchObject({ from: '2026-08-24', to: '2026-09-24' });
+		});
+	});
 });

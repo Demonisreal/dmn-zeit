@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { Button } from '../../../components/ui/button';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { FormField } from '../../../components/ui/field';
-import { Notice } from '../../../components/ui/notice';
+import { Notice, SavedNotice } from '../../../components/ui/notice';
 import { FormSelect } from '../../../components/ui/select-field';
 import { durationText, optionalDurationField } from '../../hr/duration';
 import { useErrorText } from '../../hr/error-text';
@@ -167,7 +167,7 @@ export function TenantForm({ tenant }: { tenant: Tenant }) {
 				/>
 			</div>
 
-			{save.isSuccess && <Notice tone="success">{t('tenant.saved')}</Notice>}
+			<SavedNotice shown={save.isSuccess}>{t('tenant.saved')}</SavedNotice>
 			{save.error && <Notice tone="error">{errorText(save.error)}</Notice>}
 			<div className={page.actions}>
 				<Button type="submit" variant="primary" isPending={save.isPending}>

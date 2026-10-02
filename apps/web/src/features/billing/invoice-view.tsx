@@ -223,7 +223,7 @@ export function InvoiceView({ invoice }: Props) {
 					)}
 				</section>
 
-				<section className={lines.previewPane} aria-label={t('preview.frameTitle')}>
+				<section className={lines.previewPane} aria-label={t('preview.section')}>
 					<InvoicePreview invoiceId={invoice.id} variant="issued" />
 				</section>
 			</div>

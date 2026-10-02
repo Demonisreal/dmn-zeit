@@ -57,6 +57,24 @@ const zeroTotals = {
 	explanation: { key: 'billing.totals.empty', params: {} }
 };
 
+const taxGroupsOf = (netCents: string, profile: BillingProfile) => {
+	const small = profile.taxProfile === 'small_business';
+	const totals = invoiceTotals([
+		{
+			netCents: BigInt(netCents),
+			taxCategory: small ? 'small_business' : 'standard',
+			taxRateBp: small ? 0 : 1900
+		}
+	]);
+	return totals.groups.map((group) => ({
+		taxCategory: group.taxCategory,
+		taxRateBp: group.taxRateBp,
+		netCents: String(group.netCents),
+		taxCents: String(group.taxCents),
+		explanation: group.explanation
+	}));
+};
+
 const sellerOf = (profile: BillingProfile) => ({
 	legalName: profile.legalName,
 	street: profile.street,
@@ -122,12 +140,13 @@ function invoice(
 		locale: owner.invoiceLocale,
 		format: profile.defaultFormat,
 		taxProfile: profile.taxProfile,
+		treatment: profile.taxProfile === 'small_business' ? 'small_business' : 'standard',
 		seller: sellerOf(profile),
 		buyer: buyerOf(owner),
 		introText: null,
 		closingText: null,
 		lines: [],
-		taxGroups: [],
+		taxGroups: fields.totals ? taxGroupsOf(fields.totals.netCents, profile) : [],
 		totals: zeroTotals,
 		legalNotes: [],
 		blockers: [],
@@ -341,6 +360,13 @@ function companyWorld(): World {
 		],
 		profile,
 		unbilled: [
+			{
+				clientId: clients[1]!.id,
+				clientName: clients[1]!.name,
+				minutes: 3555,
+				amountCents: grossOf(6517.5),
+				oldestDay: '2026-08-24'
+			},
 			{
 				clientId: clients[2]!.id,
 				clientName: clients[2]!.name,

@@ -23,7 +23,10 @@ describe('invoice editor', () => {
 		).toBeInTheDocument();
 		expect(screen.getByText('Noch keine Positionen für diesen Zeitraum.')).toBeInTheDocument();
 		const issue = screen.getByRole('button', { name: 'Ausstellen' });
-		expect(issue).toBeDisabled();
+		expect(issue).toHaveAttribute('aria-disabled', 'true');
+		await userEvent.click(issue);
+		expect(issue).toHaveFocus();
+		expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
 		expect(issue).toHaveAccessibleDescription(
 			'Ohne Position lässt sich die Rechnung nicht ausstellen.'
 		);
@@ -50,7 +53,7 @@ describe('invoice editor', () => {
 		expect(screen.getByText('100,00 €')).toBeInTheDocument();
 
 		const issueButton = screen.getByRole('button', { name: 'Ausstellen' });
-		expect(issueButton).not.toBeDisabled();
+		expect(issueButton).toHaveAttribute('aria-disabled', 'false');
 		await userEvent.click(issueButton);
 
 		const dialog = await screen.findByRole('alertdialog', { name: 'Rechnung ausstellen' });
@@ -92,7 +95,7 @@ describe('invoice editor', () => {
 		);
 
 		const issueButton = screen.getByRole('button', { name: 'Ausstellen' });
-		expect(issueButton).toBeEnabled();
+		expect(issueButton).toHaveAttribute('aria-disabled', 'false');
 		await userEvent.click(issueButton);
 
 		const dialog = await screen.findByRole('alertdialog', { name: 'Rechnung ausstellen' });
@@ -159,7 +162,10 @@ describe('invoice editor', () => {
 		expect(
 			screen.getByText(/Timer-Eintrag dieser Rechnung lief 12 Stunden oder länger/)
 		).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeEnabled();
+		expect(screen.getByRole('button', { name: 'Ausstellen' })).toHaveAttribute(
+			'aria-disabled',
+			'false'
+		);
 	});
 
 	it.each([
@@ -182,7 +188,10 @@ describe('invoice editor', () => {
 		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
 
 		expect(await screen.findByText(text)).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Ausstellen' })).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	});
 
 	it('points a stale tax treatment to reloading the booked time and a missing VAT ID to the client', async () => {
@@ -211,7 +220,10 @@ describe('invoice editor', () => {
 			'href',
 			`/billing/clients/${raw.clientId}`
 		);
-		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Ausstellen' })).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 		await userEvent.click(within(stale).getByRole('button', { name: 'Zeiten neu einlesen' }));
 		await waitFor(() => expect(refreshed).toBe(1));
 	});
@@ -236,7 +248,7 @@ describe('invoice editor', () => {
 
 		const issueButton = await screen.findByRole('button', { name: 'Ausstellen' });
 		expect(screen.getByText(/Beim Kunden fehlen Straße, PLZ oder Ort/)).toBeInTheDocument();
-		expect(issueButton).toBeEnabled();
+		expect(issueButton).toHaveAttribute('aria-disabled', 'false');
 		await userEvent.click(issueButton);
 
 		const dialog = await screen.findByRole('alertdialog', { name: 'Rechnung ausstellen' });
@@ -270,7 +282,10 @@ describe('invoice editor', () => {
 			expect(
 				await screen.findByText(/Beim Kunden fehlen Straße, PLZ oder Ort/)
 			).toBeInTheDocument();
-			expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+			expect(screen.getByRole('button', { name: 'Ausstellen' })).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
 		}
 	);
 
@@ -493,7 +508,10 @@ describe('invoice editor', () => {
 				'In den Rechnungsangaben des Rechnungsstellers fehlt die Steuernummer.'
 			)
 		).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Ausstellen' })).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 	});
 
 	it('discards a draft and returns to the invoice list', async () => {

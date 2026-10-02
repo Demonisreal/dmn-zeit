@@ -18,13 +18,25 @@ const tagTone = {
 	success: 'success'
 } as const;
 
-export function Notice({ tone = 'info', children, action }: Props) {
+function Box({ tone = 'info', children, action, role }: Props & { role?: 'alert' | 'status' }) {
 	const { t } = useTranslation();
 	return (
-		<div className={styles.notice} role={tone === 'error' ? 'alert' : 'status'}>
+		<div className={styles.notice} role={role}>
 			<Tag tone={tagTone[tone]}>{t(`notice.${tone}`)}</Tag>
 			<div className={styles.body}>{children}</div>
 			{action && <div className={styles.action}>{action}</div>}
+		</div>
+	);
+}
+
+export function Notice(props: Props) {
+	return <Box {...props} role={props.tone === 'error' ? 'alert' : 'status'} />;
+}
+
+export function SavedNotice({ shown, children }: { shown: boolean; children: ReactNode }) {
+	return (
+		<div role="status" className={styles.live}>
+			{shown && <Box tone="success">{children}</Box>}
 		</div>
 	);
 }

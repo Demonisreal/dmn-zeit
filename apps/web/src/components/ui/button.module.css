@@ -36,8 +36,13 @@
 	cursor: progress;
 }
 
-.button[data-disabled] {
+.button[data-disabled],
+.button[aria-disabled='true']:not([data-pending]) {
 	cursor: default;
+}
+
+.button[aria-disabled='true'][data-pressed] {
+	transform: none;
 }
 
 .primary {
@@ -55,7 +60,8 @@
 	background: color-mix(in srgb, var(--red) 86%, #000);
 }
 
-.primary[data-disabled] {
+.primary[data-disabled],
+.primary[aria-disabled='true']:not([data-pending]) {
 	background: var(--edge);
 	color: var(--muted);
 }
@@ -79,7 +85,9 @@
 }
 
 .secondary[data-disabled],
-.quiet[data-disabled] {
+.quiet[data-disabled],
+.secondary[aria-disabled='true']:not([data-pending]),
+.quiet[aria-disabled='true']:not([data-pending]) {
 	border-color: var(--edge);
 	color: var(--muted);
 }

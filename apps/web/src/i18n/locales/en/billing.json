@@ -17,6 +17,7 @@
 	"inheritGeneral": "general default",
 	"inheritClient": "same as the client",
 	"preview": {
+		"section": "Preview",
 		"frameTitle": "PDF preview of the invoice",
 		"open": "Open the PDF in a new tab"
 	},
@@ -219,7 +220,9 @@
 		"noRate": "no rate on file",
 		"oldestDay": "Oldest day",
 		"nothingToBill": "There is no billable time with a rate on file in this period.",
-		"create": "Create draft"
+		"create": "Create draft",
+		"olderOutside": "Older open time from {{date}} lies outside the period.",
+		"fromOldest": "From {{date}}"
 	},
 	"reports": {
 		"title": "Time report",
@@ -330,6 +333,7 @@
 			"buyer_address_incomplete": "The client is missing a street, postcode or city. Only an invoice up to €250 gross can do without the address, never as XRechnung.",
 			"tax_profile_mismatch": "The invoice's tax profile differs from the current one in the settings. Discard the draft and create it again.",
 			"tax_treatment_stale": "The client's details changed since the draft was created, the invoice's tax treatment no longer fits. “Reload booked time” takes it over again, check added line items afterwards.",
+			"tax_profile_changed": "The tax profile in the settings changed since the draft was created. “Reload booked time” takes it over, check added line items afterwards.",
 			"buyer_vat_id_missing": "For reverse charge, the client is missing a VAT ID.",
 			"tax_category_mismatch": "A line item has a tax category that does not fit this invoice. Edit an added line item; for line items from booked time, discard the draft and create it again.",
 			"tax_rate_mismatch": "The tax rate of a line item differs from the rate in force. Save an added line item again; for line items from booked time, discard the draft and create it again.",

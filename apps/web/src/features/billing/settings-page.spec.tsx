@@ -52,9 +52,13 @@ describe('billing settings', () => {
 				contactEmail: 'mara@kanzlei.example'
 			})
 		);
-		expect(await screen.findByText('Gespeichert.')).toBeInTheDocument();
+		const saved = await screen.findByText('Gespeichert.');
+		expect(saved.closest('[role="status"]')).toBeInTheDocument();
 		expect(screen.getAllByRole('heading', { name: 'Rechnungssteller' })).toHaveLength(1);
 		expect(screen.getByRole('form', { name: 'Rechnungssteller' })).toBeInTheDocument();
+
+		await userEvent.type(email, 'x');
+		expect(screen.queryByText('Gespeichert.')).not.toBeInTheDocument();
 	});
 
 	it('names a broken contact email and an overlong phone number at the field', async () => {

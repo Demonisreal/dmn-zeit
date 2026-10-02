@@ -128,7 +128,7 @@
 		"none": "Everything is billed.",
 		"total": "Total",
 		"invoice": "Create an invoice for {{client}}",
-		"hint": "Billable time up to today, rounded, amounts net. The client name opens a new invoice."
+		"hint": "Billable time up to today, rounded, amounts net."
 	},
 	"budgets": {
 		"title": "Budgets",

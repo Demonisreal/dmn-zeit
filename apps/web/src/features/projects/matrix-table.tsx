@@ -1,10 +1,9 @@
 import type { DayCoverage, ProjectWeek } from '@zeit/shared';
 import { useState } from 'react';
-import { Radio, RadioGroup } from 'react-aria-components';
+import { Radio, RadioGroup, VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Chevron } from '../../components/ui/chevron';
 import { Table } from '../../components/ui/table';
-import { Tag } from '../../components/ui/tag';
 import { formatCents, formatDate, formatMinutes } from '../../i18n/format';
 import { todayIso } from '../../lib/dates';
 import { flip } from '../../lib/sets';
@@ -15,6 +14,8 @@ import { ProjectRows } from './matrix-row';
 import styles from './matrix-table.module.css';
 
 const segments = styles as Record<'days' | 'day', string>;
+
+const lockKinds = ['draft', 'issued'] as const;
 
 type Props = {
 	label: string;
@@ -48,13 +49,14 @@ export function MatrixTable({
 	const [open, setOpen] = useState<string | null>(null);
 	const [expanded, setExpanded] = useState(() => new Set<string>());
 	const [folded, setFolded] = useState(() => new Set<string>());
-	const [picked, setPicked] = useState<string | null>(null);
-	const day =
-		picked !== null && days.includes(picked) ? picked : days.includes(today) ? today : days[0]!;
+	const [weekday, setWeekday] = useState<number | null>(null);
+	const day = weekday !== null ? days[weekday]! : days.includes(today) ? today : days[0]!;
 	const priority = (date: string) => (date === day ? undefined : 'mid');
 	const dayMinutes = (date: string) =>
 		week.dayTotals.find((total) => total.date === date)?.roundedMinutes ?? 0;
-	const locked = week.rows.some((row) => row.cells.some((cell) => cell.lock !== 'none'));
+	const locks = lockKinds.filter((kind) =>
+		week.rows.some((row) => row.cells.some((cell) => cell.lock === kind))
+	);
 
 	return (
 		<div
@@ -66,25 +68,31 @@ export function MatrixTable({
 				aria-label={t('matrix.day')}
 				orientation="horizontal"
 				value={day}
-				onChange={setPicked}
+				onChange={(date) => setWeekday(days.indexOf(date))}
 				className={segments.days}
 			>
 				{days.map((date) => (
 					<Radio
 						key={date}
 						value={date}
-						aria-label={formatDate(date, lng, {
-							weekday: 'long',
-							day: 'numeric',
-							month: 'long',
-							year: undefined
-						})}
 						className={segments.day}
 						data-today={date === today || undefined}
 					>
-						<span>{weekdayShort(date, lng)}</span>
+						<span aria-hidden="true">{weekdayShort(date, lng)}</span>
+						<VisuallyHidden>
+							{formatDate(date, lng, {
+								weekday: 'long',
+								day: 'numeric',
+								month: 'long',
+								year: undefined
+							})}
+						</VisuallyHidden>
 						<span className={styles.dayMinutes}>
-							{dayMinutes(date) > 0 ? formatMinutes(dayMinutes(date)) : '–'}
+							{dayMinutes(date) > 0 ? (
+								formatMinutes(dayMinutes(date))
+							) : (
+								<span aria-hidden="true">–</span>
+							)}
 						</span>
 					</Radio>
 				))}
@@ -202,10 +210,15 @@ export function MatrixTable({
 					)}
 				</tfoot>
 			</Table>
-			{locked && (
+			{locks.length > 0 && (
 				<p className={styles.locks}>
-					{t('cell.locked')} <Tag tone="pending">{t('cell.lock.draft')}</Tag>{' '}
-					<Tag>{t('cell.lock.issued')}</Tag>
+					{t('cell.locked')}
+					{locks.map((kind) => (
+						<span key={kind} className={styles.lockKey}>
+							<span className={styles.swatch} data-lock={kind} aria-hidden="true" />
+							{t(`cell.lock.${kind}`)}
+						</span>
+					))}
 				</p>
 			)}
 		</div>

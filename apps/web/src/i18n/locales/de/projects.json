@@ -128,7 +128,7 @@
 		"none": "Alles abgerechnet.",
 		"total": "Gesamt",
 		"invoice": "Rechnung für {{client}} erstellen",
-		"hint": "Abrechenbare Zeit bis heute, gerundet, Beträge netto. Der Kundenname öffnet eine neue Rechnung."
+		"hint": "Abrechenbare Zeit bis heute, gerundet, Beträge netto."
 	},
 	"budgets": {
 		"title": "Budgets",

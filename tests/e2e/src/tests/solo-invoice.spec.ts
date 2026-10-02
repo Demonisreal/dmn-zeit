@@ -19,6 +19,10 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	test.slow();
 	const { owner, clientName, projectName } = seed.invoicing;
 	await signIn(owner);
+	const framing: string[] = [];
+	page.on('console', (msg) => {
+		if (/frame-src|object-src|Refused to frame/.test(msg.text())) framing.push(msg.text());
+	});
 	await page.goto('/');
 
 	const timer = page.getByRole('group', { name: 'Projekt-Timer' });
@@ -50,6 +54,8 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	await page.getByRole('button', { name: 'Entwurf erstellen' }).click();
 
 	await expect(page.getByRole('heading', { name: clientName })).toBeVisible();
+	await expect(page.getByTitle('PDF-Vorschau der Rechnung')).toBeAttached();
+	expect(framing).toEqual([]);
 	await expect(page.getByText(projectName)).toBeVisible();
 	await page.getByRole('button', { name: 'Ausstellen' }).click();
 

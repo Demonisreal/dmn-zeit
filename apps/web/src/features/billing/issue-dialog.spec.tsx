@@ -75,7 +75,7 @@ describe('issue dialog', () => {
 			within(dialog).queryByText(/Stand hat sich inzwischen geändert/)
 		).not.toBeInTheDocument();
 		expect(confirm).toHaveFocus();
-		expect(confirm).toBeEnabled();
+		expect(confirm).toHaveAttribute('aria-disabled', 'false');
 		expect(confirm).toHaveAccessibleDescription(/Käuferreferenz/);
 
 		await userEvent.click(within(dialog).getByRole('radio', { name: 'PDF' }));
@@ -110,10 +110,15 @@ describe('issue dialog', () => {
 		expect(
 			within(dialog).getByText('Für XRechnung fehlt in den Einstellungen die IBAN.')
 		).toBeInTheDocument();
-		expect(confirm).toBeDisabled();
+		expect(confirm).toHaveAttribute('aria-disabled', 'true');
+		expect(confirm).toHaveAccessibleDescription(
+			'Für XRechnung fehlt in den Einstellungen die IBAN.'
+		);
+		await userEvent.click(confirm);
+		expect(dialog).toBeInTheDocument();
 
 		await userEvent.click(within(dialog).getByRole('radio', { name: 'PDF' }));
-		expect(confirm).toBeEnabled();
+		expect(confirm).toHaveAttribute('aria-disabled', 'false');
 	});
 
 	it('asks to confirm a timer of twelve hours and more before the number goes out', async () => {

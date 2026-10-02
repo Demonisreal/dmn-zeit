@@ -24,7 +24,7 @@
 		"progress": "{{done}} von {{total}}",
 		"done": "erledigt",
 		"open": "offen",
-		"solo": "Rechnungen zeigt der Solo-Bereich: unter „Rolle wechseln“ den Freelancer wählen.",
+		"solo": "Rechnung als Freelancer: unter „Rolle wechseln“ den Freelancer wählen.",
 		"steps": {
 			"request": "Urlaub beantragen",
 			"approve": "Antrag genehmigen",

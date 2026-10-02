@@ -24,7 +24,7 @@
 		"progress": "{{done}} of {{total}}",
 		"done": "done",
 		"open": "open",
-		"solo": "Invoices live in the solo workspace: pick the freelancer under “Switch role”.",
+		"solo": "Invoicing as a freelancer: pick the freelancer under “Switch role”.",
 		"steps": {
 			"request": "Request leave",
 			"approve": "Approve a request",

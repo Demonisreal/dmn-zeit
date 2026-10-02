@@ -1,3 +1,4 @@
+import { parseDate } from '@internationalized/date';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { invoicePeriodIssue, type Role } from '@zeit/shared';
@@ -26,6 +27,11 @@ type Props = {
 	prefill: Prefill;
 };
 
+const earliestFrom = (day: string, to: string) => {
+	const limit = parseDate(to).subtract({ days: 365 }).toString();
+	return day < limit ? limit : day;
+};
+
 export function NewInvoicePage({ role, prefill }: Props) {
 	const { t, i18n } = useTranslation('billing');
 	const navigate = useNavigate();
@@ -33,6 +39,9 @@ export function NewInvoicePage({ role, prefill }: Props) {
 	const [clientId, setClientId] = useState(prefill.client ?? '');
 	const [from, setFrom] = useState(prefill.from ?? `${currentMonth()}-01`);
 	const [to, setTo] = useState(prefill.to ?? todayIso());
+	const [followOldest, setFollowOldest] = useState(
+		prefill.client !== undefined && prefill.from === undefined
+	);
 
 	const clients = useQuery(clientsQuery);
 	const unbilled = useQuery({
@@ -40,6 +49,17 @@ export function NewInvoicePage({ role, prefill }: Props) {
 		enabled: clientId !== ''
 	});
 	const preview = unbilled.data?.find((row) => row.clientId === clientId);
+	const oldestFrom = preview && earliestFrom(preview.oldestDay, to);
+
+	if (followOldest && unbilled.data) {
+		setFollowOldest(false);
+		if (oldestFrom && oldestFrom < from) setFrom(oldestFrom);
+	}
+
+	const changeFrom = (day: string) => {
+		setFollowOldest(false);
+		setFrom(day);
+	};
 
 	const draft = useMutation({
 		mutationFn: () => createDraft({ clientId, from, to }),
@@ -79,11 +99,14 @@ export function NewInvoicePage({ role, prefill }: Props) {
 								placeholder={t('newInvoice.chooseClient')}
 								options={options}
 								value={clientId || null}
-								onChange={(key) => setClientId(key === null ? '' : String(key))}
+								onChange={(key) => {
+									setFollowOldest(false);
+									setClientId(key === null ? '' : String(key));
+								}}
 							/>
 						</div>
 						<div className={css.range}>
-							<DateInputField label={t('from')} value={from} onChange={setFrom} />
+							<DateInputField label={t('from')} value={from} onChange={changeFrom} />
 							<DateInputField label={t('to')} value={to} onChange={setTo} error={rangeProblem} />
 						</div>
 					</div>
@@ -109,6 +132,24 @@ export function NewInvoicePage({ role, prefill }: Props) {
 								<dd className={styles.mono}>{formatDate(preview.oldestDay, i18n.language)}</dd>
 							</dl>
 						))}
+
+					{preview && oldestFrom && preview.oldestDay < from && (
+						<Notice
+							action={
+								oldestFrom < from && (
+									<Button variant="quiet" onPress={() => changeFrom(oldestFrom)}>
+										{t('newInvoice.fromOldest', {
+											date: formatDate(oldestFrom, i18n.language, { year: undefined })
+										})}
+									</Button>
+								)
+							}
+						>
+							{t('newInvoice.olderOutside', {
+								date: formatDate(preview.oldestDay, i18n.language, { year: undefined })
+							})}
+						</Notice>
+					)}
 
 					{refusal && <Notice tone="error">{refusal}</Notice>}
 					<div className={styles.actions}>

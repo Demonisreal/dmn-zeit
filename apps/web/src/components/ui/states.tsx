@@ -21,15 +21,16 @@ export function Loading({ rows = 4 }: { rows?: number }) {
 type Props = {
 	error: unknown;
 	onRetry: () => void;
+	isPending?: boolean;
 };
 
-export function LoadError({ error, onRetry }: Props) {
+export function LoadError({ error, onRetry, isPending = false }: Props) {
 	const { t } = useTranslation(['common']);
 	return (
 		<Notice
 			tone="error"
 			action={
-				<Button variant="secondary" onPress={onRetry}>
+				<Button variant="secondary" isPending={isPending} onPress={onRetry}>
 					{t('retry')}
 				</Button>
 			}

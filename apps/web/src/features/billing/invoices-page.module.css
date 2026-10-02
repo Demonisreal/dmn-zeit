@@ -2,6 +2,19 @@
 	white-space: nowrap;
 }
 
+.client {
+	display: none;
+	font-family: var(--sans);
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+@container (max-width: 38rem) {
+	.client {
+		display: block;
+	}
+}
+
 .status {
 	display: inline-flex;
 	flex-wrap: wrap;

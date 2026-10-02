@@ -67,7 +67,9 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 					<thead>
 						<tr>
 							<th scope="col">{t('invoicesList.number')}</th>
-							<th scope="col">{t('invoicesList.client')}</th>
+							<th scope="col" data-priority="mid">
+								{t('invoicesList.client')}
+							</th>
 							<th scope="col" data-priority="mid">
 								{t('invoicesList.issueDate')}
 							</th>
@@ -90,8 +92,11 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 									<Link to="/billing/invoices/$id" params={{ id: invoice.id }}>
 										{invoice.number ?? t('invoicesList.draftNumber')}
 									</Link>
+									<span className={`${styles.small} ${styles.muted} ${css.client}`}>
+										{invoice.clientName}
+									</span>
 								</td>
-								<td>{invoice.clientName}</td>
+								<td data-priority="mid">{invoice.clientName}</td>
 								<td className={styles.mono} data-priority="mid">
 									{invoice.issueDate ? formatDate(invoice.issueDate, i18n.language) : '–'}
 								</td>

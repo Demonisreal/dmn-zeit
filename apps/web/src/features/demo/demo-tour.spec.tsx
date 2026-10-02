@@ -172,9 +172,7 @@ describe('demo tour', () => {
 		renderApp('/');
 		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 4' })).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				'Rechnungen zeigt der Solo-Bereich: unter „Rolle wechseln“ den Freelancer wählen.'
-			)
+			screen.getByText('Rechnung als Freelancer: unter „Rolle wechseln“ den Freelancer wählen.')
 		).toBeInTheDocument();
 
 		await switchTo('Freelancer');

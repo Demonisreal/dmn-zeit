@@ -48,6 +48,7 @@ const everyFormat = [
 	'buyer_address_incomplete',
 	'tax_profile_mismatch',
 	'tax_treatment_stale',
+	'tax_profile_changed',
 	'tax_category_mismatch',
 	'tax_rate_mismatch',
 	'total_negative',
@@ -65,7 +66,8 @@ const fixedIn: Record<string, 'settings' | 'client' | 'refresh'> = {
 	buyer_endpoint_missing: 'client',
 	buyer_address_incomplete: 'client',
 	buyer_vat_id_missing: 'client',
-	tax_treatment_stale: 'refresh'
+	tax_treatment_stale: 'refresh',
+	tax_profile_changed: 'refresh'
 };
 
 const exemptionReasonField = lineFields.exemptionReason.unwrap();
@@ -319,6 +321,7 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 	const issueClosed = invoice.blockers.some(
 		(blocker) => everyFormat.includes(blocker) && !onlyForXRechnung(blocker)
 	);
+	const issueBlocked = issueClosed || invoice.lines.length === 0;
 	const describedBy =
 		invoice.lines.length === 0
 			? 'invoice-issue-lines'
@@ -575,8 +578,8 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 					<div className={styles.actions}>
 						<Button
 							variant="primary"
-							isDisabled={issueClosed || invoice.lines.length === 0}
-							onPress={() => setIssuing(true)}
+							aria-disabled={issueBlocked}
+							onPress={() => !issueBlocked && setIssuing(true)}
 							{...(describedBy && { 'aria-describedby': describedBy })}
 						>
 							{t('invoiceEditor.issue')}
@@ -592,7 +595,7 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 					</div>
 				</section>
 
-				<section className={lines.previewPane} aria-label={t('preview.frameTitle')}>
+				<section className={lines.previewPane} aria-label={t('preview.section')}>
 					<InvoicePreview invoiceId={invoice.id} variant="draft" version={previewKey} />
 				</section>
 			</div>

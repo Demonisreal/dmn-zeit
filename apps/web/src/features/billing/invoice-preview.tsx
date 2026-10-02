@@ -20,6 +20,10 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 	const pdf = useQuery({ ...invoicePdfQuery(path, version), enabled: !touch });
 	const [frame, setFrame] = useState<{ blob: Blob; url: string } | null>(null);
 	const [shown, setShown] = useState(false);
+	const [failure, setFailure] = useState<Error | null>(null);
+
+	if (pdf.error && pdf.error !== failure) setFailure(pdf.error);
+	if (!pdf.error && pdf.data && failure) setFailure(null);
 
 	useEffect(() => {
 		if (!pdf.data) return;
@@ -29,21 +33,21 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 		return () => URL.revokeObjectURL(url);
 	}, [pdf.data]);
 
-	const open = (
-		<a href={`/api${path}`} target="_blank" rel="noopener" className={styles.open}>
+	const url = frame !== null && frame.blob === pdf.data ? frame.url : null;
+	const loaded = shown && url !== null;
+
+	const open = variant === 'draft' && (
+		<a href={url ?? `/api${path}`} target="_blank" rel="noopener" className={styles.open}>
 			{t('preview.open')}
 		</a>
 	);
 
-	if (touch) return <div className={styles.stage}>{open}</div>;
-
-	const url = frame !== null && frame.blob === pdf.data ? frame.url : null;
-	const loaded = shown && url !== null;
+	if (touch) return open && <div className={styles.stage}>{open}</div>;
 
 	return (
 		<div className={styles.stage}>
-			{pdf.isError && !pdf.isFetching ? (
-				<LoadError error={pdf.error} onRetry={() => void pdf.refetch()} />
+			{failure ? (
+				<LoadError error={failure} isPending={pdf.isFetching} onRetry={() => void pdf.refetch()} />
 			) : (
 				<div className={styles.scroll}>
 					<div className={styles.paper} data-loaded={loaded} aria-busy={!loaded}>
@@ -56,7 +60,7 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 							<iframe
 								key={url}
 								className={styles.frame}
-								src={url}
+								src={`/api${path}`}
 								title={t('preview.frameTitle')}
 								onLoad={() => setShown(true)}
 							/>

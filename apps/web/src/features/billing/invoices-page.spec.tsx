@@ -18,12 +18,16 @@ describe('invoices', () => {
 		const table = await invoicesTable();
 
 		const overdue = rowOf(table, /RE-\d{4}-0001/);
-		expect(within(overdue).getByText('Autohaus Brinkmann KG (Beispiel)')).toBeInTheDocument();
+		const [underNumber, clientCell] = within(overdue).getAllByText(
+			'Autohaus Brinkmann KG (Beispiel)'
+		);
+		expect(underNumber!.closest('td')).toHaveTextContent(/^RE-\d{4}-0001Autohaus/);
+		expect(clientCell).toHaveAttribute('data-priority', 'mid');
 		expect(within(overdue).getByText('ausgestellt')).toBeInTheDocument();
 		expect(within(overdue).getByText('überfällig')).toBeInTheDocument();
 
 		const draft = within(table).getAllByText('Entwurf')[0]!.closest('tr')!;
-		expect(within(draft).getByText('Praxis Dr. Yilmaz (Beispiel)')).toBeInTheDocument();
+		expect(within(draft).getAllByText('Praxis Dr. Yilmaz (Beispiel)')).toHaveLength(2);
 	});
 
 	it('links the PDF of every issued invoice, named after its number', async () => {

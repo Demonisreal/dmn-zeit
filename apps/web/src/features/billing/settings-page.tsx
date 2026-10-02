@@ -7,12 +7,13 @@ import {
 	type BillingProfile,
 	type Role
 } from '@zeit/shared';
+import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { Button } from '../../components/ui/button';
 import { FormField } from '../../components/ui/field';
-import { Notice } from '../../components/ui/notice';
+import { Notice, SavedNotice } from '../../components/ui/notice';
 import { Page, PageHead } from '../../components/ui/page-shell';
 import { FormSelect } from '../../components/ui/select-field';
 import { Loading, LoadError } from '../../components/ui/states';
@@ -184,7 +185,7 @@ type FormProps = {
 
 function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng }: FormProps) {
 	const { t } = useTranslation('billing');
-	const { control, handleSubmit } = useForm({
+	const { control, handleSubmit, subscribe } = useForm({
 		resolver: zodResolver(schema),
 		defaultValues: defaults(profile)
 	});
@@ -198,6 +199,11 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 		mutationFn: (input: z.output<typeof schema>) => updateBillingProfile(input),
 		onSuccess: onSaved
 	});
+	useEffect(() => {
+		if (!save.isSuccess) return;
+		return subscribe({ formState: { values: true }, callback: () => save.reset() });
+	}, [save.isSuccess, save.reset, subscribe]);
+
 	const submit = (input: z.output<typeof schema>) =>
 		save.mutate(input, { onError: reauth.onError(() => save.mutate(input)) });
 
@@ -426,7 +432,7 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 					</fieldset>
 
 					{refusal && <Notice tone="error">{refusal}</Notice>}
-					{save.isSuccess && <Notice tone="success">{t('settings.saved')}</Notice>}
+					<SavedNotice shown={save.isSuccess}>{t('settings.saved')}</SavedNotice>
 					<div className={styles.actions}>
 						<Button type="submit" variant="primary" isPending={save.isPending}>
 							{t('save')}

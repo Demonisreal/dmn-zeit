@@ -111,15 +111,20 @@ describe('project week', () => {
 
 		const days = screen.getByRole('radiogroup', { name: 'Tag' });
 		expect(within(days).getAllByRole('radio')).toHaveLength(7);
-		expect(within(days).getByRole('radio', { name: 'Donnerstag, 24. September' })).toBeChecked();
+		expect(within(days).getByRole('radio', { name: /^Donnerstag, 24\. September/ })).toBeChecked();
 		const thursday = within(table).getByRole('columnheader', { name: /Do\.?\s*24\.09\./ });
 		const monday = within(table).getByRole('columnheader', { name: /Mo\.?\s*21\.09\./ });
 		expect(thursday).not.toHaveAttribute('data-priority');
 		expect(monday).toHaveAttribute('data-priority', 'mid');
 
-		await userEvent.click(within(days).getByRole('radio', { name: 'Montag, 21. September' }));
+		await userEvent.click(within(days).getByRole('radio', { name: /^Montag, 21\. September/ }));
 		expect(monday).not.toHaveAttribute('data-priority');
 		expect(thursday).toHaveAttribute('data-priority', 'mid');
+
+		await userEvent.click(screen.getByRole('button', { name: 'Vorherige Woche' }));
+		expect(
+			await within(days).findByRole('radio', { name: /^Montag, 14\. September/ })
+		).toBeChecked();
 	});
 
 	it('names the lock of invoiced cells and shows no amount for unbillable time', async () => {
@@ -127,7 +132,7 @@ describe('project week', () => {
 		renderApp('/projects?week=2026-08-31');
 		const table = await screen.findByRole('table', { name: 'Projektzeit KW 36' });
 
-		expect(screen.getByText('Gesperrt:')).toBeInTheDocument();
+		expect(screen.getByText('Gesperrt:')).toHaveTextContent(/^Gesperrt:abgerechnet$/);
 		expect(
 			within(table).getAllByRole('button', { name: /, abgerechnet, Herleitung$/ }).length
 		).toBeGreaterThan(0);

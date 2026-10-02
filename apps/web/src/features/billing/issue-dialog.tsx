@@ -64,6 +64,7 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 
 	const refused = blockersOf(issue.error);
 	const blockers = refused ?? (format === invoice.format ? invoice.blockers : []);
+	const blocked = blockers.length > 0 && !refused;
 
 	function close() {
 		issue.reset();
@@ -156,8 +157,9 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 							<Button
 								variant="primary"
 								isPending={issue.isPending}
-								isDisabled={blockers.length > 0 && !refused}
+								aria-disabled={blocked}
 								onPress={() =>
+									!blocked &&
 									issue.mutate(undefined, { onError: reauth.onError(() => issue.mutate()) })
 								}
 								{...(blockers.length > 0 ? { 'aria-describedby': 'issue-blockers' } : {})}

@@ -5,7 +5,7 @@ import { CheckboxGroup, Label } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Notice } from '../../components/ui/notice';
+import { Notice, SavedNotice } from '../../components/ui/notice';
 import { Skeleton } from '../../components/ui/skeleton';
 import { LoadError } from '../../components/ui/states';
 import { todayIso } from '../../lib/dates';
@@ -53,7 +53,13 @@ export function ProjectMembers({ project }: Props) {
 					)}
 				</p>
 				<div>
-					<Button variant="secondary" onPress={() => setEditing(true)}>
+					<Button
+						variant="secondary"
+						onPress={() => {
+							toggle.reset();
+							setEditing(true);
+						}}
+					>
 						{t('members.edit')}
 					</Button>
 				</div>
@@ -77,7 +83,7 @@ export function ProjectMembers({ project }: Props) {
 				</p>
 			</div>
 			{toggle.error && <Notice tone="error">{errorText(toggle.error)}</Notice>}
-			{toggle.isSuccess && <Notice tone="success">{t('members.saved')}</Notice>}
+			<SavedNotice shown={toggle.isSuccess}>{t('members.saved')}</SavedNotice>
 			{!project.openToAll && list}
 		</section>
 	);
