@@ -60,7 +60,7 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 							<iframe
 								key={url}
 								className={styles.frame}
-								src={`/api${path}`}
+								src={url}
 								title={t('preview.frameTitle')}
 								onLoad={() => setShown(true)}
 							/>

@@ -37,7 +37,7 @@
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
-	header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+	header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 	header ?Cache-Control "no-store"
 	header @assets Cache-Control "public, max-age=31536000, immutable"
 	header @noindex X-Robots-Tag {env.ROBOTS_NOINDEX}

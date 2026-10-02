@@ -90,6 +90,10 @@ input {
 	font: inherit;
 }
 
+:where([data-react-aria-pressable]) {
+	touch-action: pan-x pan-y pinch-zoom;
+}
+
 code,
 kbd,
 samp {

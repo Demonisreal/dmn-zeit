@@ -31,7 +31,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('InvoicePreview', () => {
-	it('checks the draft preview, then frames the pdf url and links the loaded copy', async () => {
+	it('renders the draft preview once and uses that copy for the frame and the link', async () => {
 		const asked: string[] = [];
 		server.use(
 			http.get('/api/invoices/:id/preview.pdf', ({ request }) => {
@@ -41,10 +41,9 @@ describe('InvoicePreview', () => {
 		);
 		render(wrap(<InvoicePreview invoiceId="inv-1" variant="draft" />));
 
-		// a blob frame inherits object-src 'none' from the app and chrome then cuts the page off
 		expect(await screen.findByTitle('PDF-Vorschau der Rechnung')).toHaveAttribute(
 			'src',
-			'/api/invoices/inv-1/preview.pdf'
+			'blob:pdf-1'
 		);
 		expect(asked).toEqual(['/api/invoices/inv-1/preview.pdf']);
 		expect(screen.getByRole('link', { name: 'PDF in neuem Tab öffnen' })).toHaveAttribute(
@@ -59,7 +58,7 @@ describe('InvoicePreview', () => {
 
 		expect(await screen.findByTitle('PDF-Vorschau der Rechnung')).toHaveAttribute(
 			'src',
-			'/api/invoices/inv-1/document'
+			'blob:pdf-1'
 		);
 		expect(screen.queryByRole('link')).not.toBeInTheDocument();
 	});

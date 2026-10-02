@@ -19,9 +19,13 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	test.slow();
 	const { owner, clientName, projectName } = seed.invoicing;
 	await signIn(owner);
-	const framing: string[] = [];
+	const violations: string[] = [];
 	page.on('console', (msg) => {
-		if (/frame-src|object-src|Refused to frame/.test(msg.text())) framing.push(msg.text());
+		if (/Content Security Policy|Refused to frame/.test(msg.text())) violations.push(msg.text());
+	});
+	const previews: string[] = [];
+	page.on('request', (req) => {
+		if (req.url().endsWith('/preview.pdf')) previews.push(req.url());
 	});
 	await page.goto('/');
 
@@ -37,8 +41,13 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	await page.goto(`/?week=${monday}`);
 	await page.getByRole('button', { name: 'Projektzeit nachtragen' }).click();
 	const entry = page.getByRole('form', { name: 'Projektzeit nachtragen' });
-	await entry.getByRole('combobox', { name: 'Projekt' }).fill(projectName);
-	await page.getByRole('option', { name: projectName }).click();
+	const picker = entry.getByRole('combobox', { name: 'Projekt' });
+	await picker.fill(projectName);
+	await expect(page.getByRole('option', { name: projectName })).toBeVisible();
+	// a click retried during the popover animation scrolls the page, and the combobox closes on scroll
+	await picker.press('ArrowDown');
+	await picker.press('Enter');
+	await expect(picker).toHaveValue(projectName);
 	await fillTime(entry.getByRole('group', { name: 'Beginn' }), '08:00');
 	await fillTime(entry.getByRole('group', { name: 'Ende' }), '12:00');
 	await entry.getByLabel('Notiz').fill('Datenmodell der Altsysteme abgeglichen.');
@@ -55,7 +64,8 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 
 	await expect(page.getByRole('heading', { name: clientName })).toBeVisible();
 	await expect(page.getByTitle('PDF-Vorschau der Rechnung')).toBeAttached();
-	expect(framing).toEqual([]);
+	expect(violations).toEqual([]);
+	expect(previews).toHaveLength(1);
 	await expect(page.getByText(projectName)).toBeVisible();
 	await page.getByRole('button', { name: 'Ausstellen' }).click();
 
@@ -70,7 +80,8 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	await stepUp.getByLabel('Code aus der Authenticator-App').fill(totpCode(owner.totpSecret));
 	await stepUp.getByRole('button', { name: 'Bestätigen' }).click();
 
-	await expect(page.getByText('ausgestellt', { exact: true })).toBeVisible();
+	// issuing renders pdf and xml in the worker pool, next to a full parallel run that takes seconds
+	await expect(page.getByText('ausgestellt', { exact: true })).toBeVisible({ timeout: 15_000 });
 	await expect(page.getByText('452,20 €')).toBeVisible();
 	const number = (await page.getByRole('heading', { level: 1 }).textContent())!;
 	expect(number).toMatch(/\d{4}-\d{4}$/);
@@ -87,7 +98,7 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	await cancelDialog.getByLabel('Grund').fill('Leistungszeitraum falsch angegeben.');
 	await cancelDialog.getByRole('button', { name: 'Stornorechnung ausstellen' }).click();
 
-	await expect(page.getByText('storniert', { exact: true })).toBeVisible();
+	await expect(page.getByText('storniert', { exact: true })).toBeVisible({ timeout: 15_000 });
 	await expect(page.getByText('Stornogrund: Leistungszeitraum falsch angegeben.')).toBeVisible();
 	await expect(page.getByText(/Storniert durch Stornorechnung .*\d{4}-\d{4}\./)).toBeVisible();
 
