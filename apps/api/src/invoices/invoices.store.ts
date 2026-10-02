@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
+	Invoice,
 	InvoiceFormat,
 	InvoiceLineInput,
 	InvoiceLineKind,
@@ -59,6 +60,7 @@ function baseInvoiceQuery(trx: Trx) {
 		.leftJoin('app.users as issuer', 'issuer.id', 'i.issued_by')
 		.leftJoin('app.users as canceller', 'canceller.id', 'i.cancelled_by')
 		.leftJoin('app.invoices as ref', 'ref.id', 'i.refers_to_id')
+		.leftJoin('app.invoices as storno', 'storno.refers_to_id', 'i.id')
 		.select([
 			'i.id',
 			'i.kind',
@@ -96,7 +98,10 @@ function baseInvoiceQuery(trx: Trx) {
 			'canceller.id as cancelledById',
 			'canceller.display_name as cancelledByName',
 			'ref.number as refersToNumber',
-			'ref.issue_date as refersToIssueDate'
+			'ref.issue_date as refersToIssueDate',
+			'storno.id as cancellationId',
+			'storno.number as cancellationNumber',
+			'storno.issue_date as cancellationIssueDate'
 		]);
 }
 
@@ -120,7 +125,8 @@ export class InvoicesStore {
 		| {
 				invoice: InvoiceRowDb;
 				lines: InvoiceLineRowDb[];
-				refersTo: { id: string; number: string | null; issueDate: string | null } | null;
+				refersTo: Invoice['refersTo'];
+				cancellation: Invoice['cancellation'];
 		  }
 		| undefined
 	> {
@@ -136,6 +142,13 @@ export class InvoicesStore {
 			lines,
 			refersTo: row.refers_to_id
 				? { id: row.refers_to_id, number: row.refersToNumber, issueDate: row.refersToIssueDate }
+				: null,
+			cancellation: row.cancellationId
+				? {
+						id: row.cancellationId,
+						number: row.cancellationNumber,
+						issueDate: row.cancellationIssueDate
+					}
 				: null
 		};
 	}

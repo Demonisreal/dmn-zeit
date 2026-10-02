@@ -383,6 +383,7 @@ describe('issuing', () => {
 			await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-06', to: '2026-09-06' })
 		).body;
 		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
+		expect(issued.body.cancellation).toBeNull();
 
 		const cancelled = await admin.post(`/invoices/${issued.body.id}/cancel`, {
 			reason: 'Kunde storniert laut Absprache vom 10.09.'
@@ -395,6 +396,13 @@ describe('issuing', () => {
 
 		const original = await hr.get(`/invoices/${issued.body.id}`);
 		expect(original.body.status).toBe('cancelled');
+		expect(original.body.refersTo).toBeNull();
+		expect(original.body.cancellation).toEqual({
+			id: cancelled.body.id,
+			number: cancelled.body.number,
+			issueDate: cancelled.body.issueDate
+		});
+		expect(cancelled.body.cancellation).toBeNull();
 
 		// storno frees the booked time, a new draft over the same period picks it up again
 		const again = await hr.post('/invoices/drafts', { clientId: client.id, from: '2026-09-06', to: '2026-09-06' });

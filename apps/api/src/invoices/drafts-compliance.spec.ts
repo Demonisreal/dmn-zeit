@@ -170,7 +170,8 @@ const model = (
 		lines: [line],
 		client,
 		profile: seller,
-		refersTo: null
+		refersTo: null,
+		cancellation: null
 	});
 
 describe('toInvoiceModel form inputs', () => {

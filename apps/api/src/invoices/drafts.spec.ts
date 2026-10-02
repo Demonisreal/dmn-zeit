@@ -92,7 +92,8 @@ describe('toInvoiceModel', () => {
 			lines: [consulting, exempt],
 			client,
 			profile,
-			refersTo: null
+			refersTo: null,
+			cancellation: null
 		});
 		expect(model.legalNotes).toEqual([legalNoteTexts.de.exempt_reason]);
 	});
@@ -116,7 +117,8 @@ describe('toInvoiceModel', () => {
 			],
 			client,
 			profile,
-			refersTo: null
+			refersTo: null,
+			cancellation: null
 		});
 		expect(model.legalNotes).toEqual([
 			'Umsatzsteuerbefreiung: § 4 Nr. 21 UStG',
@@ -136,7 +138,8 @@ describe('toInvoiceModel', () => {
 			lines: [consulting],
 			client,
 			profile,
-			refersTo: null
+			refersTo: null,
+			cancellation: null
 		});
 		expect(model.legalNotes).toEqual([]);
 	});
@@ -153,7 +156,8 @@ describe('tax check of a draft (§ 14c UStG)', () => {
 			lines,
 			client: { ...client, ...over.client },
 			profile: seller,
-			refersTo: null
+			refersTo: null,
+			cancellation: null
 		}).blockers;
 
 	const travel: InvoiceLineRowDb = {

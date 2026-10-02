@@ -288,8 +288,9 @@ export function toInvoiceModel(ctx: {
 	client: ClientRowForInvoice;
 	profile: BillingProfile;
 	refersTo: Invoice['refersTo'];
+	cancellation: Invoice['cancellation'];
 }): Invoice {
-	const { invoice, lines, client, profile, refersTo } = ctx;
+	const { invoice, lines, client, profile, refersTo, cancellation } = ctx;
 	const isDraft = invoice.status === 'draft';
 
 	const totals = invoiceTotals(
@@ -371,6 +372,7 @@ export function toInvoiceModel(ctx: {
 		specimen: invoice.specimen,
 		clientId: invoice.client_id,
 		refersTo,
+		cancellation,
 		number: invoice.number,
 		numberYear: invoice.number_year,
 		numberSeq: invoice.number_seq,

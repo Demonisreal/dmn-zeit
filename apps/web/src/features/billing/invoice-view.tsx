@@ -85,10 +85,16 @@ export function InvoiceView({ invoice }: Props) {
 
 					{invoice.refersTo && (
 						<Notice tone="info">
-							{invoice.kind === 'cancellation'
-								? t('invoiceView.refersToOriginal', { number: invoice.refersTo.number ?? '' })
-								: t('invoiceView.refersToCancellation', { number: invoice.refersTo.number ?? '' })}{' '}
+							{t('invoiceView.refersToOriginal', { number: invoice.refersTo.number ?? '' })}{' '}
 							<Link to="/billing/invoices/$id" params={{ id: invoice.refersTo.id }}>
+								{t('invoiceView.openReference')}
+							</Link>
+						</Notice>
+					)}
+					{invoice.cancellation && (
+						<Notice tone="info">
+							{t('invoiceView.refersToCancellation', { number: invoice.cancellation.number ?? '' })}{' '}
+							<Link to="/billing/invoices/$id" params={{ id: invoice.cancellation.id }}>
 								{t('invoiceView.openReference')}
 							</Link>
 						</Notice>

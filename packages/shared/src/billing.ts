@@ -281,6 +281,7 @@ export const invoiceSchema = z.object({
 	specimen: z.boolean(),
 	clientId: uuidSchema,
 	refersTo: invoiceRefSchema.nullable(),
+	cancellation: invoiceRefSchema.nullable(),
 	number: z.string().nullable(),
 	numberYear: z.int().nullable(),
 	numberSeq: z.int().nullable(),

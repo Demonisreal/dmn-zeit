@@ -49,6 +49,7 @@ export function invoiceFixture(overrides: Partial<Invoice> = {}): Invoice {
 		specimen: false,
 		clientId: '44444444-4444-4444-4444-444444444444',
 		refersTo: null,
+		cancellation: null,
 		number: 'RE-2026-0007',
 		numberYear: 2026,
 		numberSeq: 7,

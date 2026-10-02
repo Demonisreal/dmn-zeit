@@ -83,6 +83,7 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 
 	await expect(page.getByText('storniert', { exact: true })).toBeVisible();
 	await expect(page.getByText('Stornogrund: Leistungszeitraum falsch angegeben.')).toBeVisible();
+	await expect(page.getByText(/Storniert durch Stornorechnung .*\d{4}-\d{4}\./)).toBeVisible();
 
 	await page.getByRole('link', { name: 'Alle Rechnungen' }).click();
 	const rows = page.getByRole('table', { name: 'Rechnungen' }).getByRole('row');

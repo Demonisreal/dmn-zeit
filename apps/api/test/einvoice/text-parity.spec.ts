@@ -148,7 +148,14 @@ function model(
 		buyer: liveBuyer(client),
 		...over
 	});
-	return toInvoiceModel({ invoice, lines: [line], client, profile: seller, refersTo });
+	return toInvoiceModel({
+		invoice,
+		lines: [line],
+		client,
+		profile: seller,
+		refersTo,
+		cancellation: null
+	});
 }
 
 const smallBusiness: BillingProfile = {

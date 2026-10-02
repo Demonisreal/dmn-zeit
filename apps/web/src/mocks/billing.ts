@@ -104,6 +104,7 @@ function invoice(n: number, owner: Client, profile: BillingProfile, rest: Invoic
 		specimen: false,
 		clientId: owner.id,
 		refersTo: null,
+		cancellation: null,
 		number: null,
 		numberYear: null,
 		numberSeq: null,
@@ -1157,7 +1158,7 @@ export const billingHandlers = [
 		replaceInvoice({
 			...found,
 			status: 'cancelled',
-			refersTo: {
+			cancellation: {
 				id: cancellation.id,
 				number: cancellation.number,
 				issueDate: cancellation.issueDate

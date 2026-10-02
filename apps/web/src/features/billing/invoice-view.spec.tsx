@@ -160,6 +160,32 @@ describe('invoice view', () => {
 		).not.toBeInTheDocument();
 	});
 
+	it('links a cancelled invoice to its cancellation invoice', async () => {
+		signInForBilling();
+		const raw = await fetch(issuedUrl).then((res) => res.json());
+		const storno = '1f6a2e4c-8d9b-4a37-a05e-000000000009';
+		server.use(
+			http.get(issuedUrl, () =>
+				HttpResponse.json({
+					...raw,
+					status: 'cancelled',
+					cancellation: { id: storno, number: 'RE-2026-0009', issueDate: '2026-09-20' }
+				})
+			)
+		);
+		renderApp(`/billing/invoices/${invoiceIds.brinkmannIssued}`);
+
+		expect(
+			await screen.findByText(/Storniert durch Stornorechnung RE-2026-0009\./)
+		).toBeInTheDocument();
+		expect(screen.getByRole('link', { name: 'Anzeigen' })).toHaveAttribute(
+			'href',
+			`/billing/invoices/${storno}`
+		);
+		expect(screen.queryByText(/Stornorechnung zu/)).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Stornieren' })).not.toBeInTheDocument();
+	});
+
 	it('requires a reason of at least 10 characters before a cancellation invoice can be issued', async () => {
 		signInForBilling();
 		renderApp(`/billing/invoices/${invoiceIds.brinkmannIssued}`);
@@ -175,6 +201,7 @@ describe('invoice view', () => {
 		await userEvent.click(confirm);
 
 		expect(await screen.findByText('storniert')).toBeInTheDocument();
+		expect(screen.getByText(/Storniert durch Stornorechnung RE-\d{4}-\d{4}\./)).toBeInTheDocument();
 		expect(screen.getByRole('link', { name: 'Anzeigen' })).toBeInTheDocument();
 	});
 });
