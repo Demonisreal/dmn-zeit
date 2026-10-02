@@ -1,30 +1,16 @@
-.newButton {
-	display: inline-flex;
-	align-items: center;
-	min-height: 2.5rem;
-	padding: 0 1rem;
-	border-radius: 6px;
-	background: var(--red);
-	color: var(--white);
-	font: 600 0.9375rem/1.2 var(--sans);
+.number {
 	white-space: nowrap;
-	text-decoration: none;
 }
 
-.newButton:hover {
-	background: color-mix(in srgb, var(--red) 86%, #000);
-}
-
-.newButton:focus-visible {
-	outline: 2px solid var(--white);
-	outline-offset: 3px;
-}
-
-.due {
+.status {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.375rem;
-	white-space: nowrap;
+	gap: 0.25rem 0.375rem;
+}
+
+.struck {
+	text-decoration: line-through;
 }
 
 .documents {

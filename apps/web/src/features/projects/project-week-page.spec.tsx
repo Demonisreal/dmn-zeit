@@ -103,4 +103,50 @@ describe('project week', () => {
 		);
 		expect(screen.queryByRole('group', { name: 'Projekt-Timer' })).not.toBeInTheDocument();
 	});
+
+	it('lets a narrow screen pick the day it shows, starting with today', async () => {
+		signInForProjects();
+		renderApp('/projects');
+		const table = await matrix();
+
+		const days = screen.getByRole('radiogroup', { name: 'Tag' });
+		expect(within(days).getAllByRole('radio')).toHaveLength(7);
+		expect(within(days).getByRole('radio', { name: 'Donnerstag, 24. September' })).toBeChecked();
+		const thursday = within(table).getByRole('columnheader', { name: /Do\.?\s*24\.09\./ });
+		const monday = within(table).getByRole('columnheader', { name: /Mo\.?\s*21\.09\./ });
+		expect(thursday).not.toHaveAttribute('data-priority');
+		expect(monday).toHaveAttribute('data-priority', 'mid');
+
+		await userEvent.click(within(days).getByRole('radio', { name: 'Montag, 21. September' }));
+		expect(monday).not.toHaveAttribute('data-priority');
+		expect(thursday).toHaveAttribute('data-priority', 'mid');
+	});
+
+	it('names the lock of invoiced cells and shows no amount for unbillable time', async () => {
+		signInForProjects();
+		renderApp('/projects?week=2026-08-31');
+		const table = await screen.findByRole('table', { name: 'Projektzeit KW 36' });
+
+		expect(screen.getByText('Gesperrt:')).toBeInTheDocument();
+		expect(
+			within(table).getAllByRole('button', { name: /, abgerechnet, Herleitung$/ }).length
+		).toBeGreaterThan(0);
+
+		const firstTalk = rowOf(table, 'Erstgespräch Betriebsübergabe');
+		expect(within(firstTalk).queryByText('0,00 €')).not.toBeInTheDocument();
+		expect(within(firstTalk).getByTitle('nicht abrechenbar')).toBeInTheDocument();
+	});
+
+	it('leads from unbilled time straight to a new invoice for the client', async () => {
+		signInForProjects();
+		renderApp('/projects');
+		await matrix();
+
+		const unbilled = screen.getByRole('region', { name: 'Nicht abgerechnet' });
+		const [link] = within(unbilled).getAllByRole('link', { name: /^Rechnung für .+ erstellen$/ });
+		expect(link).toHaveAttribute(
+			'href',
+			expect.stringMatching(/^\/billing\/invoices\/new\?client=/)
+		);
+	});
 });

@@ -19,3 +19,18 @@
 	margin-bottom: 0.5rem;
 	font-size: 1rem;
 }
+
+.figure {
+	min-width: 7rem;
+	justify-self: start;
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+}
+
+.gross {
+	font-weight: 600;
+}
+
+.struck {
+	text-decoration: line-through;
+}

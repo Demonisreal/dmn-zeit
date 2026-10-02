@@ -21,7 +21,13 @@ export function InvoicePage({ id, role }: Props) {
 	} else if (!invoice.data) {
 		body = <Loading rows={8} />;
 	} else if (invoice.data.status === 'draft') {
-		body = <InvoiceEditor invoice={invoice.data} role={role} previewKey={invoice.dataUpdatedAt} />;
+		body = (
+			<InvoiceEditor
+				invoice={invoice.data}
+				role={role}
+				previewKey={`${invoice.data.updatedAt}|${JSON.stringify(invoice.data.lines)}`}
+			/>
+		);
 	} else {
 		body = <InvoiceView invoice={invoice.data} />;
 	}

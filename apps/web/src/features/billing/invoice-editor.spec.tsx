@@ -18,9 +18,19 @@ describe('invoice editor', () => {
 		signInForBilling();
 		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
 
-		expect(await screen.findByRole('heading', { name: 'Praxis Dr. Yilmaz (Beispiel)' })).toBeInTheDocument();
+		expect(
+			await screen.findByRole('heading', { name: 'Praxis Dr. Yilmaz (Beispiel)' })
+		).toBeInTheDocument();
 		expect(screen.getByText('Noch keine Positionen für diesen Zeitraum.')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+		const issue = screen.getByRole('button', { name: 'Ausstellen' });
+		expect(issue).toBeDisabled();
+		expect(issue).toHaveAccessibleDescription(
+			'Ohne Position lässt sich die Rechnung nicht ausstellen.'
+		);
+		expect(
+			screen.getByText('Ohne Position lässt sich die Rechnung nicht ausstellen.')
+		).toBeVisible();
+		expect(screen.getByRole('button', { name: 'Zeiten neu einlesen' })).toBeInTheDocument();
 	});
 
 	it('adds a free position and totals it into the issue confirmation', async () => {
@@ -45,7 +55,11 @@ describe('invoice editor', () => {
 
 		const dialog = await screen.findByRole('alertdialog', { name: 'Rechnung ausstellen' });
 		expect(within(dialog).getByText('119,00 €')).toBeInTheDocument();
-		expect(within(dialog).getByText('Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.')).toBeInTheDocument();
+		expect(
+			within(dialog).getByText(
+				'Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.'
+			)
+		).toBeInTheDocument();
 		expect(within(dialog).getByRole('radio', { name: 'PDF' })).toBeChecked();
 	});
 
@@ -151,6 +165,7 @@ describe('invoice editor', () => {
 	it.each([
 		['seller_address_incomplete', /fehlen Straße, PLZ oder Ort des Rechnungsstellers/],
 		['tax_profile_mismatch', /Steuerprofil der Rechnung weicht/],
+		['tax_treatment_stale', /steuerliche Behandlung der Rechnung passt nicht mehr/],
 		['tax_category_mismatch', /Steuerkategorie, die zu dieser Rechnung nicht passt/],
 		['tax_rate_mismatch', /Steuersatz einer Position weicht/],
 		['total_negative', /Rechnungssumme ist negativ/],
@@ -168,6 +183,37 @@ describe('invoice editor', () => {
 
 		expect(await screen.findByText(text)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+	});
+
+	it('points a stale tax treatment to reloading the booked time and a missing VAT ID to the client', async () => {
+		signInForBilling();
+		await addHostingLine(invoiceIds.yilmazDraft);
+		const raw = await fetch(draftUrl).then((res) => res.json());
+		let refreshed = 0;
+		server.use(
+			http.get(draftUrl, () =>
+				HttpResponse.json({
+					...raw,
+					format: 'zugferd',
+					blockers: ['tax_treatment_stale', 'buyer_vat_id_missing']
+				})
+			),
+			http.post(`${draftUrl}/refresh`, () => {
+				refreshed += 1;
+				return HttpResponse.json(raw);
+			})
+		);
+		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
+
+		const stale = (await screen.findByText(/steuerliche Behandlung/)).closest('li')!;
+		const vatId = screen.getByText(/Für Reverse Charge fehlt/).closest('li')!;
+		expect(within(vatId).getByRole('link', { name: 'Kunde' })).toHaveAttribute(
+			'href',
+			`/billing/clients/${raw.clientId}`
+		);
+		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
+		await userEvent.click(within(stale).getByRole('button', { name: 'Zeiten neu einlesen' }));
+		await waitFor(() => expect(refreshed).toBe(1));
 	});
 
 	it('lets an XRechnung up to 250 € without the client address go out as PDF', async () => {
@@ -443,7 +489,9 @@ describe('invoice editor', () => {
 		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
 
 		expect(
-			await screen.findByText('In den Rechnungsangaben des Rechnungsstellers fehlt die Steuernummer.')
+			await screen.findByText(
+				'In den Rechnungsangaben des Rechnungsstellers fehlt die Steuernummer.'
+			)
 		).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Ausstellen' })).toBeDisabled();
 	});

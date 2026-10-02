@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import type { ProjectWeek } from '@zeit/shared';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,15 @@ export function Unbilled({ unbilled }: Props) {
 				<ul className={styles.list}>
 					{unbilled.map((client) => (
 						<li key={client.clientId}>
-							<span className={styles.name}>{client.clientName}</span>
+							<span className={styles.name}>
+								<Link
+									to="/billing/invoices/new"
+									search={{ client: client.clientId }}
+									aria-label={t('unbilled.invoice', { client: client.clientName })}
+								>
+									{client.clientName}
+								</Link>
+							</span>
 							<span className={styles.figure}>{formatMinutes(client.minutes)}</span>
 							{client.amountCents !== null && (
 								<span className={styles.figure}>{formatCents(client.amountCents, lng)}</span>

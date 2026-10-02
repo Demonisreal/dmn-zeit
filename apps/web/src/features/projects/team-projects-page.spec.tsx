@@ -19,6 +19,22 @@ describe('team project time', () => {
 		const week = await screen.findByRole('table', { name: 'Projektzeit Katrin Hölscher KW 39' });
 		expect(within(week).queryByRole('columnheader', { name: 'Betrag' })).not.toBeInTheDocument();
 		expect(within(week).getByRole('rowheader', { name: 'Abgleich' })).toBeInTheDocument();
+		expect(screen.getByRole('heading', { level: 2, name: 'Katrin Hölscher' })).toHaveFocus();
+	});
+
+	it('steps back to the current week', async () => {
+		signInForProjects('company', 'team_lead');
+		renderApp('/team/projects');
+		await screen.findByRole('table', { name: 'Projektzeit im Team KW 39' });
+		expect(screen.queryByRole('button', { name: 'Diese Woche' })).not.toBeInTheDocument();
+
+		await userEvent.click(screen.getByRole('button', { name: 'Vorherige Woche' }));
+		await screen.findByRole('table', { name: 'Projektzeit im Team KW 38' });
+		await userEvent.click(screen.getByRole('button', { name: 'Diese Woche' }));
+
+		expect(
+			await screen.findByRole('table', { name: 'Projektzeit im Team KW 39' })
+		).toBeInTheDocument();
 	});
 
 	it('keeps employees out', async () => {

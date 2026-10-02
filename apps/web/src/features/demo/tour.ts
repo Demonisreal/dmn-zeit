@@ -7,7 +7,7 @@ export type TourStep = (typeof tourSteps)[number];
 
 export const stepsIn: Record<WorkspaceKind, readonly TourStep[]> = {
 	company: companySteps,
-	solo: tourSteps
+	solo: ['invoice']
 };
 
 const stepKey = (step: TourStep) => `zeit.demo.${step}`;
@@ -41,8 +41,12 @@ export function resetTour() {
 	store(foldKey, null);
 }
 
-export const isTourOpen = () => read(foldKey) !== 'closed';
-export const keepTourOpen = (open: boolean) => store(foldKey, open ? null : 'closed');
+export function isTourOpen() {
+	const kept = read(foldKey);
+	return kept === null ? !window.matchMedia('(max-width: 37.5rem)').matches : kept === 'open';
+}
+
+export const keepTourOpen = (open: boolean) => store(foldKey, open ? 'open' : 'closed');
 
 const subscribe = (listener: () => void) => {
 	listeners.add(listener);

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { invoiceStatuses, type InvoiceStatus, type Role } from '@zeit/shared';
 import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
+import { ButtonLink } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Page, PageHead } from '../../components/ui/page-shell';
 import { SelectField } from '../../components/ui/select-field';
@@ -18,7 +19,12 @@ import css from './invoices-page.module.css';
 
 const all = 'all';
 
-const tones = { draft: 'pending', issued: 'neutral', paid: 'success', cancelled: 'neutral' } as const;
+const tones = {
+	draft: 'pending',
+	issued: 'neutral',
+	paid: 'success',
+	cancelled: 'neutral'
+} as const;
 
 type Props = {
 	role: Role;
@@ -45,9 +51,9 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 				title={t(hasFilter ? 'invoicesList.noMatch' : 'invoicesList.empty.title')}
 				action={
 					!hasFilter && (
-						<Link to="/billing/invoices/new" className={css.newButton}>
+						<ButtonLink to="/billing/invoices/new" variant="primary">
 							{t('invoicesList.new')}
-						</Link>
+						</ButtonLink>
 					)
 				}
 			>
@@ -80,7 +86,7 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 					<tbody>
 						{items.map((invoice) => (
 							<tr key={invoice.id}>
-								<td className={styles.mono}>
+								<td className={`${styles.mono} ${css.number}`}>
 									<Link to="/billing/invoices/$id" params={{ id: invoice.id }}>
 										{invoice.number ?? t('invoicesList.draftNumber')}
 									</Link>
@@ -89,19 +95,21 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 								<td className={styles.mono} data-priority="mid">
 									{invoice.issueDate ? formatDate(invoice.issueDate, i18n.language) : '–'}
 								</td>
-								<td data-priority="mid">
-									<span className={css.due}>
-										<span className={styles.mono}>
-											{invoice.dueDate ? formatDate(invoice.dueDate, i18n.language) : '–'}
-										</span>
-										{invoice.overdue && <Tag tone="warning">{t('invoicesList.overdue')}</Tag>}
-									</span>
+								<td className={styles.mono} data-priority="mid">
+									{invoice.dueDate ? formatDate(invoice.dueDate, i18n.language) : '–'}
 								</td>
 								<td className={styles.mono} data-numeric>
 									{formatCents(invoice.grossCents, i18n.language)}
 								</td>
 								<td>
-									<Tag tone={tones[invoice.status]}>{t(`invoicesList.statuses.${invoice.status}`)}</Tag>
+									<span className={css.status}>
+										<Tag tone={tones[invoice.status]}>
+											<span className={invoice.status === 'cancelled' ? css.struck : undefined}>
+												{t(`invoicesList.statuses.${invoice.status}`)}
+											</span>
+										</Tag>
+										{invoice.overdue && <Tag tone="warning">{t('invoicesList.overdue')}</Tag>}
+									</span>
 								</td>
 								<td className={css.documents} data-priority="mid">
 									{invoice.number && (
@@ -141,9 +149,9 @@ export function InvoicesPage({ role, filter, onFilter }: Props) {
 						<p className={styles.lead}>{t('invoicesList.lead')}</p>
 					</div>
 					{!firstRun && (
-						<Link to="/billing/invoices/new" className={css.newButton}>
+						<ButtonLink to="/billing/invoices/new" variant="primary">
 							{t('invoicesList.new')}
-						</Link>
+						</ButtonLink>
 					)}
 				</PageHead>
 

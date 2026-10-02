@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { Client, Role } from '@zeit/shared';
+import { hasRole, type Client, type Role } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '../../components/ui/button';
+import { Button, ButtonLink } from '../../components/ui/button';
 import { Notice } from '../../components/ui/notice';
 import { Page, PageHead } from '../../components/ui/page-shell';
 import { Loading, LoadError } from '../../components/ui/states';
@@ -11,6 +11,7 @@ import { Tag } from '../../components/ui/tag';
 import styles from '../hr/ui/page.module.css';
 import { clientQuery } from './api';
 import { BillingNav } from './billing-nav';
+import { ClientActions } from './client-actions';
 import { ClientForm } from './client-form';
 import css from './client-page.module.css';
 import { ClientProjects } from './client-projects';
@@ -52,10 +53,20 @@ export function ClientPage({ id, solo, role }: Props) {
 							<p className={styles.lead}>{t('client.lead', { number: current.number })}</p>
 						)}
 					</div>
-					{!editing && !current.restrictedAt && (
-						<Button variant="secondary" autoFocus={closed} onPress={() => setEditing(true)}>
-							{t('client.edit')}
-						</Button>
+					{!current.restrictedAt && (
+						<div className={styles.actions}>
+							{!current.archivedAt && (
+								<ButtonLink to="/billing/invoices/new" search={{ client: current.id }}>
+									{t('client.newInvoice')}
+								</ButtonLink>
+							)}
+							{!editing && (
+								<Button variant="secondary" autoFocus={closed} onPress={() => setEditing(true)}>
+									{t('client.edit')}
+								</Button>
+							)}
+							<ClientActions client={current} canDelete={hasRole(role, 'admin')} />
+						</div>
 					)}
 				</PageHead>
 
@@ -93,12 +104,13 @@ export function ClientPage({ id, solo, role }: Props) {
 }
 
 function ClientFacts({ client }: { client: Client }) {
-	const { t } = useTranslation('billing');
+	const { t, i18n } = useTranslation('billing');
 	const roundingText = useRoundingText(t('inheritGeneral'));
 	const address = [
 		client.street,
 		[client.postalCode, client.city].filter(Boolean).join(' '),
-		client.countryCode
+		client.countryCode &&
+			new Intl.DisplayNames([i18n.language], { type: 'region' }).of(client.countryCode)
 	]
 		.filter(Boolean)
 		.join('\n');

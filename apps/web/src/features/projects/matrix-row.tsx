@@ -12,7 +12,7 @@ import { RowDetail } from './row-detail';
 type Props = {
 	group: ProjectGroup;
 	days: string[];
-	today: string;
+	day: string;
 	columns: number;
 	withAmount: boolean;
 	employeeId: string;
@@ -26,7 +26,7 @@ type Props = {
 export function ProjectRows({
 	group,
 	days,
-	today,
+	day,
 	columns,
 	withAmount,
 	employeeId,
@@ -38,7 +38,20 @@ export function ProjectRows({
 }: Props) {
 	const { t, i18n } = useTranslation('projects');
 	const lng = i18n.language;
-	const priority = (date: string) => (date === today ? undefined : 'mid');
+	const priority = (date: string) => (date === day ? undefined : 'mid');
+	const blank = (
+		<span className={styles.blank} aria-hidden="true">
+			–
+		</span>
+	);
+	const amount = (cents: string | null, billable: boolean) =>
+		billable ? (
+			cents !== null && formatCents(cents, lng)
+		) : (
+			<span className={styles.unbilled} title={t('detail.notBillable')}>
+				–<VisuallyHidden elementType="span">{t('detail.notBillable')}</VisuallyHidden>
+			</span>
+		);
 	const detailId = (key: string) => `matrix-${key}`;
 
 	const cellButton = (line: Line, target: string, minutes: number, cell?: ProjectWeekCell) => {
@@ -70,15 +83,14 @@ export function ProjectRows({
 				const cell = line.cells.get(date);
 				return (
 					<td key={date} data-numeric data-priority={priority(date)}>
-						{cell && cellButton(line, date, cell.roundedMinutes, cell)}
+						{cell ? cellButton(line, date, cell.roundedMinutes, cell) : blank}
 					</td>
 				);
 			})}
 			<td data-numeric>{cellButton(line, 'week', line.row.rowTotal.roundedMinutes)}</td>
 			{withAmount && (
 				<td data-numeric data-priority="wide">
-					{line.row.rowTotal.amountCents !== null &&
-						formatCents(line.row.rowTotal.amountCents, lng)}
+					{amount(line.row.rowTotal.amountCents, line.billable)}
 				</td>
 			)}
 		</>
@@ -148,13 +160,16 @@ export function ProjectRows({
 				</th>
 				{days.map((date) => (
 					<td key={date} data-numeric data-priority={priority(date)}>
-						{group.days.has(date) && formatMinutes(group.days.get(date)!)}
+						{group.days.has(date) ? formatMinutes(group.days.get(date)!) : blank}
 					</td>
 				))}
 				<td data-numeric>{formatMinutes(group.total)}</td>
 				{withAmount && (
 					<td data-numeric data-priority="wide">
-						{group.amountCents !== null && formatCents(group.amountCents, lng)}
+						{amount(
+							group.amountCents,
+							group.lines.some((line) => line.billable)
+						)}
 					</td>
 				)}
 			</tr>

@@ -15,7 +15,7 @@ import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
 import dialogCss from '../../components/ui/dialog.module.css';
 import { Notice } from '../../components/ui/notice';
-import { formatCents } from '../../i18n/format';
+import { formatCents, formatDate } from '../../i18n/format';
 import { sessionQuery } from '../../lib/api/auth';
 import { markTourStep } from '../demo/tour';
 import { useErrorText } from '../hr/error-text';
@@ -90,9 +90,15 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 					<Dialog role="alertdialog" aria-modal="true" className={dialog.dialog}>
 						<Heading slot="title">{t('invoiceEditor.issueTitle')}</Heading>
 						<div className={dialog.body}>
+							<p>{t('invoiceEditor.issueWarning')}</p>
 							<dl className={styles.facts}>
 								<dt>{t('invoicesList.client')}</dt>
 								<dd>{invoice.buyer.name}</dd>
+								<dt>{t('invoiceEditor.servicePeriod')}</dt>
+								<dd className={styles.mono}>
+									{formatDate(invoice.serviceFrom, i18n.language)} –{' '}
+									{formatDate(invoice.serviceTo, i18n.language)}
+								</dd>
 								<dt>{t('invoicesList.amount')}</dt>
 								<dd className={styles.mono}>
 									{formatCents(invoice.totals.grossCents, i18n.language)}
@@ -141,7 +147,6 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 									</ul>
 								</Notice>
 							)}
-							<p>{t('invoiceEditor.issueWarning')}</p>
 						</div>
 						{issue.error && !refused && <Notice tone="error">{errorText(issue.error)}</Notice>}
 						<div className={dialog.actions}>
@@ -151,7 +156,10 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 							<Button
 								variant="primary"
 								isPending={issue.isPending}
-								onPress={() => issue.mutate(undefined, { onError: reauth.onError(() => issue.mutate()) })}
+								isDisabled={blockers.length > 0 && !refused}
+								onPress={() =>
+									issue.mutate(undefined, { onError: reauth.onError(() => issue.mutate()) })
+								}
 								{...(blockers.length > 0 ? { 'aria-describedby': 'issue-blockers' } : {})}
 							>
 								{t('invoiceEditor.issueConfirm')}

@@ -15,16 +15,17 @@ export function DemoBanner({ session }: Props) {
 	if (session.mode !== 'demo') return null;
 
 	const { expiresAt } = session.tenant;
+	const solo = session.tenant.workspace === 'solo';
 	return (
 		<div className={styles.banner}>
 			<Tag>{t('banner.tag')}</Tag>
 			<span>
 				{expiresAt
-					? t('banner.until', {
+					? t(solo ? 'banner.untilSolo' : 'banner.until', {
 							day: formatInstant(expiresAt, i18n.language, { day: 'numeric', month: 'long' }),
 							time: formatTime(expiresAt, i18n.language)
 						})
-					: t('banner.soon')}
+					: t(solo ? 'banner.soonSolo' : 'banner.soon')}
 			</span>
 			<Link to="/demo/outbox">{t('banner.outbox')}</Link>
 			{expiresAt && (

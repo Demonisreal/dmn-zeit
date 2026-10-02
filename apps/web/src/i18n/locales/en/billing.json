@@ -18,7 +18,7 @@
 	"inheritClient": "same as the client",
 	"preview": {
 		"frameTitle": "PDF preview of the invoice",
-		"downloadLink": "Download the invoice as a PDF"
+		"open": "Open the PDF in a new tab"
 	},
 	"rounding": {
 		"title": "Rounding",
@@ -58,6 +58,7 @@
 		"back": "All clients",
 		"lead": "Client number {{number}}",
 		"edit": "Edit client details",
+		"newInvoice": "Create invoice",
 		"editTitle": "Client details",
 		"restrictedText": "Locked under Art. 18 DSGVO (GDPR): the details stay in the records, the client can no longer be chosen anywhere.",
 		"name": "Name",
@@ -117,6 +118,7 @@
 		"openToAll": "Open to everyone",
 		"openHint": "Everyone with a personnel record can book on the project.",
 		"closedHint": "Only the members and HR can book on the project.",
+		"saved": "Saved, applies right away.",
 		"none": "No members yet.",
 		"edit": "Choose members",
 		"choose": "Members of {{name}}",
@@ -234,6 +236,7 @@
 	"settings": {
 		"title": "Invoicing profile",
 		"lead": "Address, tax details and defaults for every invoice.",
+		"saved": "Saved.",
 		"sandboxHint": "In the demo only the tax profile and the previous year's revenue can be changed, the other details stay fixed.",
 		"sandboxRefused": "Cannot be changed in the demo: {{fields}}. Only the tax profile and the previous year's revenue can be changed here.",
 		"legalName": "Legal name",
@@ -273,7 +276,7 @@
 		"back": "All invoices",
 		"draftLead": "Draft. Line items and period can still be changed.",
 		"positions": "Line items",
-		"refresh": "Refresh",
+		"refresh": "Reload booked time",
 		"noLines": "No line items for this period yet.",
 		"addItem": "Add line item",
 		"itemDescription": "Description",
@@ -326,6 +329,8 @@
 			"buyer_endpoint_missing": "For XRechnung, the client is missing an email address or a Leitweg-ID as electronic address.",
 			"buyer_address_incomplete": "The client is missing a street, postcode or city. Only an invoice up to €250 gross can do without the address, never as XRechnung.",
 			"tax_profile_mismatch": "The invoice's tax profile differs from the current one in the settings. Discard the draft and create it again.",
+			"tax_treatment_stale": "The client's details changed since the draft was created, the invoice's tax treatment no longer fits. “Reload booked time” takes it over again, check added line items afterwards.",
+			"buyer_vat_id_missing": "For reverse charge, the client is missing a VAT ID.",
 			"tax_category_mismatch": "A line item has a tax category that does not fit this invoice. Edit an added line item; for line items from booked time, discard the draft and create it again.",
 			"tax_rate_mismatch": "The tax rate of a line item differs from the rate in force. Save an added line item again; for line items from booked time, discard the draft and create it again.",
 			"total_negative": "The invoice total is negative. Check the line items, an invoice with a negative total cannot be issued.",
@@ -333,7 +338,9 @@
 			"long_timer_entry": "A timer entry ran for 12 hours or more. Confirm that the time is right, or discard the draft and correct the entry."
 		},
 		"issue": "Issue",
+		"issueNeedsLines": "An invoice without line items cannot be issued.",
 		"issueTitle": "Issue invoice",
+		"servicePeriod": "Service period",
 		"issueWarning": "The invoice now gets a number and can no longer be changed afterwards.",
 		"longTimersChecked": "Timer entries of 12 hours or more checked, the time is right",
 		"issueConfirm": "Issue now",
@@ -354,6 +361,11 @@
 		"refersToCancellation": "Cancelled by cancellation invoice {{number}}.",
 		"openReference": "Open",
 		"cancelReason": "Reason for cancellation: {{reason}}",
+		"net": "Net",
+		"vat": "VAT {{rate}}",
+		"vatWith": "VAT {{rate}} ({{category}})",
+		"gross": "Invoice total",
+		"noLines": "No line items.",
 		"downloadPdf": "Download PDF",
 		"downloadXml": "Download XML",
 		"xrechnungHint": "Issued as XRechnung: the XML file is the invoice, the PDF is only a copy for reading.",
@@ -370,7 +382,8 @@
 		"reason": "Reason",
 		"reasonHint": "At least 10 characters, appears in the audit log.",
 		"reasonTooShort": "At least 10 characters",
-		"confirm": "Issue cancellation invoice"
+		"confirm": "Issue cancellation invoice",
+		"keep": "Keep invoice"
 	},
 	"paidDialog": {
 		"title": "Mark invoice {{number}} as paid",

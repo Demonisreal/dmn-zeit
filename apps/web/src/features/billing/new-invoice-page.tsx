@@ -17,6 +17,7 @@ import styles from '../hr/ui/page.module.css';
 import { clientsQuery, createDraft, unbilledQuery } from './api';
 import { BillingNav } from './billing-nav';
 import { issueAt } from './fields';
+import css from './new-invoice-page.module.css';
 
 type Prefill = { client?: string | undefined; from?: string | undefined; to?: string | undefined };
 
@@ -70,9 +71,9 @@ export function NewInvoicePage({ role, prefill }: Props) {
 					</div>
 				</PageHead>
 
-				<div className={styles.panel}>
-					<div className={styles.fields}>
-						<div className={styles.wide}>
+				<div className={`${styles.panel} ${css.panel}`}>
+					<div className={css.fields}>
+						<div className={css.client}>
 							<SelectField
 								label={t('newInvoice.client')}
 								placeholder={t('newInvoice.chooseClient')}
@@ -81,7 +82,7 @@ export function NewInvoicePage({ role, prefill }: Props) {
 								onChange={(key) => setClientId(key === null ? '' : String(key))}
 							/>
 						</div>
-						<div className={styles.range}>
+						<div className={css.range}>
 							<DateInputField label={t('from')} value={from} onChange={setFrom} />
 							<DateInputField label={t('to')} value={to} onChange={setTo} error={rangeProblem} />
 						</div>

@@ -189,7 +189,10 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 		defaultValues: defaults(profile)
 	});
 	const taxProfile = useWatch({ control, name: 'taxProfile' });
-	const revenue = useQuery({ ...revenueQuery(currentYear()), enabled: taxProfile === 'small_business' });
+	const revenue = useQuery({
+		...revenueQuery(currentYear()),
+		enabled: taxProfile === 'small_business'
+	});
 
 	const save = useMutation({
 		mutationFn: (input: z.output<typeof schema>) => updateBillingProfile(input),
@@ -212,7 +215,7 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 			<Page>
 				<PageHead>
 					<div>
-						<h1>{t('settings.title')}</h1>
+						<h1 id="billing-settings">{t('settings.title')}</h1>
 						<p className={styles.lead}>{t('settings.lead')}</p>
 					</div>
 				</PageHead>
@@ -223,7 +226,6 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 					aria-labelledby="billing-settings"
 					onSubmit={handleSubmit(submit)}
 				>
-					<h2 id="billing-settings">{t('settings.title')}</h2>
 					{sandbox && <Notice tone="info">{t('settings.sandboxHint')}</Notice>}
 
 					<div className={styles.fields}>
@@ -424,6 +426,7 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 					</fieldset>
 
 					{refusal && <Notice tone="error">{refusal}</Notice>}
+					{save.isSuccess && <Notice tone="success">{t('settings.saved')}</Notice>}
 					<div className={styles.actions}>
 						<Button type="submit" variant="primary" isPending={save.isPending}>
 							{t('save')}

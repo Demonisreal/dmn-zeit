@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import type { Client } from '@zeit/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +26,7 @@ export function ClientActions({ client, canDelete }: Props) {
 	const { t } = useTranslation('billing');
 	const errorText = useErrorText();
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const reauth = useReauth();
 	const [asking, setAsking] = useState<'archive' | 'delete' | null>(null);
 
@@ -33,7 +35,13 @@ export function ClientActions({ client, canDelete }: Props) {
 		await queryClient.invalidateQueries({ queryKey: ['clients'] });
 	};
 	const archive = useMutation({ mutationFn: () => archiveClient(client.id), onSuccess: done });
-	const remove = useMutation({ mutationFn: () => removeClient(client.id), onSuccess: done });
+	const remove = useMutation({
+		mutationFn: () => removeClient(client.id),
+		onSuccess: async () => {
+			await navigate({ to: '/billing/clients' });
+			await done();
+		}
+	});
 	const pending = asking === 'archive' ? archive : remove;
 
 	const close = () => {

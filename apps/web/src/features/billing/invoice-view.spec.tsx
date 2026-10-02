@@ -23,6 +23,54 @@ describe('invoice view', () => {
 		expect(screen.queryByText(/Als XRechnung ausgestellt/)).not.toBeInTheDocument();
 	});
 
+	it('bridges the net amount and the VAT per rate to the invoice total', async () => {
+		signInForBilling();
+		const raw = await fetch(issuedUrl).then((res) => res.json());
+		const explanation = raw.totals.explanation;
+		server.use(
+			http.get(issuedUrl, () =>
+				HttpResponse.json({
+					...raw,
+					taxProfile: 'regular',
+					taxGroups: [
+						{
+							taxCategory: 'standard',
+							taxRateBp: 1900,
+							netCents: '100000',
+							taxCents: '19000',
+							explanation
+						},
+						{ taxCategory: 'exempt', taxRateBp: 0, netCents: '5000', taxCents: '0', explanation }
+					],
+					totals: { netCents: '105000', taxCents: '19000', grossCents: '124000', explanation }
+				})
+			)
+		);
+		renderApp(`/billing/invoices/${invoiceIds.brinkmannIssued}`);
+
+		const figure = async (label: string) =>
+			(await screen.findByText(label, { selector: 'dt' })).nextElementSibling?.textContent?.replace(
+				/\s/g,
+				' '
+			);
+		expect(await figure('Netto')).toBe('1.050,00 €');
+		expect(await figure('USt 19 %')).toBe('190,00 €');
+		expect(await figure('USt 0 % (Steuerfrei)')).toBe('0,00 €');
+		expect(await figure('Rechnungsbetrag')).toBe('1.240,00 €');
+	});
+
+	it('shows a small business only the invoice total', async () => {
+		signInForBilling();
+		const raw = await fetch(issuedUrl).then((res) => res.json());
+		server.use(
+			http.get(issuedUrl, () => HttpResponse.json({ ...raw, taxProfile: 'small_business' }))
+		);
+		renderApp(`/billing/invoices/${invoiceIds.brinkmannIssued}`);
+
+		expect(await screen.findByText('Rechnungsbetrag', { selector: 'dt' })).toBeInTheDocument();
+		expect(screen.queryByText('Netto', { selector: 'dt' })).not.toBeInTheDocument();
+	});
+
 	it('offers the XML of an XRechnung as the invoice and the PDF as a copy to read', async () => {
 		signInForBilling();
 		const raw = await fetch(issuedUrl).then((res) => res.json());

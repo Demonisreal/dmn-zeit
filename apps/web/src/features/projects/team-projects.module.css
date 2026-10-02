@@ -56,6 +56,10 @@
 	gap: 0.75rem;
 }
 
+.person:focus {
+	outline: none;
+}
+
 @media (pointer: coarse) {
 	.pick {
 		min-height: 2.75rem;

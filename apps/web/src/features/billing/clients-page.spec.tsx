@@ -10,6 +10,12 @@ const clientsTable = () => screen.findByRole('table', { name: 'Kunden' });
 const rowOf = (table: HTMLElement, name: string) =>
 	within(table).getByRole('link', { name }).closest('tr')!;
 
+async function openClient(name: string) {
+	renderApp('/billing/clients');
+	await userEvent.click(within(await clientsTable()).getByRole('link', { name }));
+	await screen.findByRole('heading', { level: 1, name });
+}
+
 describe('clients', () => {
 	it('lists active clients with their projects and shows archived ones on request', async () => {
 		signInForBilling();
@@ -124,25 +130,39 @@ describe('clients', () => {
 		expect(sent).toMatchObject({ buyerReference: '05515000-00012-69' });
 	});
 
-	it('archives a client after asking', async () => {
+	it('keeps the list to names and figures, without row actions', async () => {
 		signInForBilling();
 		renderApp('/billing/clients');
 		const table = await clientsTable();
 
+		expect(within(table).queryByRole('button')).not.toBeInTheDocument();
+	});
+
+	it('archives a client from its page after asking', async () => {
+		signInForBilling();
+		await openClient('Elektro Kaya (Beispiel)');
+		expect(screen.getByRole('link', { name: 'Rechnung erstellen' })).toHaveAttribute(
+			'href',
+			expect.stringMatching(/^\/billing\/invoices\/new\?client=/)
+		);
+
 		await userEvent.click(
-			within(rowOf(table, 'Elektro Kaya (Beispiel)')).getByRole('button', {
-				name: 'Elektro Kaya (Beispiel) archivieren'
-			})
+			screen.getByRole('button', { name: 'Elektro Kaya (Beispiel) archivieren' })
 		);
 		const dialog = screen.getByRole('alertdialog', { name: 'Elektro Kaya (Beispiel) archivieren' });
 		await userEvent.click(within(dialog).getByRole('button', { name: 'Archivieren' }));
 
-		await waitFor(() =>
-			expect(within(table).queryByText('Elektro Kaya (Beispiel)')).not.toBeInTheDocument()
-		);
+		const heading = screen.getByRole('heading', { level: 1 });
+		expect(await within(heading).findByText('archiviert')).toBeInTheDocument();
+		expect(screen.queryByRole('link', { name: 'Rechnung erstellen' })).not.toBeInTheDocument();
+
+		await userEvent.click(screen.getByRole('link', { name: 'Alle Kunden' }));
+		expect(
+			within(await clientsTable()).queryByText('Elektro Kaya (Beispiel)')
+		).not.toBeInTheDocument();
 	});
 
-	it('says why a client with an open draft stays in the list', async () => {
+	it('says why a client with an open draft stays', async () => {
 		server.use(
 			http.post('/api/clients/:id/archive', () =>
 				HttpResponse.json(
@@ -156,13 +176,10 @@ describe('clients', () => {
 			)
 		);
 		signInForBilling();
-		renderApp('/billing/clients');
-		const table = await clientsTable();
+		await openClient('Elektro Kaya (Beispiel)');
 
 		await userEvent.click(
-			within(rowOf(table, 'Elektro Kaya (Beispiel)')).getByRole('button', {
-				name: 'Elektro Kaya (Beispiel) archivieren'
-			})
+			screen.getByRole('button', { name: 'Elektro Kaya (Beispiel) archivieren' })
 		);
 		const dialog = screen.getByRole('alertdialog', { name: 'Elektro Kaya (Beispiel) archivieren' });
 		await userEvent.click(within(dialog).getByRole('button', { name: 'Archivieren' }));
@@ -176,13 +193,15 @@ describe('clients', () => {
 
 	it('offers deleting to the administration only', async () => {
 		signInForBilling('company', 'hr');
-		renderApp('/billing/clients');
-		const table = await clientsTable();
-		expect(within(table).queryByRole('button', { name: /löschen/ })).not.toBeInTheDocument();
-		expect(within(table).getAllByRole('button', { name: /archivieren/ }).length).toBeGreaterThan(0);
+		await openClient('Elektro Kaya (Beispiel)');
+
+		expect(screen.queryByRole('button', { name: /löschen/ })).not.toBeInTheDocument();
+		expect(
+			screen.getByRole('button', { name: 'Elektro Kaya (Beispiel) archivieren' })
+		).toBeInTheDocument();
 	});
 
-	it('asks for the sign-in again before deleting', async () => {
+	it('asks for the sign-in again before deleting and returns to the list', async () => {
 		signInForBilling();
 		server.use(
 			http.delete(
@@ -198,14 +217,9 @@ describe('clients', () => {
 				HttpResponse.json({ reauthUntil: '2026-09-25T12:10:00+02:00' })
 			)
 		);
-		renderApp('/billing/clients');
-		const table = await clientsTable();
+		await openClient('Elektro Kaya (Beispiel)');
 
-		await userEvent.click(
-			within(rowOf(table, 'Elektro Kaya (Beispiel)')).getByRole('button', {
-				name: 'Elektro Kaya (Beispiel) löschen?'
-			})
-		);
+		await userEvent.click(screen.getByRole('button', { name: 'Elektro Kaya (Beispiel) löschen?' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Elektro Kaya (Beispiel) löschen?' });
 		await userEvent.click(within(dialog).getByRole('button', { name: 'Löschen' }));
 
@@ -214,6 +228,7 @@ describe('clients', () => {
 		await userEvent.type(within(reauth).getByLabelText('Code aus der Authenticator-App'), '123456');
 		await userEvent.click(within(reauth).getByRole('button', { name: 'Bestätigen' }));
 
+		const table = await clientsTable();
 		await waitFor(() =>
 			expect(within(table).queryByText('Elektro Kaya (Beispiel)')).not.toBeInTheDocument()
 		);

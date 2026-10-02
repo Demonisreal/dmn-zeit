@@ -2,7 +2,7 @@ import { act, cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Absence, AbsenceStatus, AbsenceType } from '@zeit/shared';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSandbox } from '../../lib/api/demo';
 import { queryClient, sessionKey } from '../../lib/api/query-client';
 import { resetMockDemo } from '../../mocks/demo';
@@ -90,6 +90,8 @@ describe('demo tour', () => {
 		closing(false);
 	});
 
+	afterEach(() => vi.restoreAllMocks());
+
 	it('lists four steps and leaves out what the seed already holds', async () => {
 		answer({
 			mine: () => [
@@ -164,29 +166,69 @@ describe('demo tour', () => {
 		);
 	});
 
-	it('adds the invoice step only to the freelancer tour', async () => {
+	it('keeps the tours of the two workspaces apart', async () => {
 		answer({});
 		await startSandbox();
 		renderApp('/');
 		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 4' })).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				'Rechnungen zeigt der Solo-Bereich: unter „Rolle wechseln“ den Freelancer wählen.'
+			)
+		).toBeInTheDocument();
 
 		await switchTo('Freelancer');
-		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 5' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 1' })).toBeInTheDocument();
+		expect(screen.getByText(/^Erfundener Solo-Bereich, wird am /)).toBeInTheDocument();
 		expect((await steps()).map((step) => step.textContent)).toEqual([
-			'Urlaub beantragen, offen als Beschäftigte',
-			'Antrag genehmigen, offen als Teamleitung',
-			'Ruhezeit nach § 5 im Wochenbuch finden, offen als Beschäftigte',
-			'Monat abschließen, offen als Personalverwaltung',
 			'Rechnung ausstellen, offen als Freelancer'
 		]);
+		expect(screen.getByRole('link', { name: 'Rechnung ausstellen' })).toHaveAttribute(
+			'href',
+			'/billing'
+		);
 
 		act(() => markTourStep('invoice'));
-		expect(await screen.findByRole('button', { name: 'Rundgang 1 von 5' })).toBeInTheDocument();
-		expect((await steps())[4]).toHaveTextContent('Rechnung ausstellen, erledigt');
+		expect(await screen.findByRole('button', { name: 'Rundgang 1 von 1' })).toBeInTheDocument();
+		expect((await steps())[0]).toHaveTextContent('Rechnung ausstellen, erledigt');
 
 		await switchTo('Beschäftigte');
 		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 4' })).toBeInTheDocument();
 		expect(await steps()).toHaveLength(4);
+	});
+
+	it('links the steps the current role can do', async () => {
+		answer({});
+		await startSandbox();
+		renderApp('/');
+
+		const items = await steps();
+		expect(within(items[0]!).getByRole('link', { name: 'Urlaub beantragen' })).toHaveAttribute(
+			'href',
+			'/absences'
+		);
+		expect(within(items[1]!).queryByRole('link')).not.toBeInTheDocument();
+		expect(within(items[2]!).getByRole('link')).toHaveAttribute('href', '/');
+		expect(within(items[3]!).queryByRole('link')).not.toBeInTheDocument();
+	});
+
+	it('starts folded on a narrow screen', async () => {
+		const plain = window.matchMedia('');
+		vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+			...plain,
+			matches: query === '(max-width: 37.5rem)'
+		}));
+		answer({});
+		await startSandbox();
+		renderApp('/');
+
+		expect(await tourToggle()).toHaveAttribute('aria-expanded', 'false');
+		await userEvent.click(await tourToggle());
+		expect(await tourToggle()).toHaveAttribute('aria-expanded', 'true');
+
+		cleanup();
+		renderApp('/');
+		expect(await tourToggle()).toHaveAttribute('aria-expanded', 'true');
 	});
 
 	it('reads the week step straight from session storage too', async () => {

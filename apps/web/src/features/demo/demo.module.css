@@ -105,7 +105,7 @@
 	position: relative;
 	width: 0.875rem;
 	height: 0.875rem;
-	border: 1px solid var(--line);
+	border: 1px solid var(--muted);
 	border-radius: 50%;
 	transition: border-color 150ms ease-out;
 }
@@ -130,6 +130,11 @@
 	color: var(--muted);
 }
 
+.soloHint {
+	flex-basis: 100%;
+	color: var(--muted);
+}
+
 .caret {
 	width: 0.375rem;
 	height: 0.375rem;
@@ -147,33 +152,12 @@
 	border: 1px solid var(--edge);
 	border-radius: 8px;
 	background: var(--card);
-	box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.7);
+	box-shadow: var(--shadow-pop);
 	transform-origin: var(--trigger-anchor-point);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-	.popover[data-entering] {
-		animation: open 150ms var(--ease);
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.popover[data-entering] {
-		animation: fade 150ms ease-out;
-	}
-}
-
-@keyframes open {
-	from {
-		opacity: 0;
-		transform: translateY(-4px) scale(0.97);
-	}
-}
-
-@keyframes fade {
-	from {
-		opacity: 0;
-	}
+.popover[data-entering] {
+	animation: global(pop) var(--open-pop) var(--ease);
 }
 
 .menu {

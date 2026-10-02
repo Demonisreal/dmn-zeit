@@ -87,6 +87,35 @@ describe('issue dialog', () => {
 		expect(sent).toEqual(['xrechnung', 'pdf']);
 	});
 
+	it('warns first, shows the service period and holds back a format with gaps', async () => {
+		signInForBilling();
+		await storedAs({
+			format: 'xrechnung',
+			blockers: ['iban_missing'],
+			serviceFrom: '2026-09-01',
+			serviceTo: '2026-09-24'
+		});
+		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
+
+		const dialog = await openDialog();
+		const warning = within(dialog).getByText(
+			'Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.'
+		);
+		const client = within(dialog).getByText('Kunde');
+		expect(warning.compareDocumentPosition(client) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(within(dialog).getByText('Leistungszeitraum')).toBeInTheDocument();
+		expect(within(dialog).getByText('01.09.2026 – 24.09.2026')).toBeInTheDocument();
+
+		const confirm = within(dialog).getByRole('button', { name: 'Jetzt ausstellen' });
+		expect(
+			within(dialog).getByText('Für XRechnung fehlt in den Einstellungen die IBAN.')
+		).toBeInTheDocument();
+		expect(confirm).toBeDisabled();
+
+		await userEvent.click(within(dialog).getByRole('radio', { name: 'PDF' }));
+		expect(confirm).toBeEnabled();
+	});
+
 	it('asks to confirm a timer of twelve hours and more before the number goes out', async () => {
 		signInForBilling();
 		await storedAs({ hints: ['long_timer_entry'] });
@@ -152,11 +181,11 @@ describe('issue dialog', () => {
 		);
 		await addHostingLine(invoiceIds.yilmazDraft);
 		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
-		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 5' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Rundgang 0 von 1' })).toBeInTheDocument();
 
 		const dialog = await openDialog();
 		await userEvent.click(within(dialog).getByRole('button', { name: 'Jetzt ausstellen' }));
 
-		expect(await screen.findByRole('button', { name: 'Rundgang 1 von 5' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Rundgang 1 von 1' })).toBeInTheDocument();
 	});
 });

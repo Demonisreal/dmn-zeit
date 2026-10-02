@@ -26,7 +26,10 @@ export function AppShell({ session, children }: Props) {
 	const signOut = useSignOut();
 	const close = () => setOpen(false);
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
-	const timer = session.user.employeeId && <TimerChip workspace={session.tenant.workspace} />;
+	const timerPage = session.tenant.workspace === 'solo' ? '/' : '/projects';
+	const timer = session.user.employeeId && pathname !== timerPage && (
+		<TimerChip workspace={session.tenant.workspace} />
+	);
 	const shownPath = useRef(pathname);
 
 	useEffect(() => {

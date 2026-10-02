@@ -4,6 +4,7 @@ export type Line = {
 	key: string;
 	row: ProjectWeekRow;
 	cells: Map<string, ProjectWeekCell>;
+	billable: boolean;
 };
 
 export type ProjectGroup = {
@@ -36,7 +37,8 @@ export function groupRows(week: ProjectWeek, lng: string): ClientGroup[] {
 		const line = {
 			key: lineKey(row),
 			row,
-			cells: new Map(row.cells.map((cell) => [cell.date, cell]))
+			cells: new Map(row.cells.map((cell) => [cell.date, cell])),
+			billable: row.cells.some((cell) => cell.billable)
 		};
 		projects.set(row.project.id, [...(projects.get(row.project.id) ?? []), line]);
 		clients.set(row.project.clientName, projects);

@@ -18,7 +18,7 @@
 	"inheritClient": "wie beim Kunden",
 	"preview": {
 		"frameTitle": "PDF-Vorschau der Rechnung",
-		"downloadLink": "Rechnung als PDF herunterladen"
+		"open": "PDF in neuem Tab öffnen"
 	},
 	"rounding": {
 		"title": "Rundung",
@@ -58,6 +58,7 @@
 		"back": "Alle Kunden",
 		"lead": "Kundennummer {{number}}",
 		"edit": "Stammdaten bearbeiten",
+		"newInvoice": "Rechnung erstellen",
 		"editTitle": "Stammdaten",
 		"restrictedText": "Gesperrt nach Art. 18 DSGVO: Die Angaben bleiben für die Unterlagen erhalten, der Kunde steht nirgends mehr zur Auswahl.",
 		"name": "Name",
@@ -117,6 +118,7 @@
 		"openToAll": "Für alle buchbar",
 		"openHint": "Alle mit Personalstamm können auf das Projekt buchen.",
 		"closedHint": "Nur die Mitglieder und die Personalverwaltung können auf das Projekt buchen.",
+		"saved": "Gespeichert, gilt ab sofort.",
 		"none": "Noch keine Mitglieder.",
 		"edit": "Mitglieder festlegen",
 		"choose": "Mitglieder von {{name}}",
@@ -234,6 +236,7 @@
 	"settings": {
 		"title": "Rechnungssteller",
 		"lead": "Anschrift, Steuerangaben und Voreinstellungen für alle Rechnungen.",
+		"saved": "Gespeichert.",
 		"sandboxHint": "In der Demo lassen sich nur Steuerprofil und Vorjahresumsatz ändern, die übrigen Angaben bleiben fest.",
 		"sandboxRefused": "In der Demo nicht änderbar: {{fields}}. Nur Steuerprofil und Vorjahresumsatz lassen sich hier ändern.",
 		"legalName": "Firmierung",
@@ -273,7 +276,7 @@
 		"back": "Alle Rechnungen",
 		"draftLead": "Entwurf. Positionen und Zeitraum lassen sich noch ändern.",
 		"positions": "Positionen",
-		"refresh": "Aktualisieren",
+		"refresh": "Zeiten neu einlesen",
 		"noLines": "Noch keine Positionen für diesen Zeitraum.",
 		"addItem": "Position hinzufügen",
 		"itemDescription": "Beschreibung",
@@ -326,6 +329,8 @@
 			"buyer_endpoint_missing": "Für XRechnung fehlt beim Kunden eine E-Mail-Adresse oder eine Leitweg-ID als elektronische Anschrift.",
 			"buyer_address_incomplete": "Beim Kunden fehlen Straße, PLZ oder Ort. Nur eine Rechnung bis 250 € brutto kommt ohne Anschrift aus, als XRechnung nicht.",
 			"tax_profile_mismatch": "Das Steuerprofil der Rechnung weicht vom aktuellen Profil in den Einstellungen ab. Entwurf verwerfen und neu anlegen.",
+			"tax_treatment_stale": "Die Angaben des Kunden haben sich seit dem Anlegen geändert, die steuerliche Behandlung der Rechnung passt nicht mehr. „Zeiten neu einlesen“ übernimmt sie neu, hinzugefügte Positionen danach prüfen.",
+			"buyer_vat_id_missing": "Für Reverse Charge fehlt beim Kunden die USt-IdNr.",
 			"tax_category_mismatch": "Eine Position trägt eine Steuerkategorie, die zu dieser Rechnung nicht passt. Eine hinzugefügte Position bearbeiten, bei Positionen aus gebuchter Zeit den Entwurf verwerfen und neu anlegen.",
 			"tax_rate_mismatch": "Der Steuersatz einer Position weicht vom gültigen Satz ab. Eine hinzugefügte Position neu speichern, bei Positionen aus gebuchter Zeit den Entwurf verwerfen und neu anlegen.",
 			"total_negative": "Die Rechnungssumme ist negativ. Positionen prüfen, eine Rechnung mit negativer Summe lässt sich nicht ausstellen.",
@@ -333,7 +338,9 @@
 			"long_timer_entry": "Ein Timer-Eintrag lief 12 Stunden oder länger. Bestätigen, dass die Zeit stimmt, oder den Entwurf verwerfen und den Eintrag korrigieren."
 		},
 		"issue": "Ausstellen",
+		"issueNeedsLines": "Ohne Position lässt sich die Rechnung nicht ausstellen.",
 		"issueTitle": "Rechnung ausstellen",
+		"servicePeriod": "Leistungszeitraum",
 		"issueWarning": "Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.",
 		"longTimersChecked": "Timer-Einträge ab 12 Stunden geprüft, die Zeit stimmt",
 		"issueConfirm": "Jetzt ausstellen",
@@ -354,6 +361,11 @@
 		"refersToCancellation": "Storniert durch Stornorechnung {{number}}.",
 		"openReference": "Anzeigen",
 		"cancelReason": "Stornogrund: {{reason}}",
+		"net": "Netto",
+		"vat": "USt {{rate}}",
+		"vatWith": "USt {{rate}} ({{category}})",
+		"gross": "Rechnungsbetrag",
+		"noLines": "Keine Positionen.",
 		"downloadPdf": "PDF herunterladen",
 		"downloadXml": "XML herunterladen",
 		"xrechnungHint": "Als XRechnung ausgestellt: Die XML-Datei ist die Rechnung, die PDF nur eine Ansicht zum Lesen.",
@@ -370,7 +382,8 @@
 		"reason": "Grund",
 		"reasonHint": "Mindestens 10 Zeichen, erscheint im Protokoll.",
 		"reasonTooShort": "Mindestens 10 Zeichen",
-		"confirm": "Stornorechnung ausstellen"
+		"confirm": "Stornorechnung ausstellen",
+		"keep": "Abbrechen"
 	},
 	"paidDialog": {
 		"title": "Rechnung {{number}} als bezahlt markieren",

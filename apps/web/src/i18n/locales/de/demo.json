@@ -2,7 +2,7 @@
 	"start": {
 		"title": "DMN Zeit ausprobieren",
 		"intro": "Die Demo legt einen eigenen Musterbetrieb an: ein Steuerbüro mit zwölf Personen, Buchungen seit Januar, offenen Anträgen und Befunden nach dem Arbeitszeitgesetz.",
-		"roles": "Die Demo startet in der Rolle Beschäftigte. Über „Rolle wechseln“ geht es ohne Passwort weiter zu Teamleitung, Personalverwaltung und Administration.",
+		"roles": "Die Demo startet in der Rolle Beschäftigte. Über „Rolle wechseln“ geht es ohne Passwort weiter zu Teamleitung, Personalverwaltung und Administration und in den Solo-Bereich eines Freelancers mit Projektzeiten und Rechnungen.",
 		"submit": "Demo starten",
 		"note": "Alle Namen und Zeiten sind erfunden. Der Musterbetrieb wird nach 24 Stunden mit allen Eingaben gelöscht.",
 		"throttled": "Von diesem Anschluss wurden in kurzer Zeit zu viele Demos gestartet.",
@@ -14,7 +14,9 @@
 	"banner": {
 		"tag": "Beispieldaten",
 		"until": "Erfundener Musterbetrieb, wird am {{day}} um {{time}} Uhr gelöscht.",
+		"untilSolo": "Erfundener Solo-Bereich, wird am {{day}} um {{time}} Uhr gelöscht.",
 		"soon": "Erfundener Musterbetrieb, wird nach 24 h gelöscht.",
+		"soonSolo": "Erfundener Solo-Bereich, wird nach 24 h gelöscht.",
 		"outbox": "Postausgang"
 	},
 	"tour": {
@@ -22,6 +24,7 @@
 		"progress": "{{done}} von {{total}}",
 		"done": "erledigt",
 		"open": "offen",
+		"solo": "Rechnungen zeigt der Solo-Bereich: unter „Rolle wechseln“ den Freelancer wählen.",
 		"steps": {
 			"request": "Urlaub beantragen",
 			"approve": "Antrag genehmigen",

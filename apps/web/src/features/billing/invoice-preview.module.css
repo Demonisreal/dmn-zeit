@@ -1,6 +1,5 @@
 .stage {
 	display: grid;
-	justify-items: center;
 	gap: 0.75rem;
 }
 
@@ -40,10 +39,7 @@
 	inset: 0;
 }
 
-.retry {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	color: var(--muted);
+.open {
+	justify-self: center;
 	font-size: 0.875rem;
 }

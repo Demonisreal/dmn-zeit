@@ -90,11 +90,17 @@ const buyerOf = (owner: Client) => ({
 
 type InvoiceRest = Partial<Invoice> & { dueInDays?: number };
 
-function invoice(n: number, owner: Client, profile: BillingProfile, rest: InvoiceRest = {}): Invoice {
+function invoice(
+	n: number,
+	owner: Client,
+	profile: BillingProfile,
+	rest: InvoiceRest = {}
+): Invoice {
 	const { dueInDays, ...fields } = rest;
 	const issueDate = fields.issueDate ?? null;
 	const dueDate =
-		fields.dueDate ?? (issueDate && dueInDays !== undefined
+		fields.dueDate ??
+		(issueDate && dueInDays !== undefined
 			? today('Europe/Berlin').add({ days: dueInDays }).toString()
 			: null);
 	return {
@@ -335,8 +341,20 @@ function companyWorld(): World {
 		],
 		profile,
 		unbilled: [
-			{ clientId: clients[2]!.id, clientName: clients[2]!.name, minutes: 450, amountCents: grossOf(637.5), oldestDay: '2026-08-11' },
-			{ clientId: clients[3]!.id, clientName: clients[3]!.name, minutes: 180, amountCents: null, oldestDay: '2026-09-01' }
+			{
+				clientId: clients[2]!.id,
+				clientName: clients[2]!.name,
+				minutes: 450,
+				amountCents: grossOf(637.5),
+				oldestDay: '2026-08-11'
+			},
+			{
+				clientId: clients[3]!.id,
+				clientName: clients[3]!.name,
+				minutes: 180,
+				amountCents: null,
+				oldestDay: '2026-09-01'
+			}
 		],
 		projects: [
 			project(1, 1, 'Finanzbuchhaltung 2026'),
@@ -614,6 +632,29 @@ const invalid = (error: ZodError) =>
 	);
 
 const done = () => new HttpResponse(null, { status: 204 });
+
+function specimenPdf(title: string) {
+	const text = `BT /F1 18 Tf 72 760 Td (${title.replace(/[^\x20-\x7e]/g, '?').replace(/[()\\]/g, '')}) Tj ET`;
+	const objects = [
+		'<< /Type /Catalog /Pages 2 0 R >>',
+		'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+		'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+		`<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+		'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+	];
+	let body = '%PDF-1.4\n';
+	const offsets = objects.map((object, i) => {
+		const at = body.length;
+		body += `${i + 1} 0 obj\n${object}\nendobj\n`;
+		return at;
+	});
+	const xref = body.length;
+	body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+	body += offsets.map((at) => `${String(at).padStart(10, '0')} 00000 n \n`).join('');
+	body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+	return new HttpResponse(body, { headers: { 'Content-Type': 'application/pdf' } });
+}
+
 const now = () => new Date().toISOString();
 const flag = (url: string, name: string) => new URL(url).searchParams.get(name) === 'true';
 
@@ -642,7 +683,8 @@ const replaceInvoice = (next: Invoice) => {
 	return HttpResponse.json(next);
 };
 
-const rateBpFor = (category: string) => (category === 'standard' ? 1900 : category === 'reduced' ? 700 : 0);
+const rateBpFor = (category: string) =>
+	category === 'standard' ? 1900 : category === 'reduced' ? 700 : 0;
 
 const flipSign = (digits: string) => String(-BigInt(digits));
 
@@ -963,6 +1005,16 @@ export const billingHandlers = [
 		return found ? HttpResponse.json(found) : fail(404, 'NOT_FOUND', 'Invoice not found');
 	}),
 
+	http.get('/api/invoices/:id/preview.pdf', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		return found ? specimenPdf(found.buyer.name) : fail(404, 'NOT_FOUND', 'Invoice not found');
+	}),
+
+	http.get('/api/invoices/:id/document', ({ params }) => {
+		const found = store.invoices.find((inv) => inv.id === params.id);
+		return found?.number ? specimenPdf(found.number) : fail(404, 'NOT_FOUND', 'Invoice not found');
+	}),
+
 	http.patch('/api/invoices/:id', async ({ params, request }) => {
 		const parsed = updateDraftSchema.safeParse(await request.json());
 		if (!parsed.success) return invalid(parsed.error);
@@ -1059,7 +1111,10 @@ export const billingHandlers = [
 						};
 					})();
 		replaceInvoice(
-			recalcTotals({ ...found, lines: found.lines.map((l) => (l.id === nextLine.id ? nextLine : l)) })
+			recalcTotals({
+				...found,
+				lines: found.lines.map((l) => (l.id === nextLine.id ? nextLine : l))
+			})
 		);
 		return HttpResponse.json(nextLine);
 	}),
@@ -1070,7 +1125,9 @@ export const billingHandlers = [
 		if (!found.lines.some((l) => l.id === params.lineId)) {
 			return fail(404, 'NOT_FOUND', 'Invoice line not found');
 		}
-		replaceInvoice(recalcTotals({ ...found, lines: found.lines.filter((l) => l.id !== params.lineId) }));
+		replaceInvoice(
+			recalcTotals({ ...found, lines: found.lines.filter((l) => l.id !== params.lineId) })
+		);
 		return done();
 	}),
 
@@ -1196,7 +1253,9 @@ export const billingHandlers = [
 
 	http.get('/api/billing/unbilled', ({ request }) => {
 		const owner = new URL(request.url).searchParams.get('client');
-		return HttpResponse.json(store.unbilled.filter((row) => owner === null || row.clientId === owner));
+		return HttpResponse.json(
+			store.unbilled.filter((row) => owner === null || row.clientId === owner)
+		);
 	}),
 
 	http.get('/api/billing/revenue', ({ request }) => {

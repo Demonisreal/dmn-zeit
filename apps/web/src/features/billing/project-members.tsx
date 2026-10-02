@@ -77,6 +77,7 @@ export function ProjectMembers({ project }: Props) {
 				</p>
 			</div>
 			{toggle.error && <Notice tone="error">{errorText(toggle.error)}</Notice>}
+			{toggle.isSuccess && <Notice tone="success">{t('members.saved')}</Notice>}
 			{!project.openToAll && list}
 		</section>
 	);

@@ -4,20 +4,22 @@ import { useTranslation } from 'react-i18next';
 import { Tag } from '../../components/ui/tag';
 import { formatMinutes } from '../../i18n/format';
 import styles from './coverage-row.module.css';
+import matrix from './matrix-table.module.css';
 
 type Props = {
 	coverage: DayCoverage[];
 	days: string[];
+	day: string;
 	today: string;
 	withAmount: boolean;
 };
 
 type Measure = 'workedMinutes' | 'unassignedMinutes' | 'outsideMinutes';
 
-export function CoverageRows({ coverage, days, today, withAmount }: Props) {
+export function CoverageRows({ coverage, days, day, today, withAmount }: Props) {
 	const { t } = useTranslation('projects');
 	const byDate = new Map(coverage.map((day) => [day.date, day]));
-	const priority = (date: string) => (date === today ? undefined : 'mid');
+	const priority = (date: string) => (date === day ? undefined : 'mid');
 	const hinted = [...new Set(coverage.flatMap((day) => day.hints))];
 
 	const hint = (code: CoverageHint) => (
@@ -34,7 +36,13 @@ export function CoverageRows({ coverage, days, today, withAmount }: Props) {
 				const minutes = date > today ? 0 : (byDate.get(date)?.[measure] ?? 0);
 				return (
 					<td key={date} data-numeric data-priority={priority(date)}>
-						{minutes > 0 && formatMinutes(minutes)}
+						{minutes > 0 ? (
+							formatMinutes(minutes)
+						) : (
+							<span className={matrix.blank} aria-hidden="true">
+								–
+							</span>
+						)}
 					</td>
 				);
 			})}

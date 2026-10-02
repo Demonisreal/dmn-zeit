@@ -1,5 +1,6 @@
 import { fromAbsolute, parseDate, toCalendarDate } from '@internationalized/date';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { Link, type LinkProps } from '@tanstack/react-router';
 import { hasRole, type Role, type WorkspaceKind } from '@zeit/shared';
 import { useEffect, useState } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
@@ -26,6 +27,14 @@ const doneAs = {
 	close: 'hr',
 	invoice: 'freelancer'
 } as const satisfies Record<TourStep, Role | 'freelancer'>;
+
+const stepPage = {
+	request: '/absences',
+	approve: '/inbox',
+	restFinding: '/',
+	close: '/hr/months',
+	invoice: '/billing'
+} as const satisfies Record<TourStep, LinkProps['to']>;
 
 type Props = {
 	role: Role;
@@ -68,6 +77,8 @@ export function DemoTour({ role, workspace, expiresAt }: Props) {
 	}, [seen.request, seen.approve, seen.close]);
 
 	const done = steps.filter((step) => seen[step] || marks.includes(step));
+	const reachable = (step: TourStep) =>
+		step === 'invoice' ? workspace === 'solo' : hasRole(role, doneAs[step]);
 
 	const toggle = () => {
 		keepTourOpen(!open);
@@ -95,7 +106,11 @@ export function DemoTour({ role, workspace, expiresAt }: Props) {
 						<li key={step} data-done={done.includes(step) || undefined}>
 							<span className={styles.tick} aria-hidden="true" />
 							<span>
-								{t(`tour.steps.${step}`)}
+								{reachable(step) ? (
+									<Link to={stepPage[step]}>{t(`tour.steps.${step}`)}</Link>
+								) : (
+									t(`tour.steps.${step}`)
+								)}
 								<VisuallyHidden>
 									, {t(done.includes(step) ? 'tour.done' : 'tour.open')}
 								</VisuallyHidden>
@@ -105,6 +120,7 @@ export function DemoTour({ role, workspace, expiresAt }: Props) {
 					))}
 				</ol>
 			)}
+			{open && workspace === 'company' && <p className={styles.soloHint}>{t('tour.solo')}</p>}
 		</>
 	);
 }

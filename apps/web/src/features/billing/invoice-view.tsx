@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { Invoice } from '@zeit/shared';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Notice } from '../../components/ui/notice';
 import { PageHead } from '../../components/ui/page-shell';
 import { Tag } from '../../components/ui/tag';
-import { formatCents, formatDate } from '../../i18n/format';
+import { formatCents, formatDate, formatTaxRate } from '../../i18n/format';
 import { todayIso } from '../../lib/dates';
 import { flip } from '../../lib/sets';
 import { useErrorText } from '../hr/error-text';
@@ -20,7 +20,12 @@ import { InvoicePreview } from './invoice-preview';
 import css from './invoice-view.module.css';
 import { PaidDialog } from './paid-dialog';
 
-const tones = { draft: 'pending', issued: 'neutral', paid: 'success', cancelled: 'neutral' } as const;
+const tones = {
+	draft: 'pending',
+	issued: 'neutral',
+	paid: 'success',
+	cancelled: 'neutral'
+} as const;
 
 type Props = {
 	invoice: Invoice;
@@ -42,8 +47,12 @@ export function InvoiceView({ invoice }: Props) {
 
 	const payable = invoice.kind === 'invoice' && invoice.status !== 'cancelled';
 	const overdue =
-		payable && invoice.status === 'issued' && invoice.dueDate !== null && invoice.dueDate < todayIso();
-	const canCancel = (invoice.status === 'issued' || invoice.status === 'paid') && invoice.refersTo === null;
+		payable &&
+		invoice.status === 'issued' &&
+		invoice.dueDate !== null &&
+		invoice.dueDate < todayIso();
+	const canCancel =
+		(invoice.status === 'issued' || invoice.status === 'paid') && invoice.refersTo === null;
 	const xrechnung = invoice.format === 'xrechnung';
 	const hint = xrechnung ? 'invoice-xrechnung-hint' : undefined;
 
@@ -57,7 +66,11 @@ export function InvoiceView({ invoice }: Props) {
 					<h1 className={css.number}>{invoice.number ?? t('invoicesList.draftNumber')}</h1>
 					<p className={styles.lead}>{invoice.buyer.name}</p>
 					<p className={css.tags}>
-						<Tag tone={tones[invoice.status]}>{t(`invoicesList.statuses.${invoice.status}`)}</Tag>
+						<Tag tone={tones[invoice.status]}>
+							<span className={invoice.status === 'cancelled' ? css.struck : undefined}>
+								{t(`invoicesList.statuses.${invoice.status}`)}
+							</span>
+						</Tag>
 						{invoice.kind === 'cancellation' && <Tag>{t('invoiceView.cancellationTag')}</Tag>}
 						{overdue && <Tag tone="warning">{t('invoicesList.overdue')}</Tag>}
 					</p>
@@ -79,8 +92,33 @@ export function InvoiceView({ invoice }: Props) {
 								</dd>
 							</>
 						)}
-						<dt>{t('invoicesList.amount')}</dt>
-						<dd className={styles.mono}>{formatCents(invoice.totals.grossCents, lng)}</dd>
+						{invoice.taxProfile === 'regular' && (
+							<>
+								<dt>{t('invoiceView.net')}</dt>
+								<dd className={`${styles.mono} ${css.figure}`}>
+									{formatCents(invoice.totals.netCents, lng)}
+								</dd>
+								{invoice.taxGroups.map((group) => (
+									<Fragment key={`${group.taxCategory}-${group.taxRateBp}`}>
+										<dt>
+											{group.taxCategory === 'standard' || group.taxCategory === 'reduced'
+												? t('invoiceView.vat', { rate: formatTaxRate(group.taxRateBp, lng) })
+												: t('invoiceView.vatWith', {
+														rate: formatTaxRate(group.taxRateBp, lng),
+														category: t(`invoiceEditor.taxCategories.${group.taxCategory}`)
+													})}
+										</dt>
+										<dd className={`${styles.mono} ${css.figure}`}>
+											{formatCents(group.taxCents, lng)}
+										</dd>
+									</Fragment>
+								))}
+							</>
+						)}
+						<dt>{t('invoiceView.gross')}</dt>
+						<dd className={`${styles.mono} ${css.figure} ${css.gross}`}>
+							{formatCents(invoice.totals.grossCents, lng)}
+						</dd>
 					</dl>
 
 					{invoice.refersTo && (
@@ -122,7 +160,7 @@ export function InvoiceView({ invoice }: Props) {
 
 					<h2 id="invoice-view-lines">{t('invoiceEditor.positions')}</h2>
 					{invoice.lines.length === 0 ? (
-						<p className={`${styles.small} ${styles.muted}`}>{t('invoiceEditor.noLines')}</p>
+						<p className={`${styles.small} ${styles.muted}`}>{t('invoiceView.noLines')}</p>
 					) : (
 						<ul className={lines.list}>
 							{invoice.lines.map((line) => {

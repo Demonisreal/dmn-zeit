@@ -33,7 +33,8 @@ export function CancelDialog({ invoice, onClose }: Props) {
 		mutationFn: (id: string) => cancelInvoice(id, { reason: reason.trim() }),
 		onSuccess: async (cancellation) => {
 			queryClient.setQueryData(invoiceQuery(cancellation.id).queryKey, cancellation);
-			if (invoice) await queryClient.invalidateQueries({ queryKey: invoiceQuery(invoice.id).queryKey });
+			if (invoice)
+				await queryClient.invalidateQueries({ queryKey: invoiceQuery(invoice.id).queryKey });
 			await queryClient.invalidateQueries({ queryKey: ['invoices'] });
 			close();
 			document.getElementById('main')?.focus();
@@ -65,16 +66,18 @@ export function CancelDialog({ invoice, onClose }: Props) {
 								<Heading slot="title">
 									{t('cancelDialog.title', { number: invoice.number ?? '' })}
 								</Heading>
-								<p>{t('cancelDialog.body')}</p>
-								<TextAreaField
-									label={t('cancelDialog.reason')}
-									rows={3}
-									maxLength={1000}
-									value={reason}
-									onChange={setReason}
-									description={t('cancelDialog.reasonHint')}
-									error={tooShort ? t('cancelDialog.reasonTooShort') : undefined}
-								/>
+								<div className={styles.body}>
+									<p>{t('cancelDialog.body')}</p>
+									<TextAreaField
+										label={t('cancelDialog.reason')}
+										rows={3}
+										maxLength={1000}
+										value={reason}
+										onChange={setReason}
+										description={t('cancelDialog.reasonHint')}
+										error={tooShort ? t('cancelDialog.reasonTooShort') : undefined}
+									/>
+								</div>
 								{blockers ? (
 									<Notice tone="error">
 										<ul className={editorCss.blockers}>
@@ -88,7 +91,7 @@ export function CancelDialog({ invoice, onClose }: Props) {
 								)}
 								<div className={styles.actions}>
 									<Button isDisabled={cancel.isPending} onPress={close}>
-										{t('cancel')}
+										{t('cancelDialog.keep')}
 									</Button>
 									<Button
 										variant="primary"

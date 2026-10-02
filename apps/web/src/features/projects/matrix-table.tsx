@@ -1,9 +1,11 @@
 import type { DayCoverage, ProjectWeek } from '@zeit/shared';
 import { useState } from 'react';
+import { Radio, RadioGroup } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Chevron } from '../../components/ui/chevron';
 import { Table } from '../../components/ui/table';
-import { formatCents, formatMinutes } from '../../i18n/format';
+import { Tag } from '../../components/ui/tag';
+import { formatCents, formatDate, formatMinutes } from '../../i18n/format';
 import { todayIso } from '../../lib/dates';
 import { flip } from '../../lib/sets';
 import { addDays, shortDate, weekdayShort } from '../week/dates';
@@ -11,6 +13,8 @@ import { CoverageRows } from './coverage-row';
 import { groupRows } from './matrix-rows';
 import { ProjectRows } from './matrix-row';
 import styles from './matrix-table.module.css';
+
+const segments = styles as Record<'days' | 'day', string>;
 
 type Props = {
 	label: string;
@@ -44,7 +48,13 @@ export function MatrixTable({
 	const [open, setOpen] = useState<string | null>(null);
 	const [expanded, setExpanded] = useState(() => new Set<string>());
 	const [folded, setFolded] = useState(() => new Set<string>());
-	const priority = (date: string) => (date === today ? undefined : 'mid');
+	const [picked, setPicked] = useState<string | null>(null);
+	const day =
+		picked !== null && days.includes(picked) ? picked : days.includes(today) ? today : days[0]!;
+	const priority = (date: string) => (date === day ? undefined : 'mid');
+	const dayMinutes = (date: string) =>
+		week.dayTotals.find((total) => total.date === date)?.roundedMinutes ?? 0;
+	const locked = week.rows.some((row) => row.cells.some((cell) => cell.lock !== 'none'));
 
 	return (
 		<div
@@ -52,6 +62,33 @@ export function MatrixTable({
 			aria-busy={isStale || undefined}
 			data-stale={isStale || undefined}
 		>
+			<RadioGroup
+				aria-label={t('matrix.day')}
+				orientation="horizontal"
+				value={day}
+				onChange={setPicked}
+				className={segments.days}
+			>
+				{days.map((date) => (
+					<Radio
+						key={date}
+						value={date}
+						aria-label={formatDate(date, lng, {
+							weekday: 'long',
+							day: 'numeric',
+							month: 'long',
+							year: undefined
+						})}
+						className={segments.day}
+						data-today={date === today || undefined}
+					>
+						<span>{weekdayShort(date, lng)}</span>
+						<span className={styles.dayMinutes}>
+							{dayMinutes(date) > 0 ? formatMinutes(dayMinutes(date)) : '–'}
+						</span>
+					</Radio>
+				))}
+			</RadioGroup>
 			<Table label={label}>
 				<thead>
 					<tr>
@@ -116,7 +153,7 @@ export function MatrixTable({
 											key={group.id}
 											group={group}
 											days={days}
-											today={today}
+											day={day}
 											columns={columns}
 											withAmount={withAmount}
 											employeeId={employeeId}
@@ -136,14 +173,17 @@ export function MatrixTable({
 						<th scope="row" className={styles.sumLabel}>
 							{t('week:total')}
 						</th>
-						{days.map((date) => {
-							const minutes = week.dayTotals.find((day) => day.date === date)?.roundedMinutes ?? 0;
-							return (
-								<td key={date} data-numeric data-priority={priority(date)}>
-									{minutes > 0 && formatMinutes(minutes)}
-								</td>
-							);
-						})}
+						{days.map((date) => (
+							<td key={date} data-numeric data-priority={priority(date)}>
+								{dayMinutes(date) > 0 ? (
+									formatMinutes(dayMinutes(date))
+								) : (
+									<span className={styles.blank} aria-hidden="true">
+										–
+									</span>
+								)}
+							</td>
+						))}
 						<td data-numeric>{formatMinutes(week.weekTotal.roundedMinutes)}</td>
 						{withAmount && (
 							<td data-numeric data-priority="wide">
@@ -152,10 +192,22 @@ export function MatrixTable({
 						)}
 					</tr>
 					{coverage && (
-						<CoverageRows coverage={coverage} days={days} today={today} withAmount={withAmount} />
+						<CoverageRows
+							coverage={coverage}
+							days={days}
+							day={day}
+							today={today}
+							withAmount={withAmount}
+						/>
 					)}
 				</tfoot>
 			</Table>
+			{locked && (
+				<p className={styles.locks}>
+					{t('cell.locked')} <Tag tone="pending">{t('cell.lock.draft')}</Tag>{' '}
+					<Tag>{t('cell.lock.issued')}</Tag>
+				</p>
+			)}
 		</div>
 	);
 }

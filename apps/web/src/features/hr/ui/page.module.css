@@ -38,6 +38,10 @@
 	flex: 0 1 12rem;
 }
 
+.filters > .search {
+	flex-basis: 18rem;
+}
+
 .filters > .range {
 	display: flex;
 	flex: 0 1 25rem;

@@ -28,7 +28,7 @@ import {
 	type UpdateTaskInput
 } from '@zeit/shared';
 import { z } from 'zod';
-import { request } from '../../lib/api/client';
+import { request, requestBlob } from '../../lib/api/client';
 import { withSearch } from '../hr/api';
 
 const memberSchema = z.object({ employeeId: uuidSchema, name: z.string() });
@@ -137,6 +137,15 @@ export const invoiceQuery = (id: string) =>
 	queryOptions({
 		queryKey: ['invoices', id],
 		queryFn: () => request(`/invoices/${id}`, { schema: invoiceSchema })
+	});
+
+export const invoicePdfQuery = (path: string, version: string) =>
+	queryOptions({
+		queryKey: ['invoice-pdf', path, version],
+		queryFn: ({ signal }) => requestBlob(path, signal),
+		staleTime: Infinity,
+		gcTime: 0,
+		refetchOnWindowFocus: false
 	});
 
 export const updateDraft = (id: string, input: UpdateDraftInput) =>

@@ -15,6 +15,22 @@ import { resetMockWeek } from '../mocks/week';
 
 // jsdom cannot scroll, the router still resets the scroll position on every navigation
 window.scrollTo = () => {};
+Element.prototype.scrollIntoView = () => {};
+URL.createObjectURL = () => 'blob:pdf';
+URL.revokeObjectURL = () => {};
+
+// jsdom has no media queries, the specs run as a wide screen with a mouse
+window.matchMedia = (query: string) =>
+	({
+		matches: false,
+		media: query,
+		onchange: null,
+		addEventListener: () => {},
+		removeEventListener: () => {},
+		addListener: () => {},
+		removeListener: () => {},
+		dispatchEvent: () => false
+	}) satisfies MediaQueryList;
 
 // with many workers the lazy route chunks load cold, the default 1000ms findBy timeout is too tight
 configure({ asyncUtilTimeout: 3000 });

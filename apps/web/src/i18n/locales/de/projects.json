@@ -22,13 +22,17 @@
 		"tasks_one": "{{count}} Aufgabe",
 		"tasks_other": "{{count}} Aufgaben"
 	},
+	"matrix": {
+		"day": "Tag"
+	},
 	"cell": {
 		"toggle": "Herleitung",
 		"running": "Timer läuft",
 		"lock": {
 			"draft": "im Rechnungsentwurf",
 			"issued": "abgerechnet"
-		}
+		},
+		"locked": "Gesperrt:"
 	},
 	"picker": {
 		"placeholder": "Projekt wählen",
@@ -123,7 +127,8 @@
 		"title": "Nicht abgerechnet",
 		"none": "Alles abgerechnet.",
 		"total": "Gesamt",
-		"hint": "Abrechenbare Zeit bis heute, gerundet, Beträge netto."
+		"invoice": "Rechnung für {{client}} erstellen",
+		"hint": "Abrechenbare Zeit bis heute, gerundet, Beträge netto. Der Kundenname öffnet eine neue Rechnung."
 	},
 	"budgets": {
 		"title": "Budgets",

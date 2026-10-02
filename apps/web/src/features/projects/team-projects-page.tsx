@@ -1,6 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { hasRole, type DayCoverage, type ProjectSummary, type Session } from '@zeit/shared';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Page, PageHead } from '../../components/ui/page-shell';
 import { PeriodNav } from '../../components/ui/period-nav';
@@ -56,6 +58,7 @@ export function TeamProjectsPage({ session, week, team, employee, onSearch }: Pr
 	const teams = useQuery({ ...teamsQuery, enabled: hr });
 	const options = hr ? (teams.data ?? []) : session.leadsTeams;
 	const selected = team ?? options[0]?.id;
+	const [jump, setJump] = useState<string | null>(null);
 	const monday = mondayOf(week ?? todayIso());
 	const number = isoWeek(monday);
 	const summary = useQuery({
@@ -111,9 +114,10 @@ export function TeamProjectsPage({ session, week, team, employee, onSearch }: Pr
 											type="button"
 											className={styles.pick}
 											aria-pressed={row.id === employee}
-											onClick={() =>
-												onSearch({ employee: row.id === employee ? undefined : row.id })
-											}
+											onClick={() => {
+												setJump(row.id === employee ? null : row.id);
+												onSearch({ employee: row.id === employee ? undefined : row.id });
+											}}
 										>
 											{row.name}
 										</button>
@@ -166,6 +170,13 @@ export function TeamProjectsPage({ session, week, team, employee, onSearch }: Pr
 						previous={t('week:previous')}
 						next={t('week:next')}
 						onStep={(by) => onSearch({ week: addDays(monday, by * 7) })}
+						action={
+							monday !== mondayOf(todayIso()) && (
+								<Button variant="secondary" onPress={() => onSearch({ week: undefined })}>
+									{t('week:current')}
+								</Button>
+							)
+						}
 					>
 						{t('week:label', { week: number })}
 					</PeriodNav>
@@ -173,7 +184,9 @@ export function TeamProjectsPage({ session, week, team, employee, onSearch }: Pr
 			</PageHead>
 			{overview()}
 			<p className={styles.legend}>{t('team.legend')}</p>
-			{person && <PersonWeek person={person} monday={monday} number={number} />}
+			{person && (
+				<PersonWeek person={person} monday={monday} number={number} jump={jump === person.id} />
+			)}
 		</Page>
 	);
 }
@@ -182,18 +195,28 @@ type PersonProps = {
 	person: Person;
 	monday: string;
 	number: number;
+	jump: boolean;
 };
 
-function PersonWeek({ person, monday, number }: PersonProps) {
+function PersonWeek({ person, monday, number, jump }: PersonProps) {
 	const { t } = useTranslation('projects');
+	const heading = useRef<HTMLHeadingElement>(null);
 	const matrix = useQuery({
 		...projectWeekQuery(person.id, monday),
 		placeholderData: keepPreviousData
 	});
 
+	useEffect(() => {
+		if (!jump) return;
+		heading.current?.focus({ preventScroll: true });
+		heading.current?.scrollIntoView({ block: 'start' });
+	}, [jump, person.id]);
+
 	return (
 		<section className={styles.detail} aria-labelledby="team-projects-person">
-			<h2 id="team-projects-person">{person.name}</h2>
+			<h2 id="team-projects-person" ref={heading} tabIndex={-1} className={styles.person}>
+				{person.name}
+			</h2>
 			{matrix.data ? (
 				<MatrixTable
 					label={t('team.matrix', { name: person.name, week: number })}

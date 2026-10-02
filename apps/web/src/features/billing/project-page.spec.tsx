@@ -51,6 +51,7 @@ describe('project page', () => {
 
 		await userEvent.click(open);
 		expect(await screen.findByText('Noch keine Mitglieder.')).toBeInTheDocument();
+		expect(screen.getByText('Gespeichert, gilt ab sofort.')).toBeInTheDocument();
 		expect(patch).toEqual({ openToAll: false });
 
 		await userEvent.click(screen.getByRole('button', { name: 'Mitglieder festlegen' }));

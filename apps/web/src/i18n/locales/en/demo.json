@@ -2,7 +2,7 @@
 	"start": {
 		"title": "Try DMN Zeit",
 		"intro": "The demo sets up a sample company of its own: a tax office with twelve people, bookings since January, open requests and findings under the German Working Hours Act.",
-		"roles": "The demo opens in the employee role. “Switch role” leads on to team lead, HR and administration, no password needed.",
+		"roles": "The demo opens in the employee role. “Switch role” leads on to team lead, HR and administration, and into the solo workspace of a freelancer with project time and invoices, no password needed.",
 		"submit": "Start demo",
 		"note": "All names and times are made up. The sample company is deleted after 24 hours, together with everything entered.",
 		"throttled": "Too many demos were started from this connection in a short time.",
@@ -14,7 +14,9 @@
 	"banner": {
 		"tag": "Sample data",
 		"until": "Made-up sample company, deleted on {{day}} at {{time}}.",
+		"untilSolo": "Made-up solo workspace, deleted on {{day}} at {{time}}.",
 		"soon": "Made-up sample company, deleted after 24 h.",
+		"soonSolo": "Made-up solo workspace, deleted after 24 h.",
 		"outbox": "Outbox"
 	},
 	"tour": {
@@ -22,6 +24,7 @@
 		"progress": "{{done}} of {{total}}",
 		"done": "done",
 		"open": "open",
+		"solo": "Invoices live in the solo workspace: pick the freelancer under “Switch role”.",
 		"steps": {
 			"request": "Request leave",
 			"approve": "Approve a request",

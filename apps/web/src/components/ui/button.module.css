@@ -20,6 +20,14 @@
 		color 150ms ease-out;
 }
 
+.link {
+	text-decoration: none;
+}
+
+.link:focus-visible {
+	border-radius: 6px;
+}
+
 .button[data-pressed] {
 	transform: scale(0.97);
 }

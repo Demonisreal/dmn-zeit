@@ -13,6 +13,7 @@ const blockers = [
 	'seller_address_incomplete',
 	'buyer_address_incomplete',
 	'tax_profile_mismatch',
+	'tax_treatment_stale',
 	'tax_category_mismatch',
 	'tax_rate_mismatch',
 	'total_negative',
@@ -24,6 +25,7 @@ const blockers = [
 	'iban_missing',
 	'buyer_reference_missing',
 	'buyer_endpoint_missing',
+	'buyer_vat_id_missing',
 	'long_timer_entry'
 ];
 

@@ -22,13 +22,17 @@
 		"tasks_one": "{{count}} task",
 		"tasks_other": "{{count}} tasks"
 	},
+	"matrix": {
+		"day": "Day"
+	},
 	"cell": {
 		"toggle": "breakdown",
 		"running": "timer running",
 		"lock": {
 			"draft": "on a draft invoice",
 			"issued": "invoiced"
-		}
+		},
+		"locked": "Locked:"
 	},
 	"picker": {
 		"placeholder": "Choose a project",
@@ -123,7 +127,8 @@
 		"title": "Unbilled",
 		"none": "Everything is billed.",
 		"total": "Total",
-		"hint": "Billable time up to today, rounded, amounts net."
+		"invoice": "Create an invoice for {{client}}",
+		"hint": "Billable time up to today, rounded, amounts net. The client name opens a new invoice."
 	},
 	"budgets": {
 		"title": "Budgets",

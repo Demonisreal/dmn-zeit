@@ -30,13 +30,24 @@ export async function request<T = void>(
 		? await res.json()
 		: undefined;
 
-	if (!res.ok) {
-		const parsed = apiErrorSchema.safeParse(json);
-		throw new ApiRequestError(
-			res.status,
-			parsed.success ? parsed.data : { code: 'INTERNAL', message: res.statusText, details: null }
-		);
-	}
+	if (!res.ok) throw failure(res, json);
 
 	return schema ? schema.parse(json) : (undefined as T);
+}
+
+export async function requestBlob(path: string, signal: AbortSignal): Promise<Blob> {
+	const res = await fetch(`/api${path}`, { credentials: 'same-origin', signal });
+	if (res.ok) return res.blob();
+	throw failure(
+		res,
+		res.headers.get('Content-Type')?.includes('application/json') ? await res.json() : undefined
+	);
+}
+
+function failure(res: Response, json: unknown) {
+	const parsed = apiErrorSchema.safeParse(json);
+	return new ApiRequestError(
+		res.status,
+		parsed.success ? parsed.data : { code: 'INTERNAL', message: res.statusText, details: null }
+	);
 }

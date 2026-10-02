@@ -26,12 +26,11 @@ describe('project timer', () => {
 		).toBeInTheDocument();
 		expect(within(group).getByText('1:59 h')).toBeInTheDocument();
 		expect(within(group).getByText('Läuft seit 08:31')).toBeInTheDocument();
-		expect(screen.getAllByRole('group', { name: 'Laufender Timer' }).length).toBeGreaterThan(0);
+		expect(screen.queryByRole('group', { name: 'Laufender Timer' })).not.toBeInTheDocument();
 
 		await userEvent.click(within(group).getByRole('button', { name: 'Stopp' }));
 		expect(await within(group).findByText('Kein Timer läuft')).toBeInTheDocument();
 		await settled(group);
-		expect(screen.queryByRole('group', { name: 'Laufender Timer' })).not.toBeInTheDocument();
 		expect(within(group).getByRole('button', { name: 'Start' })).toBeDisabled();
 
 		await userEvent.click(within(group).getByRole('combobox', { name: 'Projekt' }));
@@ -42,6 +41,14 @@ describe('project timer', () => {
 		expect(
 			within(group).getByText('Bäckerei Hagen GmbH (Beispiel) · Lohnabrechnung')
 		).toBeInTheDocument();
+	});
+
+	it('shows the running timer in the header away from the project page', async () => {
+		signInForProjects();
+		renderApp('/absences');
+
+		const [chip] = await screen.findAllByRole('group', { name: 'Laufender Timer' });
+		expect(within(chip!).getByRole('link')).toHaveAttribute('href', '/projects');
 	});
 
 	it('offers to correct the end once the timer runs past 12 hours', async () => {
@@ -59,7 +66,6 @@ describe('project timer', () => {
 		expect(
 			screen.getByText(/Der Timer läuft seit 23\.09\. 16:40, also mehr als 12 Stunden/)
 		).toBeInTheDocument();
-		expect(screen.getAllByText('über 12 h').length).toBeGreaterThan(0);
 
 		await userEvent.click(within(group).getByRole('button', { name: 'Stopp' }));
 

@@ -20,7 +20,7 @@ tfoot tr.first > * {
 
 .tags {
 	display: flex;
-	flex-wrap: wrap;
-	justify-content: flex-end;
+	flex-direction: column;
+	align-items: flex-end;
 	gap: 0.25rem;
 }

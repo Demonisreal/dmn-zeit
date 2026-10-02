@@ -30,14 +30,7 @@ import { flip } from '../../lib/sets';
 import { useErrorText } from '../hr/error-text';
 import { DateInputField } from '../hr/ui/date-field';
 import styles from '../hr/ui/page.module.css';
-import {
-	addLine,
-	deleteInvoice,
-	refreshDraft,
-	removeLine,
-	updateDraft,
-	updateLine
-} from './api';
+import { addLine, deleteInvoice, refreshDraft, removeLine, updateDraft, updateLine } from './api';
 import { fieldIssues, issueAt, quantityField, quantityToText, unitPriceField } from './fields';
 import css from './invoice-editor.module.css';
 import { LineDerivation, LineExemption, LineMeta } from './invoice-lines';
@@ -54,13 +47,14 @@ const everyFormat = [
 	'seller_address_incomplete',
 	'buyer_address_incomplete',
 	'tax_profile_mismatch',
+	'tax_treatment_stale',
 	'tax_category_mismatch',
 	'tax_rate_mismatch',
 	'total_negative',
 	'total_too_large'
 ];
 
-const fixedIn: Record<string, 'settings' | 'client'> = {
+const fixedIn: Record<string, 'settings' | 'client' | 'refresh'> = {
 	vat_id_missing: 'settings',
 	tax_number_missing: 'settings',
 	seller_address_incomplete: 'settings',
@@ -69,7 +63,9 @@ const fixedIn: Record<string, 'settings' | 'client'> = {
 	iban_missing: 'settings',
 	buyer_reference_missing: 'client',
 	buyer_endpoint_missing: 'client',
-	buyer_address_incomplete: 'client'
+	buyer_address_incomplete: 'client',
+	buyer_vat_id_missing: 'client',
+	tax_treatment_stale: 'refresh'
 };
 
 const exemptionReasonField = lineFields.exemptionReason.unwrap();
@@ -183,7 +179,12 @@ function ItemLineForm({
 					label={t('invoiceEditor.quantity')}
 					inputMode="decimal"
 				/>
-				<FormSelect control={control} name="unit" label={t('invoiceEditor.unit')} options={unitOptions(t)} />
+				<FormSelect
+					control={control}
+					name="unit"
+					label={t('invoiceEditor.unit')}
+					options={unitOptions(t)}
+				/>
 				<FormField
 					control={control}
 					name="unitPriceCents"
@@ -227,7 +228,7 @@ function ItemLineForm({
 type Props = {
 	invoice: Invoice;
 	role: Role;
-	previewKey: number;
+	previewKey: string;
 };
 
 export function InvoiceEditor({ invoice, role, previewKey }: Props) {
@@ -247,7 +248,8 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 	const [discarding, setDiscarding] = useState(false);
 
 	const treatment = taxTreatment({ taxProfile: invoice.taxProfile }, invoice.buyer);
-	const taxChoices: readonly TaxCategory[] = treatment === 'standard' ? itemTaxCategories : [treatment];
+	const taxChoices: readonly TaxCategory[] =
+		treatment === 'standard' ? itemTaxCategories : [treatment];
 
 	const reload = (...more: string[]) =>
 		Promise.all(
@@ -317,6 +319,12 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 	const issueClosed = invoice.blockers.some(
 		(blocker) => everyFormat.includes(blocker) && !onlyForXRechnung(blocker)
 	);
+	const describedBy =
+		invoice.lines.length === 0
+			? 'invoice-issue-lines'
+			: invoice.blockers.length > 0
+				? 'invoice-blockers'
+				: undefined;
 
 	return (
 		<>
@@ -354,19 +362,9 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 						>
 							{t('save')}
 						</Button>
-						<Button variant="quiet" isPending={refresh.isPending} onPress={() => refresh.mutate()}>
-							{t('invoiceEditor.refresh')}
-						</Button>
 					</div>
 					{patchDraft.error && !rangeIssue && (
 						<Notice tone="error">{errorText(patchDraft.error)}</Notice>
-					)}
-					{refresh.error && (
-						<Notice tone="error">
-							{issueAt(refresh.error, 'lines') ??
-								issueAt(refresh.error, 'entries') ??
-								errorText(refresh.error)}
-						</Notice>
 					)}
 
 					<dl className={styles.facts}>
@@ -412,7 +410,9 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 											{editingDesc ? (
 												<form
 													className={css.textForm}
-													aria-label={t('invoiceEditor.editLabel', { description: line.description })}
+													aria-label={t('invoiceEditor.editLabel', {
+														description: line.description
+													})}
 													onSubmit={(e) => {
 														e.preventDefault();
 														editText.mutate({ lineId: line.id, description: descEdit.value });
@@ -462,7 +462,9 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 											>
 												<Button
 													variant="quiet"
-													aria-label={t('invoiceEditor.editLabel', { description: line.description })}
+													aria-label={t('invoiceEditor.editLabel', {
+														description: line.description
+													})}
 													onPress={() =>
 														line.kind === 'time'
 															? setDescEdit({ lineId: line.id, value: line.description })
@@ -474,7 +476,9 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 												{line.kind === 'item' && (
 													<Button
 														variant="quiet"
-														aria-label={t('invoiceEditor.removeLabel', { description: line.description })}
+														aria-label={t('invoiceEditor.removeLabel', {
+															description: line.description
+														})}
 														onPress={() => setRemovingLine(line)}
 													>
 														{t('invoiceEditor.removeItem')}
@@ -512,11 +516,25 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 							}}
 						/>
 					) : (
-						<div>
+						<div className={styles.actions}>
 							<Button variant="secondary" onPress={() => setAddingLine(true)}>
 								{t('invoiceEditor.addItem')}
 							</Button>
+							<Button
+								variant="quiet"
+								isPending={refresh.isPending}
+								onPress={() => refresh.mutate()}
+							>
+								{t('invoiceEditor.refresh')}
+							</Button>
 						</div>
+					)}
+					{refresh.error && (
+						<Notice tone="error">
+							{issueAt(refresh.error, 'lines') ??
+								issueAt(refresh.error, 'entries') ??
+								errorText(refresh.error)}
+						</Notice>
 					)}
 
 					{invoice.hints.map((hint) => (
@@ -539,6 +557,15 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 												{t('invoicesList.client')}
 											</Link>
 										)}
+										{fixedIn[blocker] === 'refresh' && (
+											<Button
+												variant="quiet"
+												isPending={refresh.isPending}
+												onPress={() => refresh.mutate()}
+											>
+												{t('invoiceEditor.refresh')}
+											</Button>
+										)}
 									</li>
 								))}
 							</ul>
@@ -550,18 +577,23 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 							variant="primary"
 							isDisabled={issueClosed || invoice.lines.length === 0}
 							onPress={() => setIssuing(true)}
-							{...(invoice.blockers.length > 0 ? { 'aria-describedby': 'invoice-blockers' } : {})}
+							{...(describedBy && { 'aria-describedby': describedBy })}
 						>
 							{t('invoiceEditor.issue')}
 						</Button>
 						<Button variant="quiet" onPress={() => setDiscarding(true)}>
 							{t('invoiceEditor.discard')}
 						</Button>
+						{invoice.lines.length === 0 && (
+							<p id="invoice-issue-lines" className={`${styles.small} ${styles.muted}`}>
+								{t('invoiceEditor.issueNeedsLines')}
+							</p>
+						)}
 					</div>
 				</section>
 
 				<section className={lines.previewPane} aria-label={t('preview.frameTitle')}>
-					<InvoicePreview invoiceId={invoice.id} variant="draft" refreshKey={previewKey} />
+					<InvoicePreview invoiceId={invoice.id} variant="draft" version={previewKey} />
 				</section>
 			</div>
 
@@ -594,7 +626,10 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 				isPending={removeItem.isPending}
 				error={removeItem.error && <Notice tone="error">{errorText(removeItem.error)}</Notice>}
 			>
-				<p>{removingLine && t('invoiceEditor.removeItemText', { description: removingLine.description })}</p>
+				<p>
+					{removingLine &&
+						t('invoiceEditor.removeItemText', { description: removingLine.description })}
+				</p>
 			</ConfirmDialog>
 		</>
 	);

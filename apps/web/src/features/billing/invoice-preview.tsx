@@ -1,67 +1,70 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
-import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
+import { LoadError } from '../../components/ui/states';
+import { invoicePdfQuery } from './api';
 import styles from './invoice-preview.module.css';
 
 type Props = {
 	invoiceId: string;
 	variant: 'draft' | 'issued';
-	refreshKey?: string | number;
+	version?: string;
 };
 
-const SLOW_LOAD_MS = 6000;
-
-export function InvoicePreview({ invoiceId, variant, refreshKey }: Props) {
-	const { t } = useTranslation(['billing', 'common']);
-	const [loaded, setLoaded] = useState(false);
-	const [slow, setSlow] = useState(false);
-	const [reloadNonce, setReloadNonce] = useState(0);
-
-	const src =
-		variant === 'draft'
-			? `/api/invoices/${invoiceId}/preview.pdf`
-			: `/api/invoices/${invoiceId}/document`;
-	const frameKey = `${refreshKey ?? ''}-${reloadNonce}`;
+export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
+	const { t } = useTranslation('billing');
+	const path =
+		variant === 'draft' ? `/invoices/${invoiceId}/preview.pdf` : `/invoices/${invoiceId}/document`;
+	const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches);
+	const pdf = useQuery({ ...invoicePdfQuery(path, version), enabled: !touch });
+	const [frame, setFrame] = useState<{ blob: Blob; url: string } | null>(null);
+	const [shown, setShown] = useState(false);
 
 	useEffect(() => {
-		setLoaded(false);
-		setSlow(false);
-		const timer = window.setTimeout(() => setSlow(true), SLOW_LOAD_MS);
-		return () => window.clearTimeout(timer);
-	}, [frameKey, src]);
+		if (!pdf.data) return;
+		const url = URL.createObjectURL(pdf.data);
+		setFrame({ blob: pdf.data, url });
+		setShown(false);
+		return () => URL.revokeObjectURL(url);
+	}, [pdf.data]);
+
+	const open = (
+		<a href={`/api${path}`} target="_blank" rel="noopener" className={styles.open}>
+			{t('preview.open')}
+		</a>
+	);
+
+	if (touch) return <div className={styles.stage}>{open}</div>;
+
+	const url = frame !== null && frame.blob === pdf.data ? frame.url : null;
+	const loaded = shown && url !== null;
 
 	return (
 		<div className={styles.stage}>
-			<div className={styles.scroll}>
-				<div className={styles.paper} data-loaded={loaded} aria-busy={!loaded}>
-					{!loaded && (
-						<span className={styles.skeletonLayer}>
-							<Skeleton width="100%" height="100%" />
-						</span>
-					)}
-					<iframe
-						key={frameKey}
-						className={styles.frame}
-						src={src}
-						title={t('preview.frameTitle')}
-						onLoad={() => setLoaded(true)}
-					/>
-				</div>
-			</div>
-			{slow && !loaded && (
-				<div className={styles.retry} role="status">
-					<Button variant="quiet" onPress={() => setReloadNonce((n) => n + 1)}>
-						{t('common:retry')}
-					</Button>
+			{pdf.isError && !pdf.isFetching ? (
+				<LoadError error={pdf.error} onRetry={() => void pdf.refetch()} />
+			) : (
+				<div className={styles.scroll}>
+					<div className={styles.paper} data-loaded={loaded} aria-busy={!loaded}>
+						{!loaded && (
+							<span className={styles.skeletonLayer}>
+								<Skeleton width="100%" height="100%" />
+							</span>
+						)}
+						{url && (
+							<iframe
+								key={url}
+								className={styles.frame}
+								src={url}
+								title={t('preview.frameTitle')}
+								onLoad={() => setShown(true)}
+							/>
+						)}
+					</div>
 				</div>
 			)}
-			<VisuallyHidden>
-				<a href={src} download>
-					{t('preview.downloadLink')}
-				</a>
-			</VisuallyHidden>
+			{open}
 		</div>
 	);
 }

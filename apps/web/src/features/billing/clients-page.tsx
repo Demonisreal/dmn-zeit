@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { hasRole, type Role } from '@zeit/shared';
+import type { Role } from '@zeit/shared';
 import { useState } from 'react';
-import { VisuallyHidden } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -15,7 +14,6 @@ import { Tag } from '../../components/ui/tag';
 import styles from '../hr/ui/page.module.css';
 import { clientsQuery, projectsQuery } from './api';
 import { BillingNav } from './billing-nav';
-import { ClientActions } from './client-actions';
 import { ClientForm } from './client-form';
 import css from './clients-page.module.css';
 import { RatesTable } from './rates-table';
@@ -98,9 +96,6 @@ export function ClientsPage({ role, solo }: Props) {
 							<th scope="col" data-numeric>
 								{t('projects.title')}
 							</th>
-							<th scope="col">
-								<VisuallyHidden>{t('actions')}</VisuallyHidden>
-							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -124,9 +119,6 @@ export function ClientsPage({ role, solo }: Props) {
 									{client.isBusiness ? t('client.business') : t('client.private')}
 								</td>
 								<td data-numeric>{projects.data ? (projectCount.get(client.id) ?? 0) : ''}</td>
-								<td>
-									<ClientActions client={client} canDelete={hasRole(role, 'admin')} />
-								</td>
 							</tr>
 						))}
 					</tbody>
@@ -165,12 +157,14 @@ export function ClientsPage({ role, solo }: Props) {
 				<section className={styles.section} aria-label={t('clients.title')}>
 					{clients.data && clients.data.length > 0 && (
 						<div className={styles.filters}>
-							<Field
-								label={t('clients.search')}
-								type="search"
-								value={search}
-								onChange={setSearch}
-							/>
+							<div className={styles.search}>
+								<Field
+									label={t('clients.search')}
+									type="search"
+									value={search}
+									onChange={setSearch}
+								/>
+							</div>
 							<Checkbox isSelected={includeArchived} onChange={setIncludeArchived}>
 								{t('clients.includeArchived')}
 							</Checkbox>
