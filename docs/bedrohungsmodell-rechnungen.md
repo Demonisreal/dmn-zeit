@@ -674,8 +674,10 @@ prüfen Anlegen, Aktualisieren und Ausstellen eines Entwurfs, jeweils mit 400 un
 zusätzlich mit 23514 ab (`20260926001304_invoice_entry_limit.sql`). Ein Stundennachweis-PDF nimmt
 höchstens 1800 Buchungen (`MAX_REPORT_ENTRIES`), für mehr bleibt die CSV.
 
-Vorprüfung vor der Nummernvergabe: Vor der Transaktion mit `app.issue_invoice` rendert die API das
-PDF des Entwurfs einmal im Worker, ohne es zu speichern. Läuft es über 50 Seiten, antwortet
+Vorprüfung vor der Nummernvergabe: Vor der Transaktion mit `app.issue_invoice` rendert die API den
+Entwurf einmal im Worker im gewählten Format, ohne zu speichern: bei `pdf` das PDF, bei `zugferd`
+das PDF/A-3 mit eingebettetem XML, bei `xrechnung` PDF und XML (seit dem Re-Review, N6 in
+Abschnitt 16). Scheitert das Rendern der E-Rechnung, bleibt der Entwurf ohne Nummer. Läuft es über 50 Seiten, antwortet
 `POST /invoices/:id/issue` mit 422 `PAGE_LIMIT`, eine Nummer wird nicht verbraucht. Eine Prüfung
 nur über Zählgrenzen ist verworfen: Die Seitenzahl hängt an den Textlängen, schon 80 Positionen
 mit je 1000 Zeichen laufen über 50 Seiten, und eine Grenze, die das sicher ausschließt, träfe
@@ -698,6 +700,8 @@ Besucher eine Admin-Persona.
   number goes out, a draft past 50 pages stays a draft"; `apps/api/test/invoices/acceptance.int.spec.ts`:
   "refuses a draft that changed while its pages were counted", "spends no number on an issue while
   the queue is too full for the page check", "5000 bookings per invoice";
+  `apps/api/test/invoices/einvoice.int.spec.ts`: "takes no number when the e-invoice of the chosen
+  format fails to render";
   `apps/api/test/db/invoice-hardening.int.spec.ts`: "issues 5000 and refuses the 5001st without
   spending a number".
 
@@ -748,6 +752,16 @@ Globales Limit bleibt 300/min je IP. "Nutzer" heißt Zählung je `userId` über 
 | PATCH `/billing/profile`                | 10/h                           | 10/h, in einer Sandbox nur `taxProfile` und `previousYearRevenueCents` (X-02) | Nutzer  |
 | PUT `/invoice-series/:series/start`     | 5/h                            | Demo 404                                                                      | Nutzer  |
 | Renderings gleichzeitig                 | 2 je Prozess, Warteschlange 10 | wie Live                                                                      | Prozess |
+
+Nachtrag 02.10.2026: Umgesetzt sind die Limits je Nutzer aus `apps/api/src/invoices/invoices.controller.ts`
+und `billing.controller.ts`, in Live und Demo gleich: `POST /invoices/drafts` 30/min,
+`GET /invoices/:id/preview.pdf` 20/min, `POST /invoices/:id/issue` 30/h, `POST /invoices/:id/cancel`
+10/h, `paid` und `unpaid` zusammen 30/min, `GET /invoices/:id/time-report` und
+`GET /exports/time-report` je 20/min, `PATCH /billing/profile` 10/h, dazu aus dem Re-Review
+`POST /invoices/:id/refresh` 10/min und `PATCH /invoices/:id` mit den drei Positionsrouten zusammen
+60/min. `GET /invoices/:id/document` und `/xml` haben nur das globale Limit. Ein Tageslimit je
+Sandbox und Limits für den Projekt-Timer gibt es nicht; die Sandbox begrenzen die Kontingente aus
+X-03 und das Limit beim Anlegen von Sandboxes.
 
 ## 11. K3: Timer, Projektzeiten, Rundung
 
@@ -986,6 +1000,11 @@ Demo ausgesetzt.
 - Test: `apps/api/test/invoices/invoices.int.spec.ts`: "Die 31. Ausstellung in einer Sandbox ergibt
   SANDBOX_LIMIT, in einem Live-Mandanten nicht."
 
+Nachtrag 02.10.2026: Rechnungspositionen haben seit dem Re-Review (N5 in Abschnitt 16) ein eigenes
+Kontingent von 2000 je Sandbox (`20260926001307_invoice_lines_sandbox_quota.sql`, 409
+`SANDBOX_QUOTA`). Der CSV-Stundennachweis aus einer Sandbox ist wie PDF und Rechnung als Muster
+gekennzeichnet (`apps/api/src/documents/time-report-csv.ts`).
+
 ## 14. Offene Punkte
 
 Diese Punkte verändern Maßnahmen und sind vor dem Bau mit Leon zu klären.
@@ -1026,3 +1045,24 @@ Diese Punkte verändern Maßnahmen und sind vor dem Bau mit Leon zu klären.
    Property-Tests (T-01, T-03, T-06).
 10. Demo: `specimen` aus `tenants.kind`, Wasserzeichen, `MUSTER-`-Präfix, ungültige USt-IdNr. und
     IBAN, gesperrte Rechnungsstammdaten, Kontingente je Sandbox (X-01 bis X-03).
+
+## 16. Re-Review 02.10.2026
+
+Zweiter Durchlauf von `security-auditor` über den Rechnungsteil nach den Härtungen vom 01. und
+02.10.2026, danach ein Code-Review derselben Änderungen. Die Befunde heißen N1 bis N6, nicht zu
+verwechseln mit N-01 bis N-05 aus Abschnitt 6. Behoben in `c73dfee` (Re-Review) und `589345e`
+(Code-Review).
+
+| Befund                               | Problem                                                                                                                                                         | Behebung                                                                                                                                                                                                                                                                                                                                                                    | Test                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1 veraltete Steuerbehandlung        | Ein Entwurf behielt `tax_treatment` und `tax_profile` vom Anlegen. Änderte sich danach Kunde oder Profil, ging die Rechnung mit der alten Behandlung hinaus.    | Blocker `tax_treatment_stale` und `tax_profile_changed`; "Zeiten neu einlesen" leitet beides neu ab. `app.issue_invoice` prüft mit `app.expected_tax_treatment` dieselbe Regel in SQL; Kunde und Abrechnungsprofil sperrt beim Ausstellen `app.hold_invoice_basis`. Reverse Charge verlangt in der E-Rechnung die USt-IdNr. des Käufers (BR-AE-02, `buyer_vat_id_missing`). | `apps/api/test/invoices/acceptance.int.spec.ts`: "tax treatment of a draft whose client changed", "draft after a change of the tax profile"; `apps/api/test/db/invoice-treatment.int.spec.ts`: "expected tax treatment in sql", "basis of an invoice being issued"; `apps/api/test/einvoice/einvoice.spec.ts`: "wants the vat id of the buyer on reverse charge, BR-AE-02" |
+| N2 fehlende Indizes                  | Abrechnungssperre, Freigabe und Stundennachweis suchten über `invoice_line_entries` und `project_entries.invoice_id` ohne Index.                                | Indizes `invoice_line_entries_invoice_idx`, `invoice_line_entries_entry_idx`, partiell `project_entries_invoice_idx` (`20260926001306_invoice_entry_indexes.sql`).                                                                                                                                                                                                          | Schema-Drift (`db/schema.sql`)                                                                                                                                                                                                                                                                                                                                             |
+| N3 Freigabe beim Neueinlesen         | `refresh` ließ Buchungen am Entwurf hängen, die keine Position mehr ergaben (etwa nach Wegfall des Satzes), und schrieb auch ohne Änderung alle Positionen neu. | `refresh` gibt nur diese Buchungen frei, lässt die übrigen verknüpft und ist ohne Änderung ein No-op; Positionen und Texte bleiben.                                                                                                                                                                                                                                         | `acceptance.int.spec.ts`: "refresh of a draft"                                                                                                                                                                                                                                                                                                                             |
+| N4 Limits je Nutzer                  | `refresh` und die Positionsrouten hatten nur das globale Limit je IP.                                                                                           | `refresh` 10/min, `PATCH /invoices/:id` und die drei Positionsrouten zusammen 60/min je Nutzer.                                                                                                                                                                                                                                                                             | `acceptance.int.spec.ts`: "rate limit per person"                                                                                                                                                                                                                                                                                                                          |
+| N5 Sandbox-Kontingent auf Positionen | Positionen waren nur je Entwurf (500) begrenzt, nicht je Sandbox.                                                                                               | Trigger `invoice_lines_sandbox_quota`, 2000 je Sandbox (`20260926001307_invoice_lines_sandbox_quota.sql`).                                                                                                                                                                                                                                                                  | `apps/api/test/db/sandbox.int.spec.ts`: "caps the invoice lines of a sandbox at 2000"                                                                                                                                                                                                                                                                                      |
+| N6 Probe-Rendering nur als PDF       | Die Vorprüfung aus D-01 renderte nur das PDF; scheiterte danach die E-Rechnung, war die Nummer schon vergeben.                                                  | Die Probe rendert im gewählten Format inklusive XML.                                                                                                                                                                                                                                                                                                                        | `apps/api/test/invoices/einvoice.int.spec.ts`: "takes no number when the e-invoice of the chosen format fails to render"                                                                                                                                                                                                                                                   |
+
+Dazu aus dem Code-Review (`589345e`): eine Quelle für die Steuerbehandlung in PDF und E-Rechnung,
+"Gehen aus der Pause" nur für Stempeluhr-Buchungen des heutigen Tages
+(`20260926001310_clock_leave_today_only.sql`, Test "turns only a clock break of today into the end
+of the day" in `apps/api/test/db/time-entries.int.spec.ts`), Test-Fixtures nicht mehr im Build.

@@ -19,6 +19,12 @@ PRODUCT.md). Alle Paragrafen wurden gegen gesetze-im-internet.de geprüft (Reche
 Grenzen:
 
 - Rein kalendarisch, keine Sonderfälle für Schaltsekunden oder historische Zeitzonenwechsel vor 1970.
+- "Gehen aus der Pause" ist keine Regel in `rules`, sondern ein Übergang der Stempeluhr
+  (`apps/api/src/time/clock.service.ts`): `POST /clock/out` in der Pause setzt den `end_reason` der
+  letzten Buchung von `break` auf `leave`, ohne ihr Ende zu verschieben. Der Arbeitstag endet damit
+  am Pausenbeginn, `summarizeWorkday` sieht keine offene Pause und keine weitere Lücke. Erlaubt nur
+  für eine Stempeluhr-Buchung des heutigen Arbeitstags (Europe/Berlin), ältere Tage und Korrekturen
+  bleiben unverändert (Trigger `app.guard_time_entry`, Migration `20260926001310_clock_leave_today_only.sql`).
 - Die Wochentabelle rechnet je Arbeitstag nach dem Datenmodell, die ArbZG-Prüfung je Schicht:
   Eine Nachtschicht mit Pause nach Mitternacht steht in der Tabelle auf zwei Tagen, geprüft wird
   sie als eine Schicht am Tag ihres Beginns.
@@ -203,6 +209,14 @@ Grenzen:
   unterjährigem Wechsel offen (rechnungen-recht.md, offener Punkt 6). `smallBusinessCheck`
   vergleicht nur die übergebenen Beträge. Jahre vor 2025 bekommen die Grenzen von 2025, obwohl die
   laufende Grenze vorher keine feste Obergrenze war.
+- **Steuerbehandlung eines Entwurfs** wird beim Anlegen aus `taxTreatment` gespeichert und danach
+  nicht still nachgezogen. Ergibt `taxTreatment` mit den aktuellen Kundendaten etwas anderes, meldet
+  die API den Blocker `tax_treatment_stale`; hat sich das Steuerprofil geändert, `tax_profile_changed`.
+  "Zeiten neu einlesen" (`POST /invoices/:id/refresh`) leitet beides neu ab und bildet die
+  Zeitpositionen mit der neuen Kategorie neu; freie Positionen bleiben und sind danach zu prüfen.
+  `app.issue_invoice` rechnet dieselbe Regel in SQL nach (`app.expected_tax_treatment`, eigene Liste
+  der EU-Staaten in `app.eu_member`); beide Listen müssen mit `EU_COUNTRY_CODES` übereinstimmen,
+  das prüft `apps/api/test/db/invoice-treatment.int.spec.ts`.
 - **Verbraucher im Drittland** gelten als `standard`; ob der Leistungsort nach § 3a UStG im
   Einzelfall ins Ausland wandert, ist nicht geprüft.
 - **`tax_number_missing`** greift bei jeder Behandlung außer Reverse Charge, auch bei

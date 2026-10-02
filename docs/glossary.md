@@ -10,32 +10,33 @@ Leave Act).
 
 ## Zeiterfassung
 
-| Deutsch              | Englisch             | Hinweis                                  |
-| -------------------- | -------------------- | ---------------------------------------- |
-| Stempeln             | clock in / clock out | Verb je nach Richtung, Knopf: "Clock in" |
-| Kommen               | clock in             | Spaltenkopf im Wochenbuch: "In"          |
-| Gehen                | clock out            | Spaltenkopf im Wochenbuch: "Out"         |
-| Pause                | break                |                                          |
-| Buchung              | time entry           | nie "booking"                            |
-| Woche                | week                 | Navigation und Startseite                |
-| Kalenderwoche (KW)   | week (Wk)            | "Wk 39", nicht "CW"                      |
-| Ist                  | worked               | Spaltenkopf                              |
-| Soll, Sollzeit       | target, target time  |                                          |
-| Differenz            | difference           |                                          |
-| Arbeitstag           | workday              |                                          |
-| Nachtrag             | missed entry         | Antrag auf eine fehlende Buchung         |
-| Korrektur            | correction           |                                          |
-| Korrekturantrag      | correction request   |                                          |
-| Arbeitszeitmodell    | working time model   |                                          |
-| Teilzeit             | part-time            |                                          |
-| Vertrag              | contract             |                                          |
-| gültig ab            | valid from           |                                          |
-| Monatsabschluss      | month-end close      |                                          |
-| abschließen / öffnen | close / reopen       | für Monate                               |
-| gesperrt             | locked               | Buchungen nach dem Abschluss             |
-| Änderungsprotokoll   | audit log            |                                          |
-| Stundenzettel        | timesheet            |                                          |
-| Monatsübersicht      | monthly overview     |                                          |
+| Deutsch              | Englisch             | Hinweis                                                                  |
+| -------------------- | -------------------- | ------------------------------------------------------------------------ |
+| Stempeln             | clock in / clock out | Verb je nach Richtung, Knopf: "Clock in"                                 |
+| Kommen               | clock in             | Spaltenkopf im Wochenbuch: "In"                                          |
+| Gehen                | clock out            | Spaltenkopf im Wochenbuch: "Out"                                         |
+| Gehen aus der Pause  | clock out            | kein eigener Knopf: "Gehen" in der Pause beendet den Tag am Pausenbeginn |
+| Pause                | break                | Knopf: "Start break", zurück mit "Weiter" / "Resume"                     |
+| Buchung              | time entry           | nie "booking"                                                            |
+| Woche                | week                 | Navigation und Startseite                                                |
+| Kalenderwoche (KW)   | week (Wk)            | "Wk 39", nicht "CW"                                                      |
+| Ist                  | worked               | Spaltenkopf                                                              |
+| Soll, Sollzeit       | target, target time  |                                                                          |
+| Differenz            | difference           |                                                                          |
+| Arbeitstag           | workday              |                                                                          |
+| Nachtrag             | missed entry         | Antrag auf eine fehlende Buchung                                         |
+| Korrektur            | correction           |                                                                          |
+| Korrekturantrag      | correction request   |                                                                          |
+| Arbeitszeitmodell    | working time model   |                                                                          |
+| Teilzeit             | part-time            |                                                                          |
+| Vertrag              | contract             |                                                                          |
+| gültig ab            | valid from           |                                                                          |
+| Monatsabschluss      | month-end close      |                                                                          |
+| abschließen / öffnen | close / reopen       | für Monate                                                               |
+| gesperrt             | locked               | Buchungen nach dem Abschluss                                             |
+| Änderungsprotokoll   | audit log            |                                                                          |
+| Stundenzettel        | timesheet            |                                                                          |
+| Monatsübersicht      | monthly overview     |                                                                          |
 
 ## Gleitzeit
 
@@ -142,38 +143,42 @@ Leave Act).
 Eine Rechnung erscheint in der Sprache ihres Kunden, nicht in der Sprache der angemeldeten Person.
 Die Rechnungstexte stehen in `apps/api/src/invoices/texts.ts` und folgen diesem Glossar.
 
-| Deutsch              | Englisch             | Hinweis                                                      |
-| -------------------- | -------------------- | ------------------------------------------------------------ |
-| Abrechnung           | billing              | Navigation                                                   |
-| nicht abgerechnet    | unbilled             |                                                              |
-| Rechnung             | invoice              |                                                              |
-| Entwurf              | draft                | vor dem Ausstellen, ohne Nummer, änderbar                    |
-| ausstellen           | issue                | vergibt Nummer und Datum, danach unveränderbar               |
-| ausgestellt          | issued               |                                                              |
-| bezahlt              | paid                 |                                                              |
-| überfällig           | overdue              |                                                              |
-| stornieren           | cancel               | ausgestellte Rechnung, nur über eine Stornorechnung          |
-| Storno               | cancellation         |                                                              |
-| Stornorechnung       | cancellation invoice | nie "Gutschrift" (§ 14 Abs. 2 S. 2 UStG), nie "credit note"  |
-| Position             | line item            |                                                              |
-| freie Position       | custom line item     | nicht aus erfassten Zeiten                                   |
-| Befreiungsgrund      | exemption reason     | Grund der Steuerbefreiung, Pflicht bei steuerfreier Position |
-| Rechnungsnummer      | invoice number       |                                                              |
-| Nummernkreis         | number sequence      | je Jahr, auch für Stornorechnungen: `RE-2026-0007`           |
-| Präfix               | prefix               |                                                              |
-| Rechnungsdatum       | issue date           |                                                              |
-| Leistungszeitraum    | service period       |                                                              |
-| Fälligkeit           | due date             |                                                              |
-| Zahlungsziel         | payment terms        |                                                              |
-| Rechnungssprache     | invoice language     | je Kunde, Deutsch oder Englisch                              |
-| Steuernummer         | tax number           |                                                              |
-| USt-IdNr.            | VAT ID               |                                                              |
-| Regelbesteuerung     | regular taxation     |                                                              |
-| Kleinunternehmer     | small business       | "small business (§ 19 UStG)"                                 |
-| Reverse Charge       | reverse charge       | Rechnungshinweis zweisprachig, Wortlaut gegen UStAE prüfen   |
-| Kleinbetragsrechnung | small-amount invoice | bis 250 € brutto (§ 33 UStDV), nicht bei Reverse Charge      |
-| E-Rechnung           | e-invoice            |                                                              |
-| XRechnung, ZUGFeRD   | XRechnung, ZUGFeRD   | Formatnamen, nicht übersetzen                                |
-| Käuferreferenz       | buyer reference      | BT-10, bei öffentlichen Auftraggebern die Leitweg-ID         |
-| Stundennachweis      | time report          | Projektzeiten je Kunde, nicht "timesheet"                    |
-| Musterrechnung       | sample invoice       | Demo, keine Rechnung im Sinne des § 14 UStG                  |
+| Deutsch                | Englisch             | Hinweis                                                                                        |
+| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------- |
+| Abrechnung             | billing              | Navigation                                                                                     |
+| nicht abgerechnet      | unbilled             |                                                                                                |
+| Rechnung               | invoice              |                                                                                                |
+| Entwurf                | draft                | vor dem Ausstellen, ohne Nummer, änderbar                                                      |
+| ausstellen             | issue                | vergibt Nummer und Datum, danach unveränderbar                                                 |
+| ausgestellt            | issued               |                                                                                                |
+| bezahlt                | paid                 |                                                                                                |
+| überfällig             | overdue              |                                                                                                |
+| stornieren             | cancel               | ausgestellte Rechnung, nur über eine Stornorechnung                                            |
+| Storno                 | cancellation         |                                                                                                |
+| Stornorechnung         | cancellation invoice | nie "Gutschrift" (§ 14 Abs. 2 S. 2 UStG), nie "credit note"                                    |
+| storniert durch        | cancelled by         | Verweis am Original: "Storniert durch Stornorechnung X."                                       |
+| Position               | line item            |                                                                                                |
+| freie Position         | custom line item     | nicht aus erfassten Zeiten                                                                     |
+| Befreiungsgrund        | exemption reason     | Grund der Steuerbefreiung, Pflicht bei steuerfreier Position                                   |
+| Zeiten neu einlesen    | reload booked time   | Knopf im Entwurf; übernimmt neue Zeiten, leitet steuerliche Behandlung und Steuerprofil neu ab |
+| Rechnungsnummer        | invoice number       |                                                                                                |
+| Nummernkreis           | number sequence      | je Jahr, auch für Stornorechnungen: `RE-2026-0007`                                             |
+| Präfix                 | prefix               |                                                                                                |
+| Rechnungsdatum         | issue date           |                                                                                                |
+| Leistungszeitraum      | service period       |                                                                                                |
+| Fälligkeit             | due date             |                                                                                                |
+| Zahlungsziel           | payment terms        |                                                                                                |
+| Rechnungssprache       | invoice language     | je Kunde, Deutsch oder Englisch                                                                |
+| Steuernummer           | tax number           |                                                                                                |
+| USt-IdNr.              | VAT ID               |                                                                                                |
+| Steuerprofil           | tax profile          | Regelbesteuerung oder Kleinunternehmer, im Abrechnungsprofil                                   |
+| steuerliche Behandlung | tax treatment        | je Rechnung aus Steuerprofil und Kunde abgeleitet                                              |
+| Regelbesteuerung       | regular taxation     |                                                                                                |
+| Kleinunternehmer       | small business       | "small business (§ 19 UStG)"                                                                   |
+| Reverse Charge         | reverse charge       | Rechnungshinweis zweisprachig, Wortlaut gegen UStAE prüfen                                     |
+| Kleinbetragsrechnung   | small-amount invoice | bis 250 € brutto (§ 33 UStDV), nicht bei Reverse Charge                                        |
+| E-Rechnung             | e-invoice            |                                                                                                |
+| XRechnung, ZUGFeRD     | XRechnung, ZUGFeRD   | Formatnamen, nicht übersetzen                                                                  |
+| Käuferreferenz         | buyer reference      | BT-10, bei öffentlichen Auftraggebern die Leitweg-ID                                           |
+| Stundennachweis        | time report          | Projektzeiten je Kunde, nicht "timesheet"                                                      |
+| Musterrechnung         | sample invoice       | Demo, keine Rechnung im Sinne des § 14 UStG                                                    |

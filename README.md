@@ -17,8 +17,10 @@ Zwei getrennte Instanzen aus derselben Codebasis:
 - **Demo** — eigene Sandbox je Besuch mit zwei Welten aus erfundenen Beispieldaten: einem
   Musterbetrieb und einem Freelancer im Solo-Bereich. Wechsel zwischen den Rollen und zwischen
   beiden Welten ohne Passwort. Rechnungen aus der Sandbox tragen das Wasserzeichen
-  "Musterrechnung – keine Rechnung im Sinne des § 14 UStG" und eine Nummer mit `MUSTER-`. Eine
-  Sandbox wird nach 24 Stunden gelöscht.
+  "Musterrechnung – keine Rechnung im Sinne des § 14 UStG" und eine Nummer mit `MUSTER-`. Beide
+  Welten bringen Musterrechnungen mit, der Solo-Bereich auch eine Stornorechnung und einen offenen
+  Entwurf. Ein Rundgang führt durch Urlaubsantrag, Genehmigung, Monatsabschluss und das Ausstellen
+  einer Rechnung. Eine Sandbox wird nach 24 Stunden gelöscht.
 - **Live** — echter Betrieb, nur auf Einladung. Es gibt keine offene Registrierung.
 
 Details zu Aufbau, Ersteinrichtung und Rollback der beiden Instanzen stehen in
@@ -27,20 +29,30 @@ Details zu Aufbau, Ersteinrichtung und Rollback der beiden Instanzen stehen in
 ## Funktionsumfang
 
 - **Arbeitszeit** — Stempeluhr und Wochenbuch, Prüfung nach ArbZG, Korrekturen per begründetem
-  Antrag, Monatsabschluss mit Sperre und Exporten.
+  Antrag, Monatsabschluss mit Sperre und Exporten. Gehen aus der Pause beendet den Tag am
+  Pausenbeginn.
 - **Urlaub und Gleitzeit** — Anspruch nach BUrlG mit Übertrag und Verfall nach Hinweis,
   Abwesenheiten mit Genehmigung, Teamkalender, Gleitzeitkonto mit Kappung.
 - **Projektzeit** — eigener Projekt-Timer neben der Stempeluhr, Nachträge mit Notiz, Wochenmatrix
   Projekt × Tag mit Herleitung jeder Zahl. Im Betrieb ein Abgleich mit der Arbeitszeit als Hinweis.
 - **Solo-Bereich** — eigener Mandant für eine freiberufliche Person, nur auf Einladung. Startseite
-  ist die Wochenmatrix, Personalfunktionen sind ausgeblendet.
+  ist die Wochenmatrix, Projekt-Timer statt Stempeluhr, Personalfunktionen sind ausgeblendet.
+  Kunden, Projekte, Sätze und Rechnungen wie im Betrieb.
 - **Kunden, Projekte, Stundensätze** — Aufgaben, Sätze mit Gültigkeitsdatum je Kunde, Projekt,
   Aufgabe oder Person, Rundung je Projekt, Aufgabe und Tag, Budget je Projekt mit Warnung.
-- **Rechnungen** — aus erfassten Zeiten, freie Positionen ergänzbar, Nummernkreis je Jahr, nach
-  dem Ausstellen unveränderbar, Storno über eine Stornorechnung, Zahlungsstatus, Löschschutz
-  während der Aufbewahrungsfrist. Rechnungssprache je Kunde, Deutsch oder Englisch.
-- **E-Rechnung** — XRechnung (CII) und ZUGFeRD EN 16931 als PDF/A-3 mit eingebettetem XML,
-  geprüft mit dem KoSIT-Validator und veraPDF.
+- **Rechnungen** — nach § 14 UStG aus erfassten Zeiten, freie Positionen ergänzbar, PDF nach
+  DIN 5008 mit Vorschau im Editor. Regelbesteuerung, Kleinunternehmer nach § 19 UStG, Reverse
+  Charge und Drittland, die steuerliche Behandlung leitet sich aus Profil und Kunde ab.
+  Pflichtangaben werden vor der Nummernvergabe geprüft, Ausstellen und Storno nur mit erneuter
+  Bestätigung (im Betrieb durch Personalverwaltung oder Administration). Nummernkreis je Jahr,
+  nach dem Ausstellen unveränderbar, Storno über eine Stornorechnung mit Verweis in beide
+  Richtungen, Zahlungsstatus, Löschschutz während der Aufbewahrungsfrist. Rechnungssprache je
+  Kunde, Deutsch oder Englisch.
+- **E-Rechnung** — XRechnung (CII) als reines XML und ZUGFeRD EN 16931 als PDF/A-3 mit
+  eingebettetem XML. Vorgabe je Kunde: XRechnung bei öffentlichen Auftraggebern mit Leitweg-ID,
+  an Verbraucher nur PDF, sonst ZUGFeRD; am Kunden und beim Ausstellen änderbar. Das XML wird im
+  Original aufbewahrt, bei XRechnung als eigene Datei zum Download. Geprüft mit dem
+  KoSIT-Validator (in CI) und veraPDF (lokal).
 - **Stundennachweis** — Projektzeiten je Kunde und Zeitraum oder je Rechnung, als PDF oder CSV.
 
 ## Architektur
