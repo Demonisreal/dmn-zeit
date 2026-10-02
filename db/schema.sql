@@ -1287,6 +1287,12 @@ begin
     raise exception 'invoice % is not an open draft', p_invoice_id using errcode = 'ZT003';
   end if;
 
+  if draft.kind = 'invoice' and (
+    select count(*) from app.invoice_line_entries e where e.tenant_id = draft.tenant_id and e.invoice_id = draft.id
+  ) > 5000 then
+    raise exception 'invoice % bills more than 5000 project entries', p_invoice_id using errcode = 'check_violation';
+  end if;
+
   select t.kind into tenant_kind from app.tenants t where t.id = app.tenant_id();
 
   if tenant_kind = 'sandbox' and draft.kind = 'invoice' and (
@@ -7854,4 +7860,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260926001300'),
     ('20260926001301'),
     ('20260926001302'),
-    ('20260926001303');
+    ('20260926001303'),
+    ('20260926001304');

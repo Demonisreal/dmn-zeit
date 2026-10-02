@@ -178,6 +178,34 @@ describe('buildInvoicePdf', () => {
 		expect(numpages).toBeGreaterThan(1);
 		expect(text).toContain('Seite 1 von');
 	});
+
+	it('runs a draft over exactly as many pages as the invoice it becomes', async () => {
+		for (let count = 1; count <= 90; count += 6) {
+			const lines = Array.from({ length: count }, (_, index) =>
+				invoiceLineFixture({
+					id: `line-${index}`,
+					position: index + 1,
+					description: 'Umsetzung und Abstimmung mit dem Kunden '.repeat(1 + (index % 4))
+				})
+			);
+			const issued = invoiceFixture({ lines, introText: 'Wie vereinbart berechnen wir:' });
+			const draft = invoiceFixture({
+				...issued,
+				status: 'draft',
+				number: null,
+				numberYear: null,
+				numberSeq: null,
+				issueDate: null,
+				dueDate: null,
+				issuedAt: null,
+				issuedBy: null
+			});
+			const [issuedPages, draftPages] = await Promise.all(
+				[issued, draft].map(async (invoice) => (await pdfParse(await buildInvoicePdf(invoice))).numpages)
+			);
+			expect({ count, pages: draftPages }).toEqual({ count, pages: issuedPages });
+		}
+	}, 30_000);
 });
 
 describe('mandatory fields per case', () => {

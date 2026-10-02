@@ -311,7 +311,7 @@
 		"hints": {
 			"service_deadline_14a_1": "Bei dieser Leistung muss die Rechnung bis zum 15. Tag des Folgemonats gestellt werden (§ 14a Abs. 1 UStG).",
 			"public_buyer_wants_xrechnung": "Der Kunde hat eine Leitweg-ID, die Rechnung ist aber als PDF angelegt. Öffentliche Auftraggeber erwarten eine XRechnung, das Format lässt sich beim Ausstellen wählen.",
-			"long_timer_entry": "Ein Timer-Eintrag dieser Rechnung lief 12 Stunden oder länger. Vor dem Ausstellen prüfen, ob die Zeit stimmt, im Entwurf lässt sie sich nicht mehr ändern."
+			"long_timer_entry": "Ein Timer-Eintrag dieser Rechnung lief 12 Stunden oder länger. Beim Ausstellen muss die Zeit bestätigt werden. Stimmt sie nicht, den Entwurf verwerfen, den Eintrag korrigieren und den Entwurf neu anlegen."
 		},
 		"blockers": {
 			"vat_id_missing": "In den Rechnungsangaben des Rechnungsstellers fehlt die USt-IdNr.",
@@ -329,11 +329,13 @@
 			"tax_category_mismatch": "Eine Position trägt eine Steuerkategorie, die zu dieser Rechnung nicht passt. Eine hinzugefügte Position bearbeiten, bei Positionen aus gebuchter Zeit den Entwurf verwerfen und neu anlegen.",
 			"tax_rate_mismatch": "Der Steuersatz einer Position weicht vom gültigen Satz ab. Eine hinzugefügte Position neu speichern, bei Positionen aus gebuchter Zeit den Entwurf verwerfen und neu anlegen.",
 			"total_negative": "Die Rechnungssumme ist negativ. Positionen prüfen, eine Rechnung mit negativer Summe lässt sich nicht ausstellen.",
-			"total_too_large": "Die Rechnungssumme ist zu groß zum Ausstellen. Mengen und Einzelpreise der Positionen prüfen."
+			"total_too_large": "Die Rechnungssumme ist zu groß zum Ausstellen. Mengen und Einzelpreise der Positionen prüfen.",
+			"long_timer_entry": "Ein Timer-Eintrag lief 12 Stunden oder länger. Bestätigen, dass die Zeit stimmt, oder den Entwurf verwerfen und den Eintrag korrigieren."
 		},
 		"issue": "Ausstellen",
 		"issueTitle": "Rechnung ausstellen",
 		"issueWarning": "Die Rechnung erhält jetzt eine Nummer und kann danach nicht mehr geändert werden.",
+		"longTimersChecked": "Timer-Einträge ab 12 Stunden geprüft, die Zeit stimmt",
 		"issueConfirm": "Jetzt ausstellen",
 		"format": "Format",
 		"formatHints": {

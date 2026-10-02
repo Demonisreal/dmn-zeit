@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { isBillable, longTimerEntries, roundDiv, vatRateFor } from '@zeit/rules';
 import { invoicePeriodIssue } from '@zeit/shared';
@@ -6,11 +7,11 @@ import type {
 	CancelInvoiceInput,
 	CreateDraftInput,
 	Invoice,
-	InvoiceFormat,
 	InvoiceLine,
 	InvoiceLineInput,
 	InvoiceListQuery,
 	InvoicePage,
+	IssueInvoiceInput,
 	Locale,
 	MarkPaidInput,
 	TaxCategory,
@@ -59,6 +60,15 @@ function tooManyLines() {
 		code: 'VALIDATION',
 		message: 'Invalid input',
 		details: [{ field: 'lines', code: 'custom', message: 'invoice.tooManyLines', params: { max: MAX_LINES } }]
+	} satisfies ApiError);
+}
+
+export const MAX_ENTRIES = 5000;
+function tooManyEntries() {
+	return new BadRequestException({
+		code: 'VALIDATION',
+		message: 'Invalid input',
+		details: [{ field: 'entries', code: 'custom', message: 'invoice.tooManyEntries', params: { max: MAX_ENTRIES } }]
 	} satisfies ApiError);
 }
 
@@ -163,6 +173,8 @@ export class InvoicesService {
 				throw invalidState('None of the unbilled time in this period has a rate yet');
 			}
 			if (lines.length > MAX_LINES) throw tooManyLines();
+			const entryIds = lines.flatMap((line) => line.entryIds);
+			if (entryIds.length > MAX_ENTRIES) throw tooManyEntries();
 
 			const locale = clientRow.invoiceLocale as Locale;
 			const invoiceId = await this.store.insertDraft(trx, session, {
@@ -183,7 +195,7 @@ export class InvoicesService {
 				closingText: defaultClosingText[locale]
 			});
 			await this.store.insertTimeLines(trx, session.tenantId, invoiceId, input.clientId, 1, lines);
-			await this.store.linkEntries(trx, lines.flatMap((line) => line.entryIds), invoiceId);
+			await this.store.linkEntries(trx, entryIds, invoiceId);
 			await this.store.logEvent(trx, session, client, { action: 'invoice.draft_created', rowId: invoiceId });
 			return this.model(trx, invoiceId);
 		});
@@ -248,9 +260,11 @@ export class InvoicesService {
 
 			const itemLines = await this.store.itemLineCount(trx, id);
 			if (itemLines + lines.length > MAX_LINES) throw tooManyLines();
+			const entryIds = lines.flatMap((line) => line.entryIds);
+			if (entryIds.length > MAX_ENTRIES) throw tooManyEntries();
 
 			await this.store.replaceTimeLines(trx, session.tenantId, id, essentials.clientId, lines);
-			await this.store.linkEntries(trx, lines.flatMap((line) => line.entryIds), id);
+			await this.store.linkEntries(trx, entryIds, id);
 			return this.model(trx, id);
 		});
 	}
@@ -335,16 +349,27 @@ export class InvoicesService {
 		return this.documents.renderInvoicePdf(model);
 	}
 
-	async issue(session: AuthSession, id: string, format: InvoiceFormat, client: Client): Promise<Invoice> {
+	async issue(session: AuthSession, id: string, input: IssueInvoiceInput, client: Client): Promise<Invoice> {
+		const checked = await this.db.withTenant(session, async (trx) => {
+			await this.lockedDraft(trx, id);
+			if ((await this.store.entryCount(trx, id)) > MAX_ENTRIES) throw tooManyEntries();
+			await this.store.setDraftFormat(trx, id, input.format);
+			const draft = await this.model(trx, id);
+			const blockers =
+				draft.hints.includes('long_timer_entry') && !input.longTimersChecked
+					? [...draft.blockers, 'long_timer_entry']
+					: draft.blockers;
+			if (blockers.length > 0) throw invalidState('This invoice is missing required fields', { blockers });
+			return draft;
+		});
+		await this.documents.renderInvoicePdf(checked);
 		const model = await this.db.withTenant(session, async (trx) => {
 			await this.lockedDraft(trx, id);
-			await this.store.setDraftFormat(trx, id, format);
-			const draft = await this.model(trx, id);
-			if (draft.blockers.length > 0) {
-				throw invalidState('This invoice is missing required fields', { blockers: draft.blockers });
+			if (!isDeepStrictEqual(await this.model(trx, id), checked)) {
+				throw invalidState('The draft changed while it was being checked');
 			}
 			if (!(await this.store.issue(trx, id))) throw invalidState('The invoice is no longer a draft');
-			await this.store.logEvent(trx, session, client, { action: 'invoice.issued', rowId: id, diff: { format } });
+			await this.store.logEvent(trx, session, client, { action: 'invoice.issued', rowId: id, diff: { format: input.format } });
 			return this.model(trx, id);
 		});
 		await this.renderAndStore(session, model);

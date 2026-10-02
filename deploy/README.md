@@ -108,6 +108,14 @@ Der Migrationsdienst läuft bei jedem `up` erneut, `dbmate` überspringt bereits
 Migrationen selbst. Erst danach wird die API neu gestartet. Reihenfolge nicht von Hand
 umgehen (kein `up -d zeit-<instanz>-api` ohne vorherigen `up` des gesamten Projekts).
 
+## Kein Heap-Flag für die API
+
+Die API läuft ohne `--max-old-space-size` und ohne `NODE_OPTIONS` mit Heap-Flags, weder im
+Dockerfile noch in Compose oder `.env`. Ein solches Flag gilt für den ganzen Prozess und ersetzt
+die `resourceLimits` der Render-Worker (`apps/api/src/documents/worker.ts`, 128 MB je Worker).
+Gemessen: Aus 16 MB Worker-Limit wurden mit dem Flag 8 GB. Den Speicher der API begrenzt allein
+`mem_limit` des API-Dienstes in `deploy/<instanz>/compose.yml`.
+
 ## Reverse-Proxy des Servers
 
 Die Beispiele unten zeigen nur die Struktur für den bereits vorhandenen, zentralen Caddy des

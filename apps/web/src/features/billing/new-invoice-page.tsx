@@ -50,6 +50,7 @@ export function NewInvoicePage({ role, prefill }: Props) {
 	const refusal =
 		draft.error &&
 		(issueAt(draft.error, 'lines') ??
+			issueAt(draft.error, 'entries') ??
 			(hasCode(draft.error, 'INVALID_STATE')
 				? t('newInvoice.nothingToBill')
 				: errorText(draft.error)));

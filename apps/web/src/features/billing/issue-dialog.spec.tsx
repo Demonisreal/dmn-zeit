@@ -87,6 +87,54 @@ describe('issue dialog', () => {
 		expect(sent).toEqual(['xrechnung', 'pdf']);
 	});
 
+	it('asks to confirm a timer of twelve hours and more before the number goes out', async () => {
+		signInForBilling();
+		await storedAs({ hints: ['long_timer_entry'] });
+		const sent: IssueInvoiceInput[] = [];
+		server.use(
+			http.post(`${draftUrl}/issue`, async ({ request }) => {
+				const input = (await request.clone().json()) as IssueInvoiceInput;
+				sent.push(input);
+				if (input.longTimersChecked) return undefined;
+				return HttpResponse.json(
+					{
+						code: 'INVALID_STATE',
+						message: 'This invoice is missing required fields',
+						details: { blockers: ['long_timer_entry'] }
+					},
+					{ status: 409 }
+				);
+			})
+		);
+		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
+
+		const dialog = await openDialog();
+		const checked = within(dialog).getByRole('checkbox', {
+			name: 'Timer-Einträge ab 12 Stunden geprüft, die Zeit stimmt'
+		});
+		expect(checked).not.toBeChecked();
+		await userEvent.click(within(dialog).getByRole('button', { name: 'Jetzt ausstellen' }));
+		expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+			'Ein Timer-Eintrag lief 12 Stunden oder länger.'
+		);
+
+		await userEvent.click(checked);
+		expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+		await userEvent.click(within(dialog).getByRole('button', { name: 'Jetzt ausstellen' }));
+
+		expect(await screen.findByRole('heading', { name: /RE-\d{4}-\d{4}/ })).toBeInTheDocument();
+		expect(sent.map((input) => input.longTimersChecked)).toEqual([false, true]);
+	});
+
+	it('shows no confirmation for a draft without long timers', async () => {
+		signInForBilling();
+		await storedAs({ hints: [] });
+		renderApp(`/billing/invoices/${invoiceIds.yilmazDraft}`);
+
+		const dialog = await openDialog();
+		expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+	});
+
 	it('ticks the invoice step of the freelancer tour in the demo', async () => {
 		const session = signInForBilling('solo');
 		server.use(

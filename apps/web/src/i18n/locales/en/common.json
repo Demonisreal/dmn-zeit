@@ -81,6 +81,7 @@
 		"invoice": {
 			"rangeTooLong": "At most 366 days",
 			"tooManyLines": "At most {{max}} lines",
+			"tooManyEntries": "At most {{max}} entries per invoice, shorten the period",
 			"taxCategoryMismatch": "This tax category does not match this invoice",
 			"paidOnFuture": "The payment date is in the future",
 			"exemptionReasonRequired": "Tax-exempt line items need the reason for the exemption",

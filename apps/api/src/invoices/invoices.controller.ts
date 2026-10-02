@@ -161,7 +161,7 @@ export class InvoicesController {
 		@Body(new ZodPipe(issueInvoiceSchema)) body: IssueInvoiceInput,
 		@CurrentClient() client: Client
 	): Promise<Invoice> {
-		return this.invoices.issue(session, invoiceId, body.format, client);
+		return this.invoices.issue(session, invoiceId, body, client);
 	}
 
 	@Post(':id/cancel')

@@ -363,7 +363,9 @@ export function InvoiceEditor({ invoice, role, previewKey }: Props) {
 					)}
 					{refresh.error && (
 						<Notice tone="error">
-							{issueAt(refresh.error, 'lines') ?? errorText(refresh.error)}
+							{issueAt(refresh.error, 'lines') ??
+								issueAt(refresh.error, 'entries') ??
+								errorText(refresh.error)}
 						</Notice>
 					)}
 

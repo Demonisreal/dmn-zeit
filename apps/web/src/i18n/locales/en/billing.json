@@ -311,7 +311,7 @@
 		"hints": {
 			"service_deadline_14a_1": "For this service, the invoice must be issued by the 15th day of the following month (§ 14a (1) UStG).",
 			"public_buyer_wants_xrechnung": "The client has a Leitweg-ID, but the invoice is set up as a PDF. Public-sector clients expect an XRechnung, the format can be chosen when issuing.",
-			"long_timer_entry": "A timer entry on this invoice ran for 12 hours or more. Check that the time is right before issuing, it can no longer be changed in the draft."
+			"long_timer_entry": "A timer entry on this invoice ran for 12 hours or more. Issuing asks you to confirm the time. If it is wrong, discard the draft, correct the entry and create the draft again."
 		},
 		"blockers": {
 			"vat_id_missing": "The invoicing party's own details are missing a VAT ID.",
@@ -329,11 +329,13 @@
 			"tax_category_mismatch": "A line item has a tax category that does not fit this invoice. Edit an added line item; for line items from booked time, discard the draft and create it again.",
 			"tax_rate_mismatch": "The tax rate of a line item differs from the rate in force. Save an added line item again; for line items from booked time, discard the draft and create it again.",
 			"total_negative": "The invoice total is negative. Check the line items, an invoice with a negative total cannot be issued.",
-			"total_too_large": "The invoice total is too large to issue. Check the quantities and unit prices of the line items."
+			"total_too_large": "The invoice total is too large to issue. Check the quantities and unit prices of the line items.",
+			"long_timer_entry": "A timer entry ran for 12 hours or more. Confirm that the time is right, or discard the draft and correct the entry."
 		},
 		"issue": "Issue",
 		"issueTitle": "Issue invoice",
 		"issueWarning": "The invoice now gets a number and can no longer be changed afterwards.",
+		"longTimersChecked": "Timer entries of 12 hours or more checked, the time is right",
 		"issueConfirm": "Issue now",
 		"format": "Format",
 		"formatHints": {

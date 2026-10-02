@@ -1,9 +1,19 @@
 import { billingProfileSchema, revenueSchema, unbilledSchema } from '@zeit/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { RenderJob } from '../../src/documents/worker';
 import { expectContract, startApi, type Api } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
 import { seedBillingProfile, seedClient, seedDraft } from '../helpers/invoices';
 import { createPerson, createTenant } from '../helpers/pg';
+
+vi.mock('../../src/documents/worker', async (importOriginal) => {
+	const original = await importOriginal<typeof import('../../src/documents/worker')>();
+	const { withRenderSlot } = await import('../../src/documents/render-limit');
+	return {
+		...original,
+		renderInWorker: vi.fn((job: RenderJob) => withRenderSlot(() => original.renderJob(job)))
+	};
+});
 
 let api: Api;
 let tenant: string;

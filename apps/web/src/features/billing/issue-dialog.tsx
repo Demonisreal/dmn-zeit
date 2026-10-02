@@ -12,6 +12,7 @@ import {
 } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
 import dialogCss from '../../components/ui/dialog.module.css';
 import { Notice } from '../../components/ui/notice';
 import { formatCents } from '../../i18n/format';
@@ -42,9 +43,11 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 	const reauth = useReauth();
 	const [picked, setPicked] = useState<InvoiceFormat | null>(null);
 	const format = picked ?? invoice.format;
+	const [timersChecked, setTimersChecked] = useState(false);
+	const longTimers = invoice.hints.includes('long_timer_entry');
 
 	const issue = useMutation({
-		mutationFn: () => issueInvoice(invoice.id, { format }),
+		mutationFn: () => issueInvoice(invoice.id, { format, longTimersChecked: timersChecked }),
 		onSuccess: async (issued) => {
 			queryClient.setQueryData(invoiceQuery(issued.id).queryKey, issued);
 			close();
@@ -65,6 +68,7 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 	function close() {
 		issue.reset();
 		setPicked(null);
+		setTimersChecked(false);
 		onClose();
 	}
 
@@ -116,6 +120,18 @@ export function IssueDialog({ invoice, isOpen, onClose }: Props) {
 									</div>
 								))}
 							</RadioGroup>
+							{longTimers && (
+								<Checkbox
+									isSelected={timersChecked}
+									onChange={(checked) => {
+										issue.reset();
+										setTimersChecked(checked);
+									}}
+									isDisabled={issue.isPending}
+								>
+									{t('invoiceEditor.longTimersChecked')}
+								</Checkbox>
+							)}
 							{blockers.length > 0 && (
 								<Notice tone={refused ? 'error' : 'warning'}>
 									<ul id="issue-blockers" className={css.blockers}>

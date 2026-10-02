@@ -81,6 +81,7 @@
 		"invoice": {
 			"rangeTooLong": "Höchstens 366 Tage",
 			"tooManyLines": "Höchstens {{max}} Positionen",
+			"tooManyEntries": "Höchstens {{max}} Buchungen je Rechnung, bitte den Zeitraum verkürzen",
 			"taxCategoryMismatch": "Diese Steuerkategorie passt nicht zu dieser Rechnung",
 			"paidOnFuture": "Das Zahlungsdatum liegt in der Zukunft",
 			"exemptionReasonRequired": "Für steuerfreie Positionen fehlt der Grund der Steuerbefreiung",

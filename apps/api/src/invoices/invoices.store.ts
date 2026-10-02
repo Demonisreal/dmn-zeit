@@ -330,6 +330,15 @@ export class InvoicesStore {
 		return Number(row?.count ?? 0);
 	}
 
+	async entryCount(trx: Trx, invoiceId: string): Promise<number> {
+		const row = await trx
+			.selectFrom('app.invoice_line_entries')
+			.select((eb) => eb.fn.countAll<number>().as('count'))
+			.where('invoice_id', '=', invoiceId)
+			.executeTakeFirst();
+		return Number(row?.count ?? 0);
+	}
+
 	// a refresh only adds the free positions to this count, its time lines are about to be replaced wholesale
 	async itemLineCount(trx: Trx, invoiceId: string): Promise<number> {
 		const row = await trx

@@ -487,6 +487,46 @@ describe('total of an invoice', () => {
 	});
 });
 
+describe('bookings on one invoice', () => {
+	it('issues 5000 and refuses the 5001st without spending a number', async () => {
+		const tenant = await createTenant();
+		const hr = await createUser(tenant, { role: 'hr' });
+		const worker = await createPerson(tenant);
+		await seedBillingProfile(tenant);
+		const clientId = await seedClient(tenant);
+		const projectId = await seedProject(tenant, clientId);
+		const draftId = await seedDraft(tenant, clientId);
+
+		await superuser.query('begin');
+		await superuser.query(`select set_config('app.role', 'hr', true)`);
+		await superuser.query(
+			`with booked as (
+			   insert into app.project_entries (tenant_id, employee_id, project_id, started_at, ended_at, note, source)
+			   select $1, $2, $3,
+			          timestamptz '2026-02-02 06:00+01' + (gs / 600) * interval '1 day' + (gs % 600) * interval '1 minute',
+			          timestamptz '2026-02-02 06:01+01' + (gs / 600) * interval '1 day' + (gs % 600) * interval '1 minute',
+			          'Beleg', 'manual'
+			     from generate_series(0, 5000) gs
+			   returning id
+			 )
+			 insert into app.invoice_line_entries (tenant_id, invoice_id, line_id, entry_id)
+			 select $1, $4, (select id from app.invoice_lines where invoice_id = $4), id from booked`,
+			[tenant, worker.employeeId, projectId, draftId]
+		);
+		await superuser.query('commit');
+
+		await expect(issue(hr, draftId)).rejects.toMatchObject({ code: '23514' });
+		expect(await lastSeq(tenant)).toBeUndefined();
+
+		await superuser.query(
+			`delete from app.invoice_line_entries
+			  where entry_id = (select entry_id from app.invoice_line_entries where invoice_id = $1 limit 1)`,
+			[draftId]
+		);
+		expect((await issue(hr, draftId)).number_seq).toBe(1);
+	});
+});
+
 describe('payment and cancellation columns', () => {
 	let tenant: string;
 	let hr: Account;

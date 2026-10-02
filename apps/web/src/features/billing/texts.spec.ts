@@ -23,7 +23,8 @@ const blockers = [
 	'seller_contact_missing',
 	'iban_missing',
 	'buyer_reference_missing',
-	'buyer_endpoint_missing'
+	'buyer_endpoint_missing',
+	'long_timer_entry'
 ];
 
 const hints = ['service_deadline_14a_1', 'public_buyer_wants_xrechnung', 'long_timer_entry'];

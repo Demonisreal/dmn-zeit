@@ -36,23 +36,46 @@ const LONG_TEXT = 'Konzeption Umsetzung Abstimmung Abnahme Dokumentation Schulun
 	.repeat(16)
 	.slice(0, 1000);
 
+async function longDraft() {
+	const { tenant, admin, clientId } = await office();
+	const draftId = await seedDraft(api.superuser, tenant, clientId);
+	await api.superuser.query(
+		`insert into app.invoice_lines (
+			tenant_id, invoice_id, client_id, position, kind, description, quantity_milli, unit,
+			unit_price_cents, net_cents, tax_category, tax_rate_bp
+		 ) select $1, $2, $3, gs, 'item', $4, 1000, 'HUR', 5000, 5000, 'standard', 1900
+		     from generate_series(2, 80) gs`,
+		[tenant, draftId, clientId, LONG_TEXT]
+	);
+	await api.superuser.query(
+		`update app.clients set street = 'Hafenstraße 12', postal_code = '20359', city = 'Hamburg' where id = $1`,
+		[clientId]
+	);
+	return { tenant, admin, draftId };
+}
+
+const pageLimit = { code: 'PAGE_LIMIT', message: 'Document runs past 50 pages', details: { maxPages: 50 } };
+
 describe('documents past the page limit', () => {
+	it('are counted before the number goes out, a draft past 50 pages stays a draft', async () => {
+		const { tenant, admin, draftId } = await longDraft();
+
+		const refused = await admin.post(`/invoices/${draftId}/issue`, { format: 'zugferd' });
+		expect(refused.status).toBe(422);
+		expect(refused.body).toEqual(pageLimit);
+
+		const { rows } = await api.superuser.query(
+			`select i.status, i.number, (select count(*)::int from app.invoice_counters c where c.tenant_id = $1) as counters
+			   from app.invoices i where i.id = $2`,
+			[tenant, draftId]
+		);
+		expect(rows[0]).toEqual({ status: 'draft', number: null, counters: 0 });
+	});
+
 	it('answers 422 PAGE_LIMIT on the download and does not render the snapshot again right away', async () => {
-		const { tenant, admin, clientId } = await office();
-		const draftId = await seedDraft(api.superuser, tenant, clientId);
-		await api.superuser.query(
-			`insert into app.invoice_lines (
-				tenant_id, invoice_id, client_id, position, kind, description, quantity_milli, unit,
-				unit_price_cents, net_cents, tax_category, tax_rate_bp
-			 ) select $1, $2, $3, gs, 'item', $4, 1000, 'HUR', 5000, 5000, 'standard', 1900
-			     from generate_series(2, 80) gs`,
-			[tenant, draftId, clientId, LONG_TEXT]
-		);
-		await api.superuser.query(
-			`update app.clients set street = 'Hafenstraße 12', postal_code = '20359', city = 'Hamburg' where id = $1`,
-			[clientId]
-		);
+		const { admin, draftId } = await longDraft();
 		const render = vi.mocked(renderInWorker);
+		render.mockResolvedValueOnce([{ format: 'pdf', content: Buffer.from('%PDF-') }]);
 		const before = render.mock.calls.length;
 
 		const issued = await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' });
@@ -64,13 +87,9 @@ describe('documents past the page limit', () => {
 		for (let i = 0; i < 2; i++) {
 			const download = await admin.get(`/invoices/${draftId}/document`);
 			expect(download.status).toBe(422);
-			expect(download.body).toEqual({
-				code: 'PAGE_LIMIT',
-				message: 'Document runs past 50 pages',
-				details: { maxPages: 50 }
-			});
+			expect(download.body).toEqual(pageLimit);
 		}
-		expect(render.mock.calls.length - before).toBe(1);
+		expect(render.mock.calls.length - before).toBe(2);
 	});
 });
 
@@ -79,7 +98,9 @@ describe('a document that failed to render', () => {
 		const { tenant, admin, clientId } = await office();
 		const draftId = await seedDraft(api.superuser, tenant, clientId);
 		const render = vi.mocked(renderInWorker);
-		render.mockRejectedValueOnce(new Error('Rendering timed out after 5s'));
+		render
+			.mockResolvedValueOnce([{ format: 'pdf', content: Buffer.from('%PDF-') }])
+			.mockRejectedValueOnce(new Error('Rendering timed out after 5s'));
 		const before = render.mock.calls.length;
 
 		expect((await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' })).status).toBe(200);
@@ -90,7 +111,7 @@ describe('a document that failed to render', () => {
 		const retryAfter = Number(download.headers['retry-after']);
 		expect(retryAfter).toBeGreaterThan(0);
 		expect(retryAfter).toBeLessThanOrEqual(30);
-		expect(render.mock.calls.length - before).toBe(1);
+		expect(render.mock.calls.length - before).toBe(2);
 	});
 });
 

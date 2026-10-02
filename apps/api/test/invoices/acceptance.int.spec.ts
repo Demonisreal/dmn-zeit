@@ -4,6 +4,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { pdfParse } from '../../src/documents/pdf-parse.fixture';
 import { MAX_CONCURRENT, MAX_QUEUED, withRenderSlot } from '../../src/documents/render-limit';
 import { renderInWorker, type RenderJob } from '../../src/documents/worker';
+import { DocumentsService } from '../../src/documents/documents.service';
+import { MAX_ENTRIES } from '../../src/invoices/invoices.service';
 import { InvoicesStore } from '../../src/invoices/invoices.store';
 import { startApi, type Api } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
@@ -149,9 +151,12 @@ describe('numbering over http', () => {
 		const drafts: string[] = [];
 		for (let i = 0; i < 21; i++) drafts.push(await seedDraft(api.superuser, tenant, clientId));
 
-		vi.mocked(renderInWorker).mockRejectedValue(
-			new Error('numbering only, the document stays pending')
-		);
+		vi.mocked(renderInWorker).mockImplementation(async (job) => {
+			if (job.kind === 'invoice' && job.invoice.status === 'draft') {
+				return [{ format: 'pdf', content: Buffer.from('%PDF-') }];
+			}
+			throw new Error('numbering only, the document stays pending');
+		});
 		try {
 			const first = await admin.post(`/invoices/${drafts[0]}/issue`, { format: 'pdf' });
 			expect(first.body.number).toBe(`RE-${year}-0001`);
@@ -337,6 +342,26 @@ describe('a failed issue', () => {
 		expect(await counter(tenant)).toBeNull();
 	});
 
+	it('refuses a draft that changed while its pages were counted', async () => {
+		const { tenant, admin } = await office();
+		const draftId = await seedDraft(api.superuser, tenant, await seedClient(api.superuser, tenant));
+		const documents = api.app.get(DocumentsService);
+		const render = documents.renderInvoicePdf.bind(documents);
+		vi.spyOn(documents, 'renderInvoicePdf').mockImplementationOnce(async (draft) => {
+			expect((await admin.post(`/invoices/${draftId}/lines`, freeLine)).status).toBe(201);
+			return render(draft);
+		});
+
+		const refused = await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' });
+		expect([refused.status, refused.body.code]).toEqual([409, 'INVALID_STATE']);
+		expect((await statusOf(draftId)).status).toBe('draft');
+		expect(await counter(tenant)).toBeNull();
+
+		const issued = await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' });
+		expect(issued.body.lines).toHaveLength(2);
+		expect(issued.body.number).toBe(`RE-${year}-0001`);
+	});
+
 	it('hands the number back when the service fails after numbering', async () => {
 		const { tenant, admin } = await office();
 		const draftId = await seedDraft(api.superuser, tenant, await seedClient(api.superuser, tenant));
@@ -440,29 +465,45 @@ describe('client with invoices', () => {
 });
 
 describe('render capacity', () => {
-	it('issues and cancels with a full queue and renders the document on the first download', async () => {
+	it('cancels with a full queue and renders the document on the first download', async () => {
 		const { tenant, admin } = await office();
-		const clientId = await seedClient(api.superuser, tenant);
-		const draftId = await seedDraft(api.superuser, tenant, clientId);
-		const original = await issuedInvoice(tenant, admin, clientId);
+		const original = await issuedInvoice(tenant, admin, await seedClient(api.superuser, tenant));
 
 		const drain = await fullRenderQueue();
 		let cancellationId: string;
 		try {
-			const issued = await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' });
 			const cancelled = await admin.post(`/invoices/${original.id}/cancel`, {
 				reason: 'Storno bei voller Warteschlange'
 			});
-			expect([issued.status, cancelled.status]).toEqual([200, 200]);
+			expect(cancelled.status).toBe(200);
 			cancellationId = cancelled.body.id;
 		} finally {
 			await drain();
 		}
 
-		expect(await counter(tenant)).toBe(3);
-		expect(await storedFormats(draftId)).toEqual([]);
+		expect(await counter(tenant)).toBe(2);
 		expect(await storedFormats(cancellationId)).toEqual([]);
-		expect((await admin.get(`/invoices/${draftId}/document`)).status).toBe(200);
+		expect((await admin.get(`/invoices/${cancellationId}/document`)).status).toBe(200);
+		expect(await storedFormats(cancellationId)).toEqual(['pdf']);
+	});
+
+	it('spends no number on an issue while the queue is too full for the page check', async () => {
+		const { tenant, admin } = await office();
+		const draftId = await seedDraft(api.superuser, tenant, await seedClient(api.superuser, tenant));
+
+		const drain = await fullRenderQueue();
+		try {
+			const busy = await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' });
+			expect([busy.status, busy.body.code]).toEqual([503, 'RENDER_BUSY']);
+			expect(busy.headers['retry-after']).toBe('5');
+		} finally {
+			await drain();
+		}
+
+		expect((await statusOf(draftId)).status).toBe('draft');
+		expect(await counter(tenant)).toBeNull();
+		const issued = await admin.post(`/invoices/${draftId}/issue`, { format: 'pdf' });
+		expect(issued.body.number).toBe(`RE-${year}-0001`);
 		expect(await storedFormats(draftId)).toEqual(['pdf']);
 	});
 
@@ -571,7 +612,14 @@ describe('500 positions per draft', () => {
 describe('long timers on a draft', () => {
 	it('hints once at timer entries of twelve hours and more, never at long manual ones', async () => {
 		const { tenant, admin } = await office();
-		const client = (await admin.post('/clients', { name: 'Nachtschicht KG' })).body;
+		const client = (
+			await admin.post('/clients', {
+				name: 'Nachtschicht KG',
+				street: 'Hafenstraße 12',
+				postalCode: '20359',
+				city: 'Hamburg'
+			})
+		).body;
 		const project = (await admin.post('/projects', { clientId: client.id, name: 'Wartung' })).body;
 		await admin.post('/rates', { clientId: client.id, validFrom: '2026-01-01', rateCents: '6000' });
 		const worker = await createPerson(tenant);
@@ -596,12 +644,119 @@ describe('long timers on a draft', () => {
 		expect(timers.body.hints.filter((hint: string) => hint === 'long_timer_entry')).toHaveLength(1);
 		expect(timers.body.blockers).not.toContain('long_timer_entry');
 
+		for (const body of [{ format: 'pdf' }, { format: 'pdf', longTimersChecked: false }]) {
+			const refused = await admin.post(`/invoices/${timers.body.id}/issue`, body);
+			expect(refused.status).toBe(409);
+			expect(refused.body.details.blockers).toEqual(['long_timer_entry']);
+		}
+		expect(await counter(tenant)).toBeNull();
+		const issued = await admin.post(`/invoices/${timers.body.id}/issue`, {
+			format: 'pdf',
+			longTimersChecked: true
+		});
+		expect(issued.status).toBe(200);
+		expect(issued.body.number).toBe(`RE-${year}-0001`);
+
 		const manual = await admin.post('/invoices/drafts', {
 			clientId: client.id,
 			from: '2026-09-23',
 			to: '2026-09-23'
 		});
 		expect(manual.body.hints).not.toContain('long_timer_entry');
+		expect((await admin.post(`/invoices/${manual.body.id}/issue`, { format: 'pdf' })).status).toBe(
+			200
+		);
+	});
+});
+
+async function bookMinutes(tenant: string, employeeId: string, projectId: string, count: number) {
+	await api.superuser.query('begin');
+	await api.superuser.query(`select set_config('app.role', 'hr', true)`);
+	await api.superuser.query(
+		`insert into app.project_entries (tenant_id, employee_id, project_id, started_at, ended_at, note, source)
+		 select $1, $2, $3,
+		        timestamptz '2026-04-01 06:00+02' + (gs / 600) * interval '1 day' + (gs % 600) * interval '1 minute',
+		        timestamptz '2026-04-01 06:01+02' + (gs / 600) * interval '1 day' + (gs % 600) * interval '1 minute',
+		        'Kurzer Handgriff', 'manual'
+		   from generate_series(0, $4::int - 1) gs`,
+		[tenant, employeeId, projectId, count]
+	);
+	await api.superuser.query('commit');
+}
+
+async function reserved(projectId: string) {
+	const { rows } = await api.superuser.query(
+		'select count(*)::int as n from app.project_entries where project_id = $1 and invoice_id is not null',
+		[projectId]
+	);
+	return rows[0].n;
+}
+
+describe(`${MAX_ENTRIES} bookings per invoice`, () => {
+	const tooMany = expect.objectContaining({
+		field: 'entries',
+		message: 'invoice.tooManyEntries',
+		params: { max: MAX_ENTRIES }
+	});
+
+	async function rated(tenant: string, admin: Desk) {
+		const client = (await admin.post('/clients', { name: 'Großkunde KG' })).body;
+		const project = (await admin.post('/projects', { clientId: client.id, name: 'Rahmenvertrag' }))
+			.body;
+		await admin.post('/rates', { clientId: client.id, validFrom: '2026-01-01', rateCents: '6000' });
+		return { client, project, worker: await createPerson(tenant) };
+	}
+
+	it(`refuses a draft over ${MAX_ENTRIES} bookings and reserves nothing`, async () => {
+		const { tenant, admin } = await office();
+		const { client, project, worker } = await rated(tenant, admin);
+		await bookMinutes(tenant, worker.employeeId, project.id, MAX_ENTRIES + 1);
+
+		const refused = await admin.post('/invoices/drafts', {
+			clientId: client.id,
+			from: '2026-04-01',
+			to: '2026-04-30'
+		});
+		expect(refused.status).toBe(400);
+		expect(refused.body.details).toContainEqual(tooMany);
+		expect(await reserved(project.id)).toBe(0);
+	});
+
+	it(`takes ${MAX_ENTRIES}, refuses one more on refresh and on issue`, async () => {
+		const { tenant, admin } = await office();
+		const { client, project, worker } = await rated(tenant, admin);
+		await bookMinutes(tenant, worker.employeeId, project.id, MAX_ENTRIES);
+		const draft = await admin.post('/invoices/drafts', {
+			clientId: client.id,
+			from: '2026-04-01',
+			to: '2026-04-30'
+		});
+		expect(draft.status).toBe(201);
+		expect(await reserved(project.id)).toBe(MAX_ENTRIES);
+
+		const late = await signedIn(api, worker.userId);
+		const booked = await late.post('/project-entries', {
+			projectId: project.id,
+			startedAt: '2026-04-20T09:00:00+02:00',
+			endedAt: '2026-04-20T10:00:00+02:00',
+			note: 'Nachzügler'
+		});
+		expect(booked.status).toBe(201);
+		const refreshed = await admin.post(`/invoices/${draft.body.id}/refresh`);
+		expect(refreshed.status).toBe(400);
+		expect(refreshed.body.details).toContainEqual(tooMany);
+		expect(await reserved(project.id)).toBe(MAX_ENTRIES);
+
+		const [line] = draft.body.lines;
+		await api.superuser.query(
+			`insert into app.invoice_line_entries (tenant_id, invoice_id, line_id, entry_id)
+			 values ($1, $2, $3, $4)`,
+			[tenant, draft.body.id, line.id, booked.body.id]
+		);
+		const issued = await admin.post(`/invoices/${draft.body.id}/issue`, { format: 'pdf' });
+		expect(issued.status).toBe(400);
+		expect(issued.body.details).toContainEqual(tooMany);
+		expect(await counter(tenant)).toBeNull();
 	});
 });
 

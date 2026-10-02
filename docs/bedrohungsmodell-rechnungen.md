@@ -458,6 +458,13 @@ Seite auf einer anderen Subdomain kann eine Anfrage auslösen, die Antwort aber 
 API keine CORS-Freigabe setzt. Übrig bleibt Rechenzeit im Namen des Opfers bis zu seinem
 Nutzerlimit; das ist hingenommen, die Maßnahme oben wird nicht umgesetzt.
 
+Nachtrag 02.10.2026: `GET /invoices/:id/document` und `GET /invoices/:id/xml` bleiben ebenfalls
+GET. Sie liefern das gespeicherte Original. Nur wenn es nach dem Ausstellen fehlt, rendern sie es
+einmal aus dem Schnappschuss nach und speichern es (D-02 Punkt 3); danach kommt es wieder aus der
+DB. Das ist kein fachlicher Zustandswechsel, jeder Abruf ergibt dasselbe Dokument, ein Fehlschlag
+wird 30 s gemerkt (`FAILURE_TTL_MS` in `apps/api/src/documents/documents.service.ts`), und ein
+Download muss als einfacher Link funktionieren.
+
 ## 8. K2/K3: Mandant, Solo-Bereich und Mandantentyp
 
 ### M-01 Mandantentyp wechseln, um Regeln zu umgehen (Elevation of Privilege)
@@ -660,6 +667,40 @@ echte Text.
 - Test: `apps/api/test/invoices/invoices.int.spec.ts`: "Ein Entwurf mit 501 Positionen ergibt 400,
   ein Stundennachweis über 367 Tage 400, ein Dokument über 5 MB weist die DB mit 23514 ab."
 
+Nachtrag 02.10.2026: Umgesetzt sind höchstens 500 Positionen und 5000 Buchungen je Rechnung
+(`MAX_LINES` und `MAX_ENTRIES` in `apps/api/src/invoices/invoices.service.ts`). Die Buchungsgrenze
+prüfen Anlegen, Aktualisieren und Ausstellen eines Entwurfs, jeweils mit 400 und
+`invoice.tooManyEntries`. `app.issue_invoice` weist eine Rechnung mit mehr als 5000 Buchungen
+zusätzlich mit 23514 ab (`20260926001304_invoice_entry_limit.sql`). Ein Stundennachweis-PDF nimmt
+höchstens 1800 Buchungen (`MAX_REPORT_ENTRIES`), für mehr bleibt die CSV.
+
+Vorprüfung vor der Nummernvergabe: Vor der Transaktion mit `app.issue_invoice` rendert die API das
+PDF des Entwurfs einmal im Worker, ohne es zu speichern. Läuft es über 50 Seiten, antwortet
+`POST /invoices/:id/issue` mit 422 `PAGE_LIMIT`, eine Nummer wird nicht verbraucht. Eine Prüfung
+nur über Zählgrenzen ist verworfen: Die Seitenzahl hängt an den Textlängen, schon 80 Positionen
+mit je 1000 Zeichen laufen über 50 Seiten, und eine Grenze, die das sicher ausschließt, träfe
+gewöhnliche Rechnungen. Der Probelauf zählt richtig, weil Entwurf und ausgestellte Rechnung
+denselben Textfluss haben; Nummer, Datum, Wasserzeichen und Fußzeile stehen an festen Stellen.
+Ändert sich der Entwurf zwischen Probelauf und Ausstellung, antwortet die API mit 409
+`INVALID_STATE`, weil sie das Rechnungsmodell in der Ausstellungstransaktion unter Sperre mit dem
+geprüften vergleicht.
+
+Der Probelauf geht durch dieselbe Render-Warteschlange wie die Vorschau. Ist sie voll, antwortet
+das Ausstellen mit 503 `RENDER_BUSY` und `Retry-After`, ebenfalls ohne Nummer. Ausstellen ohne
+Warteschlange gilt damit nur noch für die Stornierung, deren Positionen schon einmal in 50 Seiten
+gepasst haben. Hingenommen, weil Live und Demo getrennte Prozesse mit eigener Warteschlange sind
+und Live nur Eingeladenen offensteht. Ein Probelauf an der Warteschlange vorbei ist verworfen: Dann
+könnte jede Ausstellung einen eigenen Worker mit bis zu 128 MB starten, und in der Demo hat jeder
+Besucher eine Admin-Persona.
+
+- Test: `apps/api/src/documents/pdf.spec.ts`: "runs a draft over exactly as many pages as the
+  invoice it becomes"; `apps/api/test/invoices/render-limits.int.spec.ts`: "are counted before the
+  number goes out, a draft past 50 pages stays a draft"; `apps/api/test/invoices/acceptance.int.spec.ts`:
+  "refuses a draft that changed while its pages were counted", "spends no number on an issue while
+  the queue is too full for the page check", "5000 bookings per invoice";
+  `apps/api/test/db/invoice-hardening.int.spec.ts`: "issues 5000 and refuses the 5001st without
+  spending a number".
+
 ### D-02 Rechenzeit der PDF-Erzeugung (Denial of Service, Befund B10)
 
 pdfkit rechnet im Event-Loop. Mit einem API-Container blockiert ein langes Dokument alle Anfragen.
@@ -731,6 +772,20 @@ Globales Limit bleibt 300/min je IP. "Nutzer" heißt Zählung je `userId` über 
 - Priorität: muss (Index, Ausschluss aus Entwürfen), sollte (Hinweis)
 - Test: `apps/api/test/db/projects.int.spec.ts`: "Ein zweiter Start bei laufendem Timer ergibt 409;
   eine 30-h-Buchung erscheint nicht im Entwurf, bis sie bestätigt ist."
+
+Nachtrag 02.10.2026: Umgesetzt als Sperre beim Ausstellen, nicht als Ausschluss aus dem Entwurf.
+Ein Timer-Eintrag ab 12 h (`longTimerEntries` in `packages/rules/src/billing/long-entries.ts`)
+kommt in den Entwurf und setzt den Hinweis `long_timer_entry`. `POST /invoices/:id/issue`
+verweigert dann mit 409 `INVALID_STATE` und dem Blocker `long_timer_entry`, solange der Body nicht
+`longTimersChecked: true` trägt; der Ausstellen-Dialog fragt das mit einem Kontrollkästchen ab.
+Stimmt die Zeit nicht, wird der Entwurf verworfen, die Buchung korrigiert und der Entwurf neu
+angelegt. Ein Ausschluss bräuchte eine gespeicherte Bestätigung je Buchung und einen eigenen
+Hinweis auf ausgelassene Zeit, sonst fehlte sie still in der Rechnung. Lange manuelle Buchungen
+gelten als gewollt.
+
+- Test: `apps/api/test/invoices/acceptance.int.spec.ts`: "hints once at timer entries of twelve
+  hours and more, never at long manual ones"; `apps/web/src/features/billing/issue-dialog.spec.tsx`:
+  "asks to confirm a timer of twelve hours and more before the number goes out".
 
 ### T-03 Überlappende Projektzeiten (Tampering)
 

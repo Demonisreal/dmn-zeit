@@ -1,8 +1,18 @@
 import { invoiceLineSchema, invoiceSchema } from '@zeit/shared';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { RenderJob } from '../../src/documents/worker';
 import { expectContract, startApi, type Api } from '../auth/api';
 import { signedIn, type Desk } from '../helpers/desk';
 import { createPerson, createTenant, type Person } from '../helpers/pg';
+
+vi.mock('../../src/documents/worker', async (importOriginal) => {
+	const original = await importOriginal<typeof import('../../src/documents/worker')>();
+	const { withRenderSlot } = await import('../../src/documents/render-limit');
+	return {
+		...original,
+		renderInWorker: vi.fn((job: RenderJob) => withRenderSlot(() => original.renderJob(job)))
+	};
+});
 
 let api: Api;
 let tenant: string;
@@ -401,15 +411,6 @@ describe('issuing', () => {
 		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
 		expect(issued.status).toBe(200);
 
-		// the worker thread that would really render this pdf can't run under vitest (see "documents"
-		// below), so this inserts the row saveDocument() would have, straight past it, to reach the trigger
-		const fakePdf = Buffer.from('%PDF-1.4 stand-in bytes, no real render happened here');
-		await api.superuser.query(
-			`insert into app.invoice_documents (tenant_id, invoice_id, format, content, sha256)
-			 values ($1, $2, 'pdf', $3, decode(repeat('00', 32), 'hex'))`,
-			[tenant, issued.body.id, fakePdf]
-		);
-
 		const { rows } = await api.superuser.query(
 			`select diff from audit.log where source = 'trigger' and table_name = 'invoice_documents'
 			 and row_id = (select id from app.invoice_documents where tenant_id = $1 and invoice_id = $2)`,
@@ -448,10 +449,7 @@ describe('another tenant', () => {
 });
 
 describe('documents', () => {
-	// documents/worker.ts spawns new Worker(__filename) and imports its sibling modules without an
-	// extension; under vitest's ts transform that throws ERR_MODULE_NOT_FOUND for './pdf', unrelated
-	// to this module - re-enable once the documents team's worker loading works under the test runner
-	it.skip('renders a watermarked preview for a draft and stores the real document once issued', async () => {
+	it('renders a watermarked preview for a draft and stores the real document once issued', async () => {
 		const client = await newClient('Dokument KG');
 		const project = await billedProject(client.id, '6000');
 		await bookTime('2026-09-07T09:00:00+02:00', '2026-09-07T11:00:00+02:00', project.id);
