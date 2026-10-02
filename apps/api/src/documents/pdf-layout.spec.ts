@@ -145,6 +145,7 @@ describe('tax summary', () => {
 		const { text } = await render(
 			invoiceFixture({
 				taxProfile: 'small_business',
+				treatment: 'small_business',
 				seller: { ...invoiceFixture().seller, vatId: null },
 				lines: [invoiceLineFixture(exemptLine)],
 				taxGroups: [taxGroupFixture({ ...exemptLine, taxCents: '0' })],
@@ -363,6 +364,7 @@ describe('third country', () => {
 		const { text } = await render(
 			invoiceFixture({
 				buyer: { ...vanDijk, countryCode: 'CH', city: 'Zürich', vatId: null },
+				treatment: 'outside_scope',
 				lines: [invoiceLineFixture(outside)],
 				taxGroups: [taxGroupFixture({ ...outside, taxCents: '0' })],
 				totals: totals('76000', '0', '76000')

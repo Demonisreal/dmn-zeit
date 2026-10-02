@@ -36,6 +36,7 @@ const CASES: Record<string, Invoice> = {
 			countryCode: 'NL',
 			vatId: 'NL853746291B01'
 		},
+		treatment: 'reverse_charge',
 		lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0 })],
 		taxGroups: [taxGroupFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, taxCents: '0' })],
 		totals: totals('76000', '0', '76000'),
@@ -43,6 +44,7 @@ const CASES: Record<string, Invoice> = {
 	}),
 	'small-business': invoiceFixture({
 		taxProfile: 'small_business',
+		treatment: 'small_business',
 		seller: { ...regular.seller, vatId: null },
 		buyer: { ...regular.buyer, vatId: null },
 		lines: [invoiceLineFixture({ taxCategory: 'small_business', taxRateBp: 0 })],

@@ -339,9 +339,12 @@ export function toInvoiceModel(ctx: {
 				{ taxProfile: invoice.tax_profile },
 				{ countryCode: client.country_code, isBusiness: client.is_business, vatId: client.vat_id }
 			);
+	const profileChanged =
+		isDraft && invoice.kind === 'invoice' && invoice.tax_profile !== profile.taxProfile;
 	const taxBlockers = isDraft
 		? [
 				...(stale ? ['tax_treatment_stale'] : []),
+				...(profileChanged ? ['tax_profile_changed'] : []),
 				...taxMismatches({
 					taxProfile: invoice.tax_profile,
 					treatment,
@@ -394,6 +397,7 @@ export function toInvoiceModel(ctx: {
 		locale,
 		format: invoice.format,
 		taxProfile: invoice.tax_profile,
+		treatment,
 		seller,
 		buyer,
 		introText: invoice.intro_text,

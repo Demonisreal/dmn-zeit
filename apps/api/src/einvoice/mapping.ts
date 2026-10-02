@@ -86,8 +86,7 @@ function notes(invoice: EInvoice): string[] {
 		regular: null,
 		reverse_charge: texts.reverseCharge,
 		small_business: texts.smallBusiness,
-		outside_scope: texts.outsideScope,
-		exempt: invoice.exemptionReason
+		outside_scope: texts.outsideScope
 	}[invoice.treatment];
 	if (legal) {
 		notes.push(legal);

@@ -83,7 +83,7 @@ export class InvoicesController {
 
 	@Patch(':id')
 	@UseGuards(UserRateLimitGuard)
-	@UserRateLimit('lines', 60)
+	@UserRateLimit('draft', 60)
 	update(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
@@ -109,7 +109,7 @@ export class InvoicesController {
 	@Post(':id/lines')
 	@HttpCode(201)
 	@UseGuards(UserRateLimitGuard)
-	@UserRateLimit('lines', 60)
+	@UserRateLimit('draft', 60)
 	addLine(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
@@ -120,7 +120,7 @@ export class InvoicesController {
 
 	@Patch(':id/lines/:lineId')
 	@UseGuards(UserRateLimitGuard)
-	@UserRateLimit('lines', 60)
+	@UserRateLimit('draft', 60)
 	updateLine(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
@@ -133,7 +133,7 @@ export class InvoicesController {
 	@Delete(':id/lines/:lineId')
 	@HttpCode(204)
 	@UseGuards(UserRateLimitGuard)
-	@UserRateLimit('lines', 60)
+	@UserRateLimit('draft', 60)
 	async removeLine(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,

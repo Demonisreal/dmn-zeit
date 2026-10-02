@@ -5,8 +5,7 @@ import type { Persona, Seed } from './seed/types';
 
 const seed: Seed = JSON.parse(readFileSync(path.join(__dirname, '../.tmp/seed.json'), 'utf8'));
 
-// drops the persona's session cookie into the browser context; the ui login flow itself only gets
-// exercised where a scenario is actually about logging in, see auth.spec.ts
+// seeded session cookie instead of the ui login, auth.spec.ts covers that flow
 export async function loginInto(context: BrowserContext, baseURL: string, persona: Persona) {
 	if (!persona.session) throw new Error(`no session seeded for ${persona.email}`);
 	await context.addCookies([{ name: 'zeit_sid', value: persona.session, url: baseURL }]);

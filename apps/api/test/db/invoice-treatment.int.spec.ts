@@ -1,4 +1,5 @@
 import { generateDemo } from '@zeit/demo-data';
+import { EU_COUNTRY_CODES, taxTreatment } from '@zeit/rules';
 import type pg from 'pg';
 import { Temporal } from 'temporal-polyfill';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -273,6 +274,99 @@ describe('tax treatment of an invoice', () => {
 			{ position: 1, tax_category: 'standard', exemption_reason: null },
 			{ position: 2, tax_category: 'exempt', exemption_reason: REASON }
 		]);
+	});
+});
+
+describe('expected tax treatment in sql', () => {
+	const clients = [
+		{ countryCode: 'DE', isBusiness: true, vatId: 'DE123456789' },
+		{ countryCode: 'DE', isBusiness: false, vatId: null },
+		{ countryCode: 'NL', isBusiness: true, vatId: 'NL123456789B01' },
+		{ countryCode: 'NL', isBusiness: true, vatId: null },
+		{ countryCode: 'FR', isBusiness: false, vatId: 'FR12345678901' },
+		{ countryCode: 'AT', isBusiness: false, vatId: null },
+		{ countryCode: 'CH', isBusiness: true, vatId: 'CHE-123.456.789 MWST' },
+		{ countryCode: 'US', isBusiness: true, vatId: null },
+		{ countryCode: 'GB', isBusiness: false, vatId: null }
+	];
+	const cases = (['regular', 'small_business'] as const).flatMap((taxProfile) =>
+		clients.map((client) => ({ taxProfile, ...client }))
+	);
+
+	it.each(cases)(
+		'matches the rules for $taxProfile and $countryCode, business $isBusiness, vat id $vatId',
+		async ({ taxProfile, ...client }) => {
+			const { rows } = await superuser.query(
+				'select app.expected_tax_treatment($1, $2, $3, $4)::text as treatment',
+				[taxProfile, client.countryCode, client.isBusiness, client.vatId]
+			);
+			expect(rows[0].treatment).toBe(taxTreatment({ taxProfile }, client));
+		}
+	);
+
+	it('knows the same member states as the rules', async () => {
+		const codes = [...EU_COUNTRY_CODES, 'DE', 'CH', 'GB', 'NO', 'US'];
+		const { rows } = await superuser.query(
+			'select code, app.eu_member(code) as member from unnest($1::text[]) code',
+			[codes]
+		);
+		expect(rows.map((row) => row.member)).toEqual(
+			codes.map((code) => EU_COUNTRY_CODES.includes(code))
+		);
+	});
+
+	it('refuses to issue a standard draft whose client turned into an EU business with vat id', async () => {
+		const own = await office();
+		const draft = {
+			tenant: own.tenant,
+			client: own.client,
+			id: await draftWith(own.tenant, own.client, 'standard')
+		};
+		await addLine(superuser, draft, 1, 'standard');
+		await superuser.query(
+			`update app.clients set country_code = 'NL', is_business = true, vat_id = 'NL123456789B01' where id = $1`,
+			[own.client]
+		);
+
+		await withContext(app, own.hr.context);
+		expect(await errorCode(app.query('select app.issue_invoice($1)', [draft.id]))).toBe('ZT003');
+		const { rows } = await superuser.query('select status::text from app.invoices where id = $1', [
+			draft.id
+		]);
+		expect(rows[0].status).toBe('draft');
+	});
+});
+
+describe('basis of an invoice being issued', () => {
+	it('holds client and billing profile until the issuing transaction ends', async () => {
+		const own = await office();
+		const draft = await draftWith(own.tenant, own.client, 'standard');
+		const other = await connectAs('superuser');
+		await other.query(`set lock_timeout = '200ms'`);
+		const attempt = (statement: string, id: string) => errorCode(other.query(statement, [id]));
+
+		await withContext(app, own.hr.context);
+		await app.query('begin');
+		await app.query('select app.hold_invoice_basis($1)', [draft]);
+		const blocked = [
+			await attempt(`update app.clients set name = 'Neu GmbH' where id = $1`, own.client),
+			await attempt(
+				`update app.billing_profiles set legal_name = 'Neu GmbH' where tenant_id = $1`,
+				own.tenant
+			)
+		];
+		await app.query('rollback');
+		await other.end();
+
+		expect(blocked).toEqual(['55P03', '55P03']);
+	});
+
+	it('is held by hr and admins only', async () => {
+		const own = await office();
+		const draft = await draftWith(own.tenant, own.client, 'standard');
+		const employee = await createUser(own.tenant, { role: 'employee' });
+		await withContext(app, employee.context);
+		expect(await errorCode(app.query('select app.hold_invoice_basis($1)', [draft]))).toBe('42501');
 	});
 });
 

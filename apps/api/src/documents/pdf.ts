@@ -1,5 +1,5 @@
 import { isSmallAmountInvoice } from '@zeit/rules';
-import type { Invoice, InvoiceLine, Locale, TaxCategory, TaxGroup } from '@zeit/shared';
+import type { Invoice, InvoiceLine, Locale, TaxGroup } from '@zeit/shared';
 import PDFDocument from 'pdfkit';
 import { isLeitwegId } from '../einvoice/mapping';
 import { TEXTS } from '../einvoice/texts';
@@ -84,14 +84,6 @@ function drawWatermarks(doc: PDFKit.PDFDocument, invoice: Invoice, labels: Retur
 	} else if (invoice.specimen) {
 		drawSpecimenWatermark(doc, invoice.locale, 0);
 	}
-}
-
-function treatmentOf(invoice: Invoice): TaxCategory {
-	if (invoice.taxProfile === 'small_business') return 'small_business';
-	const whole = invoice.lines.find(
-		(line) => line.taxCategory === 'reverse_charge' || line.taxCategory === 'outside_scope'
-	);
-	return whole?.taxCategory ?? 'standard';
 }
 
 function returnAddressLine(invoice: Invoice): string {
@@ -187,7 +179,7 @@ function drawIntro(doc: PDFKit.PDFDocument, invoice: Invoice): void {
 }
 
 function isSmallAmount(invoice: Invoice): boolean {
-	return isSmallAmountInvoice(BigInt(invoice.totals.grossCents), treatmentOf(invoice));
+	return isSmallAmountInvoice(BigInt(invoice.totals.grossCents), invoice.treatment);
 }
 
 function quantityText(line: InvoiceLine, locale: Locale): string {
@@ -324,7 +316,7 @@ function drawFooter(doc: PDFKit.PDFDocument, invoice: Invoice, labels: ReturnTyp
 		seller.street,
 		[seller.postalCode, seller.city].filter(Boolean).join(' '),
 		seller.taxNumber ? `${labels.taxNumber}: ${seller.taxNumber}` : null,
-		seller.vatId && treatmentOf(invoice) !== 'outside_scope' ? `${labels.vatId}: ${seller.vatId}` : null,
+		seller.vatId && invoice.treatment !== 'outside_scope' ? `${labels.vatId}: ${seller.vatId}` : null,
 		seller.registerCourt && seller.registerNumber
 			? labels.registerEntry(seller.registerCourt, seller.registerNumber)
 			: null

@@ -73,9 +73,5 @@ export function runInThread(
 
 if (!isMainThread && parentPort) {
 	const port = parentPort;
-	renderJob(workerData as RenderJob)
-		.then((documents) => port.postMessage(documents))
-		.catch((error: unknown) => {
-			throw error;
-		});
+	void renderJob(workerData as RenderJob).then((documents) => port.postMessage(documents));
 }

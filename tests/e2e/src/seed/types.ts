@@ -27,8 +27,7 @@ export type CompanySeed = {
 	employee: Persona;
 	// a second person with a clock: the mobile project stamps it next to the desktop run, months.spec leaves its blocker on it
 	secondEmployee: Persona;
-	// left in status "invited" on purpose, auth.spec.ts completes the setup itself; an invitation only
-	// works once, so the mobile project gets its own
+	// stays invited for auth.spec.ts, one per project because an invitation works only once
 	invitee: InvitedPersona;
 	mobileInvitee: InvitedPersona;
 };

@@ -360,10 +360,16 @@ export class InvoicesStore {
 		tenantId: string,
 		invoiceId: string,
 		clientId: string,
-		lines: readonly NewLine[]
+		lines: readonly NewLine[],
+		entryIds: readonly string[]
 	): Promise<void> {
 		await sql`set constraints all deferred`.execute(trx);
-		await trx.updateTable('app.project_entries').set({ invoice_id: null }).where('invoice_id', '=', invoiceId).execute();
+		await trx
+			.updateTable('app.project_entries')
+			.set({ invoice_id: null })
+			.where('invoice_id', '=', invoiceId)
+			.$if(entryIds.length > 0, (qb) => qb.where('id', 'not in', entryIds))
+			.execute();
 		await trx.deleteFrom('app.invoice_lines').where('invoice_id', '=', invoiceId).where('kind', '=', 'time').execute();
 		await this.insertTimeLines(trx, tenantId, invoiceId, clientId, 1, lines);
 	}
@@ -442,6 +448,7 @@ export class InvoicesStore {
 			.updateTable('app.project_entries')
 			.set({ invoice_id: invoiceId })
 			.where('id', 'in', entryIds)
+			.where('invoice_id', 'is distinct from', invoiceId)
 			.execute();
 	}
 
@@ -550,6 +557,7 @@ export class InvoicesStore {
 			intro_text: string | null;
 			closing_text: string | null;
 			payment_terms_days: number;
+			tax_profile: AppTaxProfile;
 			tax_treatment: SharedTaxCategory;
 		}>
 	) {
@@ -573,6 +581,10 @@ export class InvoicesStore {
 	async deleteDraft(trx: Trx, id: string): Promise<boolean> {
 		const deleted = await trx.deleteFrom('app.invoices').where('id', '=', id).executeTakeFirst();
 		return deleted.numDeletedRows > 0n;
+	}
+
+	async holdBasis(trx: Trx, id: string): Promise<void> {
+		await sql`select app.hold_invoice_basis(${id}::uuid)`.execute(trx);
 	}
 
 	async issue(trx: Trx, id: string): Promise<{ id: string } | undefined> {

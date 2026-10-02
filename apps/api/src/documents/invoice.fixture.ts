@@ -61,6 +61,7 @@ export function invoiceFixture(overrides: Partial<Invoice> = {}): Invoice {
 		locale: 'de',
 		format: 'pdf',
 		taxProfile: 'regular',
+		treatment: 'standard',
 		seller: {
 			legalName: 'Lena Vogt – Softwareentwicklung',
 			street: 'Musterweg 1',

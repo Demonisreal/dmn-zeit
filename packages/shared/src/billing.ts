@@ -293,6 +293,7 @@ export const invoiceSchema = z.object({
 	locale: z.enum(locales),
 	format: z.enum(invoiceFormats),
 	taxProfile: z.enum(taxProfiles),
+	treatment: z.enum(taxCategories),
 	seller: sellerSnapshotSchema,
 	buyer: buyerSnapshotSchema,
 	introText: z.string().nullable(),

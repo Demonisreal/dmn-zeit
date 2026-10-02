@@ -535,6 +535,39 @@ $$;
 
 
 --
+-- Name: eu_member(text); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.eu_member(p_country_code text) RETURNS boolean
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    SET search_path TO ''
+    AS $$
+  select p_country_code = any (array[
+    'AT', 'BE', 'BG', 'CY', 'CZ', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU',
+    'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
+  ]);
+$$;
+
+
+--
+-- Name: expected_tax_treatment(app.tax_profile, text, boolean, text); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.expected_tax_treatment(p_tax_profile app.tax_profile, p_country_code text, p_is_business boolean, p_vat_id text) RETURNS app.tax_category
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    SET search_path TO ''
+    AS $$
+  select case
+    when p_tax_profile = 'small_business' then 'small_business'
+    when p_country_code = 'DE' or not p_is_business then 'standard'
+    when app.eu_member(p_country_code) then
+      case when p_vat_id is not null then 'reverse_charge' else 'standard' end
+    else 'outside_scope'
+  end::app.tax_category;
+$$;
+
+
+--
 -- Name: flex_checkpoint(uuid, integer); Type: FUNCTION; Schema: app; Owner: -
 --
 
@@ -1057,8 +1090,10 @@ begin
     to_jsonb(new) - fillable <> to_jsonb(old) - fillable
     or (old.ended_at is not null
       and (new.ended_at, new.end_reason) is distinct from (old.ended_at, old.end_reason)
-      and (new.ended_at, old.end_reason, new.end_reason)
-        is distinct from (old.ended_at, 'break'::app.end_reason, 'leave'::app.end_reason))
+      and ((new.ended_at, old.end_reason, new.end_reason)
+          is distinct from (old.ended_at, 'break'::app.end_reason, 'leave'::app.end_reason)
+        or old.source <> 'clock'
+        or old.workday <> (now() at time zone 'Europe/Berlin')::date))
     or (old.voided_at is not null
       and (new.voided_at, new.voided_by_request_id) is distinct from (old.voided_at, old.voided_by_request_id))
   ) then
@@ -1066,6 +1101,30 @@ begin
   end if;
 
   return new;
+end;
+$$;
+
+
+--
+-- Name: hold_invoice_basis(uuid); Type: FUNCTION; Schema: app; Owner: -
+--
+
+CREATE FUNCTION app.hold_invoice_basis(p_invoice_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  if (app.role() >= 'hr') is not true then
+    raise exception 'only hr and admins issue invoices' using errcode = 'insufficient_privilege';
+  end if;
+
+  perform 1
+     from app.clients c
+     join app.invoices i on i.tenant_id = c.tenant_id and i.client_id = c.id
+    where i.tenant_id = app.tenant_id() and i.id = p_invoice_id
+      for share of c;
+
+  perform 1 from app.billing_profiles p where p.tenant_id = app.tenant_id() for share;
 end;
 $$;
 
@@ -1348,9 +1407,8 @@ begin
 
     select * into client from app.clients c where c.tenant_id = app.tenant_id() and c.id = draft.client_id;
 
-    if (draft.tax_treatment = 'reverse_charge'
-        and (client.vat_id is null or client.country_code = 'DE' or not client.is_business))
-      or (draft.tax_treatment = 'outside_scope' and client.country_code = 'DE') then
+    if draft.tax_treatment
+      <> app.expected_tax_treatment(draft.tax_profile, client.country_code, client.is_business, client.vat_id) then
       raise exception 'invoice % was drafted as %, its client no longer fits that, refresh the draft first',
         p_invoice_id, draft.tax_treatment using errcode = 'ZT003';
     end if;
@@ -7836,4 +7894,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260926001305'),
     ('20260926001306'),
     ('20260926001307'),
-    ('20260926001308');
+    ('20260926001308'),
+    ('20260926001309'),
+    ('20260926001310');

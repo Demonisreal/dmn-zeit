@@ -31,19 +31,13 @@ function cancelled(invoice: Invoice) {
 	return { number: refersTo.number, issueDate: day(refersTo.issueDate) };
 }
 
-function treatmentOf(invoice: Invoice): Treatment {
-	const categories = new Set(invoice.lines.map((line) => line.taxCategory));
-	if (invoice.taxProfile === 'small_business') {
-		return 'small_business';
-	}
-	if (categories.has('reverse_charge')) {
-		return 'reverse_charge';
-	}
-	if (categories.has('outside_scope')) {
-		return 'outside_scope';
-	}
-	if (categories.size === 1 && categories.has('exempt')) {
-		return 'exempt';
+function treatmentOf({ treatment }: Invoice): Treatment {
+	if (
+		treatment === 'reverse_charge' ||
+		treatment === 'outside_scope' ||
+		treatment === 'small_business'
+	) {
+		return treatment;
 	}
 	return 'regular';
 }

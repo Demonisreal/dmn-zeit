@@ -5,8 +5,7 @@ import { einvoiceBlockers } from './blockers';
 import { toUbl } from './mapping';
 import type { Locale } from './texts';
 
-export type Treatment =
-	'regular' | 'small_business' | 'reverse_charge' | 'outside_scope' | 'exempt';
+export type Treatment = 'regular' | 'small_business' | 'reverse_charge' | 'outside_scope';
 export type EInvoiceFormat = 'xrechnung' | 'zugferd';
 export type ItemUnit = 'HUR' | 'DAY' | 'C62' | 'LS';
 

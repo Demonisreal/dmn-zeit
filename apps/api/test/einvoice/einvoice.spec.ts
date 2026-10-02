@@ -69,7 +69,6 @@ describe('einvoiceBlockers', () => {
 	it('wants a reason for exempt lines', () => {
 		const exempt: EInvoice = {
 			...standard,
-			treatment: 'exempt',
 			lines: standard.lines.map((line) => ({ ...line, taxCategory: 'exempt', taxRateBp: 0 }))
 		};
 		expect(einvoiceBlockers(exempt, 'zugferd')).toEqual(['exemption_reason_missing']);

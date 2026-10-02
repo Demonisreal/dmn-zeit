@@ -67,6 +67,7 @@ describe('buildInvoicePdf', () => {
 	it('renders the reverse charge legal note that the invoices module already resolved', async () => {
 		const buffer = await buildInvoicePdf(
 			invoiceFixture({
+				treatment: 'reverse_charge',
 				lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })],
 				taxGroups: [
 					{
@@ -93,6 +94,7 @@ describe('buildInvoicePdf', () => {
 	it('shows both parties USt-IdNr. on a reverse charge invoice (§ 14a UStG)', async () => {
 		const buffer = await buildInvoicePdf(
 			invoiceFixture({
+				treatment: 'reverse_charge',
 				lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })],
 				legalNotes: ['Steuerschuldnerschaft des Leistungsempfängers / Reverse charge']
 			})
@@ -107,6 +109,7 @@ describe('buildInvoicePdf', () => {
 		const buffer = await buildInvoicePdf(
 			invoiceFixture({
 				locale: 'en',
+				treatment: 'reverse_charge',
 				lines: [invoiceLineFixture({ taxCategory: 'reverse_charge', taxRateBp: 0, netCents: '76000' })],
 				legalNotes: [legalNoteTexts.en.reverse_charge_13b!]
 			})
@@ -243,6 +246,7 @@ describe('mandatory fields per case', () => {
 			await buildInvoicePdf(
 				invoiceFixture({
 					taxProfile: 'small_business',
+					treatment: 'small_business',
 					lines: [invoiceLineFixture(exemptLine)],
 					taxGroups: [taxGroupFixture({ ...exemptLine, taxCents: '0' })],
 					totals: {

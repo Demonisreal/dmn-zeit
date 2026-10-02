@@ -53,6 +53,7 @@ const untaxed = (taxCategory: TaxCategory, overrides: Partial<Invoice> = {}): In
 	lines: [invoiceLineFixture({ taxCategory, taxRateBp: 0 })],
 	taxGroups: [taxGroupFixture({ taxCategory, taxRateBp: 0, taxCents: '0' })],
 	totals: { ...standard.totals, taxCents: '0', grossCents: '76000' },
+	treatment: taxCategory === 'exempt' ? 'standard' : taxCategory,
 	...overrides
 });
 
@@ -227,7 +228,7 @@ describe('toEInvoice', () => {
 		['a small business', smallBusiness, 'small_business'],
 		['reverse charge', reverseCharge, 'reverse_charge'],
 		['a supply outside the scope of German VAT', thirdCountry, 'outside_scope'],
-		['only exempt positions', exempt, 'exempt'],
+		['only exempt positions', exempt, 'regular'],
 		['an exempt position next to a taxed one', partlyExempt, 'regular']
 	])('derives the treatment for %s', (_name, invoice, treatment) => {
 		expect(toEInvoice(invoice).treatment).toBe(treatment);

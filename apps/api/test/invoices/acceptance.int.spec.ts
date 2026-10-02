@@ -504,7 +504,63 @@ describe('tax treatment of a draft whose client changed', () => {
 	});
 });
 
+describe('draft after a change of the tax profile', () => {
+	it('names the change, takes the new profile over on refresh and issues', async () => {
+		const { tenant, admin } = await office();
+		const { draft } = await bookedDraft(tenant, admin, '2026-09-23');
+		await api.superuser.query(
+			`update app.billing_profiles set tax_profile = 'small_business', previous_year_revenue_cents = 2400000
+			  where tenant_id = $1`,
+			[tenant]
+		);
+
+		const refused = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
+		expect(refused.status).toBe(409);
+		expect(refused.body.details.blockers).toEqual(['tax_profile_changed']);
+		expect(await counter(tenant)).toBeNull();
+
+		const refreshed = await admin.post(`/invoices/${draft.id}/refresh`);
+		expect(refreshed.status).toBe(200);
+		expect(refreshed.body).toMatchObject({
+			taxProfile: 'small_business',
+			treatment: 'small_business',
+			blockers: []
+		});
+		expect(refreshed.body.lines.map((line: { taxCategory: string }) => line.taxCategory)).toEqual([
+			'small_business'
+		]);
+
+		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
+		expect(issued.status).toBe(200);
+		expect(issued.body.totals.taxCents).toBe('0');
+	});
+});
+
 describe('refresh of a draft', () => {
+	it('leaves the time it keeps linked untouched and links only what came in', async () => {
+		const { tenant, admin } = await office();
+		const { entry, draft, workerDesk, project } = await bookedDraft(tenant, admin, '2026-09-28');
+		const xminOf = async (id: string) => {
+			const { rows } = await api.superuser.query(
+				'select xmin::text, invoice_id from app.project_entries where id = $1',
+				[id]
+			);
+			return rows[0];
+		};
+		const before = await xminOf(entry.id);
+		const added = await workerDesk.post('/project-entries', {
+			projectId: project.id,
+			startedAt: '2026-09-28T13:00:00+02:00',
+			endedAt: '2026-09-28T14:00:00+02:00',
+			note: 'Nachtrag'
+		});
+		expect(added.status).toBe(201);
+
+		expect((await admin.post(`/invoices/${draft.id}/refresh`)).status).toBe(200);
+		expect(await xminOf(entry.id)).toEqual(before);
+		expect((await xminOf(added.body.id)).invoice_id).toBe(draft.id);
+	});
+
 	it('frees the time that lost its rate', async () => {
 		const { tenant, admin } = await office();
 		const { client, entry, draft } = await bookedDraft(tenant, admin, '2026-09-26');
@@ -952,7 +1008,7 @@ describe('rate limit per person', () => {
 			send: (desk: Desk) => desk.post(`/invoices/${randomUUID()}/refresh`)
 		},
 		{
-			route: 'lines, all four draft edits on one count',
+			route: 'draft, all four draft edits on one count',
 			limit: 60,
 			window: 60,
 			send: (desk: Desk) => draftEdits[editCount++ % draftEdits.length]!(desk)

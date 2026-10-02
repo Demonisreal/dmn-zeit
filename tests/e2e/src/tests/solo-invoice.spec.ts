@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fillDate, fillTime } from '../support/date-segments';
-import { STEP_MS, totpCode } from '../totp';
+import { totpCode, untilNextStep } from '../totp';
 import { expect, seed, test } from '../fixtures';
 
 // a booking has to end in the past, so the manual entry goes on last week's monday
@@ -16,6 +16,7 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	page,
 	signIn
 }) => {
+	test.slow();
 	const { owner, clientName, projectName } = seed.invoicing;
 	await signIn(owner);
 	await page.goto('/');
@@ -58,10 +59,9 @@ test('Solo: Zeit erfassen, Rechnung daraus ausstellen, PDF laden und stornieren'
 	const stepUp = page.getByRole('dialog', { name: 'Erneut bestätigen' });
 	await expect(stepUp).toBeVisible();
 	await stepUp.getByLabel('Passwort').fill(owner.password);
-	// the login behind the seeded session already used the current authenticator step
-	await stepUp
-		.getByLabel('Code aus der Authenticator-App')
-		.fill(totpCode(owner.totpSecret, new Date(Date.now() + STEP_MS)));
+	// a fresh step, the seeded login or an earlier attempt of this test may have used the current one
+	await untilNextStep();
+	await stepUp.getByLabel('Code aus der Authenticator-App').fill(totpCode(owner.totpSecret));
 	await stepUp.getByRole('button', { name: 'Bestätigen' }).click();
 
 	await expect(page.getByText('ausgestellt', { exact: true })).toBeVisible();

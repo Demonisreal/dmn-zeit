@@ -54,38 +54,13 @@ function einvoiceGaps(invoice: Invoice): string[] {
 }
 
 const MAX_LINES = 500;
-function tooManyLines() {
-	return new BadRequestException({
-		code: 'VALIDATION',
-		message: 'Invalid input',
-		details: [{ field: 'lines', code: 'custom', message: 'invoice.tooManyLines', params: { max: MAX_LINES } }]
-	} satisfies ApiError);
-}
-
 export const MAX_ENTRIES = 5000;
-function tooManyEntries() {
-	return new BadRequestException({
-		code: 'VALIDATION',
-		message: 'Invalid input',
-		details: [{ field: 'entries', code: 'custom', message: 'invoice.tooManyEntries', params: { max: MAX_ENTRIES } }]
-	} satisfies ApiError);
-}
 
-function taxCategoryMismatch(category: TaxCategory) {
+function invalidField(field: string, message: string, params?: Record<string, string | number>) {
 	return new BadRequestException({
 		code: 'VALIDATION',
 		message: 'Invalid input',
-		details: [
-			{ field: 'taxCategory', code: 'custom', message: 'invoice.taxCategoryMismatch', params: { category } }
-		]
-	} satisfies ApiError);
-}
-
-function invalidField(field: string, message: string) {
-	return new BadRequestException({
-		code: 'VALIDATION',
-		message: 'Invalid input',
-		details: [{ field, code: 'custom', message }]
+		details: [{ field, code: 'custom', message, params }]
 	} satisfies ApiError);
 }
 
@@ -124,7 +99,7 @@ type TimeLineKey = {
 function lineKey(line: TimeLineKey): string {
 	return [
 		line.projectId,
-		line.taskId ?? '',
+		line.taskId,
 		line.minutes,
 		String(line.unitPriceCents),
 		line.taxCategory,
@@ -197,9 +172,13 @@ export class InvoicesService {
 			if (lines.length === 0) {
 				throw invalidState('None of the unbilled time in this period has a rate yet');
 			}
-			if (lines.length > MAX_LINES) throw tooManyLines();
+			if (lines.length > MAX_LINES) {
+				throw invalidField('lines', 'invoice.tooManyLines', { max: MAX_LINES });
+			}
 			const entryIds = lines.flatMap((line) => line.entryIds);
-			if (entryIds.length > MAX_ENTRIES) throw tooManyEntries();
+			if (entryIds.length > MAX_ENTRIES) {
+				throw invalidField('entries', 'invoice.tooManyEntries', { max: MAX_ENTRIES });
+			}
 
 			const locale = clientRow.invoiceLocale as Locale;
 			const invoiceId = await this.store.insertDraft(trx, session, {
@@ -263,8 +242,12 @@ export class InvoicesService {
 	refresh(session: AuthSession, id: string): Promise<Invoice> {
 		return this.db.withTenant(session, async (trx) => {
 			const essentials = await this.lockedDraft(trx, id);
-			const clientRow = found(await this.store.clientForInvoice(trx, essentials.clientId), 'Client');
-			const treatment = treatmentFor({ taxProfile: essentials.taxProfile }, clientRow);
+			const [clientRow, profile] = await Promise.all([
+				this.store.clientForInvoice(trx, essentials.clientId).then((row) => found(row, 'Client')),
+				this.billing.profile(trx)
+			]);
+			const treatment = treatmentFor(profile, clientRow);
+			const taxChanged = treatment !== essentials.taxTreatment || profile.taxProfile !== essentials.taxProfile;
 			const [linkedEntries, freeEntries, rates, stored] = await Promise.all([
 				this.store.linkedEntryRows(trx, id),
 				this.store.lockEntries(trx, essentials.clientId, { from: essentials.serviceFrom, to: essentials.serviceTo }, undefined),
@@ -277,17 +260,21 @@ export class InvoicesService {
 				rates,
 				taxCategory: treatment
 			});
-			if (treatment === essentials.taxTreatment && sameLines(lines, stored)) return this.model(trx, id);
+			if (!taxChanged && sameLines(lines, stored)) return this.model(trx, id);
 
 			const itemLines = await this.store.itemLineCount(trx, id);
-			if (itemLines + lines.length > MAX_LINES) throw tooManyLines();
-			const entryIds = lines.flatMap((line) => line.entryIds);
-			if (entryIds.length > MAX_ENTRIES) throw tooManyEntries();
-
-			if (treatment !== essentials.taxTreatment) {
-				await this.store.updateDraftMeta(trx, id, { tax_treatment: treatment });
+			if (itemLines + lines.length > MAX_LINES) {
+				throw invalidField('lines', 'invoice.tooManyLines', { max: MAX_LINES });
 			}
-			await this.store.replaceTimeLines(trx, session.tenantId, id, essentials.clientId, lines);
+			const entryIds = lines.flatMap((line) => line.entryIds);
+			if (entryIds.length > MAX_ENTRIES) {
+				throw invalidField('entries', 'invoice.tooManyEntries', { max: MAX_ENTRIES });
+			}
+
+			if (taxChanged) {
+				await this.store.updateDraftMeta(trx, id, { tax_profile: profile.taxProfile, tax_treatment: treatment });
+			}
+			await this.store.replaceTimeLines(trx, session.tenantId, id, essentials.clientId, lines, entryIds);
 			await this.store.linkEntries(trx, entryIds, id);
 			return this.model(trx, id);
 		});
@@ -296,7 +283,9 @@ export class InvoicesService {
 	addLine(session: AuthSession, id: string, input: InvoiceLineInput): Promise<InvoiceLine> {
 		return this.db.withTenant(session, async (trx) => {
 			const essentials = await this.lockedDraft(trx, id);
-			if ((await this.store.lineCount(trx, id)) >= MAX_LINES) throw tooManyLines();
+			if ((await this.store.lineCount(trx, id)) >= MAX_LINES) {
+				throw invalidField('lines', 'invoice.tooManyLines', { max: MAX_LINES });
+			}
 			await this.assertLineTaxCategory(trx, essentials, input.taxCategory);
 			assertExemption(input.taxCategory, input.exemptionReason ?? null);
 			const taxRateBp = vatRateFor(input.taxCategory, Temporal.PlainDate.from(essentials.serviceTo));
@@ -376,7 +365,9 @@ export class InvoicesService {
 	async issue(session: AuthSession, id: string, input: IssueInvoiceInput, client: Client): Promise<Invoice> {
 		const checked = await this.db.withTenant(session, async (trx) => {
 			await this.lockedDraft(trx, id);
-			if ((await this.store.entryCount(trx, id)) > MAX_ENTRIES) throw tooManyEntries();
+			if ((await this.store.entryCount(trx, id)) > MAX_ENTRIES) {
+				throw invalidField('entries', 'invoice.tooManyEntries', { max: MAX_ENTRIES });
+			}
 			await this.store.setDraftFormat(trx, id, input.format);
 			const draft = await this.model(trx, id);
 			const blockers =
@@ -389,6 +380,7 @@ export class InvoicesService {
 		await this.documents.renderInvoice(checked);
 		const model = await this.db.withTenant(session, async (trx) => {
 			await this.lockedDraft(trx, id);
+			await this.store.holdBasis(trx, id);
 			if (!isDeepStrictEqual(await this.model(trx, id), checked)) {
 				throw invalidState('The draft changed while it was being checked');
 			}
@@ -519,7 +511,7 @@ export class InvoicesService {
 		const wholeInvoiceCategories: TaxCategory[] = ['reverse_charge', 'outside_scope', 'small_business'];
 		const mismatch =
 			treatment === 'standard' ? wholeInvoiceCategories.includes(category) : category !== treatment;
-		if (mismatch) throw taxCategoryMismatch(category);
+		if (mismatch) throw invalidField('taxCategory', 'invoice.taxCategoryMismatch', { category });
 	}
 
 	private async timeReportOf(trx: Trx, id: string): Promise<TimeReport> {

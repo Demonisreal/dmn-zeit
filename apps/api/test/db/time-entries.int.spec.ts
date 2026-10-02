@@ -163,6 +163,41 @@ describe('time entries', () => {
 		}
 	});
 
+	it('turns only a clock break of today into the end of the day', async () => {
+		const breakOf = async (source: string, start: string) => {
+			await superuser.query('begin');
+			await superuser.query('set local session_replication_role = replica');
+			const entry = await insertId(
+				superuser,
+				`insert into app.time_entries (tenant_id, employee_id, started_at, ended_at, end_reason, source)
+				 values ($1, $2, ${start}, (${start}) + interval '1 minute', 'break', $3) returning id`,
+				[tenant, worker.employeeId, source]
+			);
+			await superuser.query('commit');
+			return entry;
+		};
+		const today = `date_trunc('day', now() at time zone 'Europe/Berlin') at time zone 'Europe/Berlin'`;
+		const entries = [
+			await breakOf('clock', today),
+			await breakOf('seed', `${today} + interval '2 minutes'`),
+			await breakOf('clock', `${today} - interval '1 day'`)
+		];
+
+		await withContext(app, worker.context);
+		const outcomes = [];
+		for (const entry of entries) {
+			outcomes.push(
+				await app
+					.query(`update app.time_entries set end_reason = 'leave' where id = $1`, [entry])
+					.then(
+						() => 'applied',
+						(error: { code: string }) => error.code
+					)
+			);
+		}
+		expect(outcomes).toEqual(['applied', 'ZT002', 'ZT002']);
+	});
+
 	it('does not let a person void their own entry', async () => {
 		const entry = await addEntry('2026-02-09 08:00+01', '2026-02-09 12:00+01');
 		const request = await approvedVoid(entry);

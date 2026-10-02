@@ -55,8 +55,7 @@ export async function seedSolo(baseURL: string, run: string): Promise<SoloSeed> 
 	return { slug, owner, clientId: client.id, clientName, projectId: project.id, projectName };
 }
 
-// own tenant for the invoice scenario: it signs in once and needs the authenticator step after
-// its login for the step-up, so no other spec and no seed login may touch this persona
+// own tenant for the invoice scenario, its authenticator steps belong to the step-up alone
 export async function seedInvoicing(baseURL: string, run: string): Promise<SoloSeed> {
 	const slug = `pw-invoicing-${run}`;
 	const { api, owner } = await onboardOwner(baseURL, slug, `invoicing+${run}@pw.e2e.test`);
