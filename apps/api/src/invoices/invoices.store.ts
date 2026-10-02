@@ -363,8 +363,28 @@ export class InvoicesStore {
 		lines: readonly NewLine[]
 	): Promise<void> {
 		await sql`set constraints all deferred`.execute(trx);
+		await trx.updateTable('app.project_entries').set({ invoice_id: null }).where('invoice_id', '=', invoiceId).execute();
 		await trx.deleteFrom('app.invoice_lines').where('invoice_id', '=', invoiceId).where('kind', '=', 'time').execute();
 		await this.insertTimeLines(trx, tenantId, invoiceId, clientId, 1, lines);
+	}
+
+	timeLineKeys(trx: Trx, invoiceId: string) {
+		return trx
+			.selectFrom('app.invoice_lines as l')
+			.leftJoin('app.invoice_line_entries as le', 'le.line_id', 'l.id')
+			.select([
+				'l.project_id as projectId',
+				'l.task_id as taskId',
+				'l.minutes',
+				'l.unit_price_cents as unitPriceCents',
+				'l.tax_category as taxCategory',
+				'l.tax_rate_bp as taxRateBp',
+				sql<string[]>`coalesce(array_agg(le.entry_id::text) filter (where le.entry_id is not null), '{}')`.as('entryIds')
+			])
+			.where('l.invoice_id', '=', invoiceId)
+			.where('l.kind', '=', 'time')
+			.groupBy('l.id')
+			.execute();
 	}
 
 	async insertTimeLines(

@@ -1347,6 +1347,14 @@ begin
     end if;
 
     select * into client from app.clients c where c.tenant_id = app.tenant_id() and c.id = draft.client_id;
+
+    if (draft.tax_treatment = 'reverse_charge'
+        and (client.vat_id is null or client.country_code = 'DE' or not client.is_business))
+      or (draft.tax_treatment = 'outside_scope' and client.country_code = 'DE') then
+      raise exception 'invoice % was drafted as %, its client no longer fits that, refresh the draft first',
+        p_invoice_id, draft.tax_treatment using errcode = 'ZT003';
+    end if;
+
     v_buyer := jsonb_build_object(
       'name', client.name, 'street', client.street, 'postalCode', client.postal_code,
       'city', client.city, 'countryCode', client.country_code, 'isBusiness', client.is_business,
@@ -5051,6 +5059,20 @@ CREATE INDEX flex_bookings_employee_idx ON app.flex_bookings USING btree (tenant
 
 
 --
+-- Name: invoice_line_entries_entry_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX invoice_line_entries_entry_idx ON app.invoice_line_entries USING btree (tenant_id, entry_id);
+
+
+--
+-- Name: invoice_line_entries_invoice_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX invoice_line_entries_invoice_idx ON app.invoice_line_entries USING btree (tenant_id, invoice_id);
+
+
+--
 -- Name: invoices_one_cancellation_idx; Type: INDEX; Schema: app; Owner: -
 --
 
@@ -5083,6 +5105,13 @@ CREATE INDEX project_entries_budget_idx ON app.project_entries USING btree (proj
 --
 
 CREATE INDEX project_entries_employee_day_idx ON app.project_entries USING btree (tenant_id, employee_id, workday);
+
+
+--
+-- Name: project_entries_invoice_idx; Type: INDEX; Schema: app; Owner: -
+--
+
+CREATE INDEX project_entries_invoice_idx ON app.project_entries USING btree (tenant_id, invoice_id) WHERE (invoice_id IS NOT NULL);
 
 
 --
@@ -5622,6 +5651,13 @@ CREATE TRIGGER invoice_line_entries_guard BEFORE INSERT OR DELETE OR UPDATE ON a
 --
 
 CREATE TRIGGER invoice_lines_guard BEFORE INSERT OR DELETE OR UPDATE ON app.invoice_lines FOR EACH ROW EXECUTE FUNCTION app.guard_invoice_child();
+
+
+--
+-- Name: invoice_lines invoice_lines_sandbox_quota; Type: TRIGGER; Schema: app; Owner: -
+--
+
+CREATE TRIGGER invoice_lines_sandbox_quota AFTER INSERT ON app.invoice_lines REFERENCING NEW TABLE AS added FOR EACH STATEMENT WHEN ((CURRENT_USER <> ALL (ARRAY['zeit_system'::name, 'zeit_owner'::name]))) EXECUTE FUNCTION app.sandbox_quota('2000');
 
 
 --
@@ -7797,4 +7833,7 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260926001302'),
     ('20260926001303'),
     ('20260926001304'),
-    ('20260926001305');
+    ('20260926001305'),
+    ('20260926001306'),
+    ('20260926001307'),
+    ('20260926001308');

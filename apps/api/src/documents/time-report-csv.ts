@@ -1,4 +1,5 @@
 import { toCsv, type Cell } from '../exports/csv';
+import { labelsFor } from './labels';
 import type { TimeReport } from './time-report';
 
 export type Download = { filename: string; body: string };
@@ -15,7 +16,8 @@ function rows(report: TimeReport): Cell[][] {
 			entry.billable ? 'x' : ''
 		]),
 		['', '', '', 'total', report.totals.minutes, ''],
-		['', '', '', 'billable', report.totals.billableMinutes, '']
+		['', '', '', 'billable', report.totals.billableMinutes, ''],
+		...(report.specimen ? [['', '', '', labelsFor(report.locale).timeReportSpecimen, '', '']] : [])
 	];
 }
 

@@ -198,6 +198,60 @@ describe('tax treatment of an invoice', () => {
 		expect(await errorCode(app.query('select app.issue_invoice($1)', [draft.id]))).toBe('applied');
 	});
 
+	it.each([
+		{
+			treatment: 'reverse_charge',
+			country: 'NL',
+			vatId: 'NL123456789B01',
+			change: 'vat_id = null'
+		},
+		{
+			treatment: 'reverse_charge',
+			country: 'NL',
+			vatId: 'NL123456789B01',
+			change: `country_code = 'DE'`
+		},
+		{
+			treatment: 'reverse_charge',
+			country: 'NL',
+			vatId: 'NL123456789B01',
+			change: 'is_business = false'
+		},
+		{ treatment: 'outside_scope', country: 'US', vatId: null, change: `country_code = 'DE'` }
+	])(
+		'refuses to issue a $treatment draft after $change on its client, without a number',
+		async ({ treatment, country, vatId, change }) => {
+			const own = await office();
+			await superuser.query(
+				`update app.clients set country_code = $2, is_business = true, vat_id = $3,
+					street = 'Keizersgracht 1', postal_code = '1015', city = 'Amsterdam'
+				  where id = $1`,
+				[own.client, country, vatId]
+			);
+			const draft = {
+				tenant: own.tenant,
+				client: own.client,
+				id: await draftWith(own.tenant, own.client, treatment)
+			};
+			const untouched = { ...draft, id: await draftWith(own.tenant, own.client, treatment) };
+			await addLine(superuser, draft, 1, treatment);
+			await addLine(superuser, untouched, 1, treatment);
+			await withContext(app, own.hr.context);
+			expect(await errorCode(app.query('select app.issue_invoice($1)', [untouched.id]))).toBe(
+				'applied'
+			);
+
+			await superuser.query(`update app.clients set ${change} where id = $1`, [own.client]);
+			expect(await errorCode(app.query('select app.issue_invoice($1)', [draft.id]))).toBe('ZT003');
+			const { rows } = await superuser.query(
+				`select i.status::text, (select last_seq from app.invoice_counters c where c.tenant_id = i.tenant_id) as seq
+				   from app.invoices i where i.id = $1`,
+				[draft.id]
+			);
+			expect(rows[0]).toEqual({ status: 'draft', seq: 1 });
+		}
+	);
+
 	it('hands treatment and exemption reasons on to the cancellation', async () => {
 		const draft = { tenant, client, id: await draftWith(tenant, client, 'standard') };
 		await addLine(superuser, draft, 1, 'standard');

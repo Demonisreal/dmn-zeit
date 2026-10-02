@@ -46,8 +46,8 @@ async function office(kind: 'live' | 'sandbox' = 'live') {
 	return { tenant, admin: await confirmedAdmin(tenant) };
 }
 
-async function bookedDraft(tenant: string, desk: Desk, day: string) {
-	const client = (await desk.post('/clients', { name: 'Korn KG' })).body;
+async function bookedDraft(tenant: string, desk: Desk, day: string, clientFields = {}) {
+	const client = (await desk.post('/clients', { name: 'Korn KG', ...clientFields })).body;
 	const project = (await desk.post('/projects', { clientId: client.id, name: 'Website' })).body;
 	await desk.post('/rates', { clientId: client.id, validFrom: '2026-01-01', rateCents: '6000' });
 	const workerDesk = await signedIn(api, (await createPerson(tenant)).userId);
@@ -346,8 +346,8 @@ describe('a failed issue', () => {
 		const { tenant, admin } = await office();
 		const draftId = await seedDraft(api.superuser, tenant, await seedClient(api.superuser, tenant));
 		const documents = api.app.get(DocumentsService);
-		const render = documents.renderInvoicePdf.bind(documents);
-		vi.spyOn(documents, 'renderInvoicePdf').mockImplementationOnce(async (draft) => {
+		const render = documents.renderInvoice.bind(documents);
+		vi.spyOn(documents, 'renderInvoice').mockImplementationOnce(async (draft) => {
 			expect((await admin.post(`/invoices/${draftId}/lines`, freeLine)).status).toBe(201);
 			return render(draft);
 		});
@@ -445,6 +445,105 @@ describe('billing lock over http', () => {
 		const freed = await workerDesk.patch(`/project-entries/${entry.id}`, { note: 'Nachtrag' });
 		expect(freed.status).toBe(200);
 		expect(freed.body.note).toBe('Nachtrag');
+	});
+});
+
+describe('tax treatment of a draft whose client changed', () => {
+	const abroad = {
+		countryCode: 'NL',
+		vatId: 'NL123456789B01',
+		street: 'Keizersgracht 1',
+		postalCode: '1015 CJ',
+		city: 'Amsterdam'
+	};
+
+	async function movedToGermany(day: string) {
+		const { tenant, admin } = await office();
+		await api.superuser.query(
+			`update app.billing_profiles set vat_id = 'DE123456789' where tenant_id = $1`,
+			[tenant]
+		);
+		const booked = await bookedDraft(tenant, admin, day, abroad);
+		expect(booked.draft.lines.map((line: { taxCategory: string }) => line.taxCategory)).toEqual([
+			'reverse_charge'
+		]);
+		expect(booked.draft.blockers).toEqual([]);
+		const moved = await admin.patch(`/clients/${booked.client.id}`, { countryCode: 'DE', vatId: null });
+		expect(moved.status).toBe(200);
+		return { tenant, admin, draft: booked.draft };
+	}
+
+	it('refuses the reverse-charge issue once the client is German and numbers nothing', async () => {
+		const { tenant, admin, draft } = await movedToGermany('2026-09-24');
+		expect((await admin.get(`/invoices/${draft.id}`)).body.blockers).toContain('tax_treatment_stale');
+
+		const refused = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
+		expect(refused.status).toBe(409);
+		expect(refused.body.details.blockers).toEqual(['tax_treatment_stale']);
+		expect((await statusOf(draft.id)).status).toBe('draft');
+		expect(await counter(tenant)).toBeNull();
+	});
+
+	it('takes the treatment over again on refresh and issues with German vat', async () => {
+		const { admin, draft } = await movedToGermany('2026-09-25');
+
+		const refreshed = await admin.post(`/invoices/${draft.id}/refresh`);
+		expect(refreshed.status).toBe(200);
+		expect(refreshed.body.blockers).toEqual([]);
+		expect(
+			refreshed.body.lines.map((line: { taxCategory: string; taxRateBp: number }) => [
+				line.taxCategory,
+				line.taxRateBp
+			])
+		).toEqual([['standard', 1900]]);
+
+		const issued = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
+		expect(issued.status).toBe(200);
+		expect(issued.body.buyer.countryCode).toBe('DE');
+		expect(issued.body.totals.taxCents).toBe('2280');
+	});
+});
+
+describe('refresh of a draft', () => {
+	it('frees the time that lost its rate', async () => {
+		const { tenant, admin } = await office();
+		const { client, entry, draft } = await bookedDraft(tenant, admin, '2026-09-26');
+		await api.superuser.query('delete from app.rates where client_id = $1', [client.id]);
+
+		const refreshed = await admin.post(`/invoices/${draft.id}/refresh`);
+		expect(refreshed.status).toBe(200);
+		expect(refreshed.body.lines).toEqual([]);
+		const { rows } = await api.superuser.query(
+			'select invoice_id from app.project_entries where id = $1',
+			[entry.id]
+		);
+		expect(rows[0].invoice_id).toBeNull();
+	});
+
+	it('keeps lines and their text when nothing billable came in', async () => {
+		const { tenant, admin } = await office();
+		const { client, draft, workerDesk } = await bookedDraft(tenant, admin, '2026-09-27');
+		const lineId = draft.lines[0].id;
+		await admin.patch(`/invoices/${draft.id}/lines/${lineId}`, { description: 'Relaunch Startseite' });
+		const internal = (
+			await admin.post('/projects', { clientId: client.id, name: 'Intern', billable: false })
+		).body;
+		const booked = await workerDesk.post('/project-entries', {
+			projectId: internal.id,
+			startedAt: '2026-09-27T13:00:00+02:00',
+			endedAt: '2026-09-27T14:00:00+02:00',
+			note: 'Abstimmung'
+		});
+		expect(booked.status).toBe(201);
+
+		const refreshed = await admin.post(`/invoices/${draft.id}/refresh`);
+		expect(refreshed.status).toBe(200);
+		expect(
+			refreshed.body.lines.map((line: { id: string; description: string }) => [
+				line.id,
+				line.description
+			])
+		).toEqual([[lineId, 'Relaunch Startseite']]);
 	});
 });
 
@@ -812,6 +911,14 @@ describe('step-up on issue and cancel', () => {
 });
 
 describe('rate limit per person', () => {
+	const draftEdits = [
+		(desk: Desk) => desk.post(`/invoices/${randomUUID()}/lines`, freeLine),
+		(desk: Desk) =>
+			desk.patch(`/invoices/${randomUUID()}/lines/${randomUUID()}`, { description: 'Nachtrag' }),
+		(desk: Desk) => desk.delete(`/invoices/${randomUUID()}/lines/${randomUUID()}`),
+		(desk: Desk) => desk.patch(`/invoices/${randomUUID()}`, { paymentTermsDays: 30 })
+	];
+	let editCount = 0;
 	const routes = [
 		{
 			route: 'drafts',
@@ -837,6 +944,18 @@ describe('rate limit per person', () => {
 			window: 3600,
 			send: (desk: Desk) =>
 				desk.post(`/invoices/${randomUUID()}/cancel`, { reason: 'Grenze der Stornos prüfen' })
+		},
+		{
+			route: 'refresh',
+			limit: 10,
+			window: 60,
+			send: (desk: Desk) => desk.post(`/invoices/${randomUUID()}/refresh`)
+		},
+		{
+			route: 'lines, all four draft edits on one count',
+			limit: 60,
+			window: 60,
+			send: (desk: Desk) => draftEdits[editCount++ % draftEdits.length]!(desk)
 		}
 	];
 

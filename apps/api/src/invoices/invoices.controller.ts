@@ -82,6 +82,8 @@ export class InvoicesController {
 	}
 
 	@Patch(':id')
+	@UseGuards(UserRateLimitGuard)
+	@UserRateLimit('lines', 60)
 	update(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
@@ -98,12 +100,16 @@ export class InvoicesController {
 
 	@Post(':id/refresh')
 	@HttpCode(200)
+	@UseGuards(UserRateLimitGuard)
+	@UserRateLimit('refresh', 10)
 	refresh(@CurrentSession() session: AuthSession, @Param('id', id) invoiceId: string): Promise<Invoice> {
 		return this.invoices.refresh(session, invoiceId);
 	}
 
 	@Post(':id/lines')
 	@HttpCode(201)
+	@UseGuards(UserRateLimitGuard)
+	@UserRateLimit('lines', 60)
 	addLine(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
@@ -113,6 +119,8 @@ export class InvoicesController {
 	}
 
 	@Patch(':id/lines/:lineId')
+	@UseGuards(UserRateLimitGuard)
+	@UserRateLimit('lines', 60)
 	updateLine(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,
@@ -124,6 +132,8 @@ export class InvoicesController {
 
 	@Delete(':id/lines/:lineId')
 	@HttpCode(204)
+	@UseGuards(UserRateLimitGuard)
+	@UserRateLimit('lines', 60)
 	async removeLine(
 		@CurrentSession() session: AuthSession,
 		@Param('id', id) invoiceId: string,

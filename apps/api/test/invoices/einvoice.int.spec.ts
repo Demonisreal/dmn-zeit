@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DocumentsService } from '../../src/documents/documents.service';
 import { pdfParse } from '../../src/documents/pdf-parse.fixture';
 import { startApi, type Api } from '../auth/api';
@@ -11,6 +11,19 @@ import { createPerson, createTenant, type Person } from '../helpers/pg';
 vi.mock('../../src/documents/worker', async (importOriginal) => {
 	const worker = await importOriginal<typeof import('../../src/documents/worker')>();
 	return { ...worker, renderInWorker: worker.renderJob };
+});
+
+const facturX = vi.hoisted(() => ({ broken: false }));
+
+vi.mock('../../src/einvoice/einvoice', async (importOriginal) => {
+	const einvoice = await importOriginal<typeof import('../../src/einvoice/einvoice')>();
+	return {
+		...einvoice,
+		renderZugferd: (...args: Parameters<typeof einvoice.renderZugferd>) =>
+			facturX.broken
+				? Promise.reject(new Error('factur-x writer failed'))
+				: einvoice.renderZugferd(...args)
+	};
 });
 
 const LEITWEG_ID = '04011000-12345-03';
@@ -104,6 +117,14 @@ async function storedFormats(invoiceId: string) {
 		[invoiceId]
 	);
 	return rows.map((row) => row.format);
+}
+
+async function counter() {
+	const { rows } = await api.superuser.query<{ seq: number }>(
+		'select coalesce(max(last_seq), 0) as seq from app.invoice_counters where tenant_id = $1',
+		[tenant]
+	);
+	return Number(rows[0]!.seq);
 }
 
 const etagOf = (content: Buffer) => `"${createHash('sha256').update(content).digest('hex')}"`;
@@ -247,13 +268,6 @@ describe('blockers', () => {
 	});
 
 	it('refuses before the number is taken and leaves the counter alone', async () => {
-		const counter = async () => {
-			const { rows } = await api.superuser.query<{ seq: number }>(
-				'select coalesce(max(last_seq), 0) as seq from app.invoice_counters where tenant_id = $1',
-				[tenant]
-			);
-			return Number(rows[0]!.seq);
-		};
 		const draft = await draftFor(hr, worker, await newClient(hr, { name: 'Ohne Leitweg GmbH' }));
 		expect(draft.format).toBe('zugferd');
 		const before = await counter();
@@ -270,6 +284,21 @@ describe('blockers', () => {
 		const answer = await admin.post(`/invoices/${draft.id}/issue`, { format: 'pdf' });
 		expect(answer.status).toBe(200);
 		expect(answer.body.numberSeq).toBe(before + 1);
+	});
+
+	it('takes no number when the e-invoice of the chosen format fails to render', async () => {
+		const draft = await draftFor(hr, worker, await newClient(hr, { name: 'Defekt GmbH' }));
+		const before = await counter();
+
+		facturX.broken = true;
+		const failed = await admin.post(`/invoices/${draft.id}/issue`, { format: 'zugferd' });
+		facturX.broken = false;
+		expect(failed.status).toBe(500);
+		expect(await counter()).toBe(before);
+		expect((await hr.get(`/invoices/${draft.id}`)).body).toMatchObject({
+			status: 'draft',
+			number: null
+		});
 	});
 });
 
@@ -298,10 +327,18 @@ describe('cancellation', () => {
 });
 
 describe('rendering after a failed attempt', () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	function failRenderAfterNumber() {
+		const documents = api.app.get(DocumentsService);
+		const render = documents.renderInvoice.bind(documents);
+		vi.spyOn(documents, 'renderInvoice')
+			.mockImplementationOnce(render)
+			.mockRejectedValueOnce(new Error('worker gone'));
+	}
+
 	it('renders and stores the missing document on the first download', async () => {
-		vi.spyOn(api.app.get(DocumentsService), 'renderInvoice').mockRejectedValueOnce(
-			new Error('worker gone')
-		);
+		failRenderAfterNumber();
 		const invoice = await issued('zugferd', { name: 'Später KG' });
 		expect(invoice.status).toBe('issued');
 		expect(await storedFormats(invoice.id)).toEqual([]);
@@ -316,9 +353,7 @@ describe('rendering after a failed attempt', () => {
 	});
 
 	it('stores the xml together with its pdf copy when only the xml is asked for', async () => {
-		vi.spyOn(api.app.get(DocumentsService), 'renderInvoice').mockRejectedValueOnce(
-			new Error('worker gone')
-		);
+		failRenderAfterNumber();
 		const invoice = await issued('xrechnung', { name: 'Amt Später', buyerReference: LEITWEG_ID });
 		expect(await storedFormats(invoice.id)).toEqual([]);
 
@@ -329,9 +364,7 @@ describe('rendering after a failed attempt', () => {
 	});
 
 	it('answers two downloads at once with the one original that got stored', async () => {
-		vi.spyOn(api.app.get(DocumentsService), 'renderInvoice').mockRejectedValueOnce(
-			new Error('worker gone')
-		);
+		failRenderAfterNumber();
 		const invoice = await issued('zugferd', { name: 'Gleichzeitig KG' });
 
 		const [one, two] = await Promise.all([

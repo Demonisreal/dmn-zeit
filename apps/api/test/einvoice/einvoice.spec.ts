@@ -78,6 +78,13 @@ describe('einvoiceBlockers', () => {
 		).toEqual([]);
 	});
 
+	it('wants the vat id of the buyer on reverse charge, BR-AE-02', () => {
+		const reverse = FIXTURES['reverse-charge-eu']!;
+		const withoutVatId = { ...reverse, buyer: { ...reverse.buyer, vatId: null } };
+		expect(einvoiceBlockers(withoutVatId, 'zugferd')).toEqual(['buyer_vat_id_missing']);
+		expect(einvoiceBlockers(withoutVatId, 'xrechnung')).toEqual(['buyer_vat_id_missing']);
+	});
+
 	it.each([
 		['backspace', 'Firma\u0008'],
 		['U+FFFE', 'Firma￾'],

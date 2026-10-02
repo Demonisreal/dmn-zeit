@@ -330,8 +330,18 @@ export function toInvoiceModel(ctx: {
 			leitwegId: isLeitwegId(buyer)
 		}
 	});
+	const stale =
+		isDraft &&
+		invoice.kind === 'invoice' &&
+		invoice.tax_treatment !== null &&
+		invoice.tax_treatment !==
+			taxTreatment(
+				{ taxProfile: invoice.tax_profile },
+				{ countryCode: client.country_code, isBusiness: client.is_business, vatId: client.vat_id }
+			);
 	const taxBlockers = isDraft
 		? [
+				...(stale ? ['tax_treatment_stale'] : []),
 				...taxMismatches({
 					taxProfile: invoice.tax_profile,
 					treatment,

@@ -26,6 +26,9 @@ export function einvoiceBlockers(invoice: EInvoice, format: EInvoiceFormat): str
 	) {
 		blockers.push('seller_tax_id_missing');
 	}
+	if (invoice.treatment === 'reverse_charge' && !buyer.vatId) {
+		blockers.push('buyer_vat_id_missing');
+	}
 	if (invoice.lines.some((line) => line.taxCategory === 'exempt') && !invoice.exemptionReason) {
 		blockers.push('exemption_reason_missing');
 	}

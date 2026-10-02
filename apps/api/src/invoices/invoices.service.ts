@@ -111,6 +111,33 @@ function treatmentFor(
 	});
 }
 
+type TimeLineKey = {
+	projectId: string | null;
+	taskId: string | null;
+	minutes: number | null;
+	unitPriceCents: bigint | string;
+	taxCategory: TaxCategory;
+	taxRateBp: number;
+	entryIds: readonly string[];
+};
+
+function lineKey(line: TimeLineKey): string {
+	return [
+		line.projectId,
+		line.taskId ?? '',
+		line.minutes,
+		String(line.unitPriceCents),
+		line.taxCategory,
+		line.taxRateBp,
+		line.entryIds.toSorted().join(',')
+	].join('|');
+}
+
+function sameLines(fresh: readonly TimeLineKey[], stored: readonly TimeLineKey[]): boolean {
+	const keys = stored.map(lineKey).toSorted();
+	return fresh.length === keys.length && fresh.map(lineKey).toSorted().every((key, i) => key === keys[i]);
+}
+
 export type LinePatch = { [K in keyof InvoiceLineInput]?: InvoiceLineInput[K] | undefined };
 
 function minutesOf(startedAt: string, endedAt: string): number {
@@ -236,27 +263,30 @@ export class InvoicesService {
 	refresh(session: AuthSession, id: string): Promise<Invoice> {
 		return this.db.withTenant(session, async (trx) => {
 			const essentials = await this.lockedDraft(trx, id);
-			const [treatment, freeEntries] = await Promise.all([
-				this.treatment(trx, essentials),
-				this.store.lockEntries(trx, essentials.clientId, { from: essentials.serviceFrom, to: essentials.serviceTo }, undefined)
+			const clientRow = found(await this.store.clientForInvoice(trx, essentials.clientId), 'Client');
+			const treatment = treatmentFor({ taxProfile: essentials.taxProfile }, clientRow);
+			const [linkedEntries, freeEntries, rates, stored] = await Promise.all([
+				this.store.linkedEntryRows(trx, id),
+				this.store.lockEntries(trx, essentials.clientId, { from: essentials.serviceFrom, to: essentials.serviceTo }, undefined),
+				this.ratesFor(trx, essentials.clientId),
+				this.store.timeLineKeys(trx, id)
 			]);
-			if (freeEntries.length === 0) return this.model(trx, id);
-
-			const linkedEntries = await this.store.linkedEntryRows(trx, id);
-			const rates = await this.ratesFor(trx, essentials.clientId);
 			const lines = buildTimeLines({
 				entries: [...linkedEntries, ...freeEntries],
 				clientId: essentials.clientId,
 				rates,
 				taxCategory: treatment
 			});
-			if (lines.length === 0) return this.model(trx, id);
+			if (treatment === essentials.taxTreatment && sameLines(lines, stored)) return this.model(trx, id);
 
 			const itemLines = await this.store.itemLineCount(trx, id);
 			if (itemLines + lines.length > MAX_LINES) throw tooManyLines();
 			const entryIds = lines.flatMap((line) => line.entryIds);
 			if (entryIds.length > MAX_ENTRIES) throw tooManyEntries();
 
+			if (treatment !== essentials.taxTreatment) {
+				await this.store.updateDraftMeta(trx, id, { tax_treatment: treatment });
+			}
 			await this.store.replaceTimeLines(trx, session.tenantId, id, essentials.clientId, lines);
 			await this.store.linkEntries(trx, entryIds, id);
 			return this.model(trx, id);
@@ -356,7 +386,7 @@ export class InvoicesService {
 			if (blockers.length > 0) throw invalidState('This invoice is missing required fields', { blockers });
 			return draft;
 		});
-		await this.documents.renderInvoicePdf(checked);
+		await this.documents.renderInvoice(checked);
 		const model = await this.db.withTenant(session, async (trx) => {
 			await this.lockedDraft(trx, id);
 			if (!isDeepStrictEqual(await this.model(trx, id), checked)) {

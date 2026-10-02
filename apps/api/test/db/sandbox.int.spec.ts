@@ -11,6 +11,7 @@ import {
 	type Person,
 	withContext
 } from '../helpers/pg';
+import { seedClient, seedDraft } from '../helpers/invoices';
 import { fillTenant } from './fixtures';
 
 let superuser: pg.Client;
@@ -90,6 +91,27 @@ describe('sandbox quota', () => {
 		);
 		expect(await countIn('app.clients', sandbox)).toBe(50);
 		expect(await countIn('app.project_entries', sandbox)).toBe(1);
+	});
+
+	it('caps the invoice lines of a sandbox at 2000', async () => {
+		const sandbox = await createTenant({ kind: 'sandbox' });
+		const client = await seedClient(superuser, sandbox);
+		const draft = await seedDraft(superuser, sandbox, client);
+		await withContext(app, { tenantId: sandbox, role: 'hr' });
+		const addLines = (from: number, count: number) =>
+			app.query(
+				`insert into app.invoice_lines (
+					tenant_id, invoice_id, client_id, position, kind, description, quantity_milli, unit,
+					unit_price_cents, net_cents, tax_category, tax_rate_bp
+				 )
+				 select $1, $2, $3, g, 'item', 'Position ' || g, 1000, 'HUR', 100, 100, 'standard', 1900
+				   from generate_series($4::int, $4::int + $5::int - 1) g`,
+				[sandbox, draft, client, from, count]
+			);
+
+		await addLines(2, 1999);
+		await expect(addLines(2001, 1)).rejects.toMatchObject({ code: 'ZT005' });
+		expect(await countIn('app.invoice_lines', sandbox)).toBe(2000);
 	});
 });
 
