@@ -20,7 +20,7 @@ Was in der Demo anders ist als im echten Betrieb:
 
 - Die Sandbox wird nach 24 Stunden mit allen Eingaben gelöscht, der Aufräumjob läuft alle 15 Minuten.
 - E-Mails gehen nicht hinaus, sie landen im **Postausgang** (Link im Banner oben).
-- Rechnungen tragen das Wasserzeichen „Musterrechnung – keine Rechnung im Sinne des § 14 UStG“ und eine Nummer mit `MUSTER-`. Das hängt am Mandantentyp `sandbox`, nicht an einem Schalter in der Konfiguration.
+- Rechnungen tragen das Wasserzeichen „Musterrechnung – keine Rechnung im Sinne des § 14 UStG“ (auf englischen Rechnungen neben der deutschen Zeile) und eine Nummer mit `MUSTER-`. Das hängt am Mandantentyp `sandbox`, nicht an einem Schalter in der Konfiguration.
 - Ausstellen und Stornieren verlangen sonst eine erneute Bestätigung mit Passwort und zweitem Faktor (Step-up). In der Demo entfällt sie, weil es dort keine Passwörter gibt.
 
 Damit die Demo nicht leerläuft, sind Sandboxes begrenzt: drei je Stunde und zehn je Tag aus einem Netz (IPv4 je /24, IPv6 je /64), höchstens 60 neue je Stunde über alle Besucher und 300 gleichzeitig. Darüber sagt die Startseite „Von diesem Anschluss wurden in kurzer Zeit zu viele Demos gestartet.“ bzw. „Die Demo ist gerade voll.“ und nennt die Wartezeit. Jede Sandbox hat dazu Mengengrenzen je Tabelle, etwa 20.000 Buchungen oder 2.000 Rechnungspositionen.
@@ -29,7 +29,7 @@ Die Live-Instanz `zeit.dmn-software.com` ist nur auf Einladung erreichbar. Es gi
 
 ### Der Kern in zwei Minuten
 
-1. **„Demo starten“.** Es öffnet sich das Wochenbuch einer Person in der Rolle Beschäftigte, die heute morgen eingestempelt hat. Oben stehen **Pause** und **Gehen**, darüber der Rundgang mit vier Schritten im Betrieb und einem im Solo-Bereich.
+1. **„Demo starten“.** Es öffnet sich das Wochenbuch einer Person in der Rolle Beschäftigte, die heute Morgen eingestempelt hat. Oben stehen **Pause** und **Gehen**, darüber der Rundgang mit vier Schritten im Betrieb und einem im Solo-Bereich.
 2. **Einen Tag mit rotem `§ 5` aufklappen** (Rundgang-Schritt „Ruhezeit nach § 5 im Wochenbuch finden“). Links die Buchungen mit Pausen, rechts die Rechnung Ist minus Soll mit dem Vertrag, aus dem das Soll stammt, darunter der Befund „Ruhezeit seit dem letzten Arbeitsende nur … Vorgeschrieben sind 11 Stunden.“ mit Regelversion. Die Zeiten sind je Sandbox zufällig.
 3. **Anträge → „Neuer Antrag“**, Urlaub und Zeitraum wählen, **„Antrag stellen“**.
 4. **„Rolle wechseln“ → Teamleitung**, im **Posteingang** den Antrag **„Genehmigen“**. Das Urlaubskonto bucht die Tage ab.
@@ -55,7 +55,7 @@ Auch einen Blick wert: im **Postausgang** die Mail, die eine Korrektur der Perso
 - **Projektzeit** mit eigenem Timer neben der Stempeluhr, Nachträge mit Pflichtnotiz, Wochenmatrix Projekt × Tag. Sätze mit Gültigkeitsdatum je Kunde, Projekt, Aufgabe oder Person, Rundung je Projekt, Aufgabe und Tag, Budget mit Warnung.
 - **Solo-Bereich** für Freelancer: eigener Mandantentyp mit genau einer Person, ohne Stempeluhr, Urlaub und Personal.
 - **Rechnungen nach § 14 UStG** aus erfassten Zeiten plus freien Positionen, PDF nach DIN 5008. Regelbesteuerung, Kleinunternehmer nach § 19, Reverse Charge für EU-Unternehmer, Drittland, Kleinbetragsrechnung bis 250 €. Pflichtangaben werden vor der Nummer geprüft, Rechnungssprache Deutsch oder Englisch je Kunde, Zahlungsstatus, Löschschutz während der Aufbewahrung.
-- **E-Rechnung:** XRechnung (CII) und ZUGFeRD EN 16931 als PDF/A-3. Vorgabe je Kunde, das XML wird im Original gespeichert.
+- **E-Rechnung:** XRechnung (CII) und ZUGFeRD EN 16931 (technisch identisch mit Factur-X) als PDF/A-3. Vorgabe je Kunde, das XML wird im Original gespeichert.
 - **Stundennachweis** je Kunde und Zeitraum oder je Rechnung, als PDF oder CSV.
 - **Anmeldung** ohne Drittanbieter: argon2id mit Pepper, Passkeys, TOTP, Wiederherstellungscodes, Step-up für heikle Aktionen.
 - **Oberfläche Deutsch und Englisch** mit gleichem Inhalt, Fachbegriffe mit fester Übersetzung (`docs/glossary.md`).
@@ -86,7 +86,8 @@ zeit-web   Caddy, SPA statisch, CSP, zstd/gzip außer /api
 zeit-api   NestJS
   │   Guards: Throttler → Session → CSRF → 2FA-Einrichtung → Bereich → Rolle → Step-up
   │   Module: time, corrections, absences, vacation, flex, compliance, months, exports,
-  │           projects, billing, invoices, documents, demo, auth, org
+  │           projects, billing, invoices, documents, demo, auth, org, users, tenant,
+  │           audit, jobs, mail, health
   │
   ├── withTenant(session, trx => …)
   │     set_config('app.tenant_id' …, true) je Transaktion
@@ -112,7 +113,7 @@ Die SPA rechnet Vorschauen mit denselben Funktionen aus `@zeit/rules`, maßgebli
 
 **Stack:** Node.js 24, pnpm-Workspace, NestJS 11, Kysely mit `pg`, dbmate, PostgreSQL 17, zod, `@node-rs/argon2`, `@simplewebauthn/server`, pdfkit, `@e-invoice-eu/core`, Vite 8, React 19, TanStack Router und Query, React Aria Components, i18next, CSS Modules, Vitest, Testcontainers, Playwright.
 
-Aufbau des Repositorys, Datenmodell, Anmeldung und Routenübersicht stehen in [`docs/architecture.md`](docs/architecture.md) (auf Englisch). Die fachlichen und rechtlichen Dokumente in `docs/` (`rules.md`, `glossary.md`, `rechnungen-recht.md`, Bedrohungsmodell) sind deutsch.
+Aufbau des Repositorys, Datenmodell, Anmeldung und Routenübersicht stehen in [`docs/architecture.md`](docs/architecture.md) (auf Englisch). Die fachlichen und rechtlichen Dokumente in `docs/` (`rules.md`, `glossary.md`, `rechnungen-recht.md`, Bedrohungsmodell), die ADRs in `docs/adr/` und `SECURITY.md` sind deutsch.
 
 ---
 
@@ -180,7 +181,7 @@ Mit `APP_MODE=demo` zeigt `http://localhost:5173` die Startseite mit „Demo sta
 
 **Ohne API und Datenbank:** `VITE_MSW=on pnpm --filter @zeit/web dev` startet nur die SPA mit Mock Service Worker. So ist auch der Screenshot oben entstanden.
 
-Weitere Skripte: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm db:rollback`, `pnpm db:new`, `pnpm db:codegen` (Kysely-Typen aus der migrierten Datenbank).
+Weitere Skripte: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm depcruise` (Abhängigkeitsregeln, nach einem Build), `pnpm db:rollback`, `pnpm db:new`, `pnpm db:codegen` (Kysely-Typen aus der migrierten Datenbank).
 
 ## Tests
 
@@ -192,7 +193,7 @@ sh apps/api/test/einvoice/kosit.sh      # XML gegen den KoSIT-Validator
 sh apps/api/test/einvoice/verapdf.sh    # PDF/A-3b mit veraPDF
 ```
 
-Stand 02.10.2026: Unit 1703 (rules 608, shared 215, demo-data 144, api 432, web 304), Integration 1000, E2E 20 (Desktop und Mobil), KoSIT 16 von 16 Dateien `acceptable`, veraPDF 7 von 7 bestanden. Integration, E2E, KoSIT und veraPDF brauchen Docker. `@zeit/rules` hat eine Coverage-Schwelle von 95 %.
+Stand 19.10.2026: Unit 1709 (rules 608, shared 215, demo-data 144, api 436, web 306), Integration 1006, E2E 20 (Desktop Chrome, mit `@mobile` markierte Tests zusätzlich bei 390 px Breite), KoSIT 16 von 16 Dateien `acceptable`, veraPDF 7 von 7 bestanden (letzter lokaler Lauf am 2. Oktober). Integration, E2E, KoSIT und veraPDF brauchen Docker. `@zeit/rules` hat eine Coverage-Schwelle von 95 %.
 
 Schwerpunkt sind Stellen, die **still** falsch sein können:
 
@@ -201,9 +202,9 @@ Schwerpunkt sind Stellen, die **still** falsch sein können:
 | `apps/api/test/security/role-matrix.int.spec.ts`     | Liest jede registrierte Route per Reflection aus Nest und vergleicht sie mit einer Tabelle Route → Mindestrolle und Route → Bereich. Eine neue Route ohne Zeile, eine Zeile ohne Route oder eine abweichende Rolle lässt den Test scheitern                                             |
 | `apps/api/test/db/rls.int.spec.ts`                   | Jede Tabelle mit `tenant_id` ist bekannt, mit `FORCE` und restriktiv eingezäunt. Ohne Kontext gibt es keine Zeile, auch nicht für den Besitzer                                                                                                                                          |
 | `apps/api/test/db/invoices.int.spec.ts`              | 20 parallele Ausstellungen ergeben 1 bis 20 genau einmal, ein Rollback gibt seine Nummer zurück, eingefrorene Felder bleiben auch für HR gesperrt                                                                                                                                       |
-| `apps/api/test/db/invoice-hardening.int.spec.ts`     | Derselbe Entwurf aus zwei Verbindungen verbraucht genau eine Nummer, 5000 Buchungen gehen, die 5001. wird ohne Nummer abgewiesen, Stornorechnungen sind nie bezahlt                                                                                                                     |
+| `apps/api/test/db/invoice-hardening.int.spec.ts`     | Derselbe Entwurf aus zwei Verbindungen verbraucht genau eine Nummer, 5000 Projektzeit-Buchungen gehen, die 5001. wird ohne Nummer abgewiesen, Stornorechnungen sind nie bezahlt                                                                                                         |
 | `apps/api/test/invoices/einvoice.int.spec.ts`        | Scheitert die E-Rechnung im gewählten Format beim Probe-Rendering, wird keine Nummer vergeben                                                                                                                                                                                           |
-| `apps/api/test/einvoice/golden.spec.ts` + `kosit.sh` | XRechnung und Factur-X für acht Fälle (19 %, 7 %, gemischt, Leitweg-ID, Reverse Charge, Drittland, Kleinunternehmer, Storno) gleich den Golden-Dateien, die der KoSIT-Validator in CI prüft. Eine geänderte Abbildung muss erneut durch den Validator                                   |
+| `apps/api/test/einvoice/golden.spec.ts` + `kosit.sh` | XRechnung und ZUGFeRD für acht Fälle (19 %, 7 %, gemischt, Leitweg-ID, Reverse Charge, Drittland, Kleinunternehmer, Storno) gleich den Golden-Dateien, die der KoSIT-Validator in CI prüft. Eine geänderte Abbildung muss erneut durch den Validator                                    |
 | `apps/api/test/einvoice/text-parity.spec.ts`         | Jeder Rechtshinweis aus dem PDF steht im XML und umgekehrt, kein § 13b UStG bei EU-Unternehmern, gleiches Datumsformat, Stornorechnung negativ im PDF und als 381 positiv im XML                                                                                                        |
 | `apps/api/test/einvoice/verapdf.sh`                  | PDF/A-3b mit veraPDF, darunter ein PDF mit `&` und `<` im Firmennamen. Ein unmaskiertes `&` im XMP-Paket machte das PDF/A ungültig                                                                                                                                                      |
 | `apps/api/test/exports/time-report.int.spec.ts`      | Stundennachweis als CSV byte-genau gegen Golden-Dateien (de, en), mit BOM und CRLF.                                                                                                                                                                                                     |
@@ -255,4 +256,4 @@ Beide Instanzen laufen dort seit dem 2. Oktober 2026. Was die Läufe gegen die g
 
 ## Lizenz
 
-Alle Rechte vorbehalten, siehe [LICENSE](LICENSE). Das Repository ist zum Ansehen da, Nutzung, Vervielfältigung und Weitergabe nur mit schriftlicher Erlaubnis.
+Alle Rechte vorbehalten, siehe [LICENSE](LICENSE). Das Repository ist zum Ansehen da. Mögliche Arbeit- und Auftraggeber dürfen den Code zur Prüfung herunterladen, lesen und lokal ausführen, jede andere Nutzung, Vervielfältigung und Weitergabe nur mit schriftlicher Erlaubnis.

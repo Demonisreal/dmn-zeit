@@ -40,15 +40,16 @@ Leave Act).
 
 ## Gleitzeit
 
-| Deutsch               | Englisch                  | Hinweis                          |
-| --------------------- | ------------------------- | -------------------------------- |
-| Gleitzeit             | flextime                  |                                  |
-| Gleitzeitkonto        | flextime account          |                                  |
-| Saldo, Gleitzeitsaldo | balance, flextime balance |                                  |
-| Anfangssaldo          | opening balance           |                                  |
-| Zeitausgleich         | time off in lieu          | Abwesenheitsart, kurz nie "TOIL" |
-| Kappung               | cap                       | "capped at 40:00 h"              |
-| Auszahlung            | payout                    |                                  |
+| Deutsch               | Englisch                  | Hinweis                                                                      |
+| --------------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| Gleitzeit             | flextime                  |                                                                              |
+| Gleitzeitkonto        | flextime account          |                                                                              |
+| Saldo, Gleitzeitsaldo | balance, flextime balance |                                                                              |
+| Anfangssaldo          | opening balance           |                                                                              |
+| Zeitausgleich         | time off in lieu          | Abwesenheitsart, kurz nie "TOIL"                                             |
+| Kappung               | cap                       | "capped at 40:00 h"                                                          |
+| Buchung (Konto)       | posting                   | im Gleitzeit- und Urlaubskonto, Gegenbuchung: counter posting, nie "booking" |
+| Auszahlung            | payout                    |                                                                              |
 
 ## Urlaub und Abwesenheit
 
@@ -89,21 +90,22 @@ Leave Act).
 
 ## Rollen und Konto
 
-| Deutsch               | Englisch                  | Hinweis                                    |
-| --------------------- | ------------------------- | ------------------------------------------ |
-| Beschäftigte          | employee                  |                                            |
-| Teamleitung           | team lead                 |                                            |
-| Personalverwaltung    | HR                        | Navigation "Personal" → "HR"               |
-| Administration        | administration            | Navigation "Verwaltung" → "Administration" |
-| Personalnummer        | personnel number          |                                            |
-| Eintritt / Austritt   | start date / leaving date |                                            |
-| Betrieb, Mandant      | company                   | "tenant" nur im Code, nie für Kunden       |
-| Musterbetrieb         | sample company            | Demo, immer als erfunden gekennzeichnet    |
-| Anmelden / Abmelden   | sign in / sign out        | nie "log in"                               |
-| Sitzung               | session                   |                                            |
-| Einladung             | invitation                |                                            |
-| Passwort festlegen    | set password              |                                            |
-| Passwort zurücksetzen | reset password            |                                            |
+| Deutsch               | Englisch                  | Hinweis                                                          |
+| --------------------- | ------------------------- | ---------------------------------------------------------------- |
+| Beschäftigte          | employee                  |                                                                  |
+| Teamleitung           | team lead                 |                                                                  |
+| Personalverwaltung    | HR                        | Navigation "Personal" → "HR"                                     |
+| Administration        | administration            | Navigation "Verwaltung" → "Administration"                       |
+| Personalnummer        | personnel number          |                                                                  |
+| Eintritt / Austritt   | start date / leaving date |                                                                  |
+| Betrieb, Mandant      | company                   | "tenant" nur im Code, nie für Kunden                             |
+| Musterbetrieb         | sample company            | Demo, immer als erfunden gekennzeichnet                          |
+| Steuerbüro            | tax consultancy           | Musterbetrieb der Demo, nie "tax office" (das ist das Finanzamt) |
+| Anmelden / Abmelden   | sign in / sign out        | nie "log in"                                                     |
+| Sitzung               | session                   |                                                                  |
+| Einladung             | invitation                |                                                                  |
+| Passwort festlegen    | set password              |                                                                  |
+| Passwort zurücksetzen | reset password            |                                                                  |
 
 ## Projekte
 

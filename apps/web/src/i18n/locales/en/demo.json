@@ -1,7 +1,7 @@
 {
 	"start": {
 		"title": "Try DMN Zeit",
-		"intro": "The demo sets up a sample company of its own: a tax office with twelve people, bookings since January, open requests and findings under the German Working Hours Act.",
+		"intro": "The demo sets up a sample company of its own: a tax consultancy with twelve people, time entries since January, open requests and findings under the German Working Hours Act.",
 		"roles": "The demo opens in the employee role. “Switch role” leads on to team lead, HR and administration, and into the solo workspace of a freelancer with project time and invoices, no password needed.",
 		"submit": "Start demo",
 		"note": "All names and times are made up. The sample company is deleted after 24 hours, together with everything entered.",

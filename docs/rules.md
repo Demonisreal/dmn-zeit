@@ -1,6 +1,6 @@
 # Fachlogik @zeit/rules
 
-Stand 24.09.2026. Beschreibt, was `packages/rules` rechnet, auf welcher Rechtsgrundlage und wo
+Stand 19.10.2026. Beschreibt, was `packages/rules` rechnet, auf welcher Rechtsgrundlage und wo
 die Grenzen liegen. Die Software gibt Hinweise, keine Rechtsberatung. Alle Paragrafen wurden gegen
 gesetze-im-internet.de geprüft (Rechercheergebnis vom
 24.09.2026), Feiertage gegen die unten genannten Quellen.
@@ -257,10 +257,11 @@ Grenzen:
 - **Stornorechnung:** `kind: 'cancellation'` lässt den Verzugshinweis nach § 286 Abs. 3 BGB weg, eine
   Stornorechnung fordert keine Zahlung. Die übrigen Hinweise folgen der Behandlung des Originals.
 - **`exempt`** erreicht `invoiceForm` nur, wenn die aufrufende Seite die Kategorie einer einzelnen
-  freien Position selbst als `treatment` übergibt. `taxTreatment` liefert `exempt` nie, weil eine
-  Steuerbefreiung laut Plan je Position gewählt wird. Eine gemischte Rechnung mit einer
-  steuerfreien Position bekommt über die aktuelle Verdrahtung also keinen `exempt_reason`
-  (§ 14 Abs. 4 Nr. 8 UStG); das muss die aufrufende Seite je Position selbst aufrufen.
+  freien Position selbst als `treatment` übergibt. `taxTreatment` liefert `exempt` nie, weil die
+  Steuerbefreiung je Position gewählt wird. Eine gemischte Rechnung mit einer steuerfreien Position
+  bekommt von `invoiceForm` also keinen `exempt_reason` (§ 14 Abs. 4 Nr. 8 UStG); die API ergänzt
+  den Hinweis selbst, sobald eine Position steuerfrei ist, mit dem Befreiungsgrund der Position
+  (`apps/api/src/invoices/drafts.ts`).
 - **`Line` trägt keine Rohminuten**, nur `minutes` (bereits gerundet). `budgetStatus` erklärt seinen
   Zustand ebenfalls nur mit den übergebenen Minuten. Rohminuten gehören für beide Fälle nicht zur
   Herleitung; wer sie anzeigen will, muss sie an der Zelle (`Cell.rawMinutes`) selbst mitführen.

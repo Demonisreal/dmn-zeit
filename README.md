@@ -6,7 +6,7 @@
 
 Working time, leave and flextime under German labour law (ArbZG, BUrlG) for small businesses, plus project time and invoices under § 14 UStG with e-invoicing, where every figure shows what it is made of.
 
-![Week view of the sample company with one day expanded: bookings, actual minus target, and a finding under § 5 ArbZG](docs/screenshot.jpg)
+![Week view of the sample company with one day expanded: time entries, actual minus target, and a finding under § 5 ArbZG](docs/screenshot.jpg)
 
 ---
 
@@ -14,7 +14,7 @@ Working time, leave and flextime under German labour law (ArbZG, BUrlG) for smal
 
 **Demo: [zeit-demo.dmn-software.com](https://zeit-demo.dmn-software.com)**
 
-No account, no password. Click **"Start demo"** on the start page (the interface switches between German and English at the top). That creates a sandbox of your own: a made-up sample company (a tax office in North Rhine-Westphalia, twelve people in three teams, bookings since January, open requests, findings under the Working Hours Act) and, next to it, the solo workspace of a made-up freelancer with clients, projects and invoices. The demo opens in the employee role; **"Switch role"** leads on to team lead, HR, administration and the solo workspace, without a password.
+No account, no password. Click **"Start demo"** on the start page (the interface switches between German and English at the top). That creates a sandbox of your own: a made-up sample company (a tax consultancy in North Rhine-Westphalia, twelve people in three teams, time entries since January, open requests, findings under the Working Hours Act) and, next to it, the solo workspace of a made-up freelancer with clients, projects and invoices. The demo opens in the employee role; **"Switch role"** leads on to team lead, HR, administration and the solo workspace, without a password.
 
 What is different in the demo:
 
@@ -23,17 +23,17 @@ What is different in the demo:
 - Invoices carry the watermark "Specimen invoice – not an invoice within the meaning of § 14 UStG" (on English invoices next to the German line) and a number starting with `MUSTER-`. This depends on the tenant kind `sandbox`, not on a configuration switch.
 - Issuing and cancelling otherwise require a fresh confirmation with password and second factor (step-up). The demo skips it, because there are no passwords there.
 
-So the demo cannot be drained, sandboxes are rationed: three per hour and ten per day from one network (IPv4 per /24, IPv6 per /64), at most 60 new ones per hour across all visitors and 300 at the same time. Past that the start page says "Too many demos were started from this connection in a short time." or "The demo is full right now." and shows how long to wait. Each sandbox also has row limits per table, for example 20,000 bookings or 2,000 invoice lines.
+To keep the demo from being drained, sandboxes are rationed: three per hour and ten per day from one network (IPv4 per /24, IPv6 per /64), at most 60 new ones per hour across all visitors and 300 at the same time. Past that the start page says "Too many demos were started from this connection in a short time." or "The demo is full right now." and shows how long to wait. Each sandbox also has row limits per table, for example 20,000 time entries or 2,000 invoice lines.
 
 The live instance `zeit.dmn-software.com` is invitation-only. There is no open sign-up, the operator creates companies and solo workspaces through the CLI, and a second factor (passkey or TOTP) is mandatory for every role.
 
 ### The core idea in two minutes
 
 1. **"Start demo".** The week view of a person in the employee role opens; they clocked in this morning. At the top **Start break** and **Clock out**, above that the tour with four steps in the company and one in the solo workspace.
-2. **Expand a day with a red `§ 5`** (tour step "Find the § 5 rest period in the week"). On the left the bookings with breaks, on the right actual minus target together with the contract the target comes from, below it the finding "Rest period since the last shift only … 11 hours are required." with the rule version. Times are random per sandbox.
+2. **Expand a day with a red `§ 5`** (tour step "Find the § 5 rest period in the week"). On the left the time entries with breaks, on the right actual minus target together with the contract the target comes from, below it the finding "Rest period since the last shift only … 11 hours are required." with the rule version. Times are random per sandbox.
 3. **Requests → "New request"**, choose leave and a period, **"Submit request"**.
-4. **"Switch role" → team lead**, in the **Inbox** click **"Approve"**. The leave account books the days.
-5. **"Switch role" → HR**, open last month under **HR → Month-end close**. The checklist shows what blocks (open requests, a booking without clock-out) and what is only a notice, plus the flextime the close will book as a cap. After **"Close month"**, bookings, requests and contracts up to the end of that month are locked.
+4. **"Switch role" → team lead**, in the **Inbox** click **"Approve"**. The days are deducted from the leave account.
+5. **"Switch role" → HR**, open last month under **HR → Month-end close**. The checklist shows what blocks (open requests, a time entry without clock-out) and what is only a notice, plus the flextime above the cap that the close will cut off. After **"Close month"**, time entries, requests and contracts up to the end of that month are locked.
 6. **"Switch role" → Freelancer.** The start page is the week matrix project × day, a project timer is running. Below it **"Unbilled"** with amounts per client.
 7. **Invoices**, open the draft for the agency. The **Preview** is a real PDF from the same renderer as the original later on. **"Issue"**, format ZUGFeRD, **"Issue now"**: the invoice gets the next number and cannot be changed afterwards.
 8. **"Download PDF"** returns a PDF/A-3 with the XML embedded. An invoice to the municipal utility was issued as XRechnung; there you also get **"Download XML"**.
@@ -55,21 +55,21 @@ Also worth a look: the mail in the **Outbox** that an HR correction triggers, an
 - **Project time** with a timer of its own next to the time clock, entries after the fact with a mandatory note, week matrix project × day. Rates with a valid-from date per client, project, task or person, rounding per project, task and day, budget with warning.
 - **Solo workspace** for freelancers: a tenant kind of its own with exactly one person, without time clock, leave and HR.
 - **Invoices under § 14 UStG** from recorded time plus free lines, PDF laid out per DIN 5008. Standard taxation, small business under § 19, reverse charge for EU businesses, third countries, small-amount invoices up to €250. Mandatory details are checked before the number, invoice language German or English per client, payment status, deletion protection during the retention period.
-- **E-invoicing:** XRechnung (CII) and ZUGFeRD EN 16931 as PDF/A-3. Default per client, the XML is stored as the original.
+- **E-invoicing:** XRechnung (CII) and ZUGFeRD EN 16931 (technically the same as Factur-X) as PDF/A-3. Default per client, the XML is stored as the original.
 - **Time report** per client and period or per invoice, as PDF or CSV.
 - **Sign-in** without third parties: argon2id with pepper, passkeys, TOTP, recovery codes, step-up for sensitive actions.
 - **Interface in German and English** with the same content, domain terms with fixed translations (`docs/glossary.md`).
 
 ## What is deliberately not in it
 
-- **GPS, hardware terminals, shift planning.** The target group are offices, service businesses and administrations with flextime who clock in from the browser or a phone.
+- **GPS, hardware terminals, shift planning.** The target group is offices, service businesses and administrations with flextime who clock in from the browser or a phone.
 - **AI features.** Left out on purpose. The domain logic is deterministic code, every rule is listed with its section and source in `docs/rules.md`.
-- **Automatic break deduction.** What is booked is what was clocked. If a break is missing, the § 4 notice appears.
+- **Automatic break deduction.** What is recorded is what was clocked. If a break is missing, the § 4 notice appears.
 - **Exceptions under §§ 10–11 ArbZG** (healthcare, hospitality, emergency services). Work on Sundays and holidays therefore always produces a warning.
 - **Expiry during long-term sickness** (15-month period). The interface names the limit, version 1 does not calculate it.
 - **Dunning, multiple currencies, template editor, incoming invoices.** Not in version 1. All amounts are euros in whole cents.
 - **Domestic reverse charge under § 13b(2) UStG and OSS.** The software treats such sales as regularly taxable in Germany. Whether the target group has them is an open question for the tax adviser in `docs/rechnungen-recht.md`.
-- **Time report attached to the e-invoice.** With the attachment, rendering would break the 5 s limit of the worker, and the library also writes attachments into the XML as Base64. The report is rendered on each request from the frozen assignment instead.
+- **Time report attached to the e-invoice.** With the attachment, rendering would exceed the worker's 5 s limit, and the library also writes attachments into the XML as Base64. The report is rendered on each request from the frozen assignment instead.
 - **DATEV export.** A later extension.
 
 ---
@@ -86,7 +86,8 @@ zeit-web   Caddy, static SPA, CSP, zstd/gzip except /api
 zeit-api   NestJS
   │   Guards: throttler → session → CSRF → 2FA enrolment → workspace → role → step-up
   │   Modules: time, corrections, absences, vacation, flex, compliance, months, exports,
-  │            projects, billing, invoices, documents, demo, auth, org
+  │            projects, billing, invoices, documents, demo, auth, org, users, tenant,
+  │            audit, jobs, mail, health
   │
   ├── withTenant(session, trx => …)
   │     set_config('app.tenant_id' …, true) per transaction
@@ -112,7 +113,7 @@ The SPA computes previews with the same functions from `@zeit/rules`; the server
 
 **Stack:** Node.js 24, pnpm workspace, NestJS 11, Kysely with `pg`, dbmate, PostgreSQL 17, zod, `@node-rs/argon2`, `@simplewebauthn/server`, pdfkit, `@e-invoice-eu/core`, Vite 8, React 19, TanStack Router and Query, React Aria Components, i18next, CSS Modules, Vitest, Testcontainers, Playwright.
 
-Repository layout, data model, authentication and the route overview are in [`docs/architecture.md`](docs/architecture.md). The legal and domain documents in `docs/` (`rules.md`, `glossary.md`, `rechnungen-recht.md`, the threat model) are written in German.
+Repository layout, data model, authentication and the route overview are in [`docs/architecture.md`](docs/architecture.md). The legal and domain documents in `docs/` (`rules.md`, `glossary.md`, `rechnungen-recht.md`, the threat model), the ADRs in `docs/adr/` and `SECURITY.md` are written in German.
 
 ---
 
@@ -140,7 +141,7 @@ Now the draft reports `tax_treatment_stale` or `tax_profile_changed`, and "Reloa
 
 ### 4. Nothing is overwritten
 
-Bookings allow exactly two updates, each once from NULL: the end and the voiding. No DELETE; the clock time is the database's `now()`, a time sent by the client is rejected. Leave account, flextime bookings, month closings and leave-expiry notices are append-only, a trigger rejects every change. A correction voids the old booking and adds a new one that references the request, in one transaction. Every change writes `audit.track()` with a column diff, actor and affected person; employees can read their own entries (Art. 15 GDPR).
+Time entries allow exactly two updates, each once from NULL: setting the end and voiding the entry. No DELETE; the clock time is the database's `now()`, a time sent by the client is rejected. Leave account and flextime account postings, month closings and leave-expiry notices are append-only, a trigger rejects every change. A correction voids the old time entry and adds a new one that references the request, in one transaction. Every change writes `audit.track()` with a column diff, actor and affected person; employees can read their own entries (Art. 15 GDPR).
 
 The same holds for issued invoices: every business field is frozen, for HR as well; only the payment status still moves. An invoice is reversed solely by a cancellation invoice.
 
@@ -160,7 +161,7 @@ So two clocks. Project time is locked not by the month-end close but by the draf
 
 In the PDF the cancellation reads as a counter-entry with negative amounts, without due date, bank details and late-payment notice. In the XML it goes out as document type 381 with positive amounts and payment means 97 (clearing). A 380 with negative amounts passes the KoSIT validator too, but many recipients book a 380 as a receivable. Both documents name the original with the same sentence ("cancels invoice … dated …").
 
-So PDF and XML cannot drift apart, all legal notes come from `einvoice/texts.ts`, and `text-parity.spec.ts` compares both per case. Whether the differing signs are harmless for the recipient is an open question for the tax adviser in `docs/rechnungen-recht.md` (ADR 0004).
+To keep PDF and XML from drifting apart, all legal notes come from `einvoice/texts.ts`, and `text-parity.spec.ts` compares both per case. Whether the differing signs are harmless for the recipient is an open question for the tax adviser in `docs/rechnungen-recht.md` (ADR 0004).
 
 ---
 
@@ -180,7 +181,7 @@ With `APP_MODE=demo`, `http://localhost:5173` shows the start page with "Start d
 
 **Without API and database:** `VITE_MSW=on pnpm --filter @zeit/web dev` starts only the SPA with Mock Service Worker. That is how the screenshot above was taken.
 
-More scripts: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm db:rollback`, `pnpm db:new`, `pnpm db:codegen` (Kysely types from the migrated database).
+More scripts: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm depcruise` (dependency rules, after a build), `pnpm db:rollback`, `pnpm db:new`, `pnpm db:codegen` (Kysely types from the migrated database).
 
 ## Tests
 
@@ -192,7 +193,7 @@ sh apps/api/test/einvoice/kosit.sh      # XML against the KoSIT validator
 sh apps/api/test/einvoice/verapdf.sh    # PDF/A-3b with veraPDF
 ```
 
-As of 2 October 2026: unit 1703 (rules 608, shared 215, demo-data 144, api 432, web 304), integration 1000, E2E 20 (desktop and mobile), KoSIT 16 of 16 files `acceptable`, veraPDF 7 of 7 passed. Integration, E2E, KoSIT and veraPDF need Docker. `@zeit/rules` has a coverage threshold of 95 %.
+As of 19 October 2026: unit 1709 (rules 608, shared 215, demo-data 144, api 436, web 306), integration 1006, E2E 20 (Desktop Chrome, tests tagged `@mobile` also at 390 px width), KoSIT 16 of 16 files `acceptable`, veraPDF 7 of 7 passed (last local run on 2 October). Integration, E2E, KoSIT and veraPDF need Docker. `@zeit/rules` has a coverage threshold of 95 %.
 
 The focus is on places that can be **silently** wrong:
 
@@ -201,9 +202,9 @@ The focus is on places that can be **silently** wrong:
 | `apps/api/test/security/role-matrix.int.spec.ts`     | Reads every registered route from Nest via reflection and compares it with a table route → minimum role and route → workspace. A new route without a line, a line without a route or a differing role fails the test                                                        |
 | `apps/api/test/db/rls.int.spec.ts`                   | Every table with a `tenant_id` is known, fenced with `FORCE` and restrictive. Without context there is no row, not even for the owner                                                                                                                                       |
 | `apps/api/test/db/invoices.int.spec.ts`              | 20 parallel issues yield 1 to 20 exactly once, a rollback gives its number back, frozen fields stay locked for HR as well                                                                                                                                                   |
-| `apps/api/test/db/invoice-hardening.int.spec.ts`     | The same draft from two connections spends exactly one number; 5000 bookings pass, the 5001st is refused without spending a number; cancellation invoices are never paid                                                                                                    |
+| `apps/api/test/db/invoice-hardening.int.spec.ts`     | The same draft from two connections spends exactly one number; 5000 project time entries pass, the 5001st is refused without spending a number; cancellation invoices are never paid                                                                                        |
 | `apps/api/test/invoices/einvoice.int.spec.ts`        | If the e-invoice in the chosen format fails during probe rendering, no number is assigned                                                                                                                                                                                   |
-| `apps/api/test/einvoice/golden.spec.ts` + `kosit.sh` | XRechnung and Factur-X for eight cases (19 %, 7 %, mixed, Leitweg ID, reverse charge, third country, small business, cancellation) equal the golden files that the KoSIT validator checks in CI. A changed mapping has to pass the validator again                          |
+| `apps/api/test/einvoice/golden.spec.ts` + `kosit.sh` | XRechnung and ZUGFeRD for eight cases (19 %, 7 %, mixed, Leitweg ID, reverse charge, third country, small business, cancellation) equal the golden files that the KoSIT validator checks in CI. A changed mapping has to pass the validator again                           |
 | `apps/api/test/einvoice/text-parity.spec.ts`         | Every legal note in the PDF is in the XML and vice versa, no § 13b UStG for EU businesses, the same date format, cancellation negative in the PDF and as a positive 381 in the XML                                                                                          |
 | `apps/api/test/einvoice/verapdf.sh`                  | PDF/A-3b with veraPDF, including a PDF with `&` and `<` in the company name. An unescaped `&` in the XMP packet made the PDF/A invalid                                                                                                                                      |
 | `apps/api/test/exports/time-report.int.spec.ts`      | Time report CSV byte for byte against golden files (de, en), with BOM and CRLF.                                                                                                                                                                                             |
@@ -250,9 +251,9 @@ Both instances have been running there since 2 October 2026. What the runs again
 - **veraPDF as a CI job**, so far only local
 - **E2E in Firefox and WebKit**, so far only Chromium
 - **Answers from the tax adviser** on tax rounding per rate group, wording for EU B2B and third countries, exemption references and the signs of the cancellation invoice
-- **Invoices in the sample company** to be clarified: a tax office bills under the StBVV fee schedule, not by hourly rate
+- **Invoices in the sample company** to be clarified: a tax consultancy bills under the StBVV fee schedule, not by hourly rate
 - **DATEV export**
 
 ## License
 
-All rights reserved, see [LICENSE](LICENSE). The repository is there to be read; use, copying and distribution only with written permission.
+All rights reserved, see [LICENSE](LICENSE). The repository is there to be read. Prospective employers and clients may download, read and run the code locally to evaluate the author; any other use, copying and distribution only with written permission.

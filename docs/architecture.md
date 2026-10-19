@@ -16,7 +16,7 @@ tests/e2e        Playwright
 deploy/          demo/ and live/ Compose projects, host/ files, backup.sh
 ```
 
-Dependency rules, checked by dependency-cruiser in CI:
+Dependency rules, checked by dependency-cruiser in the CI job `static`:
 
 - `rules` depends only on `temporal-polyfill`. No zod, no Nest, no I/O, no clock: "now" is a parameter.
 - `shared` depends only on zod.
@@ -57,7 +57,7 @@ Schemas: `app` (business data, under RLS), `auth`, `audit`, `ops`.
 ### Conventions for every `app` table
 
 - `id uuid default gen_random_uuid()`, `tenant_id not null`, `unique (tenant_id, id)`, composite foreign keys `(tenant_id, x_id)` so a row can never point into another tenant.
-- Extensions `btree_gist` and `citext`. Instants are `timestamptz`, days are `date`. The work day of a booking is the local date of its start.
+- Extensions `btree_gist` and `citext`. Instants are `timestamptz`, days are `date`. The work day of a time entry is the local date of its start.
 - RLS is `ENABLE` plus `FORCE` on all `app` and `audit` tables. The helper `app.tenant_id()` is `nullif(current_setting('app.tenant_id', true), '')::uuid`, so a missing context yields no rows. Each table has a RESTRICTIVE policy `tenant_id = (select app.tenant_id())`, with PERMISSIVE policies on top: own rows, a team lead through `app.leads(employee_id)`, HR and administration everything in the tenant. A meta test walks all tables.
 - Triggers: `audit.track()` on all `app` tables (actor from `app.user_id`), `app.reject_change()` on journals and `audit.log` (the sandbox purge is the only exception), `app.enforce_period_lock()` (date up to `closed_through` raises `ZT001`), `app.guard_request_status()`, `set_updated_at` on mutable master data.
 - Money is `bigint` in whole cents. Rate and rounding grids are check-constrained (`1, 5, 6, 10, 15, 30, 60` minutes).
@@ -69,14 +69,14 @@ Tenants, people and time:
 - `tenants`: name, slug, state (16 federal states), timezone (checked to `Europe/Berlin`), holiday options, flextime cap settings, `carryover_until`, `kind` (`live` or `sandbox`), `workspace` (`company` or `solo`), `sandbox_group`, `expires_at` (set exactly for sandboxes).
 - `users` (email unique across tenants, role, locale, status), `teams`, `team_leads`, `employees` (personnel number, entry and exit date, `closed_through`, writable only through the close trigger).
 - `work_models`, `contracts` (history with valid-from, minutes per weekday copied in, vacation entitlement, cap override; no UPDATE, DELETE only for future unlocked rows).
-- `time_entries`: `started_at`, `ended_at` (null while running), `end_reason`, `source`, `request_id`, `voided_at`. `check (ended_at > started_at)`, an `EXCLUDE USING gist` over `tstzrange` for non-voided rows and a partial unique index for one open booking per person. The trigger allows two updates, each once from NULL: the end and the voiding. No DELETE. The clock time is the database's `now()`.
+- `time_entries`: `started_at`, `ended_at` (null while running), `end_reason`, `source`, `request_id`, `voided_at`. `check (ended_at > started_at)`, an `EXCLUDE USING gist` over `tstzrange` for non-voided rows and a partial unique index for one open time entry per person. The trigger allows two updates, each once from NULL: setting the end and voiding the entry. No DELETE. The clock time is the database's `now()`.
 - `correction_requests`, `finding_acks`.
 
 Absences, leave and flextime:
 
 - `absence_requests` (vacation, sick, time off; an `EXCLUDE` over `daterange` for non-sick requests that are pending, approved or awaiting cancellation) and `absence_days` (portion, target-minute snapshot, vacation days, supersession).
 - `vacation_ledger` (append-only, one bucket per entitlement year, signed `numeric(5,2)` days, `dedupe_key`), `vacation_notices` (append-only).
-- `flex_bookings` and `month_closings` (both append-only). A close is allowed only for the month after `closed_through`, a reopen only for the last closed month. The trigger moves `closed_through` and books the cap.
+- `flex_bookings` and `month_closings` (both append-only). A close is allowed only for the month after `closed_through`, a reopen only for the last closed month. The trigger moves `closed_through` and posts the cap.
 
 Auth and operations:
 
@@ -86,7 +86,7 @@ Auth and operations:
 Projects and invoices:
 
 - `clients`, `projects`, `tasks`, `project_members`, `rates` (valid-from, no UPDATE, DELETE only before they take effect), `project_entries` (own exclusion constraint and one running timer per person, frozen once an invoice holds the entry).
-- `billing_profiles` (one row per tenant), `invoice_counters`, `invoices`, `invoice_lines`, `invoice_line_entries` (which bookings went into which line, kept after a cancellation), `invoice_documents` (the stored original, append-only; its audit trigger records the row without the document content).
+- `billing_profiles` (one row per tenant), `invoice_counters`, `invoices`, `invoice_lines`, `invoice_line_entries` (which project time entries went into which line, kept after a cancellation), `invoice_documents` (the stored original, append-only; its audit trigger records the row without the document content).
 - An issued invoice is frozen except for its payment and cancellation fields. `retain_until` is generated as the end of the eighth year after the invoice year, and `guard_tenant_retention` blocks deleting a live tenant that still holds invoices within that period.
 
 ## Authentication
@@ -119,13 +119,13 @@ Prefix `/api`, JSON, errors as `{ code, message, details }`. Roles form a hierar
 Conventions:
 
 - Lists use a cursor (`cursor`, `limit`, default 50, at most 200). Ranges are capped (62 days for entries, 366 days for requests, findings and invoices).
-- A write into a closed month (bookings, absences, flextime, contracts) ends with 409 `PERIOD_LOCKED`.
+- A write into a closed month (time entries, absences, flextime postings, contracts) ends with 409 `PERIOD_LOCKED`.
 - Project time inside an invoice draft or an invoice is frozen, changes end with 409 `INVOICED`.
 - Routes marked "company" answer 404 in a solo workspace, through `WorkspaceGuard` with `@Workspace('company')`, the same reply as an unknown route.
 - Sign-in routes marked "demo 404" do not exist with `APP_MODE=demo`, the `/demo` routes answer 404 in every other mode.
 - Global rate limit 300 per minute and IP, stricter limits per route. "Per user" limits run in `UserRateLimitGuard` because the global throttler runs before the session. Over the limit: 429 `RATE_LIMITED` with `Retry-After`.
 - Rendering (previews, time report PDFs, regenerating a missing document, the probe render before numbering) goes through one worker queue: 5 s per job, 2 at a time and 10 waiting per process, then 503 `RENDER_BUSY`. More than 50 pages gives 422 `PAGE_LIMIT`.
-- Invoice limits: at most 500 lines and 5000 bookings per invoice (400), and in a sandbox 2000 lines and 30 issued documents (409 `SANDBOX_QUOTA`).
+- Invoice limits: at most 500 lines and 5000 project time entries per invoice (400), and in a sandbox 2000 lines and 30 issued documents (409 `SANDBOX_QUOTA`).
 
 Routes by module, with the minimum role. HR means HR and administration unless noted.
 
@@ -172,7 +172,7 @@ Properties are tested with fast-check, see the test table in the README. Every r
 
 - TanStack Router (file-based, search params validated with zod), TanStack Query as the only holder of server state, react-hook-form with `zodResolver`, React Aria Components for dates and ranges, CSS Modules, no Tailwind.
 - i18next with one JSON file per language and namespace, typed keys, parity checked in CI. Fixed English terms are in `docs/glossary.md`.
-- Paths are English: `/`, `/time`, `/absences`, `/vacation`, `/inbox`, `/team/calendar`, `/projects`, `/team/projects`, `/billing/*`, `/hr/*`, `/admin/*`, `/print/timesheet/$id/$month`, `/login`, `/invite`, `/reset`. `/` shows the week book in a company and the project week matrix in a solo workspace.
+- Paths are English: `/`, `/time`, `/absences`, `/vacation`, `/inbox`, `/team/calendar`, `/projects`, `/team/projects`, `/billing/*`, `/hr/*`, `/admin/*`, `/print/timesheet/$id/$month`, `/login`, `/invite`, `/reset`. `/` shows the week view in a company and the project week matrix in a solo workspace.
 - CSV is written server-side (UTF-8 with BOM, `;` in German). PDFs come from the browser's print view, except invoices and time reports, which pdfkit renders on the server because the issued original is stored and ZUGFeRD needs the PDF with embedded XML (ADR 0004).
 
 ## Operations details
@@ -182,7 +182,7 @@ Properties are tested with fast-check, see the test table in the README. Every r
 - Networks per Compose project: `edge` (host Caddy and web), `app` (web and API, pinned subnet used as `TRUSTED_PROXY`, `internal: true`), `db` (`internal: true`).
 - Jobs (`@nestjs/schedule`, `Europe/Berlin`, behind `pg_try_advisory_lock`): sandbox purge every 15 minutes, cleanup hourly, opening the leave year on 1 January at 00:05, expiry check daily at 02:00. The leave jobs skip solo tenants.
 - Mail: `ResendTransport` (live), `OutboxTransport` (demo), `MemoryTransport` (tests).
-- CI jobs: static (prettier, eslint, tsc, dependency-cruiser, i18n parity, schema drift), unit, migrate, integration, einvoice (KoSIT validator), coverage-rules, docker (build and Trivy), audit (`pnpm audit --prod`), gitleaks, plus CodeQL in its own workflow. Actions are pinned by SHA with `permissions: contents: read`.
+- CI jobs in `.github/workflows/ci.yml`: `static` (prettier, eslint, tsc, dependency-cruiser), `unit`, `migrate` (migrations up, rollback and up again, then the schema drift check against `schema.generated.ts`), `integration`, `einvoice` (KoSIT validator), `e2e` (Playwright against the built images), `coverage-rules`, `i18n` (de/en parity), `docker` (build and Trivy), `audit` (`pnpm audit --prod --audit-level high`), `gitleaks`, plus CodeQL in its own workflow `codeql.yml`. Actions are pinned by SHA with `permissions: contents: read`.
 - Server addresses, keys and paths never go into the repository, only placeholders.
 
 ## Settled decisions
@@ -191,7 +191,7 @@ Product and scope:
 
 - NestJS API, Vite and React SPA, PostgreSQL with its own sign-in, no hosted auth service.
 - Two instances: live (invitation only) and demo (sample company, persona switch without a password). Interface in German and English.
-- Target: small businesses with flextime. The sample company is a tax office in North Rhine-Westphalia with an invented name.
+- Target: small businesses with flextime. The sample company is a tax consultancy in North Rhine-Westphalia with an invented name.
 - Corrections of other people's times by HR take effect immediately with a mandatory reason, an audit entry and a mail to the person. Corrections of one's own times need a second person.
 - Nobody decides on their own requests. Team leads decide for their team, HR for everyone.
 - Sick leave is a notice, not an approval. The refund of leave under § 9 BUrlG happens only after HR confirms the doctor's note.
@@ -212,4 +212,4 @@ Invoicing and project time:
 Code:
 
 - Kysely with `pg`, dbmate for migrations as plain SQL, types from kysely-codegen (ADR 0001).
-- Code, identifiers and comments in English. Prettier with tabs, single quotes, semicolons and a print width of 100. Containers never run as root.
+- Code and identifiers in English, no explanatory comments in production code. Prettier with tabs, single quotes, semicolons and a print width of 100. Containers never run as root.
