@@ -201,7 +201,7 @@ function SettingsForm({ role, sandbox, profile, onSaved, errorText, reauth, lng 
 	});
 	useEffect(() => {
 		if (!save.isSuccess) return;
-		return subscribe({ formState: { values: true }, callback: () => save.reset() });
+		return subscribe({ formState: { values: true }, callback: save.reset });
 	}, [save.isSuccess, save.reset, subscribe]);
 
 	const submit = (input: z.output<typeof schema>) =>

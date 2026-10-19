@@ -1,6 +1,6 @@
 # Bedrohungsmodell: Projekte, Solo-Bereich und Rechnungen
 
-Stand 24.09.2026. Grundlage: `docs/architecture.md`, `docs/rechnungen-recht.md`,
+Stand 19.10.2026. Grundlage: `docs/architecture.md`, `docs/rechnungen-recht.md`,
 `db/schema.sql` und `db/migrations/`, `apps/api/src/common`, `apps/api/src/auth`,
 `apps/api/src/exports`, `apps/api/src/tenant`, `apps/api/src/db`, `deploy/*/compose.yml`.
 

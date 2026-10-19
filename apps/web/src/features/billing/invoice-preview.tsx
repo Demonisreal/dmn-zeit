@@ -19,7 +19,7 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 	const [touch] = useState(() => window.matchMedia('(pointer: coarse)').matches);
 	const pdf = useQuery({ ...invoicePdfQuery(path, version), enabled: !touch });
 	const [frame, setFrame] = useState<{ blob: Blob; url: string } | null>(null);
-	const [shown, setShown] = useState(false);
+	const [shown, setShown] = useState<string | null>(null);
 	const [failure, setFailure] = useState<Error | null>(null);
 
 	if (pdf.error && pdf.error !== failure) setFailure(pdf.error);
@@ -28,13 +28,13 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 	useEffect(() => {
 		if (!pdf.data) return;
 		const url = URL.createObjectURL(pdf.data);
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setFrame({ blob: pdf.data, url });
-		setShown(false);
 		return () => URL.revokeObjectURL(url);
 	}, [pdf.data]);
 
 	const url = frame !== null && frame.blob === pdf.data ? frame.url : null;
-	const loaded = shown && url !== null;
+	const loaded = url !== null && shown === url;
 
 	const open = variant === 'draft' && (
 		<a href={url ?? `/api${path}`} target="_blank" rel="noopener" className={styles.open}>
@@ -62,7 +62,7 @@ export function InvoicePreview({ invoiceId, variant, version = '' }: Props) {
 								className={styles.frame}
 								src={url}
 								title={t('preview.frameTitle')}
-								onLoad={() => setShown(true)}
+								onLoad={() => setShown(url)}
 							/>
 						)}
 					</div>

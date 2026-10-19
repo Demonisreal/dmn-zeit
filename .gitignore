@@ -10,8 +10,6 @@ coverage/
 *.pem
 *.key
 
-.claude/
-
 deploy/live/backups/
 
 tests/e2e/test-results/

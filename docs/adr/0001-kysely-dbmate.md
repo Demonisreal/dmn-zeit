@@ -22,7 +22,7 @@ Nichts davon lässt sich im Schema-Format von Prisma, in TypeORM-Entities oder i
 
 ## Folgen
 
-- Constraints, Policies und Trigger stehen dort, wo sie wirken, und lassen sich in `db/test` direkt gegen PostgreSQL testen.
+- Constraints, Policies und Trigger stehen dort, wo sie wirken, und lassen sich in `apps/api/test/db` direkt gegen PostgreSQL testen.
 - `withTenant(session, trx => ...)` ist ein kleiner Helfer um `db.transaction()`, ohne Umweg über ein ORM.
 - CI prüft Schema-Drift: Migrationen anwenden, codegen laufen lassen, `git diff --exit-code`. Wer eine Migration schreibt, committet die neuen Typen mit.
 - Es gibt keine automatisch erzeugten Migrationen. Jede Schemaänderung ist handgeschriebenes SQL mit Review, auch das Rollback.

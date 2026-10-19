@@ -1,6 +1,6 @@
 # Fachliche Vorgabe: Projektzeiten und Rechnungen
 
-Stand 24.09.2026. Grundlage für das Rechnungsmodul (Freelancer/kleine Betriebe, Rechnungsstellung
+Stand 19.10.2026. Grundlage für das Rechnungsmodul (Freelancer/kleine Betriebe, Rechnungsstellung
 auf Basis erfasster Projektzeiten). Die Software gibt Hinweise, keine Rechtsberatung. Primärquellen
 sind Gesetzestexte auf gesetze-im-internet.de und BMF-Schreiben, ergänzend
 IHK-Merkblätter, Steuerberaterkammern und Fachredaktionen (Haufe, NWB, Lexware) dort, wo
@@ -135,7 +135,7 @@ Freelancer/kleine Betriebe ist praktisch nur der Regelfall 19 %, seltener 7 %, r
 
 **Gegenprüfen:** Zur Rundung — je Rechnungsposition oder erst auf den Gesamtbetrag der Rechnung —
 wurde keine eindeutige Aussage in einer frei zugänglichen Primärquelle (Gesetzestext, UStAE)
-gefunden; die UStAE-Randnummer zu § 14 Abs. 5 (Abschn. 14.5) war zum Rechercheseitpunkt technisch
+gefunden; die UStAE-Randnummer zu § 14 Abs. 5 (Abschn. 14.5) war zum Recherchezeitpunkt technisch
 nicht abrufbar. In der Praxis wird verbreitet kaufmännisch je Position auf zwei Nachkommastellen
 gerundet und die Summe aus den gerundeten Positionsbeträgen gebildet; das ist vor Umsetzung mit
 Steuerberatung zu bestätigen, insbesondere im Zusammenspiel mit Sammelrechnungen über mehrere
@@ -360,11 +360,12 @@ Löschroutine für Zeitbuchungen gebaut wird.
 - Acht-Jahres-Aufbewahrung für Rechnungen mit Änderungsprotokoll, Sperren statt Löschen innerhalb
   der Frist (Abschnitt 8, 10).
 - Zahlungsziel-Feld und Verzugshinweis-Text für B2C-Rechnungen (Abschnitt 9).
+- E-Rechnungs-Ausstellung als XRechnung (CII) und ZUGFeRD EN 16931 als PDF/A-3. Pflicht ist sie
+  für die meisten Freelancer-Mandanten erst ab 01.01.2027 bzw. 01.01.2028 (Abschnitt 7), Version 1
+  enthält sie trotzdem.
 
 ## Kann später
 
-- E-Rechnungs-Ausstellung (XRechnung/ZUGFeRD EN 16931) als aktive Ausgabeoption — Pflicht für die
-  meisten Freelancer-Mandanten erst ab 01.01.2027 bzw. 01.01.2028 (Abschnitt 7).
 - Automatische Berechnung, ab wann ein Mandant wegen Vorjahresumsatz > 800.000 Euro
   ausstellungspflichtig wird.
 - Zusammenfassende Meldung (§ 18a UStG) als eigene Funktion — bis dahin reiner Hinweistext
@@ -377,7 +378,7 @@ Löschroutine für Zeitbuchungen gebaut wird.
 ## Offene Punkte zum Gegenprüfen mit Steuerberatung
 
 1. Rundung von Steuerbeträgen: je Rechnungsposition oder erst auf den Gesamtbetrag — keine
-   eindeutige Primärquelle gefunden, UStAE Abschn. 14.5 zum Rechercheseitpunkt nicht abrufbar
+   eindeutige Primärquelle gefunden, UStAE Abschn. 14.5 zum Recherchezeitpunkt nicht abrufbar
    (Abschnitt 5).
 2. E-Rechnung: genaue Abgrenzung der zulässigen ZUGFeRD-Profile (insbesondere BASIC vs.
    BASIC-WL) direkt am BMF-Schreiben vom 15.10.2024/15.10.2025 verifizieren, nicht nur an
@@ -410,11 +411,15 @@ beide.
    entfällt dort wie im XML (EN 16931 BR-O-2), es bleibt die Steuernummer. Zu klären: ob Wortlaut
    und Weglassen der USt-IdNr. so tragen und ob eine Kleinbetragsrechnung ins Drittland zulässig
    ist (docs/rules.md, Grenzen).
-8. **Befreiungsnormen je Leistungsart.** Eine steuerfreie Position bekommt bisher den allgemeinen
-   Hinweis "Diese Position ist von der Umsatzsteuer befreit (§ 4 UStG)." § 14 Abs. 4 Nr. 8 UStG
-   verlangt einen Hinweis auf die Steuerbefreiung; üblich ist die konkrete Vorschrift (etwa § 4
-   Nr. 21 UStG für Bildungsleistungen). Geplant ist ein Eingabefeld je Position. Zu klären: welche
-   Befreiungen für die Zielgruppe vorkommen und welche Norm je Leistungsart anzugeben ist.
+8. **Befreiungsnormen je Leistungsart.** § 14 Abs. 4 Nr. 8 UStG verlangt einen Hinweis auf die
+   Steuerbefreiung; üblich ist die konkrete Vorschrift (etwa § 4 Nr. 21 UStG für Bildungsleistungen).
+   Eine freie Position mit der Steuerkategorie steuerfrei verlangt deshalb das Feld "Grund der
+   Steuerbefreiung" (Freitext mit Fundstelle, höchstens 200 Zeichen). Das PDF druckt daraus
+   "Umsatzsteuerbefreiung: …" (englisch "VAT exemption: …"), das XML trägt den Grund als BT-120
+   in der Steueraufschlüsselung, mehrere Gründe mit "; " verbunden. Den allgemeinen
+   Hinweis "Diese Position ist von der Umsatzsteuer befreit (§ 4 UStG)." bekommen nur noch ältere
+   Positionen ohne Grund. Zu klären: welche Befreiungen für die Zielgruppe vorkommen und welche
+   Norm je Leistungsart anzugeben ist.
 9. **Nicht unterstützte Fälle.** Die Software kennt die Steuerschuld des Leistungsempfängers nur
    für Unternehmer im übrigen Gemeinschaftsgebiet. Inländische Fälle nach § 13b Abs. 2 UStG (etwa
    Bauleistungen, Gebäudereinigung) und Leistungen an Verbraucher in anderen Mitgliedstaaten, die

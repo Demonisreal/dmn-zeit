@@ -11,6 +11,7 @@
 		"dev": "pnpm --filter \"./packages/*\" build && pnpm --parallel --filter \"./apps/*\" dev",
 		"test": "pnpm --filter \"./packages/*\" build && pnpm -r --filter \"!@zeit/e2e\" test",
 		"lint": "eslint .",
+		"depcruise": "depcruise apps/api/src apps/web/src packages/rules/src packages/shared/src packages/demo-data/src",
 		"typecheck": "pnpm --filter \"./packages/*\" build && pnpm -r typecheck",
 		"format": "prettier --write \"**/*.{ts,tsx,mts,mjs,json,md,css}\"",
 		"format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,json,md,css}\"",
@@ -27,7 +28,9 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"dependency-cruiser": "^18.5.0",
 		"eslint": "^10.11.0",
+		"eslint-plugin-react-hooks": "^7.1.1",
 		"prettier": "^3.9.8",
 		"typescript": "~6.0.3",
 		"typescript-eslint": "^8.70.1"

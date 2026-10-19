@@ -3,4 +3,4 @@ coverage/
 pnpm-lock.yaml
 apps/api/src/db/schema.generated.ts
 apps/web/src/routeTree.gen.ts
-.claude/
+.*/

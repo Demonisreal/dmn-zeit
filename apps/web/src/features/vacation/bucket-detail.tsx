@@ -19,17 +19,18 @@ export function BucketDetail({ bucket, account }: Props) {
 	const lng = i18n.language;
 	const day = (instant: string) => formatInstant(instant, lng, { dateStyle: 'medium' });
 
-	let balance = 0;
-	const entries = account.ledger
+	const ledger = account.ledger
 		.filter((entry) => entry.bucketYear === bucket.year)
 		.toSorted(
 			(a, b) =>
 				a.effectiveDate.localeCompare(b.effectiveDate) || a.createdAt.localeCompare(b.createdAt)
-		)
-		.map((entry) => {
-			balance += hundredths(entry.days);
-			return { ...entry, balance: asDays(balance) };
-		});
+		);
+	const entries: ((typeof ledger)[number] & { balance: string })[] = [];
+	let balance = 0;
+	for (const entry of ledger) {
+		balance += hundredths(entry.days);
+		entries.push({ ...entry, balance: asDays(balance) });
+	}
 	const notices = account.buckets.flatMap((other) => (other.notice ? [other.notice] : []));
 
 	const noticeState = () => {

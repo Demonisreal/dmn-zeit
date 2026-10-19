@@ -28,6 +28,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm depcruise
 
   unit:
     runs-on: ubuntu-latest
