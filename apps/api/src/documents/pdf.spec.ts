@@ -117,7 +117,7 @@ describe('buildInvoicePdf', () => {
 		expect(flat(text)).toContain('USt-IdNr. Kunde DE987654321');
 	});
 
-	it('keeps the german legal term on an english reverse charge note (planung-projekte.md Risiko 16)', async () => {
+	it('keeps the german legal term on an english reverse charge note', async () => {
 		const buffer = await buildInvoicePdf(
 			invoiceFixture({
 				locale: 'en',

@@ -36,8 +36,8 @@ export function tenantCreate(args: string[]): string {
 	]);
 }
 
-// direct writes as the table owner, for the handful of facts no endpoint produces (see docs/planung.md
-// "Tests"): a fresh employee's leave entitlement, which otherwise only the january cron job books, and
+// direct writes as the table owner, for the handful of facts no endpoint produces: a fresh employee's
+// leave entitlement, which otherwise only the january cron job books, and
 // invitation tokens, whose plaintext a real mail transport would carry away in every mode but test
 export function seedSql(statements: string): void {
 	run(

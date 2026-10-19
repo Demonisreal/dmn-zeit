@@ -4,33 +4,37 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor:
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
 
   - package-ecosystem: docker
-    directory: /apps/api
+    directories: [/apps/api, /apps/web]
     schedule:
       interval: weekly
-
-  - package-ecosystem: docker
-    directory: /apps/web
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: docker-compose
-    directory: /
-    schedule:
-      interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+    groups:
+      images:
+        patterns: ["*"]
 
   - package-ecosystem: docker-compose
-    directory: /deploy/demo
+    directories: [/, /deploy/demo, /deploy/live]
     schedule:
       interval: weekly
-
-  - package-ecosystem: docker-compose
-    directory: /deploy/live
-    schedule:
-      interval: weekly
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+    groups:
+      compose:
+        patterns: ["*"]

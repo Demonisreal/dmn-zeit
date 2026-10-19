@@ -1,7 +1,5 @@
-// en-GB keeps the 24 hour clock and day before month, the app runs in German workplaces
 export const tagFor = (lng: string) => (lng === 'en' ? 'en-GB' : 'de-DE');
 
-// building an Intl formatter costs far more than using one, the tables format every cell
 type Formatter = Intl.DateTimeFormat | Intl.NumberFormat | Intl.ListFormat;
 const formatters = new Map<string, Formatter>();
 
@@ -26,7 +24,6 @@ export const listFormat = (lng: string) => reuse(`list:${lng}`, () => new Intl.L
 
 export function formatMinutes(minutes: number, { signed = false } = {}): string {
 	const abs = Math.abs(minutes);
-	// a real minus sign, the hyphen is too short next to the digits
 	const sign = minutes < 0 ? '−' : signed && minutes > 0 ? '+' : '';
 	return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')} h`;
 }
@@ -36,7 +33,6 @@ export function formatClock(minuteOfDay: number): string {
 	return `${String(h).padStart(2, '0')}:${String(minuteOfDay % 60).padStart(2, '0')}`;
 }
 
-// iso days carry no zone, formatting them in utc keeps the calendar date
 export function formatDate(isoDate: string, lng: string, options?: Intl.DateTimeFormatOptions) {
 	return dateFormat(lng, {
 		day: '2-digit',
@@ -73,19 +69,16 @@ export function formatInstant(
 	return dateFormat(lng, { ...options, timeZone: 'Europe/Berlin' }).format(new Date(instant));
 }
 
-// cents arrive as a string, Number stays exact far beyond any invoice total
 export function formatCents(cents: string, lng: string) {
 	return numberFormat(lng, { style: 'currency', currency: 'EUR' }).format(Number(cents) / 100);
 }
 
-// basis points, 1900 = 19 %; trailing zeros drop so 0 % and 19 % print without decimals
 export function formatTaxRate(taxRateBp: number, lng: string) {
 	return numberFormat(lng, { style: 'percent', maximumFractionDigits: 2 }).format(
 		taxRateBp / 10_000
 	);
 }
 
-// invoice quantities travel as thousandths, 1500 = 1.5
 export function formatQuantity(quantityMilli: string, lng: string) {
 	return numberFormat(lng, { maximumFractionDigits: 3 }).format(Number(quantityMilli) / 1000);
 }

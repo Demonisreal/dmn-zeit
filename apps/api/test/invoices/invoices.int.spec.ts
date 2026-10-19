@@ -135,7 +135,7 @@ describe('drafts', () => {
 	});
 
 	it('refuses a free position whose tax category does not match the invoice treatment', async () => {
-		// planung-projekte.md, Risiko 17: an EU B2B client with a vat id makes the whole invoice reverse charge
+		// an EU B2B client with a vat id makes the whole invoice reverse charge
 		const client = await newClient('Brandt Reverse B.V.');
 		await hr.patch(`/clients/${client.id}`, {
 			countryCode: 'NL',
