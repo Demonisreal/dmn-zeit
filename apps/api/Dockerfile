@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
+FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -20,10 +20,14 @@ RUN pnpm --filter @zeit/shared build \
 	&& pnpm --filter @zeit/api build \
 	&& pnpm --filter @zeit/api deploy --prod --legacy /out
 
-FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
+FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS runtime
 
-ARG DBMATE_VERSION=2.36.0
-ADD --checksum=sha256:47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce \
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends --only-upgrade perl-base \
+	&& rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
+ARG DBMATE_VERSION=2.37.0
+ADD --checksum=sha256:f855e99a0f0a81322014bf686b1cb820d2b4d8074e4eadafd64b851b80ecb15a \
 	https://github.com/amacneil/dbmate/releases/download/v${DBMATE_VERSION}/dbmate-linux-amd64 /usr/local/bin/dbmate
 RUN chmod +x /usr/local/bin/dbmate
 

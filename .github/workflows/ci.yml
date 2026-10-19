@@ -81,8 +81,8 @@ jobs:
         run: sh db/init/00-roles.sh
       - name: Install dbmate
         run: |
-          curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.36.0/dbmate-linux-amd64
-          echo "47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce  dbmate" | sha256sum -c -
+          curl -fsSL -o dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64
+          echo "f855e99a0f0a81322014bf686b1cb820d2b4d8074e4eadafd64b851b80ecb15a  dbmate" | sha256sum -c -
           chmod +x dbmate
           sudo mv dbmate /usr/local/bin/dbmate
       - name: Migrate up, rollback, up again
