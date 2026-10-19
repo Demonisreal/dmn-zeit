@@ -1,4 +1,4 @@
-[English version](README.en.md)
+[English version](README.md)
 
 # dmn-zeit
 
@@ -23,7 +23,7 @@ Was in der Demo anders ist als im echten Betrieb:
 
 Damit die Demo nicht leerläuft, sind Sandboxes begrenzt: drei je Stunde und zehn je Tag von einer Adresse (IPv6 je /64), höchstens 300 gleichzeitig. Darüber sagt die Startseite „Von diesem Anschluss wurden in kurzer Zeit zu viele Demos gestartet.“ bzw. „Die Demo ist gerade voll.“ und nennt die Wartezeit. Jede Sandbox hat dazu Mengengrenzen je Tabelle, etwa 20.000 Buchungen oder 2.000 Rechnungspositionen.
 
-Die Live-Instanz `zeit.dmn-software.com` wird nur auf Einladung erreichbar sein. Es gibt keine offene Registrierung, Firmen und Solo-Bereiche legt der Betreiber über die CLI an, und ein zweiter Faktor (Passkey oder TOTP) ist für jede Rolle Pflicht.
+Die Live-Instanz `zeit.dmn-software.com` ist nur auf Einladung erreichbar. Es gibt keine offene Registrierung, Firmen und Solo-Bereiche legt der Betreiber über die CLI an, und ein zweiter Faktor (Passkey oder TOTP) ist für jede Rolle Pflicht.
 
 ### Der Kern in zwei Minuten
 
@@ -229,7 +229,7 @@ Zwei Befunde aus dieser Woche steckten nicht in der App, sondern in der Testumge
 
 Zwei getrennte Compose-Projekte auf einem Server, `deploy/demo` und `deploy/live`, mit eigenem Postgres, eigenem Migrationsdienst (`dbmate --wait up`, die API startet erst danach) und eigenen Netzen. Container laufen nie als root, mit `read_only`, `cap_drop: ALL` und Speicherlimits. Davor steht der zentrale Caddy des Servers, ohne Cloudflare. Backups nur von Live, mit `age` verschlüsselt, bevor sie per `rclone` außer Haus gehen. Anleitung in [`deploy/README.md`](deploy/README.md).
 
-Der Deploy selbst steht noch aus. Was die Läufe gegen die gebauten Images und die Reviews schon gezeigt haben und jetzt im Code steht:
+Beide Instanzen laufen dort seit dem 2. Oktober 2026. Was die Läufe gegen die gebauten Images und die Reviews vorher gezeigt haben und jetzt im Code steht:
 
 **Kein Heap-Flag für die API.** Ein `--max-old-space-size`, auch geerbt über `NODE_OPTIONS`, gilt für den ganzen Prozess und ersetzt die `resourceLimits` der Render-Worker. Gemessen: Aus 16 MB Worker-Limit wurden 8 GB. Den Speicher der API begrenzt allein `mem_limit` in Compose, die Testprozesse setzen das Flag zurück.
 
@@ -243,7 +243,6 @@ Der Deploy selbst steht noch aus. Was die Läufe gegen die gebauten Images und d
 
 ## Als Nächstes
 
-- **Deploy** beider Instanzen mit Prüfung von außen
 - **Ein grüner CI-Lauf auf GitHub**, bisher liefen die Prüfungen nur lokal
 - **veraPDF als CI-Job**, bisher nur lokal
 - **E2E in Firefox und WebKit**, bisher nur Chromium

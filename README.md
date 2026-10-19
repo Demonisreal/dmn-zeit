@@ -1,4 +1,4 @@
-[Deutsche Fassung](README.md)
+[Deutsche Fassung](README.de.md)
 
 # dmn-zeit
 
@@ -23,7 +23,7 @@ What is different in the demo:
 
 So the demo cannot be drained, sandboxes are rationed: three per hour and ten per day from one address (IPv6 per /64), at most 300 at the same time. Past that the start page says "Too many demos were started from this connection in a short time." or "The demo is full right now." and shows how long to wait. Each sandbox also has row limits per table, for example 20,000 bookings or 2,000 invoice lines.
 
-The live instance `zeit.dmn-software.com` will be invitation-only. There is no open sign-up, the operator creates companies and solo workspaces through the CLI, and a second factor (passkey or TOTP) is mandatory for every role.
+The live instance `zeit.dmn-software.com` is invitation-only. There is no open sign-up, the operator creates companies and solo workspaces through the CLI, and a second factor (passkey or TOTP) is mandatory for every role.
 
 ### The core idea in two minutes
 
@@ -229,7 +229,7 @@ Two findings from this week were not in the app but in the test setup:
 
 Two separate Compose projects on one server, `deploy/demo` and `deploy/live`, each with its own Postgres, its own migration service (`dbmate --wait up`, the API starts only after it) and its own networks. Containers never run as root, with `read_only`, `cap_drop: ALL` and memory limits. In front sits the server's central Caddy, without Cloudflare. Backups only for live, encrypted with `age` before `rclone` copies them off-site. Instructions in [`deploy/README.md`](deploy/README.md).
 
-The deployment itself is still to come. What the runs against the built images and the reviews have already shown, and what is now in the code:
+Both instances have been running there since 2 October 2026. What the runs against the built images and the reviews showed before that, and what is now in the code:
 
 **No heap flag for the API.** A `--max-old-space-size`, including one inherited through `NODE_OPTIONS`, applies to the whole process and replaces the `resourceLimits` of the render workers. Measured: a 16 MB worker limit became 8 GB. The API's memory is limited by `mem_limit` in Compose alone; the test processes reset the flag.
 
@@ -243,7 +243,6 @@ The deployment itself is still to come. What the runs against the built images a
 
 ## Next
 
-- **Deploy** both instances and check them from outside
 - **A green CI run on GitHub**, so far the checks have only run locally
 - **veraPDF as a CI job**, so far only local
 - **E2E in Firefox and WebKit**, so far only Chromium
