@@ -10,7 +10,7 @@ coverage/
 *.pem
 *.key
 
-.claude/worktrees/
+.claude/
 
 deploy/live/backups/
 
