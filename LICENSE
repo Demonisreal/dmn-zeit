@@ -1,10 +1,14 @@
-Copyright (c) 2026 DMN Software
+Copyright (c) 2026 Leon Wydra / DMN Software
 
 Alle Rechte vorbehalten.
 
 Der Quellcode und alle weiteren Inhalte dieses Repositorys sind urheberrechtlich geschützt.
 Ohne vorherige schriftliche Erlaubnis des Rechteinhabers ist es nicht gestattet, sie ganz oder
 teilweise zu nutzen, zu vervielfältigen, zu verändern oder zu verbreiten.
+
+Ausgenommen ist die Prüfung durch mögliche Arbeit- oder Auftraggeber: Zu diesem Zweck darf der
+Code heruntergeladen, gelesen und lokal ausgeführt werden. Weitergabe und jede andere Nutzung
+bleiben ausgeschlossen.
 
 Hinweis: Für öffentliche Repositories erlauben die Nutzungsbedingungen von GitHub anderen
 GitHub-Nutzern, das Repository auf der GitHub-Plattform anzusehen und zu forken. Diese Befugnis
@@ -13,13 +17,16 @@ Plattform hinaus.
 
 ---
 
-Copyright (c) 2026 DMN Software
+Copyright (c) 2026 Leon Wydra / DMN Software
 
 All rights reserved.
 
 The source code and all other contents of this repository are protected by copyright. No part of
 it may be used, copied, modified or distributed without prior written permission from the
 copyright holder.
+
+Exception: prospective employers and clients may download, read and run the code locally in
+order to evaluate the author. Redistribution and any other use remain excluded.
 
 Note: For public repositories, GitHub's Terms of Service allow other GitHub users to view and fork
 the repository on the GitHub platform. That permission comes from GitHub's terms, not from this
