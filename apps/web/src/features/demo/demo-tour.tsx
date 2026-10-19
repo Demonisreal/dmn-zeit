@@ -15,7 +15,6 @@ import {
 	keepTourOpen,
 	markTourStep,
 	stepsIn,
-	tourSteps,
 	useTourMarks,
 	type TourStep
 } from './tour';
@@ -66,15 +65,24 @@ export function DemoTour({ role, workspace, expiresAt }: Props) {
 
 	const since = (at: string | null) => at !== null && Date.parse(at) > created;
 	const absences = requests.data?.pages.flatMap((page) => page.items) ?? [];
+	const requested = absences.some(
+		(absence) => absence.type === 'vacation' && since(absence.createdAt)
+	);
+	const approved = absences.some(
+		(absence) => absence.status === 'approved' && since(absence.decidedAt)
+	);
+	const closed = checklist.data?.closed === true;
 	const seen: Partial<Record<TourStep, boolean>> = {
-		request: absences.some((absence) => absence.type === 'vacation' && since(absence.createdAt)),
-		approve: absences.some((absence) => absence.status === 'approved' && since(absence.decidedAt)),
-		close: checklist.data?.closed === true
+		request: requested,
+		approve: approved,
+		close: closed
 	};
 
 	useEffect(() => {
-		for (const step of tourSteps) if (seen[step]) markTourStep(step);
-	}, [seen.request, seen.approve, seen.close]);
+		if (requested) markTourStep('request');
+		if (approved) markTourStep('approve');
+		if (closed) markTourStep('close');
+	}, [requested, approved, closed]);
 
 	const done = steps.filter((step) => seen[step] || marks.includes(step));
 	const reachable = (step: TourStep) =>

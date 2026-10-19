@@ -22,10 +22,12 @@ const pdf = () =>
 
 // jsdom has no object urls, a counter is enough to tell two renderings apart
 let made = 0;
+let revoked: string[] = [];
 beforeEach(() => {
 	made = 0;
+	revoked = [];
 	URL.createObjectURL = () => `blob:pdf-${++made}`;
-	URL.revokeObjectURL = () => {};
+	URL.revokeObjectURL = (url) => void revoked.push(url);
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -50,6 +52,22 @@ describe('InvoicePreview', () => {
 			'href',
 			'blob:pdf-1'
 		);
+	});
+
+	it('frees the old copy when the version changes and the last one on unmount', async () => {
+		server.use(http.get('/api/invoices/:id/preview.pdf', pdf));
+		const view = render(wrap(<InvoicePreview invoiceId="inv-2" variant="draft" version="a" />));
+		const frame = await screen.findByTitle('PDF-Vorschau der Rechnung');
+		expect(frame).toHaveAttribute('src', 'blob:pdf-1');
+
+		view.rerender(wrap(<InvoicePreview invoiceId="inv-2" variant="draft" version="b" />));
+		await waitFor(() =>
+			expect(screen.getByTitle('PDF-Vorschau der Rechnung')).toHaveAttribute('src', 'blob:pdf-2')
+		);
+		expect(revoked).toEqual(['blob:pdf-1']);
+
+		view.unmount();
+		expect(revoked).toEqual(['blob:pdf-1', 'blob:pdf-2']);
 	});
 
 	it('shows the issued document without a second way to open it', async () => {

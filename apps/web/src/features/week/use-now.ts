@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react';
 
 export function useNow(running: boolean, every = 15_000) {
 	const [now, setNow] = useState(Date.now);
+	const [ticking, setTicking] = useState(running);
+	if (running !== ticking) {
+		setTicking(running);
+		if (running) setNow(Date.now);
+	}
 	useEffect(() => {
 		if (!running) return;
-		setNow(Date.now());
 		const timer = setInterval(() => setNow(Date.now()), every);
 		return () => clearInterval(timer);
 	}, [running, every]);

@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import { defineConfig } from 'eslint/config';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 const rawSql =
@@ -7,9 +8,10 @@ const rawSql =
 const rawHtml = 'Writing HTML strings into the DOM opens the door to XSS. Render through React.';
 
 export default defineConfig(
-	{ ignores: ['**/dist/', '**/coverage/', '.claude/', 'apps/api/src/db/schema.generated.ts'] },
+	{ ignores: ['.*/', '**/dist/', '**/coverage/', 'apps/api/src/db/schema.generated.ts'] },
 	js.configs.recommended,
 	tseslint.configs.recommended,
+	{ files: ['apps/web/src/**/*.{ts,tsx}'], extends: [reactHooks.configs.flat.recommended] },
 	{
 		rules: {
 			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
