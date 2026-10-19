@@ -4,7 +4,7 @@ Status: angenommen, 24.09.2026
 
 ## Kontext
 
-Beträge auf Rechnungen entstehen aus Minuten × Stundensatz ÷ 60, die Steuer aus Bemessungsgrundlage × Steuersatz. Eine Stornorechnung muss die Summen des Originals exakt negieren. Gerechnet wird in `@zeit/rules`, das nur an `temporal-polyfill` hängt (`docs/planung.md`, Abhängigkeiten). Mehrwährung ist nicht in Version 1, alle Beträge sind Euro.
+Beträge auf Rechnungen entstehen aus Minuten × Stundensatz ÷ 60, die Steuer aus Bemessungsgrundlage × Steuersatz. Eine Stornorechnung muss die Summen des Originals exakt negieren. Gerechnet wird in `@zeit/rules`, das nur an `temporal-polyfill` hängt. Mehrwährung ist nicht in Version 1, alle Beträge sind Euro.
 
 Die Rechnungsnummer muss fortlaufend und einmalig sein (§ 14 Abs. 4 Nr. 4 UStG). Lückenlos verlangt die Finanzverwaltung nicht, mehrere Nummernkreise sind zulässig (`docs/rechnungen-recht.md`, Abschnitt 2). Vergeben wird unter Nebenläufigkeit: Zwei Ausstellungen desselben Mandanten dürfen nie dieselbe Nummer bekommen, und eine Ausstellung, die nach der Vergabe scheitert, etwa beim Rendern des PDF, soll keine Nummer verbrauchen.
 
@@ -37,6 +37,6 @@ Nummernkreis:
 - Kein Betrag läuft durch Gleitkomma. Formatiert wird erst für die Anzeige (`formatCents` in `apps/web/src/i18n/format.ts`) und im Renderer.
 - Property-based Tests: Die Summe einer Stornorechnung ist die exakte Negation des Originals, die Summe der Matrixzellen gleich der Summe der Positionen.
 - DB-Tests: 20 parallele Ausstellungen ergeben 1..20 ohne Doppel, ein Rollback verbraucht keine Nummer.
-- Ausstellungen desselben Mandanten laufen wegen der Zeilensperre nacheinander, so lange wie die Transaktion dauert, also auch während des Renderns (siehe ADR 0004, Folgen).
+- Ausstellungen desselben Mandanten laufen wegen der Zeilensperre nacheinander, so lange wie die Transaktion dauert. Gerendert wird erst nach dem Commit (siehe ADR 0004, Folgen).
 - Die Steuerrundung je Satzgruppe muss die Steuerberatung noch bestätigen (`docs/rechnungen-recht.md`, offener Punkt 1).
 - Ein Restore auf einen älteren Stand setzt den Zähler zurück. Vor der nächsten Ausstellung ist die zuletzt vergebene Nummer abzugleichen (Bedrohungsmodell N-05).

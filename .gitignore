@@ -14,11 +14,6 @@ coverage/
 
 deploy/live/backups/
 
-.impeccable/review/
-.impeccable/decision/
-.impeccable/critique/
-.impeccable/screens/
-
 tests/e2e/test-results/
 tests/e2e/playwright-report/
 tests/e2e/.tmp/

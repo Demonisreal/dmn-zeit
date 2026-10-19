@@ -1,15 +1,15 @@
 # Fachlogik @zeit/rules
 
 Stand 24.09.2026. Beschreibt, was `packages/rules` rechnet, auf welcher Rechtsgrundlage und wo
-die Grenzen von Stufe 1 liegen. Die Software gibt Hinweise, keine Rechtsberatung (siehe
-PRODUCT.md). Alle Paragrafen wurden gegen gesetze-im-internet.de geprüft (Rechercheergebnis vom
+die Grenzen liegen. Die Software gibt Hinweise, keine Rechtsberatung. Alle Paragrafen wurden gegen
+gesetze-im-internet.de geprüft (Rechercheergebnis vom
 24.09.2026), Feiertage gegen die unten genannten Quellen.
 
 ## calendar/
 
 | Funktion           | Beschreibung                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `workdayOf`        | Arbeitstag einer Buchung = lokales Datum ihres Beginns (Datenmodell, planung.md Abschnitt "Datenmodell").                                                                                                                                                                                                                                                                                                                            |
+| `workdayOf`        | Arbeitstag einer Buchung = lokales Datum ihres Beginns (siehe `docs/architecture.md`, Abschnitt "Data model").                                                                                                                                                                                                                                                                                                                       |
 | `splitByLocalDate` | Zerlegt eine Zeitspanne in Tagesabschnitte je lokalem Kalendertag, auch am 23-Stunden-Tag (29.03.2026) und am 25-Stunden-Tag (25.10.2026).                                                                                                                                                                                                                                                                                           |
 | `monthDays`        | Alle Kalendertage eines Monats.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `wholeMinutes`     | Ganze Minuten einer Summe von Zeitspannen: exakt addiert, dann gerundet, weil die Stempel Sekunden tragen. Einzige Minutenquelle für `summarizeWorkday` und `checkShifts`.                                                                                                                                                                                                                                                           |
@@ -60,7 +60,7 @@ Grenzen:
 - Zwei Feiertage können auf denselben Tag fallen (z. B. 1.5.2008: Tag der Arbeit und Christi
   Himmelfahrt). `holidaysFor` liefert dann beide Einträge; `targetMinutes` nimmt nur einen
   `Holiday` entgegen, der Aufrufer muss den mit `portion: 1` wählen.
-- Kein bundesweiter Buß- und Bettag vor 1995 abgebildet (vor Stufe 1 nicht relevant).
+- Kein bundesweiter Buß- und Bettag vor 1995 abgebildet.
 
 ## contracts/
 
@@ -115,7 +115,7 @@ Grenzen:
 
 ## flextime/ (Gleitzeit)
 
-Betriebliche Regel, kein Gesetz (planung.md, Entscheidungen). `dayBalance` = gearbeitete Minuten
+Betriebliche Regel, kein Gesetz. `dayBalance` = gearbeitete Minuten
 plus gutgeschriebene Minuten minus Sollminuten. Gutgeschrieben wird nur für Urlaub und Krankheit,
 und zwar das Soll des abwesenden Anteils. Ein Feiertag senkt stattdessen das Soll (0, am 24./31.12.
 mit halben Tagen die Hälfte); ihn zusätzlich gutzuschreiben, würde ihn doppelt zählen. Ein
@@ -160,15 +160,15 @@ Grenzen:
   der Frist führt hier trotzdem zum Verfall. Eine Prüfung bräuchte eine Zeitzone (Vergleich von
   `Instant` und `PlainDate`) und gehört eher in die API.
 - **Verfall bei Langzeiterkrankung** (15-Monats-Frist ab Ende des Urlaubsjahres) ist nicht in v1
-  (siehe PRODUCT.md, "Nicht in v1").
+  (siehe README, "What is deliberately not in it").
 - `daysForRange` prüft die Beschäftigung, dann den vollen Feiertag, dann den arbeitsfreien Tag,
   dann den halben Feiertag, dann den Arbeitstag – ein halber Feiertag auf einem arbeitsfreien Tag
   (z. B. 24.12. an einem Samstag) kostet nichts.
 
 ## billing/ (Projektabrechnung und Rechnungen)
 
-Grundlage sind docs/rechnungen-recht.md (Rechercheergebnis vom 24.09.2026) und
-docs/planung-projekte.md Abschnitt 3. Geld ist überall `bigint` in ganzen Cent, nie `number` mit
+Grundlage ist docs/rechnungen-recht.md (Rechercheergebnis vom 24.09.2026).
+Geld ist überall `bigint` in ganzen Cent, nie `number` mit
 Nachkommastellen (docs/bedrohungsmodell-rechnungen.md, T-06). Gerundet wird nur in `money/`:
 `roundDiv(num, den)` teilt ganzzahlig und rundet kaufmännisch halb vom Nullpunkt weg, damit eine
 Stornorechnung spiegelbildlich rundet; `percentOf(cents, basisPoints)` nimmt einen Steuersatz in
@@ -195,15 +195,15 @@ mehr als zwei Nachkommastellen.
 Grenzen:
 
 - **Steuer je Satzgruppe statt je Position** ist nicht von der Steuerberatung bestätigt
-  (rechnungen-recht.md, offener Punkt 1; planung-projekte.md, Risiko 1). EN 16931 BR-CO-17 stützt
+  (rechnungen-recht.md, offener Punkt 1). EN 16931 BR-CO-17 stützt
   die Gruppenrundung.
 - **`EU_COUNTRY_CODES`** ist eine Annahme (Mitgliedstaaten ohne DE, Stand 2026, Griechenland als
-  ISO-Code GR statt EL wie in der USt-IdNr.). rechnungen-recht.md enthält keine Liste; vor dem
-  Livegang gegen die aktuelle EU-Mitgliedschaft prüfen.
+  ISO-Code GR statt EL wie in der USt-IdNr.). rechnungen-recht.md enthält keine Liste; bei
+  Bedarf gegen die aktuelle EU-Mitgliedschaft prüfen.
 - **Kleinbetragsrechnung ins Drittland** (`outside_scope`) bleibt möglich, weil rechnungen-recht.md
   dazu nichts sagt. Offene Annahme.
 - **Daten der Steuersätze:** rechnungen-recht.md nennt 19 %/7 % ohne Datum. Die Einträge ab
-  1.1.2007 und für das zweite Halbjahr 2020 sind vor dem Livegang am Gesetzestext zu prüfen.
+  1.1.2007 und für das zweite Halbjahr 2020 sind am Gesetzestext zu prüfen.
   Leistungstage vor 2007 bekommen den ältesten Eintrag, historisch wäre das falsch.
 - **Kleinunternehmergrenzen:** Ob brutto oder netto, Ist- oder Soll-Versteuerung gilt, ist bei
   unterjährigem Wechsel offen (rechnungen-recht.md, offener Punkt 6). `smallBusinessCheck`
@@ -250,8 +250,8 @@ Grenzen:
 - **`outside_scope`** (B2B im Drittland) bekommt den Hinweis `outside_scope_3a` ("nicht im Inland
   steuerbar, Leistungsort nach § 3a Abs. 2 UStG im Ausland"), denselben Text wie die XML-Note, aber
   keine Pflicht auf die eigene USt-IdNr. rechnungen-recht.md Abschnitt 4 (Umsetzungsfolge) sieht
-  beide USt-IdNr. und den Reverse-Charge-Hinweis auch für Leistungen ins Drittland vor,
-  planung-projekte.md Abschnitt 3 nennt den Hinweis nur für `reverse_charge`. Der Wortlaut ist ein
+  beide USt-IdNr. und den Reverse-Charge-Hinweis auch für Leistungen ins Drittland vor, die Umsetzung
+  verwendet stattdessen den eigenen Hinweis `outside_scope_3a`. Der Wortlaut ist ein
   offener Punkt für die Steuerberatung (rechnungen-recht.md, Abschnitt "Offene Punkte für die
   Steuerberatung").
 - **Stornorechnung:** `kind: 'cancellation'` lässt den Verzugshinweis nach § 286 Abs. 3 BGB weg, eine
@@ -262,13 +262,12 @@ Grenzen:
   steuerfreien Position bekommt über die aktuelle Verdrahtung also keinen `exempt_reason`
   (§ 14 Abs. 4 Nr. 8 UStG); das muss die aufrufende Seite je Position selbst aufrufen.
 - **`Line` trägt keine Rohminuten**, nur `minutes` (bereits gerundet). `budgetStatus` erklärt seinen
-  Zustand ebenfalls nur mit den übergebenen Minuten. planung-projekte.md nennt für beide Fälle
-  Rohminuten als Teil der Herleitung; wer sie anzeigen will, muss sie an der Zelle (`Cell.rawMinutes`)
-  selbst mitführen.
+  Zustand ebenfalls nur mit den übergebenen Minuten. Rohminuten gehören für beide Fälle nicht zur
+  Herleitung; wer sie anzeigen will, muss sie an der Zelle (`Cell.rawMinutes`) selbst mitführen.
 
 ## projects/ (Abgleich Projektzeit und Arbeitszeit)
 
-Betriebliche Regel, kein Gesetz (planung-projekte.md Abschnitt 2). Das Ergebnis ist ein Hinweis,
+Betriebliche Regel, kein Gesetz. Das Ergebnis ist ein Hinweis,
 kein ArbZG-Befund, und erscheint nicht in `/compliance`.
 
 | Funktion          | Beschreibung                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -295,10 +294,9 @@ Grenzen:
   gerundete Minuten am Stück gegenüber 460 nach dem Aufteilen in mehrere Teilbuchungen). Das tritt
   bei sekundengenauen manuellen Einträgen auf, bei Zeitstempeln aus `now()` praktisch nie. Betrifft
   auch `aggregate` und alle anderen Aufrufer von `wholeMinutes`; ein Fix gehört in eine eigene
-  Aufgabe für `calendar/index.ts`, außerhalb dieser Stufe.
+  Aufgabe für `calendar/index.ts`.
 - Überlappende Spannen innerhalb einer Quelle werden nicht erkannt. `time_entries` schließt sie per
-  Exclusion-Constraint aus, für `project_entries` ist derselbe Constraint geplant
-  (planung-projekte.md Abschnitt 1.2).
+  Exclusion-Constraint aus, `project_entries` hat denselben Constraint.
 - Beide Quellen hängen am lokalen Beginndatum: Beginnt die Schicht am Vorabend und der
   Projekteintrag nach Mitternacht, stehen sie auf verschiedenen Arbeitstagen, und die Projektzeit
   erscheint als außerhalb.

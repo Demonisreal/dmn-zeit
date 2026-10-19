@@ -4,7 +4,7 @@ Status: angenommen, 24.09.2026
 
 ## Kontext
 
-Mit Stufe 10 erfasst dmn-zeit neben der Arbeitszeit auch Zeit auf Kunden, Projekte und Aufgaben, als Grundlage für Rechnungen (`docs/planung-projekte.md`). Die beiden Zeiten folgen verschiedenen Regeln:
+dmn-zeit erfasst neben der Arbeitszeit auch Zeit auf Kunden, Projekte und Aufgaben, als Grundlage für Rechnungen. Die beiden Zeiten folgen verschiedenen Regeln:
 
 - Die Stempeluhr (`time_entries`) ist die Arbeitszeitaufzeichnung nach § 16 Abs. 2 ArbZG. Buchungen werden nie überschrieben, Korrekturen laufen als Antrag über eine zweite Person, ein abgeschlossener Monat ist gesperrt, das ArbZG wird geprüft.
 - Projektzeit soll bis zur Abrechnung frei korrigierbar bleiben und erst gesperrt sein, wenn sie in einer Rechnung steht.
@@ -14,7 +14,7 @@ Das Bedrohungsmodell (`docs/bedrohungsmodell-rechnungen.md`, Abschnitt 4, R-09, 
 
 ## Entscheidung
 
-Leon hat am 24.09.2026 festgelegt: Der Projekt-Timer ist getrennt von der Stempeluhr, der Abgleich mit der Arbeitszeit ist nur ein Hinweis. Der Timer ergänzt die Stempeluhr, im Betrieb ersetzt er sie nicht.
+Entschieden am 24.09.2026: Der Projekt-Timer ist getrennt von der Stempeluhr, der Abgleich mit der Arbeitszeit ist nur ein Hinweis. Der Timer ergänzt die Stempeluhr, im Betrieb ersetzt er sie nicht.
 
 - Projektzeiten liegen in `app.project_entries` mit eigenem Timer. `time_entries` bleiben unverändert.
 - Nachträge brauchen keinen Antrag, aber eine Notiz. Keine ArbZG-Prüfung, keine Monatssperre. Gesperrt ist eine Projektzeit nur, solange ein Rechnungsentwurf oder eine Rechnung sie hält (`ZT004` -> 409 `INVOICED`).
@@ -28,7 +28,7 @@ Leon hat am 24.09.2026 festgelegt: Der Projekt-Timer ist getrennt von der Stempe
 - Projektzeit als Aufteilung der Stempelzeit, wie im Bedrohungsmodell angenommen: Jede Korrektur für die Abrechnung hätte die Arbeitszeitaufzeichnung berührt, und eine Rechnung hätte umgekehrt Korrekturanträge an Buchungen blockiert (R-09 sah dafür einen eigenen Abbruch vor). Im Solo-Bereich gäbe es nichts aufzuteilen.
 - Abgleich als Sperre, Projektminuten höchstens Ist-Minuten (T-05): koppelt beide Quellen wieder. Schon die Reihenfolge von Stempeln und Timerstart erzeugt kleine Abweichungen, dafür gibt es die Toleranz.
 - Obergrenze für einen Eintrag, etwa 24 h (T-02): Ein vergessener Timer ließe sich nicht mehr stoppen. Stattdessen gibt es ab 12 h einen Hinweis, und der Stopp-Dialog bietet an, das Ende zu korrigieren.
-- Entwürfe ohne Reservierung der Zeiten, dafür eine Prüfung auf Veraltung beim Ausstellen: erzeugt veraltete Entwürfe (`docs/planung-projekte.md`, Risiko 12).
+- Entwürfe ohne Reservierung der Zeiten, dafür eine Prüfung auf Veraltung beim Ausstellen: erzeugt veraltete Entwürfe.
 
 ## Folgen
 
@@ -36,4 +36,4 @@ Leon hat am 24.09.2026 festgelegt: Der Projekt-Timer ist getrennt von der Stempe
 - Einstempeln startet keinen Projekt-Timer. Wer im Betrieb Projektzeit erfasst, stempelt und startet den Timer getrennt.
 - Solange ein Entwurf Zeiten hält, kann die Person ihre eigene Projektzeit nicht ändern (409 `INVOICED`). Die Meldung muss sagen, dass sie sich an die Personalverwaltung wenden soll.
 - Arbeits- und Projektzeit können auseinanderlaufen, die Software zeigt das nur an.
-- Für Projektzeiten gibt es in v1 keinen Löschpfad. Ob sie wie die Rechnung acht Jahre aufzubewahren sind, ist offen (`docs/rechnungen-recht.md`, offener Punkt 4). Der Stundennachweis wird deshalb bei der Ausstellung als Dokument zur Rechnung gespeichert.
+- Für Projektzeiten gibt es in v1 keinen Löschpfad. Ob sie wie die Rechnung acht Jahre aufzubewahren sind, ist offen (`docs/rechnungen-recht.md`, offener Punkt 4). Die Zuordnung der Zeiten zu den Rechnungspositionen (`invoice_line_entries`) bleibt deshalb erhalten, der Stundennachweis lässt sich daraus jederzeit neu rendern.

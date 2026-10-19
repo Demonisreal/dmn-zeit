@@ -1,9 +1,9 @@
 # Fachliche Vorgabe: Projektzeiten und Rechnungen
 
 Stand 24.09.2026. Grundlage für das Rechnungsmodul (Freelancer/kleine Betriebe, Rechnungsstellung
-auf Basis erfasster Projektzeiten). Die Software gibt Hinweise, keine Rechtsberatung (siehe
-PRODUCT.md). Primärquellen sind Gesetzestexte auf gesetze-im-internet.de und BMF-Schreiben,
-ergänzend IHK-Merkblätter, Steuerberaterkammern und Fachredaktionen (Haufe, NWB, Lexware) dort, wo
+auf Basis erfasster Projektzeiten). Die Software gibt Hinweise, keine Rechtsberatung. Primärquellen
+sind Gesetzestexte auf gesetze-im-internet.de und BMF-Schreiben, ergänzend
+IHK-Merkblätter, Steuerberaterkammern und Fachredaktionen (Haufe, NWB, Lexware) dort, wo
 kein Gesetzestext die Detailfrage beantwortet. Alle Quellen wurden am 24.09.2026 abgerufen.
 
 Die Rechtslage zur E-Rechnung ändert sich bis 2028 in mehreren Stufen. Wo das der Fall ist, steht
@@ -354,7 +354,9 @@ Löschroutine für Zeitbuchungen gebaut wird.
 - Unveränderbarkeit versendeter Rechnungen, Korrektur nur über Berichtigungsdokument oder
   Stornorechnung, kein In-Place-Edit, kein Begriff "Gutschrift" für Korrekturen (Abschnitt 6).
 - E-Rechnungs-Empfang (XML/ZUGFeRD) und -Archivierung im Originalformat ab sofort, unabhängig
-  vom eigenen Ausstellungsstatus (Abschnitt 7, 8).
+  vom eigenen Ausstellungsstatus (Abschnitt 7, 8). Das ist eine Pflicht des Betriebs, nicht der
+  Software: Eingangsrechnungen sind nicht Teil von Version 1 und laufen über Postfach und
+  Buchhaltung des Betriebs.
 - Acht-Jahres-Aufbewahrung für Rechnungen mit Änderungsprotokoll, Sperren statt Löschen innerhalb
   der Frist (Abschnitt 8, 10).
 - Zahlungsziel-Feld und Verzugshinweis-Text für B2C-Rechnungen (Abschnitt 9).

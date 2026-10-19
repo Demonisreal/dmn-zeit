@@ -3,7 +3,7 @@
 Zwei getrennte Compose-Projekte auf demselben Server: `deploy/demo` und `deploy/live`. Beide
 bauen `zeit-api` und `zeit-web` aus `apps/api` bzw. `apps/web`, ziehen `postgres:17-alpine` und
 legen die Rollen über `db/init/00-roles.sh` an. Details zu Netzen, Härtung und Migrationsdienst
-stehen in `docs/planung.md`, Abschnitt "Betrieb".
+stehen in `docs/architecture.md`, Abschnitt "Operations details".
 
 ## Erstinstallation
 
@@ -60,8 +60,8 @@ Für jede Instanz (`demo` und `live` getrennt ausführen):
 Der Migrationsdienst (`zeit-<instanz>-migrate`) läuft dabei automatisch vor der API
 (`dbmate --wait up` als `zeit_owner`), die API startet erst nach dessen erfolgreichem Ende.
 
-Vor dem ersten Livegang muss außerdem `security@dmn-software.com` erreichbar sein
-(Sicherheitskontakt aus `SECURITY.md`) — ohne Postfach läuft jede Schwachstellenmeldung ins Leere.
+Außerdem muss `security@dmn-software.com` erreichbar sein
+(Sicherheitskontakt aus `SECURITY.md`), sonst läuft jede Schwachstellenmeldung ins Leere.
 
 ## Betreiberbefehle
 
@@ -71,7 +71,7 @@ Quelle `cli`.
 Zweiten Faktor zurücksetzen, wenn niemand im Mandanten es selbst kann (etwa im Solo-Bereich).
 Entfernt TOTP, Passkeys, Wiederherstellungscodes und das Passwort und beendet alle Sitzungen.
 Zurück kommt die Person nur über einen Link zum Passwortsetzen, 30 Minuten gültig. Der CLI-Dienst
-hat kein Internet (Befund M6), die Hinweis-Mail über Resend geht deshalb nicht raus — die
+hat kein Internet, die Hinweis-Mail über Resend geht deshalb nicht raus, die
 Konsole gibt dann den Link aus, ihn selbst an die Person weitergeben. Ist er abgelaufen, holt
 sie sich über „Passwort vergessen“ einen neuen:
 
@@ -159,8 +159,8 @@ mit dem Edge-Subnetz der jeweiligen Instanz als Wert.
 HSTS gehört an den zentralen Caddy, nicht ins Web-Image: `header >Strict-Transport-Security "..."`
 (das `>` ergänzt statt zu ersetzen). Setzt eine andere Config-Datei des zentralen Caddy den Header
 schon global, hier keinen zweiten `header`-Block dafür anlegen, sonst kommt der Header doppelt an.
-`apps/web/Caddyfile` setzt denselben Header ohne `preload` als Rückfalloption (Befund INFO) —
-`preload` ohne vorherige Eintragung bei hstspreload.org bringt nichts außer einem falschen
+`apps/web/Caddyfile` setzt denselben Header ohne `preload` als Rückfalloption.
+Ein `preload` ohne vorherige Eintragung bei hstspreload.org bringt nichts außer einem falschen
 Versprechen im Header, das gilt am zentralen Caddy genauso.
 
 CAA-Eintrag für beide Domains bei der DNS-Zone nicht vergessen (`CAA 0 issue "letsencrypt.org"`
@@ -175,14 +175,14 @@ außer `/api/*`). Für diese Domains also kein `encode` eintragen: `/api/*` blei
 unkomprimiert, weil dort CSRF-Token und Recovery-Codes in den Antworten stehen (BREACH).
 
 Domains zeigen aktuell direkt auf den Server, ohne Cloudflare oder einen anderen vorgeschalteten
-Anbieter (Entscheidung Leon, 2026-09-25). Schutz gegen einen volumetrischen Angriff (Bandbreite
+Anbieter (entschieden am 25.09.2026). Schutz gegen einen volumetrischen Angriff (Bandbreite
 ausschöpfen, bevor eine einzelne Verbindung überhaupt zählt) gibt es damit serverseitig nicht,
 das Restrisiko ist bewusst akzeptiert. Was der Server selbst gegen Missbrauch einzelner
 Verbindungen und wiederholte Angreifer aus einer Quelle tun kann, steht im nächsten Abschnitt.
 
 ## Serverseitiger Schutz ohne Cloudflare
 
-Ergänzt Befund M5. Wirkt gegen einzelne aggressive Quellen, nicht gegen verteilte volumetrische
+Wirkt gegen einzelne aggressive Quellen, nicht gegen verteilte volumetrische
 Angriffe (siehe Absatz oben).
 
 - **Access-Log:** `apps/web/Caddyfile` schreibt strukturierte JSON-Logs nach
@@ -192,17 +192,22 @@ Angriffe (siehe Absatz oben).
 - **fail2ban:** Beispiel-Filter und -Jail liegen in `deploy/host/fail2ban-filter-zeit.conf` und
   `deploy/host/fail2ban-jail-zeit.local`. Nach `/etc/fail2ban/filter.d/zeit.conf` bzw.
   `/etc/fail2ban/jail.d/zeit.local` kopieren, `logpath` auf die echten Mountpoints beider
-  Instanzen setzen, `ignoreip` behält das VPN-Netz 10.8.0.0/24, damit eigene Anmeldeversuche
+  Instanzen setzen, `ignoreip` behält das VPN-Netz des Betreibers (`<vpn-subnet>` durch das echte Netz ersetzen), damit eigene Anmeldeversuche
   über das VPN nie gesperrt werden. Die Jail bannt über die Chain `DOCKER-USER`, nicht über
-  `INPUT` — Docker hängt sein eigenes Port-Forwarding vor die normalen iptables-Regeln, `INPUT`
-  würde dort nie greifen.
+  `INPUT`, weil Docker sein eigenes Port-Forwarding vor die normalen iptables-Regeln hängt und
+  `INPUT` dort nie greifen würde. Der Filter liest `request.client_ip`, nicht `remote_ip`: hinter
+  dem zentralen Caddy ist `remote_ip` immer der Proxy, `client_ip` stimmt nur, wenn `EDGE_SUBNET`
+  in `trusted_proxies` des Web-Caddyfiles richtig gesetzt ist. Gezählt werden nur POST-Anfragen auf
+  `/api/auth/*` außer `/api/auth/logout` mit Status 401, 403 oder 429, ein anonymes
+  `GET /api/auth/session` mit 401 zählt also nicht. Vor dem Einsatz
+  `fail2ban-regex <logpath> /etc/fail2ban/filter.d/zeit.conf` gegen ein echtes Log laufen lassen.
 - **Verbindungslimits:** `deploy/host/docker-user-limits.service` trägt `connlimit`- und
   `hashlimit`-Regeln in `DOCKER-USER` ein (Verbindungen je Quelladresse begrenzen, Rate neuer
   Verbindungen begrenzen). `<WAN_IF>` durch das echte Interface ersetzen (`ip route show
 default` zeigt es an), danach `systemctl enable --now docker-user-limits.service`. Läuft nach
   `docker.service`, weil `DOCKER-USER` erst existiert, sobald Docker gestartet ist.
 - **SYN-Cookies:** `net.ipv4.tcp_syncookies` sollte auf den meisten Distributionen schon `1`
-  sein, vor dem Livegang trotzdem mit `sysctl net.ipv4.tcp_syncookies` prüfen und nötigenfalls
+  sein, bei der Einrichtung trotzdem mit `sysctl net.ipv4.tcp_syncookies` prüfen und nötigenfalls
   über `/etc/sysctl.d/` dauerhaft setzen.
 
 ## Schlüssel erzeugen
@@ -250,7 +255,7 @@ Restore:
 4. Restliche Dienste wieder hochfahren.
 
 Der Dump läuft als eigene Rolle `zeit_backup` (nur lesend, `BYPASSRLS`), nicht als `zeit_owner`
-(Bedrohungsmodell, Befund B11: wer den Backup-Container übernimmt, soll keine Trigger abschalten
+(Bedrohungsmodell, R-05: wer den Backup-Container übernimmt, soll keine Trigger abschalten
 oder Daten ändern können). Restore läuft als `postgres` im DB-Container, als `zeit_owner` bricht
 `pg_restore` beim Übergeben der Funktionen an `zeit_system` ab.
 

@@ -2,6 +2,8 @@
 
 # dmn-zeit
 
+[![CI](https://github.com/Demonisreal/dmn-zeit/actions/workflows/ci.yml/badge.svg)](https://github.com/Demonisreal/dmn-zeit/actions/workflows/ci.yml)
+
 Working time, leave and flextime under German labour law (ArbZG, BUrlG) for small businesses, plus project time and invoices under § 14 UStG with e-invoicing, where every figure shows what it is made of.
 
 ![Week view of the sample company with one day expanded: bookings, actual minus target, and a finding under § 5 ArbZG](docs/screenshot.jpg)
@@ -21,7 +23,7 @@ What is different in the demo:
 - Invoices carry the watermark "Specimen invoice – not an invoice within the meaning of § 14 UStG" (on English invoices next to the German line) and a number starting with `MUSTER-`. This depends on the tenant kind `sandbox`, not on a configuration switch.
 - Issuing and cancelling otherwise require a fresh confirmation with password and second factor (step-up). The demo skips it, because there are no passwords there.
 
-So the demo cannot be drained, sandboxes are rationed: three per hour and ten per day from one address (IPv6 per /64), at most 300 at the same time. Past that the start page says "Too many demos were started from this connection in a short time." or "The demo is full right now." and shows how long to wait. Each sandbox also has row limits per table, for example 20,000 bookings or 2,000 invoice lines.
+So the demo cannot be drained, sandboxes are rationed: three per hour and ten per day from one network (IPv4 per /24, IPv6 per /64), at most 60 new ones per hour across all visitors and 300 at the same time. Past that the start page says "Too many demos were started from this connection in a short time." or "The demo is full right now." and shows how long to wait. Each sandbox also has row limits per table, for example 20,000 bookings or 2,000 invoice lines.
 
 The live instance `zeit.dmn-software.com` is invitation-only. There is no open sign-up, the operator creates companies and solo workspaces through the CLI, and a second factor (passkey or TOTP) is mandatory for every role.
 
@@ -110,6 +112,8 @@ The SPA computes previews with the same functions from `@zeit/rules`; the server
 
 **Stack:** Node.js 24, pnpm workspace, NestJS 11, Kysely with `pg`, dbmate, PostgreSQL 17, zod, `@node-rs/argon2`, `@simplewebauthn/server`, pdfkit, `@e-invoice-eu/core`, Vite 8, React 19, TanStack Router and Query, React Aria Components, i18next, CSS Modules, Vitest, Testcontainers, Playwright.
 
+Repository layout, data model, authentication and the route overview are in [`docs/architecture.md`](docs/architecture.md). The legal and domain documents in `docs/` (`rules.md`, `glossary.md`, `rechnungen-recht.md`, the threat model) are written in German.
+
 ---
 
 ## Decisions
@@ -124,7 +128,7 @@ Tested with 20 parallel issues that yield 1 to 20 without duplicates, a rollback
 
 ### 2. Probe rendering first, then the number
 
-The original is rendered after commit in the worker, from the invoice snapshots alone. If something fails there, a numbered invoice without a document is left behind. The review found exactly that case: the pre-check rendered only the PDF, and if the e-invoice failed afterwards, the number was already gone.
+The original is rendered after commit in the worker, from the invoice snapshots alone. If something fails there, a numbered invoice without a document is left behind. An earlier version had exactly that gap: the pre-check rendered only the PDF, and if the e-invoice failed afterwards, the number was already gone.
 
 Now `POST /invoices/:id/issue` renders the draft once beforehand in the chosen format: for ZUGFeRD the PDF/A-3 with XML, for XRechnung the XML as well. More than 50 pages gives 422, a full queue 503, both without a number. The mandatory e-invoice details (`einvoiceBlockers`) are also checked before assignment. The test "takes no number when the e-invoice of the chosen format fails to render" pins it down.
 
@@ -202,15 +206,15 @@ The focus is on places that can be **silently** wrong:
 | `apps/api/test/einvoice/golden.spec.ts` + `kosit.sh` | XRechnung and Factur-X for eight cases (19 %, 7 %, mixed, Leitweg ID, reverse charge, third country, small business, cancellation) equal the golden files that the KoSIT validator checks in CI. A changed mapping has to pass the validator again                          |
 | `apps/api/test/einvoice/text-parity.spec.ts`         | Every legal note in the PDF is in the XML and vice versa, no § 13b UStG for EU businesses, the same date format, cancellation negative in the PDF and as a positive 381 in the XML                                                                                          |
 | `apps/api/test/einvoice/verapdf.sh`                  | PDF/A-3b with veraPDF, including a PDF with `&` and `<` in the company name. An unescaped `&` in the XMP packet made the PDF/A invalid                                                                                                                                      |
-| `apps/api/test/exports/time-report.int.spec.ts`      | Time report CSV byte for byte against golden files (de, en), with BOM and CRLF. In the WIP state the golden files had been committed with LF and the test was red                                                                                                           |
+| `apps/api/test/exports/time-report.int.spec.ts`      | Time report CSV byte for byte against golden files (de, en), with BOM and CRLF.                                                                                                                                                                                             |
 | `apps/api/test/documents/run-in-thread.spec.ts`      | A render worker in an endless loop is terminated after the timeout, one that hoards memory dies at its own 16 MB heap limit                                                                                                                                                 |
-| `apps/api/test/demo/sandboxes.int.spec.ts`           | The fourth sandbox within the hour and the eleventh of the day are refused until the window ends, another address is unaffected, kind and expiry never come from the caller                                                                                                 |
+| `apps/api/test/demo/sandboxes.int.spec.ts`           | The fourth sandbox within the hour and the eleventh of the day are refused until the window ends, another network is unaffected, the 61st new sandbox of an hour waits for everyone, kind and expiry never come from the caller                                             |
 | `apps/api/test/demo/timing.int.spec.ts`              | A prepared plan is written in under 1.5 s (median)                                                                                                                                                                                                                          |
 | `packages/rules/src/**/*.spec.ts`                    | Property-based with fast-check: Easter always between 22 March and 25 April, more work never removes a § 3 finding, a longer break never adds a § 4 finding, splits add up to the total on 29 March and 25 October too, a cancellation is the exact negation of the invoice |
 | `tests/e2e/src/tests/solo-invoice.spec.ts`           | Timer, matrix, draft from times, issuing with step-up, PDF download and cancellation against the built images, plus no CSP message in the console up to the loaded preview and exactly one preview request                                                                  |
 | `tests/e2e/src/tests/accessibility.spec.ts`          | axe scan of the main pages without findings                                                                                                                                                                                                                                 |
 
-Two findings from this week were not in the app but in the test setup:
+Two findings were not in the app but in the test setup:
 
 **pdf-parse read someone else's PDF.** The pdf.js 1.10 bundled inside it ignores a Buffer's `byteOffset`. Node hands out small Buffers from a shared pool, so pdf.js read from the start of the pool: sometimes another PDF, sometimes it aborted with "bad XRef entry". The tests now pass a copy of their own.
 
@@ -243,7 +247,6 @@ Both instances have been running there since 2 October 2026. What the runs again
 
 ## Next
 
-- **A green CI run on GitHub**, so far the checks have only run locally
 - **veraPDF as a CI job**, so far only local
 - **E2E in Firefox and WebKit**, so far only Chromium
 - **Answers from the tax adviser** on tax rounding per rate group, wording for EU B2B and third countries, exemption references and the signs of the cancellation invoice
