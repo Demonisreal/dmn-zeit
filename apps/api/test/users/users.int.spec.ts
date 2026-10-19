@@ -50,9 +50,20 @@ describe('GET /api/users', () => {
 });
 
 describe('POST /api/users', () => {
+	it('wants a fresh confirmation', async () => {
+		const email = address();
+		const answer = await admin.post('/users', { email, displayName: 'Heimlich', role: 'admin' });
+		expect(answer.status).toBe(403);
+		expect(answer.body.code).toBe('REAUTH_REQUIRED');
+		const { rowCount } = await api.superuser.query('select 1 from app.users where email = $1', [
+			email
+		]);
+		expect(rowCount).toBe(0);
+	});
+
 	it('creates an invited user and sends exactly one invitation that works', async () => {
 		const email = address();
-		const answer = await admin.post('/users', {
+		const answer = await confirmed.post('/users', {
 			email: email.toUpperCase(),
 			displayName: 'Jonas Becker',
 			role: 'team_lead',
@@ -90,7 +101,7 @@ describe('POST /api/users', () => {
 		await api.superuser.query('update app.users set employee_id = null where id = $1', [
 			person.userId
 		]);
-		const linked = await admin.post('/users', {
+		const linked = await confirmed.post('/users', {
 			email: address(),
 			displayName: 'Erika Muster',
 			role: 'employee',
@@ -100,7 +111,7 @@ describe('POST /api/users', () => {
 		expect(linked.body.employeeId).toBe(person.employeeId);
 
 		const foreign = await createPerson(await createTenant());
-		const answer = await admin.post('/users', {
+		const answer = await confirmed.post('/users', {
 			email: address(),
 			displayName: 'Max Fremd',
 			role: 'employee',
@@ -112,15 +123,15 @@ describe('POST /api/users', () => {
 	it('refuses an address that is taken', async () => {
 		const email = address();
 		const body = { email, displayName: 'Doppelt', role: 'employee' };
-		expect((await admin.post('/users', body)).status).toBe(201);
-		const again = await admin.post('/users', body);
+		expect((await confirmed.post('/users', body)).status).toBe(201);
+		const again = await confirmed.post('/users', body);
 		expect(again.status).toBe(409);
 		expect(again.body.code).toBe('ALREADY_EXISTS');
 		await vi.waitFor(() => expect(mailsTo(email)).toHaveLength(1));
 	});
 
 	it('checks the body', async () => {
-		const answer = await admin.post('/users', {
+		const answer = await confirmed.post('/users', {
 			email: 'keine-adresse',
 			displayName: '',
 			role: 'chef'
@@ -146,13 +157,21 @@ describe('POST /api/users', () => {
 });
 
 describe('POST /api/users/:id/invite', () => {
+	it('wants a fresh confirmation', async () => {
+		const invited = await createUser(tenant, { status: 'invited' });
+		const answer = await admin.post(`/users/${invited.userId}/invite`);
+		expect(answer.status).toBe(403);
+		expect(answer.body.code).toBe('REAUTH_REQUIRED');
+	});
+
 	it('sends a new link and the old one stops working', async () => {
 		const email = address();
-		const { id } = (await admin.post('/users', { email, displayName: 'Lena', role: 'employee' }))
-			.body;
+		const { id } = (
+			await confirmed.post('/users', { email, displayName: 'Lena', role: 'employee' })
+		).body;
 		await vi.waitFor(() => expect(mailsTo(email)).toHaveLength(1));
 
-		expect((await admin.post(`/users/${id}/invite`)).status).toBe(204);
+		expect((await confirmed.post(`/users/${id}/invite`)).status).toBe(204);
 		await vi.waitFor(() => expect(mailsTo(email)).toHaveLength(2));
 		const [first, second] = mailsTo(email).map((mail) => tokenOf(mail.text));
 		expect(mailsTo(email)[1]!.subject).toBe('Einladung zu DMN Zeit (Steuerbüro Beispiel)');
@@ -164,14 +183,14 @@ describe('POST /api/users/:id/invite', () => {
 
 	it('invites only who has not accepted yet', async () => {
 		const active = await createUser(tenant);
-		const answer = await admin.post(`/users/${active.userId}/invite`);
+		const answer = await confirmed.post(`/users/${active.userId}/invite`);
 		expect(answer.status).toBe(409);
 		expect(answer.body.code).toBe('INVALID_STATE');
 	});
 
 	it('does not find users of another tenant', async () => {
 		const foreign = await createUser(await createTenant(), { status: 'invited' });
-		expect((await admin.post(`/users/${foreign.userId}/invite`)).status).toBe(404);
+		expect((await confirmed.post(`/users/${foreign.userId}/invite`)).status).toBe(404);
 	});
 
 	it('is for admins only', async () => {

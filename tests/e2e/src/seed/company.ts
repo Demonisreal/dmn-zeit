@@ -1,5 +1,6 @@
 import { ApiClient } from '../api-client';
 import { tenantCreate, seedSql } from '../docker';
+import { totpCode, untilNextStep } from '../totp';
 import { PASSWORD } from './constants';
 import { mintInviteToken } from './invite';
 import type { CompanySeed, Persona, Role } from './types';
@@ -97,6 +98,10 @@ export async function seedCompany(baseURL: string, run: string): Promise<Company
 		entryDate: '2026-01-01',
 		contract
 	});
+
+	// creating users wants a fresh step-up, the onboarding used up the current authenticator step
+	await untilNextStep();
+	await api.post('/auth/reauth', { password: PASSWORD, code: totpCode(admin.totpSecret) });
 
 	const teamLeadUser = await api.post<{ id: string; email: string }>('/users', {
 		email: `teamlead+${run}@pw.e2e.test`,

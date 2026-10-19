@@ -25,6 +25,7 @@ export class UsersController {
 
 	@Post()
 	@Workspace('company')
+	@RequireReauth()
 	@Throttle({ default: { limit: 20, ttl: hours(1) } })
 	create(
 		@CurrentSession() session: AuthSession,
@@ -37,6 +38,7 @@ export class UsersController {
 	@Post(':id/invite')
 	@Workspace('company')
 	@HttpCode(204)
+	@RequireReauth()
 	@Throttle({ default: { limit: 20, ttl: hours(1) } })
 	async invite(
 		@CurrentSession() session: AuthSession,

@@ -52,7 +52,13 @@ export function AccountActions({ user }: Props) {
 			</h3>
 			<div className={styles.actions}>
 				{user.status === 'invited' && (
-					<Button variant="secondary" isPending={resend.isPending} onPress={() => resend.mutate()}>
+					<Button
+						variant="secondary"
+						isPending={resend.isPending}
+						onPress={() =>
+							resend.mutate(undefined, { onError: reauth.onError(() => resend.mutate()) })
+						}
+					>
 						{t('users.resend')}
 					</Button>
 				)}
