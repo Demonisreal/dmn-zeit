@@ -43,7 +43,7 @@
 		"@testcontainers/postgresql": "^12.1.0",
 		"@types/cookie-parser": "^1.4.10",
 		"@types/express": "^5.0.6",
-		"@types/node": "^24.13.6",
+		"@types/node": "^26.6.5",
 		"@types/pdfkit": "^0.17.6",
 		"@types/pg": "^8.23.1",
 		"@types/qrcode": "^1.5.6",
