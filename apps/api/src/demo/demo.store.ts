@@ -31,6 +31,19 @@ export class DemoStore {
 		return rows;
 	}
 
+	async countOpened(): Promise<Omit<Attempt, 'window'>> {
+		const { rows } = await sql<Omit<Attempt, 'window'>>`
+			insert into ops.rate_limits as r (key, hits, expires_at)
+			values ('demo-sandbox:opened', 1, now() + interval '1 hour')
+			on conflict (key) do update
+				set hits = case when r.expires_at > now() then r.hits + 1 else 1 end,
+					expires_at = case when r.expires_at > now() then r.expires_at else excluded.expires_at end
+			returning r.hits, ceil(extract(epoch from r.expires_at - now()))::int as "retryAfter"`.execute(
+			this.db
+		);
+		return rows[0]!;
+	}
+
 	async write(plan: DemoPlan, locale: Locale): Promise<void> {
 		await sql`select ops.sandbox_seed(${JSON.stringify(plan)}::jsonb, ${locale})`.execute(this.db);
 	}

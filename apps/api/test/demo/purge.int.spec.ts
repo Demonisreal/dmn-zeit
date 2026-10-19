@@ -93,7 +93,8 @@ describe('SandboxPurgeJob', () => {
 			        count(*) filter (where expires_at > now())::int as running
 			   from ops.rate_limits where key like 'demo-sandbox:%'`
 		);
-		expect(rows[0]).toEqual({ used: 0, running: 2 });
+		// hour and day of the running visitor, and the hour of all new sandboxes
+		expect(rows[0]).toEqual({ used: 0, running: 3 });
 	});
 });
 

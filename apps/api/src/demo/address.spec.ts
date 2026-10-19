@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { networkOf } from './address';
 
 describe('networkOf', () => {
-	it('keeps ipv4 addresses as they are', () => {
-		expect(networkOf('203.0.113.7')).toBe('203.0.113.7');
+	it('cuts ipv4 down to the /24', () => {
+		expect(networkOf('203.0.113.7')).toBe('203.0.113.0/24');
+		expect(networkOf('203.0.113.250')).toBe('203.0.113.0/24');
+		expect(networkOf('203.0.114.7')).toBe('203.0.114.0/24');
 	});
 
 	it('unwraps ipv4 clients of a dual-stack socket', () => {
-		expect(networkOf('::ffff:203.0.113.7')).toBe('203.0.113.7');
-		expect(networkOf('::FFFF:203.0.113.7')).toBe('203.0.113.7');
+		expect(networkOf('::ffff:203.0.113.7')).toBe('203.0.113.0/24');
+		expect(networkOf('::FFFF:203.0.113.7')).toBe('203.0.113.0/24');
 	});
 
 	it('cuts ipv6 down to the /64 however the address is written', () => {

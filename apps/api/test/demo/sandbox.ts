@@ -6,6 +6,9 @@ import { connectAs, databaseUrl } from '../helpers/pg';
 
 const ORIGIN = 'http://localhost:5173';
 
+let lastNetwork = 0;
+const nextNetwork = () => `198.51.${++lastNetwork}.7`;
+
 export type Demo = Awaited<ReturnType<typeof startDemo>>;
 
 // startApi pins APP_MODE to test, and app.module reads the mode on first import
@@ -26,8 +29,9 @@ export async function startDemo() {
 		app,
 		http: app.getHttpServer(),
 		superuser: await connectAs('superuser'),
-		// every browser comes from its own address, the sandbox limit counts per address
-		visitor: () => new Browser(app.getHttpServer(), ORIGIN, new Map())
+		// every browser comes from its own /24, the sandbox limit counts per network
+		visitor: (address = nextNetwork()) =>
+			new Browser(app.getHttpServer(), ORIGIN, new Map(), address)
 	};
 }
 

@@ -1,6 +1,7 @@
 import { sessionSchema } from '@zeit/shared';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { MAX_SANDBOXES_PER_HOUR } from '../../src/demo/demo.service';
 import { expectContract, type Browser } from '../auth/api';
 import { connectAs, createTenant, withContext } from '../helpers/pg';
 import { openSandbox, startDemo, type Demo } from './sandbox';
@@ -90,6 +91,11 @@ describe('address limit', () => {
 		expect(answer.body.details.retryAfter).toBeLessThanOrEqual(3600);
 	});
 
+	it('counts the whole /24 as one address', async () => {
+		const neighbour = demo.visitor(crowded.address.replace(/\d+$/, '201'));
+		expect((await neighbour.post('/demo/sandboxes', { locale: 'de' })).status).toBe(429);
+	});
+
 	it('leaves another address alone', async () => {
 		expect((await crowded.post('/demo/sandboxes', { locale: 'de' })).status).toBe(429);
 		expect((await demo.visitor().post('/demo/sandboxes', { locale: 'de' })).status).toBe(201);
@@ -115,6 +121,54 @@ describe('address limit', () => {
 			   at time zone 'Europe/Berlin' - now())::int as midnight`
 		);
 		expect(Math.abs(answer.body.details.retryAfter - rows[0].midnight)).toBeLessThan(5);
+	});
+});
+
+describe('hour limit for everyone', () => {
+	async function opened() {
+		const { rows } = await demo.superuser.query(
+			`select hits from ops.rate_limits where key = 'demo-sandbox:opened'`
+		);
+		return rows[0].hits as number;
+	}
+
+	it('counts the sandboxes it opens, not the visitors it turns away', async () => {
+		const crowded = demo.visitor();
+		for (let i = 0; i < 3; i++) await openSandbox(demo, crowded);
+		const before = await opened();
+
+		expect((await crowded.post('/demo/sandboxes', { locale: 'de' })).status).toBe(429);
+		expect(await opened()).toBe(before);
+		await openSandbox(demo);
+		expect(await opened()).toBe(before + 1);
+	});
+
+	it(`turns sandbox ${MAX_SANDBOXES_PER_HOUR + 1} of the hour away with 503 until the hour is over`, async () => {
+		await demo.superuser.query(
+			`update ops.rate_limits set hits = $1, expires_at = now() + interval '20 minutes'
+			  where key = 'demo-sandbox:opened'`,
+			[MAX_SANDBOXES_PER_HOUR - 1]
+		);
+		await openSandbox(demo);
+
+		const answer = await demo.visitor().post('/demo/sandboxes', { locale: 'de' });
+		expect(answer.status).toBe(503);
+		expect(answer.body).toMatchObject({
+			code: 'SANDBOX_LIMIT',
+			message: 'Too many demo sandboxes',
+			details: { retryAfter: expect.any(Number) }
+		});
+		expect(answer.headers['retry-after']).toBe(String(answer.body.details.retryAfter));
+		expect(answer.body.details.retryAfter).toBeGreaterThan(1190);
+		expect(answer.body.details.retryAfter).toBeLessThanOrEqual(1200);
+	});
+
+	it('opens sandboxes again once the hour is over', async () => {
+		await demo.superuser.query(
+			`update ops.rate_limits set expires_at = now() where key = 'demo-sandbox:opened'`
+		);
+		await openSandbox(demo);
+		expect(await opened()).toBe(1);
 	});
 });
 

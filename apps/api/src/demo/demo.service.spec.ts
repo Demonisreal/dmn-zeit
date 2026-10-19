@@ -9,7 +9,7 @@ import type { Clock } from '../common/clock';
 import { toApiError } from '../common/exception.filter';
 import type { AuthSession } from '../common/session.guard';
 import type { Database } from '../db/database';
-import { DemoService, MAX_SANDBOXES } from './demo.service';
+import { DemoService, MAX_SANDBOXES, MAX_SANDBOXES_PER_HOUR } from './demo.service';
 import type { Attempt, DemoStore } from './demo.store';
 
 vi.mock('@zeit/demo-data', () => ({ generateDemo: vi.fn() }));
@@ -68,6 +68,7 @@ function setup() {
 	const store = {
 		activeSandboxes: vi.fn(async () => 12),
 		countAttempt: vi.fn(async (_address: string) => calm),
+		countOpened: vi.fn(async () => ({ hits: 1, retryAfter: 3600 })),
 		write: vi.fn(async (_plan: DemoPlan, _locale: string) => {}),
 		personas: vi.fn(async () => []),
 		switchPersona: vi.fn(async () => true),
@@ -169,6 +170,50 @@ describe('DemoService.create', () => {
 		]);
 
 		await expect(demo.create({ locale: 'de' }, client, asResponse)).resolves.toBeDefined();
+	});
+
+	it(`refuses new sandbox ${MAX_SANDBOXES_PER_HOUR + 1} of the hour with 503 until the hour is over`, async () => {
+		const { demo, store, response, asResponse } = setup();
+		store.countOpened.mockResolvedValue({ hits: MAX_SANDBOXES_PER_HOUR + 1, retryAfter: 1800 });
+
+		const { status, body } = await refusal(demo.create({ locale: 'de' }, client, asResponse));
+		expect(status).toBe(503);
+		expect(body).toEqual({
+			code: 'SANDBOX_LIMIT',
+			message: 'Too many demo sandboxes',
+			details: { retryAfter: 1800 }
+		});
+		expect(response.setHeader).toHaveBeenCalledWith('Retry-After', '1800');
+		expect(store.write).not.toHaveBeenCalled();
+	});
+
+	it(`still opens sandbox ${MAX_SANDBOXES_PER_HOUR} of the hour`, async () => {
+		const { demo, store, asResponse } = setup();
+		store.countOpened.mockResolvedValue({ hits: MAX_SANDBOXES_PER_HOUR, retryAfter: 60 });
+
+		await expect(demo.create({ locale: 'de' }, client, asResponse)).resolves.toBeDefined();
+	});
+
+	it('does not count an address that is turned away against the hour of everyone', async () => {
+		const { demo, store, asResponse } = setup();
+		store.countAttempt.mockResolvedValue([
+			{ window: 'hour', hits: 4, retryAfter: 1200 },
+			{ window: 'day', hits: 4, retryAfter: 50_000 }
+		]);
+
+		await refusal(demo.create({ locale: 'de' }, client, asResponse));
+		expect(store.countOpened).not.toHaveBeenCalled();
+	});
+
+	it('counts one /24 as one visitor', async () => {
+		const { demo, store, asResponse } = setup();
+		await demo.create({ locale: 'de' }, { ...client, ip: '198.51.100.7' }, asResponse);
+		await demo.create({ locale: 'de' }, { ...client, ip: '198.51.100.201' }, asResponse);
+		await demo.create({ locale: 'de' }, { ...client, ip: '198.51.101.7' }, asResponse);
+
+		const [first, second, other] = store.countAttempt.mock.calls.map(([address]) => address);
+		expect(first).toBe(second);
+		expect(other).not.toBe(first);
 	});
 
 	it('counts one /64 as one visitor and never stores the address itself', async () => {

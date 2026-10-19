@@ -15,6 +15,7 @@ import { networkOf } from './address';
 import { DemoStore, type Attempt } from './demo.store';
 
 export const MAX_SANDBOXES = 300;
+export const MAX_SANDBOXES_PER_HOUR = 60;
 const PURGE_SECONDS = 15 * 60;
 const LIMITS: Record<Attempt['window'], number> = { hour: 3, day: 10 };
 
@@ -98,6 +99,17 @@ export class DemoService {
 				'RATE_LIMITED',
 				'Too many sandboxes from this address',
 				Math.max(...over.map((attempt) => attempt.retryAfter))
+			);
+		}
+
+		const opened = await this.store.countOpened();
+		if (opened.hits > MAX_SANDBOXES_PER_HOUR) {
+			throw refuse(
+				response,
+				HttpStatus.SERVICE_UNAVAILABLE,
+				'SANDBOX_LIMIT',
+				'Too many demo sandboxes',
+				opened.retryAfter
 			);
 		}
 
