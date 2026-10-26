@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS build
+FROM node:24-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -19,11 +19,11 @@ RUN pnpm --filter @zeit/shared build \
 	&& pnpm --filter @zeit/rules build \
 	&& pnpm --filter @zeit/web build
 
-FROM caddy:2-builder@sha256:d842facfd63b960922e57444ff76fd8f0793a66dfdcf481af8026e1f4e6a39b4 AS caddy
+FROM caddy:2-builder@sha256:c2fc374fd352439d76e1777b28d97d9f6d9c1dd86116db9227460374d46097d5 AS caddy
 ARG CADDY_VERSION=2.11.7
 RUN xcaddy build v${CADDY_VERSION} --replace golang.org/x/net=golang.org/x/net@v0.60.0 --output /usr/bin/caddy
 
-FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS runtime
+FROM caddy:2-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f AS runtime
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy \
 	&& setcap -r /usr/bin/caddy
