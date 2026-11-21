@@ -12,7 +12,7 @@
 		"i18n:check": "node scripts/check-i18n.mjs"
 	},
 	"dependencies": {
-		"@hookform/resolvers": "^5.9.1",
+		"@hookform/resolvers": "^6.0.0",
 		"@internationalized/date": "^3.12.4",
 		"@simplewebauthn/browser": "^14.0.0",
 		"@tanstack/react-query": "^5.104.3",
