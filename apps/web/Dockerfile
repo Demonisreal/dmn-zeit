@@ -19,11 +19,11 @@ RUN pnpm --filter @zeit/shared build \
 	&& pnpm --filter @zeit/rules build \
 	&& pnpm --filter @zeit/web build
 
-FROM caddy:2-builder@sha256:d842facfd63b960922e57444ff76fd8f0793a66dfdcf481af8026e1f4e6a39b4 AS caddy
+FROM caddy:2-builder@sha256:aef223d1f943bc12a29a9e0a0a73983aa19a36672daede7507da4201a6b1016a AS caddy
 ARG CADDY_VERSION=2.11.7
-RUN xcaddy build v${CADDY_VERSION} --replace golang.org/x/net=golang.org/x/net@v0.60.0 --output /usr/bin/caddy
+RUN xcaddy build v${CADDY_VERSION} --replace golang.org/x/net=golang.org/x/net@v0.62.0 --replace github.com/go-jose/go-jose/v4=github.com/go-jose/go-jose/v4@v4.1.6 --output /usr/bin/caddy
 
-FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS runtime
+FROM caddy:2-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0 AS runtime
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy \
 	&& setcap -r /usr/bin/caddy

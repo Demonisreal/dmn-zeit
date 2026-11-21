@@ -3,7 +3,8 @@ packages:
   - 'packages/*'
   - 'tests/*'
 overrides:
-  multer: '>=2.3.0'
+  body-parser: '>=2.4.0'
+  multer: '>=2.5.0'
 allowBuilds:
   cpu-features: false
   esbuild: true

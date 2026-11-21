@@ -23,11 +23,11 @@ RUN pnpm --filter @zeit/shared build \
 FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS runtime
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends --only-upgrade perl-base \
+	&& apt-get install -y --no-install-recommends --only-upgrade perl-base apt libapt-pkg6.0 \
 	&& rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
-ARG DBMATE_VERSION=2.37.0
-ADD --checksum=sha256:f855e99a0f0a81322014bf686b1cb820d2b4d8074e4eadafd64b851b80ecb15a \
+ARG DBMATE_VERSION=2.38.2
+ADD --checksum=sha256:4c6059e4e52558605d39e8c8075f3b15f96cac293043c0c71bb464d8950f235c \
 	https://github.com/amacneil/dbmate/releases/download/v${DBMATE_VERSION}/dbmate-linux-amd64 /usr/local/bin/dbmate
 RUN chmod +x /usr/local/bin/dbmate
 
