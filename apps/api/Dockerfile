@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS build
+FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -20,7 +20,7 @@ RUN pnpm --filter @zeit/shared build \
 	&& pnpm --filter @zeit/api build \
 	&& pnpm --filter @zeit/api deploy --prod --legacy /out
 
-FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS runtime
+FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends --only-upgrade perl-base apt libapt-pkg6.0 \
